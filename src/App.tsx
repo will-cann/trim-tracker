@@ -5,6 +5,7 @@ import { mockApi } from './services/mockApi';
 import { seedInitialData } from './services/seedData';
 import { StartSession } from './components/StartSession';
 import { Dashboard } from './components/Dashboard';
+import { ReportsDashboard } from './components/Reports/ReportsDashboard';
 
 import { Sidebar } from './components/Sidebar';
 
@@ -12,6 +13,7 @@ function App() {
   console.log('App rendering...');
   const [session, setSession] = useState<TrimSession | null>(null);
   const [loading, setLoading] = useState(true);
+  const [currentView, setCurrentView] = useState<'dashboard' | 'reports'>('dashboard');
 
   useEffect(() => {
     seedInitialData();
@@ -25,7 +27,16 @@ function App() {
     setLoading(false);
   };
 
-  const [trimmerProfiles, setTrimmerProfiles] = useState<TrimmerProfile[]>(mockApi.getTrimmerProfiles());
+  const [trimmerProfiles, setTrimmerProfiles] = useState<TrimmerProfile[]>([]);
+
+  useEffect(() => {
+    loadTrimmerProfiles();
+  }, []);
+
+  const loadTrimmerProfiles = async () => {
+    const profiles = await mockApi.getTrimmerProfiles();
+    setTrimmerProfiles(profiles);
+  };
 
   const handleStartSession = (data: CreateTrimSessionDTO) => {
     const newSession = mockApi.createSession(data);
@@ -63,10 +74,23 @@ function App() {
     setSession(updatedSession);
   };
 
-  const handleSubmitSession = async () => {
+  const handleSubmitSession = async (e?: React.MouseEvent) => {
+    console.log('handleSubmitSession CALLED', e);
+    e?.preventDefault();
+    e?.stopPropagation();
+
     if (confirm('Are you sure you want to submit this session?')) {
-      await mockApi.submitSession();
-      setSession(null);
+      console.log('Proceeding with session submission');
+      try {
+        await mockApi.submitSession();
+        console.log('Session submitted successfully, clearing state');
+        setSession(null);
+      } catch (error) {
+        console.error('Error submitting session:', error);
+        alert('Failed to submit session: ' + error);
+      }
+    } else {
+      console.log('User cancelled submission');
     }
   };
 
@@ -74,6 +98,7 @@ function App() {
     const updatedSession = mockApi.addBatch(data);
     setSession(updatedSession);
   };
+
 
   const handleDeleteBatch = (entryId: string) => {
     const updatedSession = mockApi.deleteBatch(entryId);
@@ -114,13 +139,13 @@ function App() {
   };
 
   // Roster Handlers
-  const handleAddProfile = (name: string) => {
-    const updatedProfiles = mockApi.addTrimmerProfile(name);
+  const handleAddProfile = async (name: string) => {
+    const updatedProfiles = await mockApi.addTrimmerProfile(name);
     setTrimmerProfiles(updatedProfiles);
   };
 
-  const handleDeleteProfile = (id: string) => {
-    const updatedProfiles = mockApi.deleteTrimmerProfile(id);
+  const handleDeleteProfile = async (id: string) => {
+    const updatedProfiles = await mockApi.deleteTrimmerProfile(id);
     setTrimmerProfiles(updatedProfiles);
   };
 
@@ -132,30 +157,57 @@ function App() {
         profiles={trimmerProfiles}
         onAddProfile={handleAddProfile}
         onDeleteProfile={handleDeleteProfile}
+        currentView={currentView}
+        onViewChange={setCurrentView}
       />
       <div className="main-content">
         <header className="app-header">
         </header>
 
-        {!session ? (
-          <StartSession onStart={handleStartSession} />
+        {currentView === 'reports' ? (
+          <ReportsDashboard />
         ) : (
-          <>
-            <Dashboard
-              session={session}
-              onUpdateWeight={handleUpdateWeight}
-              onSubmit={handleSubmitSession}
-              onAddBatch={handleAddBatch}
-              onUpdateStrain={handleUpdateStrain}
-              onAddTrimmer={handleAddTrimmer}
-              onUpdateTrimmer={handleUpdateTrimmer}
-              onRemoveTrimmer={handleRemoveTrimmer}
-              onDeleteBatch={handleDeleteBatch}
-              onSubmitBatch={handleSubmitBatch}
-              trimmerProfiles={trimmerProfiles}
-            />
+          !session ? (
+            <StartSession onStart={handleStartSession} />
+          ) : (
+            <>
+              <Dashboard
+                session={session}
+                onUpdateWeight={handleUpdateWeight}
+                onSubmit={handleSubmitSession}
+                onAddBatch={handleAddBatch}
+                onUpdateStrain={handleUpdateStrain}
+                onAddTrimmer={handleAddTrimmer}
+                onUpdateTrimmer={handleUpdateTrimmer}
+                onRemoveTrimmer={handleRemoveTrimmer}
+                onDeleteBatch={handleDeleteBatch}
+                onSubmitBatch={handleSubmitBatch}
+                onStartBatch={(entryId) => {
+                  // Start the batch (changes status to 'active')
+                  let updatedSession = mockApi.startBatch(entryId);
 
-          </>
+                  // Automatically add first trimmer row
+                  const newTrimmer = {
+                    name: '',
+                    startTime: '',
+                    endTime: '',
+                    flowerWeight: 0,
+                    shakeWeight: 0,
+                    trimWeight: 0,
+                    wasteWeight: 0
+                  };
+                  updatedSession = mockApi.addTrimmer(entryId, newTrimmer);
+
+                  setSession({ ...updatedSession });
+                }}
+                onRevertBatch={(entryId) => {
+                  const updatedSession = mockApi.revertBatch(entryId);
+                  setSession({ ...updatedSession });
+                }}
+                trimmerProfiles={trimmerProfiles}
+              />
+            </>
+          )
         )}
       </div>
     </div>

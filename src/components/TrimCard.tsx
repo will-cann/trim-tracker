@@ -2,8 +2,9 @@ import React, { useState } from 'react';
 import type { TrimEntry, Trimmer, TrimmerProfile } from '../types/definitions';
 import { DonutChart } from './DonutChart';
 import { TrimmerList } from './TrimmerList';
-import { ChevronDown, Pencil, Check, X, Trash2, CheckCircle } from 'lucide-react';
+import { ChevronDown, Pencil, Check, X, Trash2, CheckCircle, Clock, Undo2 } from 'lucide-react';
 import { DeleteConfirmationModal } from './DeleteConfirmationModal';
+import { calculateDuration, formatDuration } from '../utils/timeUtils';
 
 interface TrimCardProps {
     entry: TrimEntry;
@@ -14,6 +15,8 @@ interface TrimCardProps {
     onRemoveTrimmer: (entryId: string, trimmerId: string) => void;
     onDeleteBatch: (entryId: string) => void;
     onSubmitBatch?: (entryId: string) => void;
+    onStartBatch?: (entryId: string) => void;
+    onRevertBatch?: (entryId: string) => void;
     trimmerProfiles: TrimmerProfile[];
 }
 
@@ -26,11 +29,16 @@ export const TrimCard: React.FC<TrimCardProps> = ({
     onRemoveTrimmer,
     onDeleteBatch,
     onSubmitBatch,
+    onStartBatch,
+    onRevertBatch,
     trimmerProfiles
 }) => {
+    const cardRef = React.useRef<HTMLDivElement>(null);
     const [isExpanded, setIsExpanded] = useState(false);
     const [isEditingStrain, setIsEditingStrain] = useState(false);
     const [editStrainValue, setEditStrainValue] = useState(entry.strain || '');
+    const [isStatusHovered, setIsStatusHovered] = useState(false);
+    const [justStarted, setJustStarted] = useState(false);
 
     const toggleExpand = () => setIsExpanded(!isExpanded);
 
@@ -55,11 +63,19 @@ export const TrimCard: React.FC<TrimCardProps> = ({
     const totalWeight = entry.flowerWeight + entry.shakeWeight + entry.trimWeight + entry.wasteWeight;
     const progress = entry.startWeight > 0 ? (totalWeight / entry.startWeight) * 100 : 0;
 
+    // Calculate total labor time
+    const totalMinutes = (entry.trimmers || []).reduce((acc, trimmer) => {
+        return acc + calculateDuration(trimmer.startTime, trimmer.endTime || '');
+    }, 0);
+    const totalTimeText = formatDuration(totalMinutes);
+
     const [showDeleteModal, setShowDeleteModal] = useState(false);
 
     const handleDeleteClick = (e: React.MouseEvent) => {
         e.stopPropagation();
-        setShowDeleteModal(true);
+        if (window.confirm('Are you sure you want to delete this batch?')) {
+            onDeleteBatch(entry.id);
+        }
     };
 
     const handleConfirmDelete = () => {
@@ -67,20 +83,104 @@ export const TrimCard: React.FC<TrimCardProps> = ({
         setShowDeleteModal(false);
     };
 
+    const validateBatch = (entry: TrimEntry): string | null => {
+        if (!entry.trimmers || entry.trimmers.length === 0) {
+            return "Please add at least one trimmer to the batch.";
+        }
+
+        for (const trimmer of entry.trimmers) {
+            if (!trimmer.profileId) {
+                return "All trimmers must have a selected profile.";
+            }
+            if (!trimmer.startTime) {
+                return `Please enter a start time for ${trimmer.name || 'all trimmers'}.`;
+            }
+            if (!trimmer.endTime) {
+                return `Please enter an end time for ${trimmer.name || 'all trimmers'}.`;
+            }
+        }
+
+        return null;
+    };
+
     const handleSubmitBatch = (e: React.MouseEvent) => {
         e.stopPropagation();
+
+        const validationError = validateBatch(entry);
+        if (validationError) {
+            alert(validationError);
+            return;
+        }
+
         if (onSubmitBatch) {
             onSubmitBatch(entry.id);
         }
     };
 
+    const handleStartBatch = (e: React.MouseEvent) => {
+        e.stopPropagation();
+        setIsExpanded(true);
+        setJustStarted(true);
+        if (onStartBatch) {
+            onStartBatch(entry.id);
+        }
+    };
+
+    // Auto-scroll to card when it's just been started
+    React.useEffect(() => {
+        if (justStarted && entry.status === 'active' && cardRef.current) {
+            setTimeout(() => {
+                cardRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                setJustStarted(false);
+            }, 100);
+        }
+    }, [justStarted, entry.status]);
+
+    const canRevertToUpcoming = entry.status === 'active' && (!entry.trimmers || entry.trimmers.length === 0);
+
+    const getStatusBadge = () => {
+        if (entry.status === 'upcoming') return { text: 'Upcoming', className: 'status-upcoming' };
+        if (entry.status === 'active') return { text: 'Active', className: 'status-active' };
+        if (entry.status === 'submitted') return { text: 'Complete', className: 'status-complete' };
+        return { text: '', className: '' };
+    };
+
+    const statusBadge = getStatusBadge();
+
+    const handleStatusBadgeClick = (e: React.MouseEvent) => {
+        e.stopPropagation();
+        if (canRevertToUpcoming && onRevertBatch) {
+            onRevertBatch(entry.id);
+        }
+    };
+
     return (
         <>
-            <div className={`trim-card ${isExpanded ? 'expanded' : ''} ${entry.status === 'submitted' ? 'submitted' : ''}`}>
+            <div ref={cardRef} className={`trim-card ${isExpanded ? 'expanded' : ''} ${entry.status === 'submitted' ? 'submitted' : ''} ${entry.status === 'upcoming' ? 'upcoming' : ''}`}>
                 <div className="trim-card-header" onClick={toggleExpand}>
                     <div className="trim-card-top">
                         <div className="trim-card-title">
-                            <h3>{entry.harvestName}</h3>
+                            <div className="title-with-badge">
+                                <h3>{entry.harvestName}</h3>
+                                {statusBadge.text && (
+                                    <span
+                                        className={`status-badge ${statusBadge.className} ${canRevertToUpcoming ? 'status-badge-outline clickable' : ''}`}
+                                        onClick={canRevertToUpcoming ? handleStatusBadgeClick : undefined}
+                                        onMouseEnter={() => canRevertToUpcoming && setIsStatusHovered(true)}
+                                        onMouseLeave={() => setIsStatusHovered(false)}
+                                        title={canRevertToUpcoming ? 'Click to move back to Upcoming' : undefined}
+                                    >
+                                        {canRevertToUpcoming && isStatusHovered ? (
+                                            <>
+                                                <Undo2 size={12} style={{ marginRight: '4px' }} />
+                                                Upcoming
+                                            </>
+                                        ) : (
+                                            statusBadge.text
+                                        )}
+                                    </span>
+                                )}
+                            </div>
                             <div className="trim-card-subtitle">
                                 {isEditingStrain ? (
                                     <div className="strain-edit-container" onClick={e => e.stopPropagation()}>
@@ -110,9 +210,28 @@ export const TrimCard: React.FC<TrimCardProps> = ({
                                 )}
                                 <span className="separator">•</span>
                                 <span className="license-number">{entry.licenseNumber}</span>
+                                {isExpanded && totalTimeText && (
+                                    <>
+                                        <span className="separator">•</span>
+                                        <span className="total-time">
+                                            <Clock size={14} />
+                                            {totalTimeText}
+                                        </span>
+                                    </>
+                                )}
+
                             </div>
                         </div>
                         <div className="flex items-center gap-2">
+                            {entry.status === 'upcoming' && onStartBatch && (
+                                <button
+                                    className="btn-start-batch"
+                                    onClick={handleStartBatch}
+                                    title="Start Batch"
+                                >
+                                    Start Batch
+                                </button>
+                            )}
                             {entry.status === 'active' && onSubmitBatch && (
                                 <button
                                     className="icon-btn submit-batch-btn"
@@ -137,24 +256,41 @@ export const TrimCard: React.FC<TrimCardProps> = ({
                         </div>
                     </div>
 
-                    <div className="progress-bar-container">
-                        <div className="progress-bar" style={{ width: `${Math.min(progress, 100)}%` }}></div>
-                    </div>
+                    {entry.status !== 'upcoming' && (
+                        <div className="progress-bar-container">
+                            <div className="progress-bar" style={{ width: `${Math.min(progress, 100)}%` }}></div>
+                        </div>
+                    )}
 
                     {!isExpanded && (
                         <div className="trim-card-summary">
-                            <div className="summary-item">
-                                <span className="label">Start</span>
-                                <span className="value">{Math.round(entry.startWeight)}g</span>
-                            </div>
-                            <div className="summary-item">
-                                <span className="label">Current</span>
-                                <span className="value">{totalWeight.toFixed(0)}g</span>
-                            </div>
-                            <div className="summary-item">
-                                <span className="label">Remaining</span>
-                                <span className="value">{(entry.startWeight - totalWeight).toFixed(0)}g</span>
-                            </div>
+                            {entry.status === 'upcoming' ? (
+                                <>
+                                    <div className="summary-item">
+                                        <span className="label">Start Weight</span>
+                                        <span className="value">{Math.round(entry.startWeight)}g</span>
+                                    </div>
+                                    <div className="summary-item">
+                                        <span className="label">Status</span>
+                                        <span className="value">Ready to Start</span>
+                                    </div>
+                                </>
+                            ) : (
+                                <>
+                                    <div className="summary-item">
+                                        <span className="label">Start</span>
+                                        <span className="value">{Math.round(entry.startWeight)}g</span>
+                                    </div>
+                                    <div className="summary-item">
+                                        <span className="label">Completed</span>
+                                        <span className="value">{totalWeight.toFixed(0)}g</span>
+                                    </div>
+                                    <div className="summary-item">
+                                        <span className="label">Remaining</span>
+                                        <span className="value">{(entry.startWeight - totalWeight).toFixed(0)}g</span>
+                                    </div>
+                                </>
+                            )}
                         </div>
                     )}
                 </div>
@@ -169,7 +305,7 @@ export const TrimCard: React.FC<TrimCardProps> = ({
                                         <span className="value">{Math.round(entry.startWeight)}g</span>
                                     </div>
                                     <div className="summary-item">
-                                        <span className="label">Current</span>
+                                        <span className="label">Completed</span>
                                         <span className="value">{totalWeight.toFixed(0)}g</span>
                                     </div>
                                     <div className="summary-item">
@@ -208,6 +344,7 @@ export const TrimCard: React.FC<TrimCardProps> = ({
                                     onAddTrimmer={entry.status === 'active' ? () => onAddTrimmer(entry.id) : undefined}
                                     onUpdateTrimmer={entry.status === 'active' ? (trimmerId, updates) => onUpdateTrimmer(entry.id, trimmerId, updates) : undefined}
                                     onRemoveTrimmer={entry.status === 'active' ? (trimmerId) => onRemoveTrimmer(entry.id, trimmerId) : undefined}
+                                    readOnly={entry.status === 'submitted'}
                                 />
                             </div>
                         </div>

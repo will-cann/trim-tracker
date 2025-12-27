@@ -16,13 +16,13 @@ export const StartSession: React.FC<StartSessionProps> = ({ onStart }) => {
         if (!harvestName || !strain || !licenseNumber || !startWeight) return;
 
         const dto: CreateTrimSessionDTO = {
-            timestamp: new Date().toISOString(),
-            entries: [{
-                harvestName,
-                strain,
-                licenseNumber,
-                startWeight: Number(startWeight),
-            }]
+            // timestamp: new Date().toISOString(),
+
+            harvestName,
+            strain,
+            licenseNumber,
+            startWeight: Number(startWeight),
+            status: 'active'
         };
         onStart(dto);
     };

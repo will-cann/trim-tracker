@@ -51,7 +51,8 @@ export const AddBatchModal: React.FC<AddBatchModalProps> = ({ onClose, onSubmit 
             harvestName,
             strain,
             licenseNumber,
-            startWeight: Number(startWeight)
+            startWeight: Number(startWeight),
+            status: 'upcoming'
         });
     };
 

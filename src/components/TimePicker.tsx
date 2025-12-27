@@ -4,9 +4,10 @@ interface TimePickerProps {
     value: string; // HH:mm format (24-hour)
     onChange: (value: string) => void;
     className?: string;
+    readOnly?: boolean;
 }
 
-export const TimePicker: React.FC<TimePickerProps> = ({ value, onChange, className = '' }) => {
+export const TimePicker: React.FC<TimePickerProps> = ({ value, onChange, className = '', readOnly = false }) => {
     const [isOpen, setIsOpen] = useState(false);
     const [inputValue, setInputValue] = useState('');
     const dropdownRef = useRef<HTMLDivElement>(null);
@@ -52,6 +53,7 @@ export const TimePicker: React.FC<TimePickerProps> = ({ value, onChange, classNa
     }, [isOpen]);
 
     const handleTimeChange = (newHour12: string, newMinutes: string, newIsPM: boolean) => {
+        if (readOnly) return;
         // Convert 12-hour to 24-hour
         let hour24 = parseInt(newHour12, 10);
         if (hour24 === 12) {
@@ -65,6 +67,7 @@ export const TimePicker: React.FC<TimePickerProps> = ({ value, onChange, classNa
     };
 
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (readOnly) return;
         const newValue = e.target.value;
         setInputValue(newValue);
 
@@ -89,11 +92,15 @@ export const TimePicker: React.FC<TimePickerProps> = ({ value, onChange, classNa
     };
 
     const handleInputClick = () => {
-        setIsOpen(!isOpen);
+        if (!readOnly) {
+            setIsOpen(!isOpen);
+        }
     };
 
     const handleInputFocus = () => {
-        inputRef.current?.select();
+        if (!readOnly) {
+            inputRef.current?.select();
+        }
     };
 
     return (

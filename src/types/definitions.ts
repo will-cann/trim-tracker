@@ -28,7 +28,9 @@ export interface TrimEntry {
   trimWeight: number;
   wasteWeight: number;
   trimmers: Trimmer[];
-  status: 'active' | 'submitted';
+  status: 'active' | 'submitted' | 'upcoming';
+  plannedTrimDate?: string;
+  plannedMethod?: 'machine' | 'scissors';
 }
 
 export interface TrimSession {
@@ -47,4 +49,7 @@ export interface CreateTrimSessionDTO {
   licenseNumber: string;
   strain: string;
   startWeight: number;
+  status?: 'active' | 'upcoming';
+  plannedTrimDate?: string;
+  plannedMethod?: 'machine' | 'scissors';
 }

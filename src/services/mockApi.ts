@@ -1,4 +1,5 @@
 import type { TrimSession, CreateTrimSessionDTO, TrimEntry, Trimmer, TrimmerProfile } from '../types/definitions';
+import { db } from './db';
 
 const STORAGE_KEY = 'trim_session_mvp';
 
@@ -6,9 +7,9 @@ export const getSession = (): TrimSession | null => {
     try {
         const data = localStorage.getItem(STORAGE_KEY);
         if (!data) return null;
-        
+
         const session = JSON.parse(data);
-        
+
         // Migrate existing data to include status field
         if (session.entries) {
             session.entries.forEach((entry: any) => {
@@ -17,7 +18,7 @@ export const getSession = (): TrimSession | null => {
                 }
             });
         }
-        
+
         return session;
     } catch (e) {
         console.error("Error reading session", e);
@@ -28,6 +29,7 @@ export const getSession = (): TrimSession | null => {
 const saveSession = (session: TrimSession): void => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(session));
 };
+
 
 export const createSession = (data: CreateTrimSessionDTO): TrimSession => {
     const newEntry: TrimEntry = {
@@ -58,11 +60,24 @@ export const createSession = (data: CreateTrimSessionDTO): TrimSession => {
     return newSession;
 };
 
-export const submitSession = (): void => {
+export const submitSession = async (): Promise<void> => {
+    console.log('submitSession called');
     const session = getSession();
     if (!session) throw new Error('No active session');
 
+    console.log('Saving session to database:', session);
+
+    // Save to database with completion timestamp
+    await db.sessions.add({
+        ...session,
+        completedAt: new Date().toISOString()
+    });
+
+    console.log('Session saved to IndexedDB successfully');
+
+    // Remove from localStorage
     localStorage.removeItem(STORAGE_KEY);
+    console.log('Removed from localStorage');
 };
 
 export const addBatch = (data: CreateTrimSessionDTO): TrimSession => {
@@ -80,12 +95,15 @@ export const addBatch = (data: CreateTrimSessionDTO): TrimSession => {
         trimWeight: 0,
         wasteWeight: 0,
         trimmers: [],
-        status: 'active'
+        status: data.status || 'active',
+        plannedTrimDate: data.plannedTrimDate,
+        plannedMethod: data.plannedMethod
     };
 
     session.entries.push(newEntry);
 
     // Recalculate totals
+
     session.totalFlower = session.entries.reduce((sum, e) => sum + Number(e.flowerWeight), 0);
     session.totalShake = session.entries.reduce((sum, e) => sum + Number(e.shakeWeight), 0);
     session.totalTrim = session.entries.reduce((sum, e) => sum + Number(e.trimWeight), 0);
@@ -219,36 +237,30 @@ export const removeTrimmer = (entryId: string, trimmerId: string): TrimSession =
     return session;
 };
 
-// Roster Management
-const ROSTER_KEY = 'trim_tracker_roster';
 
-export const getTrimmerProfiles = (): TrimmerProfile[] => {
+
+export const getTrimmerProfiles = async (): Promise<TrimmerProfile[]> => {
     try {
-        const data = localStorage.getItem(ROSTER_KEY);
-        return data ? JSON.parse(data) : [];
+        return await db.trimmerProfiles.toArray();
     } catch (e) {
         console.error("Error reading roster", e);
         return [];
     }
 };
 
-export const addTrimmerProfile = (name: string): TrimmerProfile[] => {
-    const profiles = getTrimmerProfiles();
+export const addTrimmerProfile = async (name: string): Promise<TrimmerProfile[]> => {
     const newProfile: TrimmerProfile = {
         id: crypto.randomUUID(),
         name,
         status: 'active'
     };
-    profiles.push(newProfile);
-    localStorage.setItem(ROSTER_KEY, JSON.stringify(profiles));
-    return profiles;
+    await db.trimmerProfiles.add(newProfile);
+    return await getTrimmerProfiles();
 };
 
-export const deleteTrimmerProfile = (id: string): TrimmerProfile[] => {
-    let profiles = getTrimmerProfiles();
-    profiles = profiles.filter(p => p.id !== id);
-    localStorage.setItem(ROSTER_KEY, JSON.stringify(profiles));
-    return profiles;
+export const deleteTrimmerProfile = async (id: string): Promise<TrimmerProfile[]> => {
+    await db.trimmerProfiles.delete(id);
+    return await getTrimmerProfiles();
 };
 
 export const deleteBatch = (entryId: string): TrimSession => {
@@ -280,6 +292,32 @@ export const submitBatch = (entryId: string): TrimSession => {
     return session;
 };
 
+export const startBatch = (entryId: string): TrimSession => {
+    const session = getSession();
+    if (!session) throw new Error('No active session');
+
+    const entry = session.entries.find(e => e.id === entryId);
+    if (!entry) throw new Error('Entry not found');
+
+    entry.status = 'active';
+
+    saveSession(session);
+    return session;
+};
+
+export const revertBatch = (entryId: string): TrimSession => {
+    const session = getSession();
+    if (!session) throw new Error('No active session');
+
+    const entry = session.entries.find(e => e.id === entryId);
+    if (!entry) throw new Error('Entry not found');
+
+    entry.status = 'upcoming';
+
+    saveSession(session);
+    return session;
+};
+
 export const mockApi = {
     getSession,
     createSession,
@@ -294,5 +332,7 @@ export const mockApi = {
     addTrimmerProfile,
     deleteTrimmerProfile,
     deleteBatch,
-    submitBatch
+    submitBatch,
+    startBatch,
+    revertBatch
 };

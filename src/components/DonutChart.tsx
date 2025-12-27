@@ -1,5 +1,5 @@
 import React from 'react';
-import { PieChart, Pie, ResponsiveContainer, Cell, Legend } from 'recharts';
+import { PieChart, Pie, ResponsiveContainer, Cell, Label } from 'recharts';
 import type { TrimEntry } from '../types/definitions';
 
 interface DonutChartProps {
@@ -9,7 +9,7 @@ interface DonutChartProps {
 const COLORS = {
     flower: '#10B981', // Emerald 500
     shake: '#F59E0B',  // Amber 500
-    trim: '#8B5CF6',   // Violet 500
+    trim: '#3B82F6',   // Blue 500
     waste: '#EF4444',  // Red 500
     remaining: '#E5E7EB', // Gray 200
     empty: '#E0E0E0'   // Grey for empty state
@@ -17,12 +17,14 @@ const COLORS = {
 
 export const DonutChart: React.FC<DonutChartProps & { showLegend?: boolean; height?: number }> = ({
     entry,
-    showLegend = true,
+    // showLegend = false, // Default to false as per new design
+
     height = 200
 }) => {
     const { flowerWeight, shakeWeight, trimWeight, wasteWeight, startWeight } = entry;
     const totalWeight = flowerWeight + shakeWeight + trimWeight + wasteWeight;
     const remaining = Math.max(0, startWeight - totalWeight);
+    const percentComplete = startWeight > 0 ? Math.min(100, Math.round((totalWeight / startWeight) * 100)) : 0;
 
     const data = [
         { name: 'Flower', value: flowerWeight, fill: COLORS.flower },
@@ -50,20 +52,17 @@ export const DonutChart: React.FC<DonutChartProps & { showLegend?: boolean; heig
                         {chartData.map((entry, index) => (
                             <Cell key={`cell-${index}`} fill={entry.fill} stroke="none" />
                         ))}
-                    </Pie>
-                    {showLegend && data.length > 0 && (
-                        <Legend
-                            layout="vertical"
-                            align="right"
-                            verticalAlign="middle"
-                            iconType="circle"
-                            formatter={(value, entry: any) => (
-                                <span style={{ color: '#333', fontWeight: 500 }}>
-                                    {value} <span style={{ color: '#888', marginLeft: 4 }}>({entry.payload.value.toFixed(0)}g)</span>
-                                </span>
-                            )}
+                        <Label
+                            value={`${percentComplete}%`}
+                            position="center"
+                            fill="#374151"
+                            style={{
+                                fontSize: '1.2rem',
+                                fontWeight: 'bold',
+                                fontFamily: 'var(--font-family)'
+                            }}
                         />
-                    )}
+                    </Pie>
                 </PieChart>
             </ResponsiveContainer>
         </div>

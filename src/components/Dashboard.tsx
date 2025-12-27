@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import type { TrimSession, CreateTrimSessionDTO } from '../types/definitions';
-import { Cannabis, Trash2, Scale, Plus, X, Package, Hourglass } from 'lucide-react';
+import { Cannabis, Trash2, Scale, Plus, Package, Hourglass } from 'lucide-react';
+
 import { DashboardDonutChart } from './DashboardDonutChart';
 import { EntryList } from './EntryList';
 import { AddBatchModal } from './AddBatchModal';
@@ -8,7 +9,7 @@ import { AddBatchModal } from './AddBatchModal';
 interface DashboardProps {
     session: TrimSession;
     onUpdateWeight: (entryId: string, type: 'flower' | 'shake' | 'trim' | 'waste', val: number) => void;
-    onSubmit: () => void;
+    onSubmit: (e?: React.MouseEvent) => void;
     onAddBatch: (data: CreateTrimSessionDTO) => void;
     onUpdateStrain: (entryId: string, strain: string) => void;
     onAddTrimmer: (entryId: string) => void;
@@ -16,6 +17,8 @@ interface DashboardProps {
     onRemoveTrimmer: (entryId: string, trimmerId: string) => void;
     onDeleteBatch: (entryId: string) => void;
     onSubmitBatch?: (entryId: string) => void;
+    onStartBatch?: (entryId: string) => void;
+    onRevertBatch?: (entryId: string) => void;
     trimmerProfiles: any[]; // TODO: Import type
 }
 
@@ -30,9 +33,12 @@ export const Dashboard: React.FC<DashboardProps> = ({
     onRemoveTrimmer,
     onDeleteBatch,
     onSubmitBatch,
+    onStartBatch,
+    onRevertBatch,
     trimmerProfiles
 }) => {
     const [isModalOpen, setIsModalOpen] = useState(false);
+    const [activeTab, setActiveTab] = useState<'active' | 'completed' | 'upcoming'>('active');
 
     const handleAddSubmit = (data: CreateTrimSessionDTO) => {
         onAddBatch(data);
@@ -42,6 +48,12 @@ export const Dashboard: React.FC<DashboardProps> = ({
     const totalStartWeight = session.entries.reduce((sum, e) => sum + e.startWeight, 0);
     const totalOutput = session.totalFlower + session.totalShake + session.totalTrim + session.totalWaste;
     const remainingWeight = totalStartWeight - totalOutput;
+
+    const filteredEntries = session.entries.filter(entry => {
+        if (activeTab === 'active') return entry.status === 'active';
+        if (activeTab === 'upcoming') return entry.status === 'upcoming';
+        return entry.status === 'submitted';
+    });
 
     return (
         <div className="dashboard">
@@ -112,17 +124,42 @@ export const Dashboard: React.FC<DashboardProps> = ({
             </div>
 
             <div className="actions-row">
-                <button className="btn-new-batch" onClick={() => setIsModalOpen(true)}>
-                    <Plus size={20} />
-                    New Batch
-                </button>
-                <button className="btn-submit" onClick={onSubmit}>
-                    Submit Session
-                </button>
+                <div className="tabs-container">
+                    <button
+                        className={`tab-button ${activeTab === 'upcoming' ? 'active' : ''}`}
+                        onClick={() => setActiveTab('upcoming')}
+                    >
+                        Upcoming
+                    </button>
+                    <button
+                        className={`tab-button ${activeTab === 'active' ? 'active' : ''}`}
+                        onClick={() => setActiveTab('active')}
+                    >
+                        Active
+                    </button>
+                    <button
+                        className={`tab-button ${activeTab === 'completed' ? 'active' : ''}`}
+                        onClick={() => setActiveTab('completed')}
+                    >
+                        Complete
+                    </button>
+                </div>
+                <div className="flex gap-2">
+                    <button type="button" className="btn-new-batch" onClick={() => setIsModalOpen(true)}>
+                        <Plus size={20} />
+                        New Batch
+                    </button>
+                    <button type="button" className="btn-submit" onClick={(e) => {
+                        console.log('Submit button clicked!', e);
+                        onSubmit(e);
+                    }}>
+                        Submit Session
+                    </button>
+                </div>
             </div>
 
             <EntryList
-                entries={session.entries}
+                entries={filteredEntries}
                 onUpdateWeight={onUpdateWeight}
                 onUpdateStrain={onUpdateStrain}
                 onAddTrimmer={onAddTrimmer}
@@ -130,6 +167,14 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 onRemoveTrimmer={onRemoveTrimmer}
                 onDeleteBatch={onDeleteBatch}
                 onSubmitBatch={onSubmitBatch}
+                onStartBatch={onStartBatch ? (entryId) => {
+                    onStartBatch(entryId);
+                    setActiveTab('active');
+                } : undefined}
+                onRevertBatch={onRevertBatch ? (entryId) => {
+                    onRevertBatch(entryId);
+                    setActiveTab('upcoming');
+                } : undefined}
                 trimmerProfiles={trimmerProfiles}
             />
 

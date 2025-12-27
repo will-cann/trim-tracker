@@ -1,9 +1,9 @@
 import { mockApi } from './mockApi';
 
-export const seedInitialData = () => {
+export const seedInitialData = async () => {
     // Check if data already exists
     const existingSession = mockApi.getSession();
-    const existingProfiles = mockApi.getTrimmerProfiles();
+    const existingProfiles = await mockApi.getTrimmerProfiles();
 
     if (existingSession || existingProfiles.length > 0) {
         console.log('Data already exists, skipping seed.');
@@ -16,11 +16,11 @@ export const seedInitialData = () => {
     const trimmers = ['Alice', 'Bob', 'Charlie', 'Diana', 'Evan'];
     const profileIds: string[] = [];
 
-    trimmers.forEach(name => {
-        const profiles = mockApi.addTrimmerProfile(name);
+    for (const name of trimmers) {
+        const profiles = await mockApi.addTrimmerProfile(name);
         const newProfile = profiles.find(p => p.name === name);
         if (newProfile) profileIds.push(newProfile.id);
-    });
+    }
 
     // 2. Create Initial Session (Batch 1 - Blue Dream)
     const sessionData = {
