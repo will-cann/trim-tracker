@@ -4,18 +4,34 @@ import { apiService } from './services/apiService';
 import { StartSession } from './components/StartSession';
 import { Dashboard } from './components/Dashboard';
 import { ReportsDashboard } from './components/Reports/ReportsDashboard';
-
 import { Sidebar } from './components/Sidebar';
+import { AuthProvider, useAuth } from './contexts/authContext';
+import { Login } from './components/Login';
 
-function App() {
-  console.log('App rendering...');
+function AppContent() {
+  const { user, loading: authLoading } = useAuth();
   const [session, setSession] = useState<TrimSession | null>(null);
   const [loading, setLoading] = useState(true);
   const [currentView, setCurrentView] = useState<'dashboard' | 'reports'>('dashboard');
+  const [trimmerProfiles, setTrimmerProfiles] = useState<TrimmerProfile[]>([]);
 
   useEffect(() => {
-    loadSession();
-  }, []);
+    if (user) {
+      loadSession();
+    }
+  }, [user]);
+
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-slate-900 flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-emerald-500"></div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return <Login />;
+  }
 
   const loadSession = async () => {
     setLoading(true);
@@ -23,8 +39,6 @@ function App() {
     setSession(data);
     setLoading(false);
   };
-
-  const [trimmerProfiles, setTrimmerProfiles] = useState<TrimmerProfile[]>([]);
 
   useEffect(() => {
     loadTrimmerProfiles();
@@ -186,4 +200,10 @@ function App() {
   );
 }
 
-export default App;
+export default function App() {
+  return (
+    <AuthProvider>
+      <AppContent />
+    </AuthProvider>
+  );
+}

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { Users, Plus, Trash2, ChevronLeft, ChevronRight, LayoutDashboard, BarChart3 } from 'lucide-react';
+import { Users, Plus, Trash2, ChevronLeft, ChevronRight, LayoutDashboard, BarChart3, LogOut, User as UserIcon } from 'lucide-react';
+import { useAuth } from '../contexts/authContext';
 import type { TrimmerProfile } from '../types/definitions';
 import { AddTrimmerProfileModal } from './AddTrimmerProfileModal';
 
@@ -18,6 +19,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     currentView,
     onViewChange
 }) => {
+    const { user, logout } = useAuth();
     const [isOpen, setIsOpen] = useState(false);
     const [isModalOpen, setIsModalOpen] = useState(false);
 
@@ -135,6 +137,44 @@ export const Sidebar: React.FC<SidebarProps> = ({
                             <button className="btn-add-roster" onClick={() => setIsModalOpen(true)}>
                                 <Plus size={16} />
                                 Add Trimmer
+                            </button>
+                        </div>
+
+                        {/* User and Logout Section */}
+                        <div className="border-t mt-auto pt-4 space-y-2">
+                            {user && (
+                                <div className="flex items-center gap-3 px-3 py-2 bg-slate-50 rounded-lg border border-slate-100 mb-2">
+                                    <div className="w-8 h-8 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-600">
+                                        <UserIcon size={16} />
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                        <p className="text-sm font-semibold text-slate-900 truncate">{user.name || user.email}</p>
+                                        <p className="text-[10px] text-slate-500 uppercase tracking-wider font-bold">{user.role || 'Worker'}</p>
+                                    </div>
+                                </div>
+                            )}
+                            <button
+                                onClick={logout}
+                                style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '0.75rem',
+                                    padding: '0.625rem 0.75rem',
+                                    borderRadius: '0.5rem',
+                                    border: 'none',
+                                    fontSize: '0.875rem',
+                                    fontWeight: '500',
+                                    cursor: 'pointer',
+                                    transition: 'all 0.2s',
+                                    width: '100%',
+                                    backgroundColor: 'transparent',
+                                    color: '#ef4444'
+                                }}
+                                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#fef2f2'}
+                                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                            >
+                                <LogOut size={20} />
+                                <span>Logout</span>
                             </button>
                         </div>
                     </div>

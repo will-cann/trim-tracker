@@ -1,15 +1,45 @@
 import type { TrimSession, CreateTrimSessionDTO, Trimmer, TrimmerProfile } from '../types/definitions';
+import netlifyIdentity from 'netlify-identity-widget';
 
 const API_BASE = '/.netlify/functions';
 
+/**
+ * Helper to get the auth header for requests
+ */
+const getAuthHeaders = async (): Promise<Record<string, string>> => {
+    const user = netlifyIdentity.currentUser();
+    if (!user) return {};
+    try {
+        // use any cast to avoid type issues with netlify-identity-widget types
+        const token = await (user as any).jwt();
+        return { 'Authorization': `Bearer ${token}` };
+    } catch (error) {
+        return {};
+    }
+};
+
+/**
+ * Generic fetch wrapper to handle auth headers
+ */
+const fetchWithAuth = async (url: string, options: RequestInit = {}) => {
+    const authHeaders = await getAuthHeaders();
+    return fetch(url, {
+        ...options,
+        headers: {
+            ...options.headers as Record<string, string>,
+            ...authHeaders,
+        }
+    });
+};
+
 export const getSession = async (): Promise<TrimSession | null> => {
-    const response = await fetch(`${API_BASE}/get-active-session`);
+    const response = await fetchWithAuth(`${API_BASE}/get-active-session`);
     if (!response.ok) return null;
     return await response.json();
 };
 
 export const createSession = async (data: CreateTrimSessionDTO): Promise<TrimSession> => {
-    const response = await fetch(`${API_BASE}/create-session`, {
+    const response = await fetchWithAuth(`${API_BASE}/create-session`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data),
@@ -22,7 +52,7 @@ export const submitSession = async (): Promise<void> => {
     const session = await getSession();
     if (!session) throw new Error('No active session');
 
-    const response = await fetch(`${API_BASE}/submit-session`, {
+    const response = await fetchWithAuth(`${API_BASE}/submit-session`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ sessionId: session.id }),
@@ -34,20 +64,18 @@ export const addBatch = async (data: any): Promise<TrimSession> => {
     const session = await getSession();
     if (!session) throw new Error('No active session');
 
-    const response = await fetch(`${API_BASE}/add-batch`, {
+    const response = await fetchWithAuth(`${API_BASE}/add-batch`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ...data, sessionId: session.id }),
     });
     if (!response.ok) throw new Error('Failed to add batch');
 
-    // We need to return the full session after update
-    // For simplicity, we fetch it again
     return await getSession() as TrimSession;
 };
 
 export const updateEntryStrain = async (entryId: string, strain: string): Promise<TrimSession> => {
-    const response = await fetch(`${API_BASE}/update-entry-strain`, {
+    const response = await fetchWithAuth(`${API_BASE}/update-entry-strain`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ entryId, strain }),
@@ -57,7 +85,7 @@ export const updateEntryStrain = async (entryId: string, strain: string): Promis
 };
 
 export const updateEntryWeight = async (entryId: string, type: 'flower' | 'shake' | 'trim' | 'waste', value: number): Promise<TrimSession> => {
-    const response = await fetch(`${API_BASE}/update-entry-weight`, {
+    const response = await fetchWithAuth(`${API_BASE}/update-entry-weight`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ entryId, type, value }),
@@ -67,7 +95,7 @@ export const updateEntryWeight = async (entryId: string, type: 'flower' | 'shake
 };
 
 export const addTrimmer = async (entryId: string, trimmer: Omit<Trimmer, 'id'>): Promise<TrimSession> => {
-    const response = await fetch(`${API_BASE}/add-trimmer`, {
+    const response = await fetchWithAuth(`${API_BASE}/add-trimmer`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ entryId, ...trimmer, startTime: trimmer.startTime }),
@@ -77,7 +105,7 @@ export const addTrimmer = async (entryId: string, trimmer: Omit<Trimmer, 'id'>):
 };
 
 export const updateTrimmer = async (entryId: string, trimmerId: string, updates: Partial<Trimmer>): Promise<TrimSession> => {
-    const response = await fetch(`${API_BASE}/update-trimmer`, {
+    const response = await fetchWithAuth(`${API_BASE}/update-trimmer`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ entryId, trimmerId, updates }),
@@ -87,7 +115,7 @@ export const updateTrimmer = async (entryId: string, trimmerId: string, updates:
 };
 
 export const removeTrimmer = async (entryId: string, trimmerId: string): Promise<TrimSession> => {
-    const response = await fetch(`${API_BASE}/remove-trimmer?entryId=${entryId}&trimmerId=${trimmerId}`, {
+    const response = await fetchWithAuth(`${API_BASE}/remove-trimmer?entryId=${entryId}&trimmerId=${trimmerId}`, {
         method: 'DELETE',
     });
     if (!response.ok) throw new Error('Failed to remove trimmer');
@@ -95,13 +123,13 @@ export const removeTrimmer = async (entryId: string, trimmerId: string): Promise
 };
 
 export const getTrimmerProfiles = async (): Promise<TrimmerProfile[]> => {
-    const response = await fetch(`${API_BASE}/get-trimmer-profiles`);
+    const response = await fetchWithAuth(`${API_BASE}/get-trimmer-profiles`);
     if (!response.ok) return [];
     return await response.json();
 };
 
 export const addTrimmerProfile = async (name: string): Promise<TrimmerProfile[]> => {
-    const response = await fetch(`${API_BASE}/add-trimmer-profile`, {
+    const response = await fetchWithAuth(`${API_BASE}/add-trimmer-profile`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name }),
@@ -111,7 +139,7 @@ export const addTrimmerProfile = async (name: string): Promise<TrimmerProfile[]>
 };
 
 export const deleteTrimmerProfile = async (id: string): Promise<TrimmerProfile[]> => {
-    const response = await fetch(`${API_BASE}/delete-trimmer-profile?id=${id}`, {
+    const response = await fetchWithAuth(`${API_BASE}/delete-trimmer-profile?id=${id}`, {
         method: 'DELETE',
     });
     if (!response.ok) throw new Error('Failed to delete profile');
@@ -119,7 +147,7 @@ export const deleteTrimmerProfile = async (id: string): Promise<TrimmerProfile[]
 };
 
 export const deleteBatch = async (entryId: string): Promise<TrimSession> => {
-    const response = await fetch(`${API_BASE}/delete-batch?id=${entryId}`, {
+    const response = await fetchWithAuth(`${API_BASE}/delete-batch?id=${entryId}`, {
         method: 'DELETE',
     });
     if (!response.ok) throw new Error('Failed to delete batch');
@@ -127,7 +155,7 @@ export const deleteBatch = async (entryId: string): Promise<TrimSession> => {
 };
 
 export const submitBatch = async (entryId: string): Promise<TrimSession> => {
-    const response = await fetch(`${API_BASE}/update-entry-status`, {
+    const response = await fetchWithAuth(`${API_BASE}/update-entry-status`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ entryId, status: 'submitted' }),
@@ -137,7 +165,7 @@ export const submitBatch = async (entryId: string): Promise<TrimSession> => {
 };
 
 export const startBatch = async (entryId: string): Promise<TrimSession> => {
-    const response = await fetch(`${API_BASE}/update-entry-status`, {
+    const response = await fetchWithAuth(`${API_BASE}/update-entry-status`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ entryId, status: 'active' }),
@@ -147,7 +175,7 @@ export const startBatch = async (entryId: string): Promise<TrimSession> => {
 };
 
 export const revertBatch = async (entryId: string): Promise<TrimSession> => {
-    const response = await fetch(`${API_BASE}/update-entry-status`, {
+    const response = await fetchWithAuth(`${API_BASE}/update-entry-status`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ entryId, status: 'upcoming' }),
@@ -157,7 +185,7 @@ export const revertBatch = async (entryId: string): Promise<TrimSession> => {
 };
 
 export const getCompletedSessions = async (): Promise<TrimSession[]> => {
-    const response = await fetch(`${API_BASE}/get-completed-sessions`);
+    const response = await fetchWithAuth(`${API_BASE}/get-completed-sessions`);
     if (!response.ok) return [];
     return await response.json();
 };

@@ -12,9 +12,11 @@
   "dependencies": {
     "@neondatabase/serverless": "^1.0.2",
     "@netlify/functions": "^5.1.2",
+    "@types/netlify-identity-widget": "^1.9.7",
     "@types/pg": "^8.16.0",
     "dexie": "^4.2.1",
     "lucide-react": "^0.554.0",
+    "netlify-identity-widget": "^1.9.2",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
     "recharts": "^3.4.1"
