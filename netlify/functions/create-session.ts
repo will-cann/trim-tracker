@@ -1,0 +1,74 @@
+import { Handler } from '@netlify/functions';
+import { sql, pool } from './utils/db';
+
+const COMPANY_ID = '11111111-1111-1111-1111-111111111111';
+const USER_ID = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'; // Default admin user
+
+export const handler: Handler = async (event) => {
+    if (event.httpMethod !== 'POST') {
+        return { statusCode: 405, body: 'Method Not Allowed' };
+    }
+
+    try {
+        const data = JSON.parse(event.body || '{}');
+
+        const client = await pool.connect();
+        try {
+            await client.query('BEGIN');
+
+            // Create session
+            const sessionResult = await client.query(`
+        INSERT INTO trim_sessions (company_id, created_by, start_time)
+        VALUES ($1, $2, NOW())
+        RETURNING *
+      `, [COMPANY_ID, USER_ID]);
+
+            const newSession = sessionResult.rows[0];
+
+            // Create initial entry/batch
+            const entryResult = await client.query(`
+        INSERT INTO trim_entries (
+          session_id, 
+          harvest_name, 
+          license_number, 
+          strain, 
+          start_weight, 
+          status
+        )
+        VALUES ($1, $2, $3, $4, $5, 'active')
+        RETURNING *
+      `, [newSession.id, data.harvestName, data.licenseNumber, data.strain, data.startWeight]);
+
+            const newEntry = entryResult.rows[0];
+
+            await client.query('COMMIT');
+
+            return {
+                statusCode: 201,
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    ...newSession,
+                    startTime: newSession.start_time,
+                    entries: [{
+                        ...newEntry,
+                        harvestName: newEntry.harvest_name,
+                        licenseNumber: newEntry.license_number,
+                        startWeight: parseFloat(newEntry.start_weight),
+                        trimmers: []
+                    }]
+                }),
+            };
+        } catch (e) {
+            await client.query('ROLLBACK');
+            throw e;
+        } finally {
+            client.release();
+        }
+    } catch (error) {
+        console.error('Error creating session:', error);
+        return {
+            statusCode: 500,
+            body: JSON.stringify({ error: 'Failed to create session' }),
+        };
+    }
+};

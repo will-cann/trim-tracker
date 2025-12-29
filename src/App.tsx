@@ -1,8 +1,6 @@
 import { useEffect, useState } from 'react';
 import type { TrimSession, CreateTrimSessionDTO, TrimmerProfile } from './types/definitions';
-// import { hello } from './services/simple';
-import { mockApi } from './services/mockApi';
-import { seedInitialData } from './services/seedData';
+import { apiService } from './services/apiService';
 import { StartSession } from './components/StartSession';
 import { Dashboard } from './components/Dashboard';
 import { ReportsDashboard } from './components/Reports/ReportsDashboard';
@@ -16,13 +14,12 @@ function App() {
   const [currentView, setCurrentView] = useState<'dashboard' | 'reports'>('dashboard');
 
   useEffect(() => {
-    seedInitialData();
     loadSession();
   }, []);
 
   const loadSession = async () => {
     setLoading(true);
-    const data = await mockApi.getSession();
+    const data = await apiService.getSession();
     setSession(data);
     setLoading(false);
   };
@@ -34,43 +31,18 @@ function App() {
   }, []);
 
   const loadTrimmerProfiles = async () => {
-    const profiles = await mockApi.getTrimmerProfiles();
+    const profiles = await apiService.getTrimmerProfiles();
     setTrimmerProfiles(profiles);
   };
 
-  const handleStartSession = (data: CreateTrimSessionDTO) => {
-    const newSession = mockApi.createSession(data);
+  const handleStartSession = async (data: CreateTrimSessionDTO) => {
+    const newSession = await apiService.createSession(data);
     setSession(newSession);
   };
 
   const handleUpdateWeight = async (entryId: string, type: 'flower' | 'shake' | 'trim' | 'waste', val: number) => {
-    // Optimistic update
-    if (!session) return;
-
-    const updatedEntries = session.entries.map(entry => {
-      if (entry.id === entryId) {
-        return { ...entry, [`${type}Weight`]: val };
-      }
-      return entry;
-    });
-
-    // Recalculate totals locally for immediate feedback
-    const totalFlower = updatedEntries.reduce((sum, e) => sum + Number(e.flowerWeight), 0);
-    const totalShake = updatedEntries.reduce((sum, e) => sum + Number(e.shakeWeight), 0);
-    const totalTrim = updatedEntries.reduce((sum, e) => sum + Number(e.trimWeight), 0);
-    const totalWaste = updatedEntries.reduce((sum, e) => sum + Number(e.wasteWeight), 0);
-
-    setSession({
-      ...session,
-      entries: updatedEntries,
-      totalFlower,
-      totalShake,
-      totalTrim,
-      totalWaste
-    });
-
     // Persist
-    const updatedSession = await mockApi.updateEntryWeight(entryId, type, val);
+    const updatedSession = await apiService.updateEntryWeight(entryId, type, val);
     setSession(updatedSession);
   };
 
@@ -82,7 +54,7 @@ function App() {
     if (confirm('Are you sure you want to submit this session?')) {
       console.log('Proceeding with session submission');
       try {
-        await mockApi.submitSession();
+        await apiService.submitSession();
         console.log('Session submitted successfully, clearing state');
         setSession(null);
       } catch (error) {
@@ -94,23 +66,23 @@ function App() {
     }
   };
 
-  const handleAddBatch = (data: CreateTrimSessionDTO) => {
-    const updatedSession = mockApi.addBatch(data);
+  const handleAddBatch = async (data: CreateTrimSessionDTO) => {
+    const updatedSession = await apiService.addBatch(data);
     setSession(updatedSession);
   };
 
 
-  const handleDeleteBatch = (entryId: string) => {
-    const updatedSession = mockApi.deleteBatch(entryId);
+  const handleDeleteBatch = async (entryId: string) => {
+    const updatedSession = await apiService.deleteBatch(entryId);
     setSession(updatedSession);
   };
 
-  const handleUpdateStrain = (entryId: string, strain: string) => {
-    const updatedSession = mockApi.updateEntryStrain(entryId, strain);
+  const handleUpdateStrain = async (entryId: string, strain: string) => {
+    const updatedSession = await apiService.updateEntryStrain(entryId, strain);
     setSession({ ...updatedSession });
   };
 
-  const handleAddTrimmer = (entryId: string) => {
+  const handleAddTrimmer = async (entryId: string) => {
     const newTrimmer = {
       name: '',
       startTime: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false }),
@@ -119,33 +91,33 @@ function App() {
       trimWeight: 0,
       wasteWeight: 0
     };
-    const updatedSession = mockApi.addTrimmer(entryId, newTrimmer);
+    const updatedSession = await apiService.addTrimmer(entryId, newTrimmer);
     setSession({ ...updatedSession });
   };
 
-  const handleUpdateTrimmer = (entryId: string, trimmerId: string, updates: any) => {
-    const updatedSession = mockApi.updateTrimmer(entryId, trimmerId, updates);
+  const handleUpdateTrimmer = async (entryId: string, trimmerId: string, updates: any) => {
+    const updatedSession = await apiService.updateTrimmer(entryId, trimmerId, updates);
     setSession({ ...updatedSession });
   };
 
-  const handleRemoveTrimmer = (entryId: string, trimmerId: string) => {
-    const updatedSession = mockApi.removeTrimmer(entryId, trimmerId);
+  const handleRemoveTrimmer = async (entryId: string, trimmerId: string) => {
+    const updatedSession = await apiService.removeTrimmer(entryId, trimmerId);
     setSession({ ...updatedSession });
   };
 
-  const handleSubmitBatch = (entryId: string) => {
-    const updatedSession = mockApi.submitBatch(entryId);
+  const handleSubmitBatch = async (entryId: string) => {
+    const updatedSession = await apiService.submitBatch(entryId);
     setSession({ ...updatedSession });
   };
 
   // Roster Handlers
   const handleAddProfile = async (name: string) => {
-    const updatedProfiles = await mockApi.addTrimmerProfile(name);
+    const updatedProfiles = await apiService.addTrimmerProfile(name);
     setTrimmerProfiles(updatedProfiles);
   };
 
   const handleDeleteProfile = async (id: string) => {
-    const updatedProfiles = await mockApi.deleteTrimmerProfile(id);
+    const updatedProfiles = await apiService.deleteTrimmerProfile(id);
     setTrimmerProfiles(updatedProfiles);
   };
 
@@ -182,9 +154,9 @@ function App() {
                 onRemoveTrimmer={handleRemoveTrimmer}
                 onDeleteBatch={handleDeleteBatch}
                 onSubmitBatch={handleSubmitBatch}
-                onStartBatch={(entryId) => {
+                onStartBatch={async (entryId) => {
                   // Start the batch (changes status to 'active')
-                  let updatedSession = mockApi.startBatch(entryId);
+                  let updatedSession = await apiService.startBatch(entryId);
 
                   // Automatically add first trimmer row
                   const newTrimmer = {
@@ -196,12 +168,12 @@ function App() {
                     trimWeight: 0,
                     wasteWeight: 0
                   };
-                  updatedSession = mockApi.addTrimmer(entryId, newTrimmer);
+                  updatedSession = await apiService.addTrimmer(entryId, newTrimmer);
 
                   setSession({ ...updatedSession });
                 }}
-                onRevertBatch={(entryId) => {
-                  const updatedSession = mockApi.revertBatch(entryId);
+                onRevertBatch={async (entryId) => {
+                  const updatedSession = await apiService.revertBatch(entryId);
                   setSession({ ...updatedSession });
                 }}
                 trimmerProfiles={trimmerProfiles}

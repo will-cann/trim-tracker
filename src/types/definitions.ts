@@ -37,6 +37,7 @@ export interface TrimSession {
   id: string;
   startTime: string;
   endTime?: string;
+  completedAt?: string;
   entries: TrimEntry[];
   totalFlower: number;
   totalShake: number;

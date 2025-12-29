@@ -1,5 +1,5 @@
-import { db } from './db';
-import type { CompletedSession } from './db';
+import { apiService } from './apiService';
+import type { TrimSession } from '../types/definitions';
 
 export interface ReportSummary {
     trimLaborHours: number;
@@ -48,10 +48,11 @@ export interface ReportsData {
 
 const DEFAULT_HOURLY_WAGE = 15;
 
-function calculateLaborHours(session: CompletedSession): number {
+function calculateLaborHours(session: TrimSession): number {
     let totalHours = 0;
 
     for (const entry of session.entries) {
+        if (!entry.trimmers) continue;
         for (const trimmer of entry.trimmers) {
             if (trimmer.startTime && trimmer.endTime) {
                 const [startHour, startMin] = trimmer.startTime.split(':').map(Number);
@@ -66,7 +67,7 @@ function calculateLaborHours(session: CompletedSession): number {
 }
 
 export async function getReportsData(): Promise<ReportsData> {
-    const sessions = await db.sessions.toArray();
+    const sessions = await apiService.getCompletedSessions();
 
     if (sessions.length === 0) {
         // Return empty data structure
@@ -99,6 +100,7 @@ export async function getReportsData(): Promise<ReportsData> {
     // Calculate daily throughput
     const throughputMap = new Map<string, DailyThroughput>();
     for (const session of sessions) {
+        if (!session.completedAt) continue;
         const date = new Date(session.completedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
         const existing = throughputMap.get(date) || { date, flowerLbs: 0, trimLbs: 0, laborHours: 0 };
         existing.flowerLbs += session.totalFlower / 453.592;
