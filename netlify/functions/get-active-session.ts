@@ -1,7 +1,6 @@
 import { Handler } from '@netlify/functions';
 import { sql } from './utils/db';
-
-const COMPANY_ID = '11111111-1111-1111-1111-111111111111';
+import { resolveContext } from './utils/auth';
 
 export const handler: Handler = async (event) => {
     if (event.httpMethod !== 'GET') {
@@ -9,10 +8,19 @@ export const handler: Handler = async (event) => {
     }
 
     try {
+        const context = await resolveContext(event.headers.authorization);
+
+        if (!context) {
+            return {
+                statusCode: 401,
+                body: JSON.stringify({ error: 'Unauthorized' })
+            };
+        }
+
         // Get active session
         const { rows: sessions } = await sql`
       SELECT * FROM trim_sessions 
-      WHERE company_id = ${COMPANY_ID} AND completed_at IS NULL
+      WHERE company_id = ${context.companyId} AND completed_at IS NULL
       LIMIT 1
     `;
 

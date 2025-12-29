@@ -1,41 +1,55 @@
 import type { TrimSession, CreateTrimSessionDTO, Trimmer, TrimmerProfile } from '../types/definitions';
-import netlifyIdentity from 'netlify-identity-widget';
 
 const API_BASE = '/.netlify/functions';
 
-/**
- * Helper to get the auth header for requests
- */
-const getAuthHeaders = async (): Promise<Record<string, string>> => {
-    const user = netlifyIdentity.currentUser();
-    if (!user) return {};
-    try {
-        // use any cast to avoid type issues with netlify-identity-widget types
-        const token = await (user as any).jwt();
-        return { 'Authorization': `Bearer ${token}` };
-    } catch (error) {
-        return {};
-    }
+let authToken: string | null = null;
+
+export const setAuthToken = (token: string | null) => {
+    authToken = token;
+};
+
+const getAuthHeaders = (): Record<string, string> => {
+    if (!authToken) return {};
+    return { 'Authorization': `Bearer ${authToken}` };
 };
 
 /**
  * Generic fetch wrapper to handle auth headers
  */
 const fetchWithAuth = async (url: string, options: RequestInit = {}) => {
-    const authHeaders = await getAuthHeaders();
-    return fetch(url, {
-        ...options,
-        headers: {
-            ...options.headers as Record<string, string>,
-            ...authHeaders,
-        }
-    });
+    const authHeaders = getAuthHeaders();
+    console.log(`[API] Request: ${url}`, { headers: authHeaders });
+    try {
+        const response = await fetch(url, {
+            ...options,
+            headers: {
+                ...options.headers as Record<string, string>,
+                ...authHeaders,
+            }
+        });
+        console.log(`[API] Response: ${url} (${response.status})`);
+        return response;
+    } catch (err) {
+        console.error(`[API] Fetch Error: ${url}`, err);
+        throw err;
+    }
 };
 
 export const getSession = async (): Promise<TrimSession | null> => {
-    const response = await fetchWithAuth(`${API_BASE}/get-active-session`);
-    if (!response.ok) return null;
-    return await response.json();
+    console.log('[API] Calling getSession');
+    try {
+        const response = await fetchWithAuth(`${API_BASE}/get-active-session`);
+        if (!response.ok) {
+            console.log('[API] getSession returned non-ok:', response.status);
+            return null;
+        }
+        const data = await response.json();
+        console.log('[API] getSession Success:', data);
+        return data;
+    } catch (err) {
+        console.error('[API] getSession Failed:', err);
+        return null;
+    }
 };
 
 export const createSession = async (data: CreateTrimSessionDTO): Promise<TrimSession> => {
@@ -191,6 +205,7 @@ export const getCompletedSessions = async (): Promise<TrimSession[]> => {
 };
 
 export const apiService = {
+    setAuthToken,
     getSession,
     createSession,
     submitSession,

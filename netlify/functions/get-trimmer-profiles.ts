@@ -1,7 +1,6 @@
 import { Handler } from '@netlify/functions';
 import { sql } from './utils/db';
-
-const COMPANY_ID = '11111111-1111-1111-1111-111111111111';
+import { resolveContext } from './utils/auth';
 
 export const handler: Handler = async (event) => {
     if (event.httpMethod !== 'GET') {
@@ -9,10 +8,19 @@ export const handler: Handler = async (event) => {
     }
 
     try {
+        const context = await resolveContext(event.headers.authorization);
+
+        if (!context) {
+            return {
+                statusCode: 401,
+                body: JSON.stringify({ error: 'Unauthorized' })
+            };
+        }
+
         const result = await sql`
       SELECT id, name, status 
       FROM trimmer_profiles 
-      WHERE company_id = ${COMPANY_ID}
+      WHERE company_id = ${context.companyId}
       ORDER BY name ASC
     `;
 

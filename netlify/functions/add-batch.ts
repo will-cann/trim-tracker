@@ -1,5 +1,6 @@
 import { Handler } from '@netlify/functions';
 import { sql } from './utils/db';
+import { resolveContext } from './utils/auth';
 
 export const handler: Handler = async (event) => {
     if (event.httpMethod !== 'POST') {
@@ -7,6 +8,15 @@ export const handler: Handler = async (event) => {
     }
 
     try {
+        const context = await resolveContext(event.headers.authorization);
+
+        if (!context) {
+            return {
+                statusCode: 401,
+                body: JSON.stringify({ error: 'Unauthorized' })
+            };
+        }
+
         const { sessionId, harvestName, licenseNumber, strain, startWeight, status, plannedTrimDate, plannedMethod } = JSON.parse(event.body || '{}');
 
         if (!sessionId || !harvestName) {
@@ -16,7 +26,16 @@ export const handler: Handler = async (event) => {
             };
         }
 
-        const [newEntry] = await sql`
+        // Verify ownership of the session
+        const ownershipResult = await sql`
+          SELECT company_id FROM trim_sessions WHERE id = ${sessionId}
+        `;
+
+        if (ownershipResult.rows.length === 0 || ownershipResult.rows[0].company_id !== context.companyId) {
+            throw new Error('Forbidden: You do not have access to this resource');
+        }
+
+        const { rows: [newEntry] } = await sql`
       INSERT INTO trim_entries (
         session_id, 
         harvest_name, 

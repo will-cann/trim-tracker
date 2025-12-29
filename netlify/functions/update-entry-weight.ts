@@ -1,5 +1,6 @@
 import { Handler } from '@netlify/functions';
 import { sql, pool } from './utils/db';
+import { resolveContext } from './utils/auth';
 
 export const handler: Handler = async (event) => {
     if (event.httpMethod !== 'PUT') {
@@ -7,6 +8,15 @@ export const handler: Handler = async (event) => {
     }
 
     try {
+        const context = await resolveContext(event.headers.authorization);
+
+        if (!context) {
+            return {
+                statusCode: 401,
+                body: JSON.stringify({ error: 'Unauthorized' })
+            };
+        }
+
         const { entryId, type, value } = JSON.parse(event.body || '{}');
 
         if (!entryId || !type) {
@@ -27,6 +37,16 @@ export const handler: Handler = async (event) => {
         const client = await pool.connect();
         try {
             await client.query('BEGIN');
+
+            // Verify ownership
+            const ownershipResult = await client.query(`
+              SELECT company_id FROM trim_sessions 
+              WHERE id = (SELECT session_id FROM trim_entries WHERE id = $1)
+            `, [entryId]);
+
+            if (ownershipResult.rows.length === 0 || ownershipResult.rows[0].company_id !== context.companyId) {
+                throw new Error('Forbidden: You do not have access to this resource');
+            }
 
             await client.query(`
         UPDATE trim_entries

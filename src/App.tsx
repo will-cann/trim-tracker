@@ -5,7 +5,7 @@ import { StartSession } from './components/StartSession';
 import { Dashboard } from './components/Dashboard';
 import { ReportsDashboard } from './components/Reports/ReportsDashboard';
 import { Sidebar } from './components/Sidebar';
-import { AuthProvider, useAuth } from './contexts/authContext';
+import { Auth0Wrapper, useAuth } from './contexts/authContext';
 import { Login } from './components/Login';
 
 function AppContent() {
@@ -18,8 +18,13 @@ function AppContent() {
   useEffect(() => {
     if (user) {
       loadSession();
+      loadTrimmerProfiles();
     }
   }, [user]);
+
+  useEffect(() => {
+    console.log('App Main Stats:', { authLoading, user: !!user, loading, hasSession: !!session });
+  });
 
   if (authLoading) {
     return (
@@ -39,10 +44,6 @@ function AppContent() {
     setSession(data);
     setLoading(false);
   };
-
-  useEffect(() => {
-    loadTrimmerProfiles();
-  }, []);
 
   const loadTrimmerProfiles = async () => {
     const profiles = await apiService.getTrimmerProfiles();
@@ -135,7 +136,7 @@ function AppContent() {
     setTrimmerProfiles(updatedProfiles);
   };
 
-  if (loading) return <div className="loading">Loading...</div>;
+  if (loading) return <div className="loading flex items-center justify-center min-h-screen bg-slate-900 text-white">Loading App Data...</div>;
 
   return (
     <div className="app-container">
@@ -202,8 +203,8 @@ function AppContent() {
 
 export default function App() {
   return (
-    <AuthProvider>
+    <Auth0Wrapper>
       <AppContent />
-    </AuthProvider>
+    </Auth0Wrapper>
   );
 }

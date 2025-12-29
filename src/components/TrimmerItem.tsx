@@ -1,5 +1,6 @@
-import React from 'react';
-import { Trash2 } from 'lucide-react';
+import React, { useState } from 'react';
+import { Trash2, Mic, MicOff } from 'lucide-react';
+import { useSpeechToText } from '../hooks/useSpeechToText';
 import type { Trimmer, TrimmerProfile } from '../types/definitions';
 import { TimePicker } from './TimePicker';
 import { calculateDuration, formatDuration } from '../utils/timeUtils';
@@ -13,6 +14,25 @@ interface TrimmerItemProps {
 }
 
 export const TrimmerItem: React.FC<TrimmerItemProps> = ({ trimmer, profiles, onUpdate, onRemove, readOnly = false }) => {
+    const { isListening, startListening, stopListening } = useSpeechToText();
+    const [listeningField, setListeningField] = useState<string | null>(null);
+
+    const handleSpeech = (field: keyof Trimmer) => {
+        if (listeningField === field) {
+            stopListening();
+            setListeningField(null);
+        } else {
+            setListeningField(field);
+            startListening((text) => {
+                const num = parseFloat(text.replace(/[^0-9.]/g, ''));
+                if (!isNaN(num)) {
+                    onUpdate(trimmer.id, { [field]: num });
+                }
+                setListeningField(null);
+            });
+        }
+    };
+
     const handleChange = (field: keyof Trimmer, value: any) => {
         if (readOnly) return;
         onUpdate(trimmer.id, { [field]: value });
@@ -96,47 +116,91 @@ export const TrimmerItem: React.FC<TrimmerItemProps> = ({ trimmer, profiles, onU
             <div className="trimmer-outputs">
                 <div className="output-group flower">
                     <label>Flower</label>
-                    <input
-                        type="number"
-                        value={trimmer.flowerWeight || ''}
-                        onChange={(e) => handleChange('flowerWeight', Number(e.target.value))}
-                        placeholder="0"
-                        className="weight-input-minimal"
-                        disabled={readOnly}
-                    />
+                    <div className="input-with-action-minimal">
+                        <input
+                            type="number"
+                            value={trimmer.flowerWeight || ''}
+                            onChange={(e) => handleChange('flowerWeight', Number(e.target.value))}
+                            placeholder="0"
+                            className="weight-input-minimal"
+                            disabled={readOnly}
+                        />
+                        {!readOnly && (
+                            <button
+                                type="button"
+                                className={`btn-icon-minimal ${listeningField === 'flowerWeight' ? 'listening' : ''}`}
+                                onClick={() => handleSpeech('flowerWeight')}
+                            >
+                                {listeningField === 'flowerWeight' ? <MicOff size={14} /> : <Mic size={14} />}
+                            </button>
+                        )}
+                    </div>
                 </div>
                 <div className="output-group shake">
                     <label>Shake</label>
-                    <input
-                        type="number"
-                        value={trimmer.shakeWeight || ''}
-                        onChange={(e) => handleChange('shakeWeight', Number(e.target.value))}
-                        placeholder="0"
-                        className="weight-input-minimal"
-                        disabled={readOnly}
-                    />
+                    <div className="input-with-action-minimal">
+                        <input
+                            type="number"
+                            value={trimmer.shakeWeight || ''}
+                            onChange={(e) => handleChange('shakeWeight', Number(e.target.value))}
+                            placeholder="0"
+                            className="weight-input-minimal"
+                            disabled={readOnly}
+                        />
+                        {!readOnly && (
+                            <button
+                                type="button"
+                                className={`btn-icon-minimal ${listeningField === 'shakeWeight' ? 'listening' : ''}`}
+                                onClick={() => handleSpeech('shakeWeight')}
+                            >
+                                {listeningField === 'shakeWeight' ? <MicOff size={14} /> : <Mic size={14} />}
+                            </button>
+                        )}
+                    </div>
                 </div>
                 <div className="output-group trim">
                     <label>Trim</label>
-                    <input
-                        type="number"
-                        value={trimmer.trimWeight || ''}
-                        onChange={(e) => handleChange('trimWeight', Number(e.target.value))}
-                        placeholder="0"
-                        className="weight-input-minimal"
-                        disabled={readOnly}
-                    />
+                    <div className="input-with-action-minimal">
+                        <input
+                            type="number"
+                            value={trimmer.trimWeight || ''}
+                            onChange={(e) => handleChange('trimWeight', Number(e.target.value))}
+                            placeholder="0"
+                            className="weight-input-minimal"
+                            disabled={readOnly}
+                        />
+                        {!readOnly && (
+                            <button
+                                type="button"
+                                className={`btn-icon-minimal ${listeningField === 'trimWeight' ? 'listening' : ''}`}
+                                onClick={() => handleSpeech('trimWeight')}
+                            >
+                                {listeningField === 'trimWeight' ? <MicOff size={14} /> : <Mic size={14} />}
+                            </button>
+                        )}
+                    </div>
                 </div>
                 <div className="output-group waste">
                     <label>Waste</label>
-                    <input
-                        type="number"
-                        value={trimmer.wasteWeight || ''}
-                        onChange={(e) => handleChange('wasteWeight', Number(e.target.value))}
-                        placeholder="0"
-                        className="weight-input-minimal"
-                        disabled={readOnly}
-                    />
+                    <div className="input-with-action-minimal">
+                        <input
+                            type="number"
+                            value={trimmer.wasteWeight || ''}
+                            onChange={(e) => handleChange('wasteWeight', Number(e.target.value))}
+                            placeholder="0"
+                            className="weight-input-minimal"
+                            disabled={readOnly}
+                        />
+                        {!readOnly && (
+                            <button
+                                type="button"
+                                className={`btn-icon-minimal ${listeningField === 'wasteWeight' ? 'listening' : ''}`}
+                                onClick={() => handleSpeech('wasteWeight')}
+                            >
+                                {listeningField === 'wasteWeight' ? <MicOff size={14} /> : <Mic size={14} />}
+                            </button>
+                        )}
+                    </div>
                 </div>
             </div>
         </div>

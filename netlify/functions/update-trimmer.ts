@@ -1,5 +1,6 @@
 import { Handler } from '@netlify/functions';
 import { sql, pool } from './utils/db';
+import { resolveContext } from './utils/auth';
 
 export const handler: Handler = async (event) => {
   if (event.httpMethod !== 'PUT') {
@@ -7,6 +8,15 @@ export const handler: Handler = async (event) => {
   }
 
   try {
+    const context = await resolveContext(event.headers.authorization);
+
+    if (!context) {
+      return {
+        statusCode: 401,
+        body: JSON.stringify({ error: 'Unauthorized' })
+      };
+    }
+
     const { trimmerId, entryId, updates } = JSON.parse(event.body || '{}');
 
     if (!trimmerId || !entryId) {
@@ -19,6 +29,18 @@ export const handler: Handler = async (event) => {
     const client = await pool.connect();
     try {
       await client.query('BEGIN');
+
+      // Verify ownership
+      const ownershipResult = await client.query(`
+        SELECT ts.company_id 
+        FROM trim_sessions ts
+        JOIN trim_entries te ON te.session_id = ts.id
+        WHERE te.id = $1
+      `, [entryId]);
+
+      if (ownershipResult.rows.length === 0 || ownershipResult.rows[0].company_id !== context.companyId) {
+        throw new Error('Forbidden: You do not have access to this resource');
+      }
 
       // Update trimmer
       // Since our simple sql tag doesn't support complex conditional updates easily, 

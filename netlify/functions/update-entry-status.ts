@@ -1,5 +1,6 @@
 import { Handler } from '@netlify/functions';
 import { sql } from './utils/db';
+import { resolveContext } from './utils/auth';
 
 export const handler: Handler = async (event) => {
     if (event.httpMethod !== 'PUT') {
@@ -7,6 +8,15 @@ export const handler: Handler = async (event) => {
     }
 
     try {
+        const context = await resolveContext(event.headers.authorization);
+
+        if (!context) {
+            return {
+                statusCode: 401,
+                body: JSON.stringify({ error: 'Unauthorized' })
+            };
+        }
+
         const { entryId, status } = JSON.parse(event.body || '{}');
 
         if (!entryId || !status) {
@@ -19,7 +29,9 @@ export const handler: Handler = async (event) => {
         await sql`
       UPDATE trim_entries
       SET status = ${status}
-      WHERE id = ${entryId}
+      WHERE id = ${entryId} AND session_id IN (
+        SELECT id FROM trim_sessions WHERE company_id = ${context.companyId}
+      )
     `;
 
         return {

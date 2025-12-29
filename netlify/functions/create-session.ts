@@ -1,8 +1,6 @@
 import { Handler } from '@netlify/functions';
 import { sql, pool } from './utils/db';
-
-const COMPANY_ID = '11111111-1111-1111-1111-111111111111';
-const USER_ID = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'; // Default admin user
+import { resolveContext } from './utils/auth';
 
 export const handler: Handler = async (event) => {
     if (event.httpMethod !== 'POST') {
@@ -10,6 +8,15 @@ export const handler: Handler = async (event) => {
     }
 
     try {
+        const context = await resolveContext(event.headers.authorization);
+
+        if (!context) {
+            return {
+                statusCode: 401,
+                body: JSON.stringify({ error: 'Unauthorized' })
+            };
+        }
+
         const data = JSON.parse(event.body || '{}');
 
         const client = await pool.connect();
@@ -21,7 +28,7 @@ export const handler: Handler = async (event) => {
         INSERT INTO trim_sessions (company_id, created_by, start_time)
         VALUES ($1, $2, NOW())
         RETURNING *
-      `, [COMPANY_ID, USER_ID]);
+      `, [context.companyId, context.userId]);
 
             const newSession = sessionResult.rows[0];
 

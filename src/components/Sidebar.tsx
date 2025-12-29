@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
-import { Users, Plus, Trash2, ChevronLeft, ChevronRight, LayoutDashboard, BarChart3, LogOut, User as UserIcon } from 'lucide-react';
+import { Plus, Trash2, ChevronLeft, ChevronRight, LayoutDashboard, BarChart3, LogOut, User as UserIcon } from 'lucide-react';
 import { useAuth } from '../contexts/authContext';
 import type { TrimmerProfile } from '../types/definitions';
 import { AddTrimmerProfileModal } from './AddTrimmerProfileModal';
+import logo from '../assets/logo.png';
 
 interface SidebarProps {
     profiles: TrimmerProfile[];
@@ -33,7 +34,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <div className={`sidebar ${isOpen ? 'open' : 'closed'}`}>
                 <div className="sidebar-header">
                     <div className="header-content">
-                        <Users size={20} />
+                        <div className="w-8 h-8 rounded-lg bg-emerald-500 flex items-center justify-center overflow-hidden shrink-0">
+                            <img src={logo} alt="Logo" className="w-6 h-6 object-contain brightness-0 invert" />
+                        </div>
                         {isOpen && <h3>Trim Tracker</h3>}
                     </div>
                     <button className="toggle-btn" onClick={() => setIsOpen(!isOpen)}>
@@ -144,12 +147,16 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         <div className="border-t mt-auto pt-4 space-y-2">
                             {user && (
                                 <div className="flex items-center gap-3 px-3 py-2 bg-slate-50 rounded-lg border border-slate-100 mb-2">
-                                    <div className="w-8 h-8 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-600">
-                                        <UserIcon size={16} />
+                                    <div className="w-8 h-8 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-600 overflow-hidden">
+                                        {user.picture ? (
+                                            <img src={user.picture} alt={user.name || 'User'} className="w-full h-full object-cover" />
+                                        ) : (
+                                            <UserIcon size={16} />
+                                        )}
                                     </div>
                                     <div className="flex-1 min-w-0">
                                         <p className="text-sm font-semibold text-slate-900 truncate">{user.name || user.email}</p>
-                                        <p className="text-[10px] text-slate-500 uppercase tracking-wider font-bold">{user.role || 'Worker'}</p>
+                                        <p className="text-[10px] text-slate-500 uppercase tracking-wider font-bold">{user.role || 'User'}</p>
                                     </div>
                                 </div>
                             )}

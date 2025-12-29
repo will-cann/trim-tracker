@@ -1,24 +1,46 @@
 import { Handler } from '@netlify/functions';
 import { sql, pool } from './utils/db';
+import { resolveContext } from './utils/auth';
 
 export const handler: Handler = async (event) => {
   if (event.httpMethod !== 'DELETE') {
     return { statusCode: 405, body: 'Method Not Allowed' };
   }
 
-  const { trimmerId, entryId } = event.queryStringParameters || {};
-
-  if (!trimmerId || !entryId) {
-    return {
-      statusCode: 400,
-      body: JSON.stringify({ error: 'Trimmer ID and Entry ID are required' }),
-    };
-  }
-
   try {
+    const context = await resolveContext(event.headers.authorization);
+
+    if (!context) {
+      return {
+        statusCode: 401,
+        body: JSON.stringify({ error: 'Unauthorized' })
+      };
+    }
+
+    const { trimmerId, entryId } = event.queryStringParameters || {};
+
+    if (!trimmerId || !entryId) {
+      return {
+        statusCode: 400,
+        body: JSON.stringify({ error: 'Trimmer ID and Entry ID are required' }),
+      };
+    }
+
     const client = await pool.connect();
     try {
       await client.query('BEGIN');
+
+      // Verify ownership
+      const ownershipResult = await client.query(`
+        SELECT ts.company_id 
+        FROM trim_sessions ts
+        JOIN trim_entries te ON te.session_id = ts.id
+        WHERE te.id = $1
+      `, [entryId]);
+
+      if (ownershipResult.rows.length === 0 || ownershipResult.rows[0].company_id !== context.companyId) {
+        throw new Error('Forbidden: You do not have access to this resource');
+      }
 
       // Remove trimmer
       await client.query('DELETE FROM trimmers WHERE id = $1', [trimmerId]);

@@ -1,7 +1,6 @@
 import { Handler } from '@netlify/functions';
 import { sql } from './utils/db';
-
-const COMPANY_ID = '11111111-1111-1111-1111-111111111111';
+import { resolveContext } from './utils/auth';
 
 export const handler: Handler = async (event) => {
     if (event.httpMethod !== 'POST') {
@@ -9,6 +8,15 @@ export const handler: Handler = async (event) => {
     }
 
     try {
+        const context = await resolveContext(event.headers.authorization);
+
+        if (!context) {
+            return {
+                statusCode: 401,
+                body: JSON.stringify({ error: 'Unauthorized' })
+            };
+        }
+
         const { name } = JSON.parse(event.body || '{}');
 
         if (!name) {
@@ -20,7 +28,7 @@ export const handler: Handler = async (event) => {
 
         const { rows } = await sql`
       INSERT INTO trimmer_profiles (company_id, name, status)
-      VALUES (${COMPANY_ID}, ${name}, 'active')
+      VALUES (${context.companyId}, ${name}, 'active')
       RETURNING id, name, status
     `;
 
