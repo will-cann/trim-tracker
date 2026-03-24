@@ -26,6 +26,31 @@ export const handler: Handler = async (event) => {
             };
         }
 
+        // Validate before allowing submission
+        if (status === 'submitted') {
+            const { rows: trimmers } = await sql`
+                SELECT id, profile_id, start_time, end_time FROM trimmers
+                WHERE entry_id = ${entryId}
+            `;
+
+            if (trimmers.length === 0) {
+                return {
+                    statusCode: 400,
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ error: 'Cannot submit: batch has no trimmers.' }),
+                };
+            }
+
+            const incomplete = trimmers.find(t => !t.profile_id || !t.start_time || !t.end_time);
+            if (incomplete) {
+                return {
+                    statusCode: 400,
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ error: 'Cannot submit: all trimmers must have a profile, start time, and end time.' }),
+                };
+            }
+        }
+
         await sql`
       UPDATE trim_entries
       SET status = ${status}

@@ -39,6 +39,7 @@ export const TrimCard: React.FC<TrimCardProps> = ({
     const [editStrainValue, setEditStrainValue] = useState(entry.strain || '');
     const [isStatusHovered, setIsStatusHovered] = useState(false);
     const [justStarted, setJustStarted] = useState(false);
+    const [validationError, setValidationError] = useState<string | null>(null);
 
     const toggleExpand = () => setIsExpanded(!isExpanded);
 
@@ -106,12 +107,14 @@ export const TrimCard: React.FC<TrimCardProps> = ({
     const handleSubmitBatch = (e: React.MouseEvent) => {
         e.stopPropagation();
 
-        const validationError = validateBatch(entry);
-        if (validationError) {
-            alert(validationError);
+        const error = validateBatch(entry);
+        if (error) {
+            setValidationError(error);
+            setIsExpanded(true);
             return;
         }
 
+        setValidationError(null);
         if (onSubmitBatch) {
             onSubmitBatch(entry.id);
         }
@@ -136,7 +139,7 @@ export const TrimCard: React.FC<TrimCardProps> = ({
         }
     }, [justStarted, entry.status]);
 
-    const canRevertToUpcoming = entry.status === 'active' && (!entry.trimmers || entry.trimmers.length === 0);
+    const canRevertToUpcoming = entry.status === 'active' && onRevertBatch;
 
     const getStatusBadge = () => {
         if (entry.status === 'upcoming') return { text: 'Upcoming', className: 'status-upcoming' };
@@ -256,6 +259,12 @@ export const TrimCard: React.FC<TrimCardProps> = ({
                         </div>
                     </div>
 
+                    {validationError && (
+                        <div className="px-4 py-2 bg-red-500/20 border border-red-500/40 text-red-300 text-sm rounded mx-4 mt-2">
+                            {validationError}
+                        </div>
+                    )}
+
                     {entry.status !== 'upcoming' && (
                         <div className="progress-bar-container">
                             <div className="progress-bar" style={{ width: `${Math.min(progress, 100)}%` }}></div>
@@ -341,8 +350,8 @@ export const TrimCard: React.FC<TrimCardProps> = ({
                                 <TrimmerList
                                     trimmers={entry.trimmers || []}
                                     profiles={trimmerProfiles}
-                                    onAddTrimmer={entry.status === 'active' ? () => onAddTrimmer(entry.id) : undefined}
-                                    onUpdateTrimmer={entry.status === 'active' ? (trimmerId, updates) => onUpdateTrimmer(entry.id, trimmerId, updates) : undefined}
+                                    onAddTrimmer={entry.status === 'active' ? () => { setValidationError(null); onAddTrimmer(entry.id); } : undefined}
+                                    onUpdateTrimmer={entry.status === 'active' ? (trimmerId, updates) => { setValidationError(null); onUpdateTrimmer(entry.id, trimmerId, updates); } : undefined}
                                     onRemoveTrimmer={entry.status === 'active' ? (trimmerId) => onRemoveTrimmer(entry.id, trimmerId) : undefined}
                                     readOnly={entry.status === 'submitted'}
                                 />

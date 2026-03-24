@@ -1,6 +1,26 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import type { TrimSession, TrimmerProfile, ProposedAction, ChatMessage } from '../types/definitions';
 import { apiService } from '../services/apiService';
+
+const CHAT_STORAGE_KEY = 'trim-tracker-chat-messages';
+
+const loadMessages = (): ChatMessage[] => {
+    try {
+        const stored = sessionStorage.getItem(CHAT_STORAGE_KEY);
+        if (!stored) return [];
+        const msgs: ChatMessage[] = JSON.parse(stored);
+        // Clear any stale pending status on reload — those actions are lost
+        return msgs.map(m => m.status === 'pending' ? { ...m, status: 'cancelled' as const } : m);
+    } catch {
+        return [];
+    }
+};
+
+const saveMessages = (messages: ChatMessage[]) => {
+    try {
+        sessionStorage.setItem(CHAT_STORAGE_KEY, JSON.stringify(messages));
+    } catch { /* quota exceeded — ignore */ }
+};
 
 interface UseAIChatOptions {
     session: TrimSession | null;
@@ -9,10 +29,14 @@ interface UseAIChatOptions {
 }
 
 export const useAIChat = ({ session, trimmerProfiles, onSessionUpdate }: UseAIChatOptions) => {
-    const [messages, setMessages] = useState<ChatMessage[]>([]);
+    const [messages, setMessages] = useState<ChatMessage[]>(loadMessages);
     const [isLoading, setIsLoading] = useState(false);
     const [pendingActions, setPendingActions] = useState<ProposedAction[] | null>(null);
     const [isExecuting, setIsExecuting] = useState(false);
+
+    useEffect(() => {
+        saveMessages(messages);
+    }, [messages]);
 
     const buildContext = useCallback(() => ({
         hasActiveSession: !!session,
@@ -180,6 +204,7 @@ export const useAIChat = ({ session, trimmerProfiles, onSessionUpdate }: UseAICh
     const clearMessages = useCallback(() => {
         setMessages([]);
         setPendingActions(null);
+        sessionStorage.removeItem(CHAT_STORAGE_KEY);
     }, []);
 
     return {
