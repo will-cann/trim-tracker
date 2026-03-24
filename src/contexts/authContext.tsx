@@ -59,14 +59,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         getAccessTokenSilently
     } = useAuth0();
 
-    const user: User | null = isAuthenticated && auth0User ? {
-        id: auth0User.sub || '',
-        email: auth0User.email || '',
-        name: auth0User.name,
-        picture: auth0User.picture,
-        // Role handling might need custom claims from Auth0 later
-        role: (auth0User['https://trimtracker.com/roles'] as string[])?.[0] || 'User',
-    } : null;
+    const [tokenReady, setTokenReady] = React.useState(false);
 
     const login = () => {
         loginWithRedirect();
@@ -91,14 +84,27 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     useEffect(() => {
         console.log('Auth0 State:', { isAuthenticated, isLoading, user: !!auth0User });
         if (isAuthenticated && !isLoading) {
-            getToken();
+            getToken().then(() => setTokenReady(true));
         } else if (!isLoading) {
             apiService.setAuthToken(null);
+            setTokenReady(false);
         }
     }, [isAuthenticated, isLoading, auth0User]);
 
+    // Only expose user once the token has been fetched and set
+    const user: User | null = isAuthenticated && auth0User && tokenReady ? {
+        id: auth0User.sub || '',
+        email: auth0User.email || '',
+        name: auth0User.name,
+        picture: auth0User.picture,
+        role: (auth0User['https://trimtracker.com/roles'] as string[])?.[0] || 'User',
+    } : null;
+
+    // Show loading while Auth0 loads OR while we're fetching the token
+    const loading = isLoading || (isAuthenticated && !tokenReady);
+
     return (
-        <AuthContext.Provider value={{ user, loading: isLoading, login, logout, getToken }}>
+        <AuthContext.Provider value={{ user, loading, login, logout, getToken }}>
             {children}
         </AuthContext.Provider>
     );
