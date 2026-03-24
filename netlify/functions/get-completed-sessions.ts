@@ -48,6 +48,7 @@ export const handler: Handler = async (event) => {
                     wasteWeight: parseFloat(entry.waste_weight) || 0,
                     trimmers: trimmers.map(t => ({
                         ...t,
+                        profileId: t.profile_id,
                         flowerWeight: parseFloat(t.flower_weight) || 0,
                         shakeWeight: parseFloat(t.shake_weight) || 0,
                         trimWeight: parseFloat(t.trim_weight) || 0,

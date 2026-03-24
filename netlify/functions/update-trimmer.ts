@@ -42,21 +42,38 @@ export const handler: Handler = async (event) => {
         throw new Error('Forbidden: You do not have access to this resource');
       }
 
-      // Update trimmer
-      // Since our simple sql tag doesn't support complex conditional updates easily, 
-      // we'll use a standard query here or build it manually.
-      // For now, let's keep it simple and update all fields.
-      await client.query(`
-        UPDATE trimmers
-        SET 
-          flower_weight = COALESCE($1, flower_weight),
-          shake_weight = COALESCE($2, shake_weight),
-          trim_weight = COALESCE($3, trim_weight),
-          waste_weight = COALESCE($4, waste_weight),
-          end_time = COALESCE($5, end_time),
-          tool = COALESCE($6, tool)
-        WHERE id = $7
-      `, [updates.flowerWeight, updates.shakeWeight, updates.trimWeight, updates.wasteWeight, updates.endTime, updates.tool, trimmerId]);
+      // Update trimmer - build SET clause dynamically for provided fields
+      const setClauses: string[] = [];
+      const values: any[] = [];
+      let paramIdx = 1;
+
+      const fieldMap: Record<string, string> = {
+        name: 'name',
+        profileId: 'profile_id',
+        startTime: 'start_time',
+        endTime: 'end_time',
+        flowerWeight: 'flower_weight',
+        shakeWeight: 'shake_weight',
+        trimWeight: 'trim_weight',
+        wasteWeight: 'waste_weight',
+        tool: 'tool',
+      };
+
+      for (const [jsKey, dbCol] of Object.entries(fieldMap)) {
+        if (updates[jsKey] !== undefined) {
+          setClauses.push(`${dbCol} = $${paramIdx}`);
+          values.push(updates[jsKey]);
+          paramIdx++;
+        }
+      }
+
+      if (setClauses.length > 0) {
+        values.push(trimmerId);
+        await client.query(
+          `UPDATE trimmers SET ${setClauses.join(', ')} WHERE id = $${paramIdx}`,
+          values
+        );
+      }
 
       // Recalculate entry weights
       const entryWeightsResult = await client.query(`
