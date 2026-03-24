@@ -1,7 +1,4 @@
-import { neon, neonConfig, Pool } from '@neondatabase/serverless';
-
-// Use fetch-based connections (no WebSocket needed)
-neonConfig.fetchConnectionCache = true;
+import { neon, Pool } from '@neondatabase/serverless';
 
 if (!process.env.DATABASE_URL) {
   console.error('DATABASE_URL is not set');
