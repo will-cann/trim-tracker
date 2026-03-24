@@ -85,10 +85,12 @@ export const handler: Handler = async (event) => {
             }),
         };
     } catch (error) {
-        console.error('Error fetching active session:', error);
+        const msg = error instanceof Error ? error.message : String(error);
+        console.error('Error fetching active session:', msg, error);
         return {
             statusCode: 500,
-            body: JSON.stringify({ error: 'Failed to fetch active session' }),
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ error: msg }),
         };
     }
 };

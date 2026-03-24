@@ -30,10 +30,12 @@ export const handler: Handler = async (event) => {
             body: JSON.stringify(result.rows),
         };
     } catch (error) {
-        console.error('Error fetching trimmer profiles:', error);
+        const msg = error instanceof Error ? error.message : String(error);
+        console.error('Error fetching trimmer profiles:', msg, error);
         return {
             statusCode: 500,
-            body: JSON.stringify({ error: 'Failed to fetch trimmer profiles' }),
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ error: msg }),
         };
     }
 };
