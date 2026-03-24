@@ -19,10 +19,10 @@ export const handler: Handler = async (event) => {
 
         const { entryId, profileId, name, startTime, tool } = JSON.parse(event.body || '{}');
 
-        if (!entryId || !name || !startTime) {
+        if (!entryId) {
             return {
                 statusCode: 400,
-                body: JSON.stringify({ error: 'Entry ID, Name, and Start Time are required' }),
+                body: JSON.stringify({ error: 'Entry ID is required' }),
             };
         }
 
@@ -53,8 +53,8 @@ export const handler: Handler = async (event) => {
       VALUES (
         ${entryId}, 
         ${profileId || null}, 
-        ${name}, 
-        ${startTime}, 
+        ${name || ''},
+        ${startTime || null},
         ${tool || null},
         0, 0, 0, 0
       )
