@@ -2,6 +2,8 @@ import React, { createContext, useContext, useEffect, type ReactNode } from 'rea
 import { useAuth0, Auth0Provider } from '@auth0/auth0-react';
 import { apiService } from '../services/apiService';
 
+const DEV_BYPASS = import.meta.env.VITE_DEV_BYPASS_AUTH === 'true';
+
 interface User {
     id: string;
     email: string;
@@ -19,6 +21,33 @@ interface AuthContextType {
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
+
+// Dev bypass provider — skips Auth0 entirely and uses a mock user
+const DevBypassProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
+    const user: User = {
+        id: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
+        email: 'admin@greenvalley.com',
+        name: 'Sarah Martinez',
+        role: 'admin',
+    };
+
+    useEffect(() => {
+        // Set a dummy token — backend will also bypass auth when DEV_BYPASS_AUTH=true
+        apiService.setAuthToken('dev-bypass-token');
+    }, []);
+
+    return (
+        <AuthContext.Provider value={{
+            user,
+            loading: false,
+            login: () => console.log('Dev bypass: login skipped'),
+            logout: () => console.log('Dev bypass: logout skipped'),
+            getToken: async () => 'dev-bypass-token',
+        }}>
+            {children}
+        </AuthContext.Provider>
+    );
+};
 
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
     const {
@@ -85,6 +114,11 @@ export const useAuth = () => {
 
 // Wrapper for Auth0Provider
 export const Auth0Wrapper: React.FC<{ children: ReactNode }> = ({ children }) => {
+    if (DEV_BYPASS) {
+        console.log('🔓 Dev bypass auth enabled');
+        return <DevBypassProvider>{children}</DevBypassProvider>;
+    }
+
     const domain = import.meta.env.VITE_AUTH0_DOMAIN;
     const clientId = import.meta.env.VITE_AUTH0_CLIENT_ID;
     const audience = import.meta.env.VITE_AUTH0_AUDIENCE;

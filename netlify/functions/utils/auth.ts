@@ -43,6 +43,15 @@ export async function verifyToken(authHeader?: string): Promise<Auth0User | null
 }
 
 export async function resolveContext(authHeader?: string): Promise<AuthenticatedContext | null> {
+    // Dev bypass — skip JWT verification and return seed user context
+    if (process.env.DEV_BYPASS_AUTH === 'true') {
+        return {
+            userId: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
+            companyId: '11111111-1111-1111-1111-111111111111',
+            role: 'admin',
+        };
+    }
+
     const auth0User = await verifyToken(authHeader);
     if (!auth0User) return null;
 
