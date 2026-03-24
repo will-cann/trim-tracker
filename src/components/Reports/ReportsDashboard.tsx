@@ -5,26 +5,36 @@ import { TrimmerPerformanceChart } from './TrimmerPerformanceChart';
 import { MetricCard } from './MetricCard';
 import { ThroughputChart } from './ThroughputChart';
 import { CostMetricsRow } from './CostMetricsRow';
-import { getReportsData, type ReportsData } from '../../services/reportsData';
+import { getReportsData, shiftWeek, formatDateRange, type ReportsData, type DateRange } from '../../services/reportsData';
 import { ChevronLeft, ChevronRight, MoreVertical, ChevronUp } from 'lucide-react';
 
 export const ReportsDashboard: React.FC = () => {
     const [data, setData] = useState<ReportsData | null>(null);
     const [loading, setLoading] = useState(true);
     const [customWage, setCustomWage] = useState<number>(15);
+    const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined);
 
     useEffect(() => {
-        loadData();
-    }, []);
+        loadData(dateRange);
+    }, [dateRange]);
 
-    const loadData = async () => {
+    const loadData = async (range?: DateRange) => {
         setLoading(true);
-        const reportsData = await getReportsData();
+        const reportsData = await getReportsData(range);
         setData(reportsData);
-        if (reportsData) {
+        if (reportsData && !range) {
             setCustomWage(reportsData.summary.avgHourlyWage);
+            setDateRange(reportsData.dateRange);
         }
         setLoading(false);
+    };
+
+    const handlePrev = () => {
+        if (dateRange) setDateRange(shiftWeek(dateRange, -1));
+    };
+
+    const handleNext = () => {
+        if (dateRange) setDateRange(shiftWeek(dateRange, 1));
     };
 
     if (loading) {
@@ -64,15 +74,25 @@ export const ReportsDashboard: React.FC = () => {
         <div className="reports-dashboard p-8 max-w-7xl mx-auto space-y-8">
             <div className="flex justify-between items-center">
                 <h1 className="text-2xl font-bold text-gray-900">Trim Tracker Report</h1>
-                <div className="flex items-center gap-4 bg-white px-4 py-2 rounded-lg border border-gray-200 shadow-sm">
-                    <button className="p-1 hover:bg-gray-100 rounded-full text-gray-400 hover:text-gray-600">
-                        <ChevronLeft size={20} />
-                    </button>
-                    <span className="text-sm font-medium text-green-600">September 19-25, 2021</span>
-                    <button className="p-1 hover:bg-gray-100 rounded-full text-gray-400 hover:text-gray-600">
-                        <ChevronRight size={20} />
-                    </button>
-                </div>
+                {dateRange && (
+                    <div className="flex items-center gap-4 bg-white px-4 py-2 rounded-lg border border-gray-200 shadow-sm">
+                        <button
+                            onClick={handlePrev}
+                            className="p-1 hover:bg-gray-100 rounded-full text-gray-400 hover:text-gray-600"
+                        >
+                            <ChevronLeft size={20} />
+                        </button>
+                        <span className="text-sm font-medium text-green-600 whitespace-nowrap">
+                            {formatDateRange(dateRange)}
+                        </span>
+                        <button
+                            onClick={handleNext}
+                            className="p-1 hover:bg-gray-100 rounded-full text-gray-400 hover:text-gray-600"
+                        >
+                            <ChevronRight size={20} />
+                        </button>
+                    </div>
+                )}
             </div>
 
             {/* Top Metrics Grid */}

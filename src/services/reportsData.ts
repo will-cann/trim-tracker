@@ -38,12 +38,19 @@ export interface TrimmerPerformanceData {
     [trimmerName: string]: number | string;
 }
 
+export interface DateRange {
+    start: Date;
+    end: Date;
+}
+
 export interface ReportsData {
     summary: ReportSummary;
     throughput: DailyThroughput[];
     trimmerStats: TrimmerStat[];
     costRatio: CostMetric[];
     trimmerPerformance: TrimmerPerformanceData[];
+    dateRange: DateRange;
+    availableRange: DateRange | null; // earliest to latest completed session
 }
 
 const DEFAULT_HOURLY_WAGE = 15;
@@ -66,26 +73,83 @@ function calculateLaborHours(session: TrimSession): number {
     return totalHours;
 }
 
-export async function getReportsData(): Promise<ReportsData> {
-    const sessions = await apiService.getCompletedSessions();
+/** Get the Monday..Sunday week containing `date` */
+function getWeekRange(date: Date): DateRange {
+    const d = new Date(date);
+    const day = d.getDay(); // 0=Sun
+    const diffToMon = day === 0 ? -6 : 1 - day;
+    const start = new Date(d);
+    start.setDate(d.getDate() + diffToMon);
+    start.setHours(0, 0, 0, 0);
+    const end = new Date(start);
+    end.setDate(start.getDate() + 6);
+    end.setHours(23, 59, 59, 999);
+    return { start, end };
+}
+
+export function shiftWeek(range: DateRange, direction: 1 | -1): DateRange {
+    const start = new Date(range.start);
+    start.setDate(start.getDate() + direction * 7);
+    const end = new Date(start);
+    end.setDate(start.getDate() + 6);
+    end.setHours(23, 59, 59, 999);
+    return { start, end };
+}
+
+export function formatDateRange(range: DateRange): string {
+    const opts: Intl.DateTimeFormatOptions = { month: 'long', day: 'numeric' };
+    const startStr = range.start.toLocaleDateString('en-US', opts);
+    const endStr = range.end.toLocaleDateString('en-US', { ...opts, year: 'numeric' });
+    return `${startStr} – ${endStr}`;
+}
+
+export async function getReportsData(dateRange?: DateRange): Promise<ReportsData> {
+    const allSessions = await apiService.getCompletedSessions();
+
+    // Determine the full available range from all sessions
+    let availableRange: DateRange | null = null;
+    if (allSessions.length > 0) {
+        const dates = allSessions
+            .filter(s => s.completedAt)
+            .map(s => new Date(s.completedAt!).getTime());
+        if (dates.length > 0) {
+            availableRange = {
+                start: new Date(Math.min(...dates)),
+                end: new Date(Math.max(...dates)),
+            };
+        }
+    }
+
+    // Default to the week of the most recent session
+    const effectiveRange = dateRange || (availableRange ? getWeekRange(availableRange.end) : getWeekRange(new Date()));
+
+    // Filter sessions to the selected date range
+    const sessions = allSessions.filter(s => {
+        if (!s.completedAt) return false;
+        const t = new Date(s.completedAt).getTime();
+        return t >= effectiveRange.start.getTime() && t <= effectiveRange.end.getTime();
+    });
+
+    const emptyResult = {
+        summary: {
+            trimLaborHours: 0,
+            avgGramsPerHour: 0,
+            flowerTrimmedLbs: 0,
+            trimLbs: 0,
+            avgHourlyWage: DEFAULT_HOURLY_WAGE,
+            estimatedLaborCost: 0,
+            avgLaborCostPerLb: 0
+        },
+        throughput: [],
+        trimmerStats: [],
+        costRatio: [],
+        trimmerPerformance: [],
+        dateRange: effectiveRange,
+        availableRange,
+    };
 
     if (sessions.length === 0) {
-        // Return empty data structure
-        return {
-            summary: {
-                trimLaborHours: 0,
-                avgGramsPerHour: 0,
-                flowerTrimmedLbs: 0,
-                trimLbs: 0,
-                avgHourlyWage: DEFAULT_HOURLY_WAGE,
-                estimatedLaborCost: 0,
-                avgLaborCostPerLb: 0
-            },
-            throughput: [],
-            trimmerStats: [],
-            costRatio: [],
-            trimmerPerformance: []
-        };
+        return emptyResult;
     }
 
     // Calculate summary metrics
@@ -169,6 +233,8 @@ export async function getReportsData(): Promise<ReportsData> {
         throughput: Array.from(throughputMap.values()),
         trimmerStats,
         costRatio,
-        trimmerPerformance
+        trimmerPerformance,
+        dateRange: effectiveRange,
+        availableRange,
     };
 }
