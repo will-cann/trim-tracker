@@ -60,21 +60,59 @@ export async function resolveContext(authHeader?: string): Promise<Authenticated
     if (!auth0User) return null;
 
     try {
+        // Look up existing user by Auth0 sub
         const { rows } = await sql`
             SELECT id, company_id, role
             FROM users
             WHERE external_id = ${auth0User.sub}
         `;
 
-        if (rows.length === 0) {
-            console.warn(`User with external_id ${auth0User.sub} not found in database.`);
-            return null;
+        if (rows.length > 0) {
+            return {
+                userId: rows[0].id,
+                companyId: rows[0].company_id,
+                role: rows[0].role
+            };
         }
 
+        // Auto-provision: create company + user on first login
+        console.log(`Auto-provisioning user for external_id ${auth0User.sub}`);
+        const email = auth0User.email || `${auth0User.sub}@unknown.com`;
+        const name = auth0User.name || auth0User.nickname || email.split('@')[0];
+
+        // Check if a user with this email already exists (link to existing account)
+        const { rows: existingByEmail } = await sql`
+            SELECT id, company_id, role FROM users WHERE email = ${email}
+        `;
+
+        if (existingByEmail.length > 0) {
+            // Link Auth0 sub to existing user
+            await sql`
+                UPDATE users SET external_id = ${auth0User.sub} WHERE id = ${existingByEmail[0].id}
+            `;
+            return {
+                userId: existingByEmail[0].id,
+                companyId: existingByEmail[0].company_id,
+                role: existingByEmail[0].role
+            };
+        }
+
+        // Create new company and user
+        const { rows: [newCompany] } = await sql`
+            INSERT INTO companies (id, name) VALUES (gen_random_uuid(), ${name || 'My Company'})
+            RETURNING id
+        `;
+
+        const { rows: [newUser] } = await sql`
+            INSERT INTO users (id, company_id, external_id, email, name, role)
+            VALUES (gen_random_uuid(), ${newCompany.id}, ${auth0User.sub}, ${email}, ${name}, 'admin')
+            RETURNING id, company_id, role
+        `;
+
         return {
-            userId: rows[0].id,
-            companyId: rows[0].company_id,
-            role: rows[0].role
+            userId: newUser.id,
+            companyId: newUser.company_id,
+            role: newUser.role
         };
     } catch (error) {
         console.error('Error resolving user context:', error);
