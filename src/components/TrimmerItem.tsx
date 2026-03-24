@@ -1,13 +1,15 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Trash2, Mic, MicOff } from 'lucide-react';
 import { useSpeechToText } from '../hooks/useSpeechToText';
 import type { Trimmer, TrimmerProfile } from '../types/definitions';
 import { TimePicker } from './TimePicker';
 import { calculateDuration, formatDuration } from '../utils/timeUtils';
 
+const DEBOUNCE_MS = 800;
+
 interface TrimmerItemProps {
     trimmer: Trimmer;
-    profiles: TrimmerProfile[]; // Added profiles prop
+    profiles: TrimmerProfile[];
     onUpdate: (id: string, updates: Partial<Trimmer>) => void;
     onRemove: (id: string) => void;
     readOnly?: boolean;
@@ -16,6 +18,75 @@ interface TrimmerItemProps {
 export const TrimmerItem: React.FC<TrimmerItemProps> = ({ trimmer, profiles, onUpdate, onRemove, readOnly = false }) => {
     const { startListening, stopListening } = useSpeechToText();
     const [listeningField, setListeningField] = useState<string | null>(null);
+
+    // Local state for weight inputs so typing is instant
+    const [localWeights, setLocalWeights] = useState({
+        flowerWeight: trimmer.flowerWeight,
+        shakeWeight: trimmer.shakeWeight,
+        trimWeight: trimmer.trimWeight,
+        wasteWeight: trimmer.wasteWeight,
+    });
+
+    // Sync local state when trimmer prop changes from outside (e.g. after save completes)
+    const lastSavedRef = useRef(localWeights);
+    useEffect(() => {
+        const incoming = {
+            flowerWeight: trimmer.flowerWeight,
+            shakeWeight: trimmer.shakeWeight,
+            trimWeight: trimmer.trimWeight,
+            wasteWeight: trimmer.wasteWeight,
+        };
+        // Only update local if server state differs from what we last saved
+        // (avoids overwriting in-progress typing)
+        if (
+            incoming.flowerWeight !== lastSavedRef.current.flowerWeight ||
+            incoming.shakeWeight !== lastSavedRef.current.shakeWeight ||
+            incoming.trimWeight !== lastSavedRef.current.trimWeight ||
+            incoming.wasteWeight !== lastSavedRef.current.wasteWeight
+        ) {
+            setLocalWeights(incoming);
+            lastSavedRef.current = incoming;
+        }
+    }, [trimmer.flowerWeight, trimmer.shakeWeight, trimmer.trimWeight, trimmer.wasteWeight]);
+
+    // Debounce timer ref
+    const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const pendingUpdatesRef = useRef<Partial<Trimmer>>({});
+
+    const flushUpdates = useCallback(() => {
+        const updates = pendingUpdatesRef.current;
+        if (Object.keys(updates).length > 0) {
+            lastSavedRef.current = { ...lastSavedRef.current, ...updates } as typeof lastSavedRef.current;
+            onUpdate(trimmer.id, updates);
+            pendingUpdatesRef.current = {};
+        }
+    }, [trimmer.id, onUpdate]);
+
+    // Flush on unmount
+    useEffect(() => {
+        return () => {
+            if (debounceRef.current) clearTimeout(debounceRef.current);
+            flushUpdates();
+        };
+    }, [flushUpdates]);
+
+    const debouncedUpdate = (field: keyof Trimmer, value: any) => {
+        pendingUpdatesRef.current = { ...pendingUpdatesRef.current, [field]: value };
+        if (debounceRef.current) clearTimeout(debounceRef.current);
+        debounceRef.current = setTimeout(flushUpdates, DEBOUNCE_MS);
+    };
+
+    const handleWeightChange = (field: 'flowerWeight' | 'shakeWeight' | 'trimWeight' | 'wasteWeight', value: number) => {
+        if (readOnly) return;
+        setLocalWeights(prev => ({ ...prev, [field]: value }));
+        debouncedUpdate(field, value);
+    };
+
+    // Immediate save for non-weight fields (dropdowns, time pickers)
+    const handleChange = (field: keyof Trimmer, value: any) => {
+        if (readOnly) return;
+        onUpdate(trimmer.id, { [field]: value });
+    };
 
     const handleSpeech = (field: keyof Trimmer) => {
         if (listeningField === field) {
@@ -26,16 +97,15 @@ export const TrimmerItem: React.FC<TrimmerItemProps> = ({ trimmer, profiles, onU
             startListening((text) => {
                 const num = parseFloat(text.replace(/[^0-9.]/g, ''));
                 if (!isNaN(num)) {
-                    onUpdate(trimmer.id, { [field]: num });
+                    if (['flowerWeight', 'shakeWeight', 'trimWeight', 'wasteWeight'].includes(field)) {
+                        handleWeightChange(field as any, num);
+                    } else {
+                        onUpdate(trimmer.id, { [field]: num });
+                    }
                 }
                 setListeningField(null);
             });
         }
-    };
-
-    const handleChange = (field: keyof Trimmer, value: any) => {
-        if (readOnly) return;
-        onUpdate(trimmer.id, { [field]: value });
     };
 
     const handleNameChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
@@ -119,8 +189,8 @@ export const TrimmerItem: React.FC<TrimmerItemProps> = ({ trimmer, profiles, onU
                     <div className="input-with-action-minimal">
                         <input
                             type="number"
-                            value={trimmer.flowerWeight || ''}
-                            onChange={(e) => handleChange('flowerWeight', Number(e.target.value))}
+                            value={localWeights.flowerWeight || ''}
+                            onChange={(e) => handleWeightChange('flowerWeight', Number(e.target.value))}
                             placeholder="0"
                             className="weight-input-minimal"
                             disabled={readOnly}
@@ -141,8 +211,8 @@ export const TrimmerItem: React.FC<TrimmerItemProps> = ({ trimmer, profiles, onU
                     <div className="input-with-action-minimal">
                         <input
                             type="number"
-                            value={trimmer.shakeWeight || ''}
-                            onChange={(e) => handleChange('shakeWeight', Number(e.target.value))}
+                            value={localWeights.shakeWeight || ''}
+                            onChange={(e) => handleWeightChange('shakeWeight', Number(e.target.value))}
                             placeholder="0"
                             className="weight-input-minimal"
                             disabled={readOnly}
@@ -163,8 +233,8 @@ export const TrimmerItem: React.FC<TrimmerItemProps> = ({ trimmer, profiles, onU
                     <div className="input-with-action-minimal">
                         <input
                             type="number"
-                            value={trimmer.trimWeight || ''}
-                            onChange={(e) => handleChange('trimWeight', Number(e.target.value))}
+                            value={localWeights.trimWeight || ''}
+                            onChange={(e) => handleWeightChange('trimWeight', Number(e.target.value))}
                             placeholder="0"
                             className="weight-input-minimal"
                             disabled={readOnly}
@@ -185,8 +255,8 @@ export const TrimmerItem: React.FC<TrimmerItemProps> = ({ trimmer, profiles, onU
                     <div className="input-with-action-minimal">
                         <input
                             type="number"
-                            value={trimmer.wasteWeight || ''}
-                            onChange={(e) => handleChange('wasteWeight', Number(e.target.value))}
+                            value={localWeights.wasteWeight || ''}
+                            onChange={(e) => handleWeightChange('wasteWeight', Number(e.target.value))}
                             placeholder="0"
                             className="weight-input-minimal"
                             disabled={readOnly}
