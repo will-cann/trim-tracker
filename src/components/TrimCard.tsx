@@ -34,10 +34,7 @@ export const TrimCard: React.FC<TrimCardProps> = ({
     trimmerProfiles
 }) => {
     const cardRef = React.useRef<HTMLDivElement>(null);
-    // Auto-expand active cards that have no real trimmer data yet (just started)
-    const hasNoTrimmerData = entry.status === 'active' && (!entry.trimmers || entry.trimmers.length === 0 ||
-        entry.trimmers.every(t => !t.profileId && !t.name));
-    const [isExpanded, setIsExpanded] = useState(hasNoTrimmerData);
+    const [isExpanded, setIsExpanded] = useState(false);
     const [isEditingStrain, setIsEditingStrain] = useState(false);
     const [editStrainValue, setEditStrainValue] = useState(entry.strain || '');
     const [isStatusHovered, setIsStatusHovered] = useState(false);
@@ -129,14 +126,6 @@ export const TrimCard: React.FC<TrimCardProps> = ({
         }
     };
 
-    // Auto-scroll to card when it first mounts as a just-started active card
-    React.useEffect(() => {
-        if (hasNoTrimmerData && cardRef.current) {
-            setTimeout(() => {
-                cardRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            }, 100);
-        }
-    }, []);
 
     const canRevertToUpcoming = entry.status === 'active' && onRevertBatch;
 
