@@ -14,7 +14,7 @@ interface TrimmerItemProps {
 }
 
 export const TrimmerItem: React.FC<TrimmerItemProps> = ({ trimmer, profiles, onUpdate, onRemove, readOnly = false }) => {
-    const { isListening, startListening, stopListening } = useSpeechToText();
+    const { startListening, stopListening } = useSpeechToText();
     const [listeningField, setListeningField] = useState<string | null>(null);
 
     const handleSpeech = (field: keyof Trimmer) => {

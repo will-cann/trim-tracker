@@ -1,4 +1,4 @@
-import type { TrimSession, CreateTrimSessionDTO, Trimmer, TrimmerProfile } from '../types/definitions';
+import type { TrimSession, CreateTrimSessionDTO, Trimmer, TrimmerProfile, ProposedAction } from '../types/definitions';
 
 const API_BASE = '/.netlify/functions';
 
@@ -198,6 +198,25 @@ export const revertBatch = async (entryId: string): Promise<TrimSession> => {
     return await getSession() as TrimSession;
 };
 
+export const aiParse = async (request: {
+    message?: string;
+    csvData?: string;
+    context: {
+        hasActiveSession: boolean;
+        sessionId?: string;
+        trimmerProfiles: Array<{ id: string; name: string }>;
+        existingEntries: Array<{ id: string; harvestName: string; strain: string; status: string }>;
+    };
+}): Promise<{ actions: ProposedAction[]; message: string }> => {
+    const response = await fetchWithAuth(`${API_BASE}/ai-parse`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(request),
+    });
+    if (!response.ok) throw new Error('AI parsing failed');
+    return await response.json();
+};
+
 export const getCompletedSessions = async (): Promise<TrimSession[]> => {
     const response = await fetchWithAuth(`${API_BASE}/get-completed-sessions`);
     if (!response.ok) return [];
@@ -223,4 +242,5 @@ export const apiService = {
     startBatch,
     revertBatch,
     getCompletedSessions,
+    aiParse,
 };

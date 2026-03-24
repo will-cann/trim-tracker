@@ -13,7 +13,7 @@ export const StartSession: React.FC<StartSessionProps> = ({ onStart }) => {
     const [licenseNumber, setLicenseNumber] = useState('');
     const [startWeight, setStartWeight] = useState('');
 
-    const { isListening, startListening, stopListening } = useSpeechToText();
+    const { startListening, stopListening } = useSpeechToText();
     const [listeningField, setListeningField] = useState<string | null>(null);
 
     const handleSpeech = (field: string, setter: (val: string) => void) => {

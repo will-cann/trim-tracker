@@ -54,3 +54,16 @@ export interface CreateTrimSessionDTO {
   plannedTrimDate?: string;
   plannedMethod?: 'machine' | 'scissors';
 }
+
+export interface ProposedAction {
+  type: 'create_session' | 'add_batch' | 'assign_trimmer' | 'add_trimmer_profile';
+  data: Record<string, any>;
+}
+
+export interface ChatMessage {
+  id: string;
+  role: 'user' | 'assistant';
+  content: string;
+  actions?: ProposedAction[];
+  status?: 'pending' | 'confirmed' | 'cancelled';
+}

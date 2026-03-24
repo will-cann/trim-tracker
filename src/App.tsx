@@ -1,7 +1,8 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import type { TrimSession, CreateTrimSessionDTO, TrimmerProfile } from './types/definitions';
 import { apiService } from './services/apiService';
-import { StartSession } from './components/StartSession';
+import { AIAssistant } from './components/AIAssistant';
+import { ChatPanel } from './components/ChatPanel';
 import { Dashboard } from './components/Dashboard';
 import { ReportsDashboard } from './components/Reports/ReportsDashboard';
 import { Sidebar } from './components/Sidebar';
@@ -49,6 +50,10 @@ function AppContent() {
     const profiles = await apiService.getTrimmerProfiles();
     setTrimmerProfiles(profiles);
   };
+
+  const refreshAll = useCallback(async () => {
+    await Promise.all([loadSession(), loadTrimmerProfiles()]);
+  }, []);
 
   const handleStartSession = async (data: CreateTrimSessionDTO) => {
     const newSession = await apiService.createSession(data);
@@ -155,7 +160,11 @@ function AppContent() {
           <ReportsDashboard />
         ) : (
           !session ? (
-            <StartSession onStart={handleStartSession} />
+            <AIAssistant
+              onStart={handleStartSession}
+              trimmerProfiles={trimmerProfiles}
+              onSessionUpdate={refreshAll}
+            />
           ) : (
             <>
               <Dashboard
@@ -192,6 +201,11 @@ function AppContent() {
                   setSession({ ...updatedSession });
                 }}
                 trimmerProfiles={trimmerProfiles}
+              />
+              <ChatPanel
+                session={session}
+                trimmerProfiles={trimmerProfiles}
+                onSessionUpdate={refreshAll}
               />
             </>
           )
