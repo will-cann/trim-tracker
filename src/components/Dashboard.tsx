@@ -167,12 +167,12 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 onRemoveTrimmer={onRemoveTrimmer}
                 onDeleteBatch={onDeleteBatch}
                 onSubmitBatch={onSubmitBatch}
-                onStartBatch={onStartBatch ? (entryId) => {
-                    onStartBatch(entryId);
+                onStartBatch={onStartBatch ? async (entryId) => {
+                    await onStartBatch(entryId);
                     setActiveTab('active');
                 } : undefined}
-                onRevertBatch={onRevertBatch ? (entryId) => {
-                    onRevertBatch(entryId);
+                onRevertBatch={onRevertBatch ? async (entryId) => {
+                    await onRevertBatch(entryId);
                     setActiveTab('upcoming');
                 } : undefined}
                 trimmerProfiles={trimmerProfiles}
