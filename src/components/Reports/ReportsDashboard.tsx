@@ -50,15 +50,36 @@ export const ReportsDashboard: React.FC = () => {
     if (!data || data.summary.trimLaborHours === 0) {
         return (
             <div className="reports-dashboard p-8 max-w-7xl mx-auto">
-                <h1 className="text-2xl font-bold text-gray-900 mb-8">Trim Tracker Report</h1>
+                <div className="flex justify-between items-center mb-8">
+                    <h1 className="text-2xl font-bold text-gray-900">Trim Tracker Report</h1>
+                    {dateRange && (
+                        <div className="flex items-center gap-4 bg-white px-4 py-2 rounded-lg border border-gray-200 shadow-sm">
+                            <button
+                                onClick={handlePrev}
+                                className="p-1 hover:bg-gray-100 rounded-full text-gray-400 hover:text-gray-600"
+                            >
+                                <ChevronLeft size={20} />
+                            </button>
+                            <span className="text-sm font-medium text-green-600 whitespace-nowrap">
+                                {formatDateRange(dateRange)}
+                            </span>
+                            <button
+                                onClick={handleNext}
+                                className="p-1 hover:bg-gray-100 rounded-full text-gray-400 hover:text-gray-600"
+                            >
+                                <ChevronRight size={20} />
+                            </button>
+                        </div>
+                    )}
+                </div>
                 <div className="bg-white p-12 rounded-xl border border-gray-100 shadow-sm text-center">
                     <div className="text-gray-400 mb-4">
                         <svg className="mx-auto h-12 w-12" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                         </svg>
                     </div>
-                    <h3 className="text-lg font-semibold text-gray-900 mb-2">No Data Yet</h3>
-                    <p className="text-gray-600">Submit some trim sessions to see reports and analytics.</p>
+                    <h3 className="text-lg font-semibold text-gray-900 mb-2">No Data for This Week</h3>
+                    <p className="text-gray-600">No completed sessions in this period. Use the arrows to navigate to another week.</p>
                 </div>
             </div>
         );
