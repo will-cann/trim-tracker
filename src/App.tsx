@@ -16,16 +16,28 @@ function AppContent() {
   const [currentView, setCurrentView] = useState<'dashboard' | 'reports'>('dashboard');
   const [trimmerProfiles, setTrimmerProfiles] = useState<TrimmerProfile[]>([]);
 
+  const loadSession = useCallback(async () => {
+    setLoading(true);
+    const data = await apiService.getSession();
+    setSession(data);
+    setLoading(false);
+  }, []);
+
+  const loadTrimmerProfiles = useCallback(async () => {
+    const profiles = await apiService.getTrimmerProfiles();
+    setTrimmerProfiles(profiles);
+  }, []);
+
+  const refreshAll = useCallback(async () => {
+    await Promise.all([loadSession(), loadTrimmerProfiles()]);
+  }, [loadSession, loadTrimmerProfiles]);
+
   useEffect(() => {
     if (user) {
       loadSession();
       loadTrimmerProfiles();
     }
-  }, [user]);
-
-  useEffect(() => {
-    console.log('App Main Stats:', { authLoading, user: !!user, loading, hasSession: !!session });
-  });
+  }, [user, loadSession, loadTrimmerProfiles]);
 
   if (authLoading) {
     return (
@@ -39,50 +51,28 @@ function AppContent() {
     return <Login />;
   }
 
-  const loadSession = async () => {
-    setLoading(true);
-    const data = await apiService.getSession();
-    setSession(data);
-    setLoading(false);
-  };
-
-  const loadTrimmerProfiles = async () => {
-    const profiles = await apiService.getTrimmerProfiles();
-    setTrimmerProfiles(profiles);
-  };
-
-  const refreshAll = useCallback(async () => {
-    await Promise.all([loadSession(), loadTrimmerProfiles()]);
-  }, []);
-
   const handleStartSession = async (data: CreateTrimSessionDTO) => {
     const newSession = await apiService.createSession(data);
     setSession(newSession);
   };
 
   const handleUpdateWeight = async (entryId: string, type: 'flower' | 'shake' | 'trim' | 'waste', val: number) => {
-    // Persist
     const updatedSession = await apiService.updateEntryWeight(entryId, type, val);
     setSession(updatedSession);
   };
 
   const handleSubmitSession = async (e?: React.MouseEvent) => {
-    console.log('handleSubmitSession CALLED', e);
     e?.preventDefault();
     e?.stopPropagation();
 
     if (confirm('Are you sure you want to submit this session?')) {
-      console.log('Proceeding with session submission');
       try {
         await apiService.submitSession();
-        console.log('Session submitted successfully, clearing state');
         setSession(null);
       } catch (error) {
         console.error('Error submitting session:', error);
         alert('Failed to submit session: ' + error);
       }
-    } else {
-      console.log('User cancelled submission');
     }
   };
 
@@ -90,7 +80,6 @@ function AppContent() {
     const updatedSession = await apiService.addBatch(data);
     setSession(updatedSession);
   };
-
 
   const handleDeleteBatch = async (entryId: string) => {
     const updatedSession = await apiService.deleteBatch(entryId);
@@ -130,7 +119,6 @@ function AppContent() {
     setSession({ ...updatedSession });
   };
 
-  // Roster Handlers
   const handleAddProfile = async (name: string) => {
     const updatedProfiles = await apiService.addTrimmerProfile(name);
     setTrimmerProfiles(updatedProfiles);
@@ -179,10 +167,7 @@ function AppContent() {
                 onDeleteBatch={handleDeleteBatch}
                 onSubmitBatch={handleSubmitBatch}
                 onStartBatch={async (entryId) => {
-                  // Start the batch (changes status to 'active')
                   let updatedSession = await apiService.startBatch(entryId);
-
-                  // Automatically add first trimmer row
                   const newTrimmer = {
                     name: '',
                     startTime: '',
@@ -193,7 +178,6 @@ function AppContent() {
                     wasteWeight: 0
                   };
                   updatedSession = await apiService.addTrimmer(entryId, newTrimmer);
-
                   setSession({ ...updatedSession });
                 }}
                 onRevertBatch={async (entryId) => {
