@@ -23,6 +23,20 @@ export const handler: Handler = async (event) => {
         try {
             await client.query('BEGIN');
 
+            // Check for existing active session
+            const existing = await client.query(
+                `SELECT id FROM trim_sessions WHERE company_id = $1 AND completed_at IS NULL LIMIT 1`,
+                [context.companyId]
+            );
+            if (existing.rows.length > 0) {
+                await client.query('ROLLBACK');
+                return {
+                    statusCode: 409,
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ error: 'An active session already exists. Submit or complete it first.' }),
+                };
+            }
+
             // Create session
             const sessionResult = await client.query(`
         INSERT INTO trim_sessions (company_id, created_by, start_time)

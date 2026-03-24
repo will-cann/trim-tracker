@@ -19,8 +19,9 @@ export const handler: Handler = async (event) => {
 
         // Get active session
         const { rows: sessions } = await sql`
-      SELECT * FROM trim_sessions 
+      SELECT * FROM trim_sessions
       WHERE company_id = ${context.companyId} AND completed_at IS NULL
+      ORDER BY created_at DESC
       LIMIT 1
     `;
 
