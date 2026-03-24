@@ -4,11 +4,15 @@ import { sql } from './db';
 const AUTH0_DOMAIN = process.env.AUTH0_DOMAIN;
 const AUTH0_AUDIENCE = process.env.AUTH0_AUDIENCE;
 
-if (!AUTH0_DOMAIN || !AUTH0_AUDIENCE) {
-    console.warn('AUTH0_DOMAIN or AUTH0_AUDIENCE not set. Auth will fail.');
+// Lazy-init JWKS to avoid crashing at module load when AUTH0_DOMAIN is not set
+let _jwks: ReturnType<typeof createRemoteJWKSet> | null = null;
+function getJWKS() {
+    if (!_jwks) {
+        if (!AUTH0_DOMAIN) throw new Error('AUTH0_DOMAIN not set');
+        _jwks = createRemoteJWKSet(new URL(`https://${AUTH0_DOMAIN}/.well-known/jwks.json`));
+    }
+    return _jwks;
 }
-
-const JWKS = createRemoteJWKSet(new URL(`https://${AUTH0_DOMAIN}/.well-known/jwks.json`));
 
 export interface Auth0User {
     sub: string;
@@ -30,7 +34,7 @@ export async function verifyToken(authHeader?: string): Promise<Auth0User | null
     const token = authHeader.split(' ')[1];
 
     try {
-        const { payload } = await jwtVerify(token, JWKS, {
+        const { payload } = await jwtVerify(token, getJWKS(), {
             issuer: `https://${AUTH0_DOMAIN}/`,
             audience: AUTH0_AUDIENCE,
         });
