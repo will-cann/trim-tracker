@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import ReactMarkdown from 'react-markdown';
 import { Sparkles, Mic, MicOff, Upload, FileText, ArrowRight, Loader2 } from 'lucide-react';
 import { useSpeechRecognition } from '../hooks/useSpeechRecognition';
 import { useAIChat } from '../hooks/useAIChat';
@@ -138,13 +139,13 @@ export const AIAssistant: React.FC<AIAssistantProps> = ({ onStart, trimmerProfil
                             className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
                         >
                             <div
-                                className={`max-w-[85%] rounded-2xl px-4 py-2 text-sm ${
+                                className={`chat-bubble max-w-[85%] rounded-2xl px-4 py-2 text-sm ${
                                     msg.role === 'user'
                                         ? 'bg-emerald-500 text-white'
                                         : 'bg-gray-100 text-gray-800'
                                 }`}
                             >
-                                {msg.content}
+                                <ReactMarkdown>{msg.content}</ReactMarkdown>
                             </div>
                         </div>
                     ))}

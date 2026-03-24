@@ -195,6 +195,14 @@ body {
   flex-wrap: nowrap;
 }
 
+/* AI chat markdown prose */
+.chat-bubble p { margin: 0 0 0.5em; }
+.chat-bubble p:last-child { margin-bottom: 0; }
+.chat-bubble ul, .chat-bubble ol { margin: 0.25em 0; padding-left: 1.25em; }
+.chat-bubble li { margin: 0.1em 0; }
+.chat-bubble strong { font-weight: 600; }
+.chat-bubble code { background: rgba(0,0,0,0.08); padding: 0.1em 0.3em; border-radius: 3px; font-size: 0.85em; }
+
 .btn-new-batch {
   padding: 8px 16px;
   background-color: white;
