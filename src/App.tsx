@@ -173,6 +173,11 @@ function AppContent() {
                 onDeleteBatch={handleDeleteBatch}
                 onSubmitBatch={handleSubmitBatch}
                 onStartBatch={async (entryId) => {
+                  // Optimistic update — move entry to active immediately
+                  setSession(prev => prev ? {
+                    ...prev,
+                    entries: prev.entries.map(e => e.id === entryId ? { ...e, status: 'active' } : e),
+                  } : prev);
                   let updatedSession = await apiService.startBatch(entryId);
                   const newTrimmer = {
                     name: '',
@@ -187,6 +192,11 @@ function AppContent() {
                   setSession({ ...updatedSession });
                 }}
                 onRevertBatch={async (entryId) => {
+                  // Optimistic update — move entry to upcoming immediately
+                  setSession(prev => prev ? {
+                    ...prev,
+                    entries: prev.entries.map(e => e.id === entryId ? { ...e, status: 'upcoming' } : e),
+                  } : prev);
                   const updatedSession = await apiService.revertBatch(entryId);
                   setSession({ ...updatedSession });
                 }}
