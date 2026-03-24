@@ -65,10 +65,16 @@ function AppContent() {
     e?.preventDefault();
     e?.stopPropagation();
 
-    if (confirm('Are you sure you want to submit this session?')) {
+    if (confirm('Are you sure you want to submit this session? Any in-progress or upcoming batches will roll over to a new session.')) {
       try {
-        await apiService.submitSession();
-        setSession(null);
+        const result = await apiService.submitSession();
+        if (result.rolledOver > 0) {
+          // Reload — a new session was created with the rolled-over batches
+          await loadSession();
+          await loadTrimmerProfiles();
+        } else {
+          setSession(null);
+        }
       } catch (error) {
         console.error('Error submitting session:', error);
         alert('Failed to submit session: ' + error);

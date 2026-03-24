@@ -62,7 +62,7 @@ export const createSession = async (data: CreateTrimSessionDTO): Promise<TrimSes
     return await response.json();
 };
 
-export const submitSession = async (): Promise<void> => {
+export const submitSession = async (): Promise<{ success: boolean; rolledOver: number }> => {
     const session = await getSession();
     if (!session) throw new Error('No active session');
 
@@ -72,6 +72,7 @@ export const submitSession = async (): Promise<void> => {
         body: JSON.stringify({ sessionId: session.id }),
     });
     if (!response.ok) throw new Error('Failed to submit session');
+    return await response.json();
 };
 
 export const addBatch = async (data: any): Promise<TrimSession> => {
