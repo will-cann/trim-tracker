@@ -19,7 +19,8 @@ export const AIAssistant: React.FC<AIAssistantProps> = ({ onStart, trimmerProfil
     const fileInputRef = useRef<HTMLInputElement>(null);
     const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-    const { isListening, transcript, startListening, stopListening, hasSupport, resetTranscript } = useSpeechRecognition();
+    const { isListening, finalTranscript, interimTranscript, startListening, stopListening, hasSupport, resetTranscript } = useSpeechRecognition();
+    const [preListeningText, setPreListeningText] = useState('');
 
     const {
         messages,
@@ -33,12 +34,22 @@ export const AIAssistant: React.FC<AIAssistantProps> = ({ onStart, trimmerProfil
         editAction,
     } = useAIChat({ session: null, trimmerProfiles, onSessionUpdate });
 
-    // Append speech transcript to input
+    // When final transcript updates, commit it to input
     useEffect(() => {
-        if (transcript) {
-            setInputText(prev => prev ? `${prev} ${transcript}` : transcript);
+        if (finalTranscript) {
+            setInputText(preListeningText ? `${preListeningText} ${finalTranscript}` : finalTranscript);
         }
-    }, [transcript]);
+    }, [finalTranscript]);
+
+    // Show interim text as a live preview in the input
+    useEffect(() => {
+        if (isListening && interimTranscript) {
+            const base = finalTranscript
+                ? (preListeningText ? `${preListeningText} ${finalTranscript}` : finalTranscript)
+                : preListeningText;
+            setInputText(base ? `${base} ${interimTranscript}` : interimTranscript);
+        }
+    }, [interimTranscript, isListening]);
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
@@ -180,7 +191,14 @@ export const AIAssistant: React.FC<AIAssistantProps> = ({ onStart, trimmerProfil
                         {hasSupport && (
                             <button
                                 type="button"
-                                onClick={isListening ? stopListening : startListening}
+                                onClick={() => {
+                                    if (isListening) {
+                                        stopListening();
+                                    } else {
+                                        setPreListeningText(inputText);
+                                        startListening();
+                                    }
+                                }}
                                 className={`p-2 rounded-lg transition-colors ${
                                     isListening
                                         ? 'bg-red-100 text-red-500 hover:bg-red-200'

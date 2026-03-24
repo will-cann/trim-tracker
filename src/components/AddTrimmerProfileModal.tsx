@@ -9,13 +9,13 @@ interface AddTrimmerProfileModalProps {
 
 export const AddTrimmerProfileModal: React.FC<AddTrimmerProfileModalProps> = ({ onClose, onSubmit }) => {
     const [name, setName] = useState('');
-    const { isListening, transcript, startListening, stopListening, hasSupport } = useSpeechRecognition();
+    const { isListening, finalTranscript, startListening, stopListening, hasSupport } = useSpeechRecognition();
 
     useEffect(() => {
-        if (transcript) {
-            setName(transcript);
+        if (finalTranscript) {
+            setName(finalTranscript);
         }
-    }, [transcript]);
+    }, [finalTranscript]);
 
     const handleMicClick = () => {
         if (isListening) {

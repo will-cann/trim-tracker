@@ -14,24 +14,24 @@ export const AddBatchModal: React.FC<AddBatchModalProps> = ({ onClose, onSubmit 
     const [licenseNumber, setLicenseNumber] = useState('');
     const [startWeight, setStartWeight] = useState('');
 
-    const { isListening, transcript, startListening, stopListening, hasSupport } = useSpeechRecognition();
+    const { isListening, finalTranscript, startListening, stopListening, hasSupport } = useSpeechRecognition();
     const [activeField, setActiveField] = useState<string | null>(null);
 
     useEffect(() => {
-        if (transcript && activeField) {
+        if (finalTranscript && activeField) {
             switch (activeField) {
                 case 'harvestName':
-                    setHarvestName(transcript);
+                    setHarvestName(finalTranscript);
                     break;
                 case 'strain':
-                    setStrain(transcript);
+                    setStrain(finalTranscript);
                     break;
                 case 'licenseNumber':
-                    setLicenseNumber(transcript);
+                    setLicenseNumber(finalTranscript);
                     break;
             }
         }
-    }, [transcript, activeField]);
+    }, [finalTranscript, activeField]);
 
     const handleMicClick = (field: string) => {
         if (isListening && activeField === field) {
