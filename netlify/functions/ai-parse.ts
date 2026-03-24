@@ -1,10 +1,7 @@
 import { Handler } from '@netlify/functions';
-import Anthropic from '@anthropic-ai/sdk';
 import { resolveContext } from './utils/auth';
 
-const anthropic = new Anthropic({
-    apiKey: process.env.ANTHROPIC_API_KEY,
-});
+const ANTHROPIC_API_URL = 'https://api.anthropic.com/v1/messages';
 
 const SYSTEM_PROMPT = `You are an AI assistant for a cannabis trim tracking application called Trim Tracker. Your job is to parse user input (natural language or CSV data) into structured actions for the application.
 
@@ -27,7 +24,7 @@ When the user provides information, use the available tools to create structured
 
 Be conversational in your text responses but always use tools to represent the structured data.`;
 
-const tools: Anthropic.Tool[] = [
+const tools = [
     {
         name: 'create_session',
         description: 'Create a new trim session with an initial batch. Use when no active session exists and the user wants to start a new one.',
@@ -172,13 +169,35 @@ export const handler: Handler = async (event) => {
 
         userMessage += contextInfo.join('\n');
 
-        const response = await anthropic.messages.create({
-            model: 'claude-sonnet-4-20250514',
-            max_tokens: 4096,
-            system: SYSTEM_PROMPT,
-            tools,
-            messages: [{ role: 'user', content: userMessage }],
+        const apiKey = process.env.ANTHROPIC_API_KEY;
+        if (!apiKey) {
+            console.error('ANTHROPIC_API_KEY not set');
+            return { statusCode: 500, body: JSON.stringify({ error: 'AI service not configured' }) };
+        }
+
+        const apiResponse = await fetch(ANTHROPIC_API_URL, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'x-api-key': apiKey,
+                'anthropic-version': '2023-06-01',
+            },
+            body: JSON.stringify({
+                model: 'claude-sonnet-4-20250514',
+                max_tokens: 4096,
+                system: SYSTEM_PROMPT,
+                tools,
+                messages: [{ role: 'user', content: userMessage }],
+            }),
         });
+
+        if (!apiResponse.ok) {
+            const errText = await apiResponse.text();
+            console.error('Anthropic API error:', apiResponse.status, errText);
+            return { statusCode: 502, body: JSON.stringify({ error: 'AI service error' }) };
+        }
+
+        const response = await apiResponse.json();
 
         // Extract tool calls and text from response
         const actions: ProposedAction[] = [];
