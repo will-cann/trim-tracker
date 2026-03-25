@@ -85,9 +85,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                     onNewConversation();
                                     onViewChange('ai');
                                 }}
-                                className="cursor-pointer hover:text-emerald-600 transition-colors"
+                                className="cursor-pointer hover:opacity-80 transition-opacity"
                             >
-                                Neurocann
+                                <span className="text-emerald-500">neuro</span><span className="text-gray-900">cann</span>
                             </h3>
                         )}
                     </div>
