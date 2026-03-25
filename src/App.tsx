@@ -39,10 +39,8 @@ function AppContent() {
   } = useConversationHistory();
 
   const loadSession = useCallback(async () => {
-    setLoading(true);
     const data = await apiService.getSession();
     setSession(data);
-    setLoading(false);
   }, []);
 
   const loadTrimmerProfiles = useCallback(async () => {
@@ -64,10 +62,8 @@ function AppContent() {
     const data = await apiService.getMyLicenses();
     setMyLicenses(data);
     // Auto-select first license if none selected
-    if (data.length > 0 && !activeLicenseId) {
-      setActiveLicenseId(data[0].id);
-    }
-  }, [activeLicenseId]);
+    setActiveLicenseId(prev => (prev ? prev : data.length > 0 ? data[0].id : null));
+  }, []);
 
   const refreshAll = useCallback(async () => {
     await Promise.all([loadSession(), loadTrimmerProfiles(), loadHarvests(), loadCompletedSessions(), loadLicenses()]);
@@ -75,18 +71,15 @@ function AppContent() {
 
   useEffect(() => {
     if (user) {
-      loadSession();
-      loadTrimmerProfiles();
-      loadHarvests();
-      loadCompletedSessions();
-      loadLicenses();
+      Promise.all([loadSession(), loadTrimmerProfiles(), loadHarvests(), loadCompletedSessions(), loadLicenses()])
+        .finally(() => setLoading(false));
     }
   }, [user, loadSession, loadTrimmerProfiles, loadHarvests, loadCompletedSessions, loadLicenses]);
 
   if (authLoading) {
     return (
-      <div className="min-h-screen bg-slate-900 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-emerald-500"></div>
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-2 border-gray-200 border-t-emerald-500"></div>
       </div>
     );
   }
@@ -192,7 +185,7 @@ function AppContent() {
     setActiveConversationId(id);
   };
 
-  if (loading) return <div className="loading flex items-center justify-center min-h-screen bg-slate-900 text-white">Loading App Data...</div>;
+  if (loading) return <div className="loading flex items-center justify-center min-h-screen bg-gray-50 text-gray-500">Loading App Data...</div>;
 
   return (
     <div className="app-container">
