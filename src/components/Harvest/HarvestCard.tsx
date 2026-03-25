@@ -45,83 +45,87 @@ export const HarvestCard: React.FC<HarvestCardProps> = ({
     const [showAllocateModal, setShowAllocateModal] = useState(false);
 
     const available = harvest.totalWetWeight - harvest.totalWasteWeight;
-    const flowerAlloc = harvest.allocations.find(a => a.allocationType === 'flower');
-    const frozenAlloc = harvest.allocations.find(a => a.allocationType === 'frozen');
 
     return (
         <>
-            <div className="trim-card" onClick={() => setIsExpanded(!isExpanded)}>
-                {/* Header */}
-                <div className="trim-card-header">
-                    <div className="trim-card-title">
-                        <div className="title-with-badge">
-                            <h3>{harvest.batchId}</h3>
-                            <span className={`status-badge ${STATUS_CLASS[harvest.status] || ''}`}>
-                                {STATUS_LABEL[harvest.status] || harvest.status}
-                            </span>
-                            {harvest.isOnHold && (
-                                <span className="status-badge" style={{ backgroundColor: '#fef2f2', color: '#ef4444', borderColor: '#fecaca' }}>
-                                    Hold
+            <div className={`trim-card ${isExpanded ? 'expanded' : ''}`}>
+                <div className="trim-card-header" onClick={() => setIsExpanded(!isExpanded)}>
+                    <div className="trim-card-top">
+                        <div className="trim-card-title">
+                            <div className="title-with-badge">
+                                <h3>{harvest.batchId}</h3>
+                                <span className={`status-badge ${STATUS_CLASS[harvest.status] || ''}`}>
+                                    {STATUS_LABEL[harvest.status] || harvest.status}
                                 </span>
+                                {harvest.isOnHold && (
+                                    <span className="status-badge" style={{ backgroundColor: '#fef2f2', color: '#ef4444' }}>Hold</span>
+                                )}
+                            </div>
+                            <div className="trim-card-subtitle">
+                                <span className="strain-name">{harvest.strain}</span>
+                                {harvest.licenseNumber && (
+                                    <>
+                                        <span className="separator">&bull;</span>
+                                        <span className="license-number">{harvest.licenseNumber}</span>
+                                    </>
+                                )}
+                                {harvest.dryingLocation && (
+                                    <>
+                                        <span className="separator">&bull;</span>
+                                        <span>{harvest.dryingLocation}</span>
+                                    </>
+                                )}
+                            </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                            {harvest.status === 'planning' && (
+                                <button
+                                    className="icon-btn delete-batch-btn"
+                                    onClick={e => { e.stopPropagation(); if (confirm('Delete this harvest?')) onDelete(harvest.id); }}
+                                    title="Delete Harvest"
+                                >
+                                    <Trash2 size={20} />
+                                </button>
+                            )}
+                            <div className="expand-icon">
+                                <ChevronDown size={24} />
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Collapsed summary */}
+                    {!isExpanded && (
+                        <div className="trim-card-summary">
+                            <div className="summary-item">
+                                <span className="label">Wet Weight</span>
+                                <span className="value">{harvest.totalWetWeight > 0 ? `${harvest.totalWetWeight.toFixed(0)}g` : '—'}</span>
+                            </div>
+                            <div className="summary-item">
+                                <span className="label">Waste</span>
+                                <span className="value">{harvest.totalWasteWeight > 0 ? `${harvest.totalWasteWeight.toFixed(0)}g` : '—'}</span>
+                            </div>
+                            {harvest.allocations.length > 0 ? (
+                                harvest.allocations.map(a => (
+                                    <div className="summary-item" key={a.id}>
+                                        <span className="label">{a.allocationType === 'flower' ? 'Flower' : 'Frozen'}</span>
+                                        <span className="value">{a.targetWeight.toFixed(0)}g</span>
+                                    </div>
+                                ))
+                            ) : (
+                                <div className="summary-item">
+                                    <span className="label">Allocation</span>
+                                    <span className="value">—</span>
+                                </div>
                             )}
                         </div>
-                        <div className="batch-meta">
-                            <span className="strain-name">{harvest.strain}</span>
-                            <span className="separator">·</span>
-                            <span className="license-number">{harvest.licenseNumber}</span>
-                        </div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                        {harvest.status === 'planning' && (
-                            <button
-                                className="icon-btn delete-batch-btn"
-                                onClick={e => { e.stopPropagation(); if (confirm('Delete this harvest?')) onDelete(harvest.id); }}
-                                title="Delete Harvest"
-                            >
-                                <Trash2 size={20} />
-                            </button>
-                        )}
-                        <div className="expand-icon">
-                            <ChevronDown size={24} style={{ transform: isExpanded ? 'rotate(180deg)' : 'rotate(0)', transition: 'transform 0.2s' }} />
-                        </div>
-                    </div>
+                    )}
                 </div>
-
-                {/* Collapsed summary */}
-                {!isExpanded && (
-                    <div className="trim-card-summary">
-                        <div className="summary-item">
-                            <span className="label">Wet Weight</span>
-                            <span className="value">{harvest.totalWetWeight > 0 ? `${harvest.totalWetWeight.toFixed(0)}g` : '—'}</span>
-                        </div>
-                        <div className="summary-item">
-                            <span className="label">Waste</span>
-                            <span className="value">{harvest.totalWasteWeight > 0 ? `${harvest.totalWasteWeight.toFixed(0)}g` : '—'}</span>
-                        </div>
-                        {harvest.allocations.length > 0 && (
-                            <div className="summary-item">
-                                <span className="label">Allocations</span>
-                                <span className="value">
-                                    {harvest.allocations.map(a =>
-                                        `${a.allocationType === 'flower' ? 'Flower' : 'Frozen'}: ${a.targetWeight.toFixed(0)}g`
-                                    ).join(', ')}
-                                </span>
-                            </div>
-                        )}
-                        {harvest.dryingLocation && (
-                            <div className="summary-item">
-                                <span className="label">Location</span>
-                                <span className="value">{harvest.dryingLocation}</span>
-                            </div>
-                        )}
-                    </div>
-                )}
 
                 {/* Expanded content */}
                 {isExpanded && (
                     <div className="trim-card-body" onClick={e => e.stopPropagation()}>
                         {/* Weight grid */}
-                        <div className="trim-card-summary" style={{ borderBottom: '1px solid #f3f4f6', paddingBottom: '0.75rem', marginBottom: '0.75rem' }}>
+                        <div className="trim-card-summary" style={{ borderBottom: '1px solid var(--border-color, #e5e7eb)', paddingBottom: '0.75rem', marginBottom: '0.75rem' }}>
                             <div className="summary-item">
                                 <span className="label">Wet Weight</span>
                                 <span className="value" style={{ fontSize: '1.125rem' }}>
@@ -145,7 +149,6 @@ export const HarvestCard: React.FC<HarvestCardProps> = ({
                         {harvest.plantCount > 0 && (
                             <p style={{ fontSize: '0.8125rem', color: '#6b7280', margin: '0 0 0.75rem' }}>
                                 {harvest.plantCount} plant{harvest.plantCount > 1 ? 's' : ''}
-                                {harvest.dryingLocation && ` · ${harvest.dryingLocation}`}
                             </p>
                         )}
 
@@ -180,11 +183,11 @@ export const HarvestCard: React.FC<HarvestCardProps> = ({
                                         </div>
                                         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                                             <span style={{ fontWeight: 600 }}>{alloc.targetWeight.toFixed(0)}g</span>
-                                            <span className={`status-badge ${alloc.status === 'completed' ? 'status-complete' : 'status-upcoming'}`} style={{ fontSize: '0.625rem' }}>
+                                            <span className={`status-badge ${alloc.status === 'completed' ? 'status-complete' : 'status-upcoming'}`}>
                                                 {alloc.status}
                                             </span>
                                             {alloc.allocationType === 'flower' && alloc.status !== 'completed' && harvest.status === 'ready' && (
-                                                <button className="btn-start-batch" onClick={() => onConvertToTrim(alloc.id)} style={{ fontSize: '0.75rem', padding: '0.25rem 0.5rem' }}>
+                                                <button className="btn-start-batch" onClick={() => onConvertToTrim(alloc.id)}>
                                                     <Scissors size={12} style={{ marginRight: '0.25rem' }} />
                                                     Send to Trim
                                                 </button>
@@ -210,21 +213,19 @@ export const HarvestCard: React.FC<HarvestCardProps> = ({
                         )}
 
                         {/* Action buttons */}
-                        <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', paddingTop: '0.75rem', borderTop: '1px solid #f3f4f6' }}>
+                        <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', paddingTop: '0.75rem', borderTop: '1px solid var(--border-color, #e5e7eb)' }}>
                             {(harvest.status === 'planning' || harvest.status === 'active') && (
                                 <button className="btn-start-batch" onClick={() => setShowWeightModal(true)}>
                                     <Scale size={14} style={{ marginRight: '0.25rem' }} />
                                     {harvest.totalWetWeight > 0 ? 'Update Weight' : 'Record Wet Weight'}
                                 </button>
                             )}
-
                             {harvest.status === 'active' && harvest.totalWetWeight > 0 && harvest.allocations.length === 0 && (
                                 <button className="btn-start-batch" onClick={() => setShowAllocateModal(true)}>
                                     <ArrowRightLeft size={14} style={{ marginRight: '0.25rem' }} />
                                     Allocate
                                 </button>
                             )}
-
                             {harvest.status === 'drying' && (
                                 <button
                                     className="btn-start-batch"
@@ -249,7 +250,6 @@ export const HarvestCard: React.FC<HarvestCardProps> = ({
                     currentWeight={harvest.totalWetWeight > 0 ? harvest.totalWetWeight : undefined}
                 />
             )}
-
             {showAllocateModal && (
                 <AllocateModal
                     harvest={harvest}
