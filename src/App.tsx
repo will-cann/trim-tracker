@@ -8,6 +8,7 @@ import { Dashboard } from './components/Dashboard';
 import { ReportsDashboard } from './components/Reports/ReportsDashboard';
 import { HarvestDashboard } from './components/Harvest/HarvestDashboard';
 import { Sidebar } from './components/Sidebar';
+import { RightPanel } from './components/RightPanel';
 import { Auth0Wrapper, useAuth } from './contexts/authContext';
 import { Login } from './components/Login';
 import { useConversationHistory } from './hooks/useConversationHistory';
@@ -24,6 +25,7 @@ function AppContent() {
   const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
   const [isPanelOpen, setIsPanelOpen] = useState(true);
   const [completedSessions, setCompletedSessions] = useState<TrimSession[]>([]);
+  const [isRightPanelOpen, setIsRightPanelOpen] = useState(true);
 
   const {
     conversations,
@@ -152,6 +154,16 @@ function AppContent() {
     setSession({ ...updatedSession });
   };
 
+  const handleAddProfile = async (name: string) => {
+    const updatedProfiles = await apiService.addTrimmerProfile(name);
+    setTrimmerProfiles(updatedProfiles);
+  };
+
+  const handleDeleteProfile = async (id: string) => {
+    const updatedProfiles = await apiService.deleteTrimmerProfile(id);
+    setTrimmerProfiles(updatedProfiles);
+  };
+
   const handleNewConversation = () => {
     setActiveConversationId(null);
     setCurrentView('ai');
@@ -182,7 +194,7 @@ function AppContent() {
         activeSession={session}
         completedSessions={completedSessions}
       />
-      <div className={`main-content ${isPanelOpen && (currentView === 'ai' || currentView === 'dashboard') ? 'with-panel' : ''}`}>
+      <div className={`main-content ${isPanelOpen && (currentView === 'ai' || currentView === 'dashboard') ? 'with-panel' : ''} ${currentView === 'dashboard' && session && isRightPanelOpen ? 'with-right-panel' : ''}`}>
         <header className="app-header">
         </header>
 
@@ -256,6 +268,17 @@ function AppContent() {
             trimmerProfiles={trimmerProfiles}
             harvests={harvests}
             onSessionUpdate={refreshAll}
+          />
+        )}
+
+        {/* Right panel — trimmer roster on dashboard */}
+        {currentView === 'dashboard' && session && (
+          <RightPanel
+            trimmerProfiles={trimmerProfiles}
+            onAddProfile={handleAddProfile}
+            onDeleteProfile={handleDeleteProfile}
+            isOpen={isRightPanelOpen}
+            onToggle={() => setIsRightPanelOpen(prev => !prev)}
           />
         )}
       </div>
