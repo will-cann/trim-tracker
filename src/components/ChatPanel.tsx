@@ -91,19 +91,18 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ session, trimmerProfiles, 
 
     return (
         <>
-            {/* Floating Button */}
-            <button
-                onClick={() => setIsOpen(!isOpen)}
-                className={`fixed bottom-6 right-6 z-50 w-14 h-14 rounded-full shadow-lg
-                           flex items-center justify-center transition-all duration-200
-                           ${isOpen
-                        ? 'bg-gray-600 hover:bg-gray-700 rotate-0'
-                        : 'bg-emerald-500 hover:bg-emerald-600 hover:scale-105'
-                    }`}
-                title="AI Assistant"
-            >
-                {isOpen ? <X size={22} className="text-white" /> : <img src={logo} alt="AI" className="w-6 h-6 object-contain brightness-0 invert" />}
-            </button>
+            {/* Floating Button — only show when panel is closed */}
+            {!isOpen && (
+                <button
+                    onClick={() => setIsOpen(true)}
+                    className="fixed bottom-6 right-6 z-50 w-14 h-14 rounded-full shadow-lg
+                               flex items-center justify-center transition-all duration-200
+                               bg-emerald-500 hover:bg-emerald-600 hover:scale-105"
+                    title="AI Assistant"
+                >
+                    <img src={logo} alt="AI" className="w-6 h-6 object-contain brightness-0 invert" />
+                </button>
+            )}
 
             {/* Panel Overlay */}
             {isOpen && (
