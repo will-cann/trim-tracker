@@ -1,16 +1,12 @@
 import React, { useState } from 'react';
-import { Plus, LayoutDashboard, BarChart3, Sprout, LogOut, User as UserIcon, Trash2, MessageSquare, GripVertical } from 'lucide-react';
+import { Plus, LayoutDashboard, BarChart3, Sprout, LogOut, User as UserIcon, Trash2, MessageSquare, GripVertical, Scissors } from 'lucide-react';
 import { useAuth } from '../contexts/authContext';
-import type { TrimmerProfile, ConversationSummary } from '../types/definitions';
-import { AddTrimmerProfileModal } from './AddTrimmerProfileModal';
+import type { ConversationSummary, TrimSession } from '../types/definitions';
 import logo from '../assets/logo.png';
 
 type ViewType = 'ai' | 'dashboard' | 'reports' | 'harvests';
 
 interface SidebarProps {
-    profiles: TrimmerProfile[];
-    onAddProfile: (name: string) => void;
-    onDeleteProfile: (id: string) => void;
     currentView: ViewType;
     onViewChange: (view: ViewType) => void;
     conversations: ConversationSummary[];
@@ -19,6 +15,8 @@ interface SidebarProps {
     onNewConversation: () => void;
     onDeleteConversation: (id: string) => void;
     onPanelOpenChange?: (isOpen: boolean) => void;
+    activeSession: TrimSession | null;
+    completedSessions: TrimSession[];
 }
 
 const formatRelativeTime = (dateStr: string) => {
@@ -43,9 +41,6 @@ const navItems: { view: ViewType; icon: (color: string) => React.ReactNode; labe
 ];
 
 export const Sidebar: React.FC<SidebarProps> = ({
-    profiles,
-    onAddProfile,
-    onDeleteProfile,
     currentView,
     onViewChange,
     conversations,
@@ -54,10 +49,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
     onNewConversation,
     onDeleteConversation,
     onPanelOpenChange,
+    activeSession,
+    completedSessions,
 }) => {
     const { user, logout } = useAuth();
     const [isPanelOpen, setIsPanelOpen] = useState(true);
-    const [isModalOpen, setIsModalOpen] = useState(false);
 
     const togglePanel = () => {
         const next = !isPanelOpen;
@@ -65,13 +61,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
         onPanelOpenChange?.(next);
     };
 
-    const handleAddSubmit = (name: string) => {
-        onAddProfile(name);
-        setIsModalOpen(false);
-    };
-
     // Determine if the context panel has content for the current view
     const hasContextPanel = currentView === 'ai' || currentView === 'dashboard';
+
+    // Build session list for Trim Tracker panel
+    const sessionList = [
+        ...(activeSession ? [{ ...activeSession, isActive: true }] : []),
+        ...completedSessions.map(s => ({ ...s, isActive: false })),
+    ];
 
     return (
         <>
@@ -230,52 +227,51 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                 </>
                             )}
 
-                            {/* Dashboard View: Trimmer roster */}
+                            {/* Dashboard View: Trim Sessions */}
                             {currentView === 'dashboard' && (
                                 <>
                                     <div className="sidebar-panel-header">
-                                        <h3>Trimmer Roster</h3>
-                                        <span className="text-xs text-gray-400">{profiles.length}</span>
+                                        <h3>Trim Sessions</h3>
+                                        <span className="text-xs text-gray-400">{sessionList.length}</span>
                                     </div>
 
-                                    <div className="roster-list">
-                                        {profiles.length === 0 ? (
-                                            <p className="empty-roster">No trimmers in roster.</p>
+                                    <div className="conversation-list">
+                                        {sessionList.length === 0 ? (
+                                            <p className="text-sm text-gray-400 px-2 py-4 text-center">No sessions yet.</p>
                                         ) : (
-                                            profiles.map(profile => (
-                                                <div key={profile.id} className="roster-item">
-                                                    <div className="roster-info">
-                                                        <span className="roster-name">{profile.name}</span>
-                                                        <span className="roster-status">{profile.status}</span>
-                                                    </div>
-                                                    <button
-                                                        className="btn-delete-roster"
-                                                        onClick={() => onDeleteProfile(profile.id)}
-                                                        title="Remove from roster"
+                                            sessionList.map((s) => {
+                                                const strains = [...new Set(s.entries.map(e => e.strain))].join(', ');
+                                                const date = s.startTime
+                                                    ? new Date(s.startTime).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
+                                                    : '';
+                                                return (
+                                                    <div
+                                                        key={s.id}
+                                                        className={`conversation-item ${'isActive' in s && s.isActive ? 'active' : ''}`}
                                                     >
-                                                        <Trash2 size={14} />
-                                                    </button>
-                                                </div>
-                                            ))
+                                                        <Scissors size={14} className={`shrink-0 ${'isActive' in s && s.isActive ? 'text-emerald-500' : 'text-gray-400'}`} />
+                                                        <div className="flex-1 min-w-0">
+                                                            <p className="text-sm text-gray-700 truncate">
+                                                                {strains || 'No batches'}
+                                                            </p>
+                                                            <p className="text-xs text-gray-400">
+                                                                {date}
+                                                                {'isActive' in s && s.isActive && (
+                                                                    <span className="ml-1.5 text-emerald-500 font-medium">Active</span>
+                                                                )}
+                                                                {s.completedAt && ' — Completed'}
+                                                            </p>
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })
                                         )}
                                     </div>
-
-                                    <button className="btn-add-roster" onClick={() => setIsModalOpen(true)}>
-                                        <Plus size={16} />
-                                        Add Trimmer
-                                    </button>
                                 </>
                             )}
                         </div>
                     )}
                 </div>
-            )}
-
-            {isModalOpen && (
-                <AddTrimmerProfileModal
-                    onClose={() => setIsModalOpen(false)}
-                    onSubmit={handleAddSubmit}
-                />
             )}
         </>
     );

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import type { TrimSession, CreateTrimSessionDTO } from '../types/definitions';
-import { Cannabis, Trash2, Scale, Plus, Package, Hourglass } from 'lucide-react';
+import { Cannabis, Trash2, Scale, Plus, Package, Hourglass, Users } from 'lucide-react';
 
 import { DashboardDonutChart } from './DashboardDonutChart';
 import { EntryList } from './EntryList';
@@ -45,6 +45,11 @@ export const Dashboard: React.FC<DashboardProps> = ({
         setIsModalOpen(false);
     };
 
+    // Count unique active trimmers across all entries
+    const activeTrimmerCount = new Set(
+        session.entries.flatMap(e => e.trimmers.filter(t => t.name).map(t => t.name))
+    ).size;
+
     const totalStartWeight = session.entries.reduce((sum, e) => sum + e.startWeight, 0);
     const totalOutput = session.totalFlower + session.totalShake + session.totalTrim + session.totalWaste;
     const remainingWeight = totalStartWeight - totalOutput;
@@ -85,6 +90,16 @@ export const Dashboard: React.FC<DashboardProps> = ({
                         <div className="stat-content">
                             <label>Remaining</label>
                             <p className="stat-value">{remainingWeight.toFixed(0)}g</p>
+                        </div>
+                    </div>
+
+                    <div className="stat-item">
+                        <div className="stat-icon" style={{ backgroundColor: '#ede9fe', color: '#7c3aed' }}>
+                            <Users size={24} />
+                        </div>
+                        <div className="stat-content">
+                            <label>Trimmers</label>
+                            <p className="stat-value">{activeTrimmerCount}</p>
                         </div>
                     </div>
 

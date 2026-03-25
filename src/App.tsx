@@ -23,6 +23,7 @@ function AppContent() {
   const [harvests, setHarvests] = useState<Harvest[]>([]);
   const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
   const [isPanelOpen, setIsPanelOpen] = useState(true);
+  const [completedSessions, setCompletedSessions] = useState<TrimSession[]>([]);
 
   const {
     conversations,
@@ -48,17 +49,23 @@ function AppContent() {
     setHarvests(data);
   }, []);
 
+  const loadCompletedSessions = useCallback(async () => {
+    const data = await apiService.getCompletedSessions();
+    setCompletedSessions(data);
+  }, []);
+
   const refreshAll = useCallback(async () => {
-    await Promise.all([loadSession(), loadTrimmerProfiles(), loadHarvests()]);
-  }, [loadSession, loadTrimmerProfiles, loadHarvests]);
+    await Promise.all([loadSession(), loadTrimmerProfiles(), loadHarvests(), loadCompletedSessions()]);
+  }, [loadSession, loadTrimmerProfiles, loadHarvests, loadCompletedSessions]);
 
   useEffect(() => {
     if (user) {
       loadSession();
       loadTrimmerProfiles();
       loadHarvests();
+      loadCompletedSessions();
     }
-  }, [user, loadSession, loadTrimmerProfiles, loadHarvests]);
+  }, [user, loadSession, loadTrimmerProfiles, loadHarvests, loadCompletedSessions]);
 
   if (authLoading) {
     return (
@@ -145,16 +152,6 @@ function AppContent() {
     setSession({ ...updatedSession });
   };
 
-  const handleAddProfile = async (name: string) => {
-    const updatedProfiles = await apiService.addTrimmerProfile(name);
-    setTrimmerProfiles(updatedProfiles);
-  };
-
-  const handleDeleteProfile = async (id: string) => {
-    const updatedProfiles = await apiService.deleteTrimmerProfile(id);
-    setTrimmerProfiles(updatedProfiles);
-  };
-
   const handleNewConversation = () => {
     setActiveConversationId(null);
     setCurrentView('ai');
@@ -174,9 +171,6 @@ function AppContent() {
   return (
     <div className="app-container">
       <Sidebar
-        profiles={trimmerProfiles}
-        onAddProfile={handleAddProfile}
-        onDeleteProfile={handleDeleteProfile}
         currentView={currentView}
         onViewChange={setCurrentView}
         conversations={conversations}
@@ -185,6 +179,8 @@ function AppContent() {
         onNewConversation={handleNewConversation}
         onDeleteConversation={deleteConversation}
         onPanelOpenChange={setIsPanelOpen}
+        activeSession={session}
+        completedSessions={completedSessions}
       />
       <div className={`main-content ${isPanelOpen && (currentView === 'ai' || currentView === 'dashboard') ? 'with-panel' : ''}`}>
         <header className="app-header">
