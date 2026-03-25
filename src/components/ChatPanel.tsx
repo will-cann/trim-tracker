@@ -1,10 +1,11 @@
 import React, { useState, useRef, useEffect } from 'react';
 import ReactMarkdown from 'react-markdown';
-import { Sparkles, X, Mic, MicOff, Upload, ArrowRight, Loader2 } from 'lucide-react';
+import { X, Mic, MicOff, Upload, ArrowRight, Loader2 } from 'lucide-react';
 import { useSpeechRecognition } from '../hooks/useSpeechRecognition';
 import { useAIChat } from '../hooks/useAIChat';
 import { ActionPreview } from './ActionPreview';
 import type { TrimSession, TrimmerProfile, Harvest } from '../types/definitions';
+import logo from '../assets/logo.png';
 
 interface ChatPanelProps {
     session: TrimSession | null;
@@ -101,7 +102,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ session, trimmerProfiles, 
                     }`}
                 title="AI Assistant"
             >
-                {isOpen ? <X size={22} className="text-white" /> : <Sparkles size={22} className="text-white" />}
+                {isOpen ? <X size={22} className="text-white" /> : <img src={logo} alt="AI" className="w-6 h-6 object-contain brightness-0 invert" />}
             </button>
 
             {/* Panel Overlay */}
@@ -121,8 +122,8 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ session, trimmerProfiles, 
             >
                 {/* Panel Header */}
                 <div className="flex items-center gap-3 px-4 py-3 border-b border-gray-200 bg-gray-50">
-                    <div className="w-8 h-8 rounded-lg bg-emerald-50 flex items-center justify-center">
-                        <Sparkles size={16} className="text-emerald-500" />
+                    <div className="w-8 h-8 rounded-lg bg-emerald-50 flex items-center justify-center overflow-hidden">
+                        <img src={logo} alt="AI" className="w-5 h-5 object-contain" />
                     </div>
                     <div className="flex-1">
                         <h3 className="text-sm font-semibold text-gray-800">AI Assistant</h3>
@@ -140,7 +141,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ session, trimmerProfiles, 
                 <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3">
                     {messages.length === 0 && (
                         <div className="text-center py-8">
-                            <Sparkles size={32} className="text-gray-200 mx-auto mb-3" />
+                            <img src={logo} alt="" className="w-8 h-8 object-contain opacity-20 mx-auto mb-3" />
                             <p className="text-sm text-gray-400">
                                 Tell me what you need — add batches, assign trimmers, or upload a CSV.
                             </p>

@@ -136,3 +136,17 @@ export interface ChatMessage {
   actions?: ProposedAction[];
   status?: 'pending' | 'confirmed' | 'cancelled';
 }
+
+export interface Conversation {
+  id: string;
+  title: string;
+  messages: ChatMessage[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ConversationSummary {
+  id: string;
+  title: string;
+  updatedAt: string;
+}

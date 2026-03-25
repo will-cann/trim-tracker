@@ -1,24 +1,51 @@
 import React, { useState } from 'react';
-import { Plus, Trash2, ChevronLeft, ChevronRight, LayoutDashboard, BarChart3, Sprout, LogOut, User as UserIcon } from 'lucide-react';
+import { Plus, ChevronLeft, ChevronRight, LayoutDashboard, BarChart3, Sprout, LogOut, User as UserIcon, Trash2, MessageSquare } from 'lucide-react';
 import { useAuth } from '../contexts/authContext';
-import type { TrimmerProfile } from '../types/definitions';
+import type { TrimmerProfile, ConversationSummary } from '../types/definitions';
 import { AddTrimmerProfileModal } from './AddTrimmerProfileModal';
 import logo from '../assets/logo.png';
+
+type ViewType = 'ai' | 'dashboard' | 'reports' | 'harvests';
 
 interface SidebarProps {
     profiles: TrimmerProfile[];
     onAddProfile: (name: string) => void;
     onDeleteProfile: (id: string) => void;
-    currentView: 'dashboard' | 'reports' | 'harvests';
-    onViewChange: (view: 'dashboard' | 'reports' | 'harvests') => void;
+    currentView: ViewType;
+    onViewChange: (view: ViewType) => void;
+    conversations: ConversationSummary[];
+    activeConversationId: string | null;
+    onSelectConversation: (id: string) => void;
+    onNewConversation: () => void;
+    onDeleteConversation: (id: string) => void;
 }
+
+const formatRelativeTime = (dateStr: string) => {
+    const date = new Date(dateStr);
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMs / 3600000);
+    const diffDays = Math.floor(diffMs / 86400000);
+
+    if (diffMins < 1) return 'Just now';
+    if (diffMins < 60) return `${diffMins}m ago`;
+    if (diffHours < 24) return `${diffHours}h ago`;
+    if (diffDays < 7) return `${diffDays}d ago`;
+    return date.toLocaleDateString();
+};
 
 export const Sidebar: React.FC<SidebarProps> = ({
     profiles,
     onAddProfile,
     onDeleteProfile,
     currentView,
-    onViewChange
+    onViewChange,
+    conversations,
+    activeConversationId,
+    onSelectConversation,
+    onNewConversation,
+    onDeleteConversation,
 }) => {
     const { user, logout } = useAuth();
     const [isOpen, setIsOpen] = useState(false);
@@ -29,15 +56,40 @@ export const Sidebar: React.FC<SidebarProps> = ({
         setIsModalOpen(false);
     };
 
+    const navItems: { view: ViewType; icon: (color: string) => React.ReactNode; label: string }[] = [
+        { view: 'dashboard', icon: (color) => <LayoutDashboard size={20} color={color} />, label: 'Dashboard' },
+        { view: 'harvests', icon: (color) => <Sprout size={20} color={color} />, label: 'Harvests' },
+        { view: 'reports', icon: (color) => <BarChart3 size={20} color={color} />, label: 'Reports' },
+    ];
+
     return (
         <>
             <div className={`sidebar ${isOpen ? 'open' : 'closed'}`}>
+                {/* Header — Logo as new conversation trigger */}
                 <div className="sidebar-header">
                     <div className="header-content">
-                        <div className="w-8 h-8 rounded-lg bg-emerald-500 flex items-center justify-center overflow-hidden shrink-0">
+                        <button
+                            onClick={() => {
+                                onNewConversation();
+                                onViewChange('ai');
+                            }}
+                            className="w-8 h-8 rounded-lg bg-emerald-500 flex items-center justify-center overflow-hidden shrink-0
+                                       hover:bg-emerald-600 transition-colors cursor-pointer border-0"
+                            title="New conversation"
+                        >
                             <img src={logo} alt="Logo" className="w-6 h-6 object-contain brightness-0 invert" />
-                        </div>
-                        {isOpen && <h3>Trim Tracker</h3>}
+                        </button>
+                        {isOpen && (
+                            <h3
+                                onClick={() => {
+                                    onNewConversation();
+                                    onViewChange('ai');
+                                }}
+                                className="cursor-pointer hover:text-emerald-600 transition-colors"
+                            >
+                                Neurocann
+                            </h3>
+                        )}
                     </div>
                     <button className="toggle-btn" onClick={() => setIsOpen(!isOpen)}>
                         {isOpen ? <ChevronLeft size={16} /> : <ChevronRight size={16} />}
@@ -46,107 +98,124 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
                 {isOpen && (
                     <div className="sidebar-content">
-                        <div className="nav-links mb-6 flex flex-col gap-1" style={{ marginBottom: '1.5rem' }}>
-                            <button
-                                style={{
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    gap: '0.75rem',
-                                    padding: '0.625rem 0.75rem',
-                                    borderRadius: '0.5rem',
-                                    border: 'none',
-                                    fontSize: '0.875rem',
-                                    fontWeight: '500',
-                                    cursor: 'pointer',
-                                    transition: 'all 0.2s',
-                                    backgroundColor: currentView === 'dashboard' ? '#10b981' : 'transparent',
-                                    color: currentView === 'dashboard' ? 'white' : '#374151',
-                                    boxShadow: currentView === 'dashboard' ? '0 1px 2px 0 rgba(0, 0, 0, 0.05)' : 'none'
-                                }}
-                                onClick={() => onViewChange('dashboard')}
-                                onMouseEnter={(e) => {
-                                    if (currentView !== 'dashboard') {
-                                        e.currentTarget.style.backgroundColor = '#f3f4f6';
-                                    }
-                                }}
-                                onMouseLeave={(e) => {
-                                    if (currentView !== 'dashboard') {
-                                        e.currentTarget.style.backgroundColor = 'transparent';
-                                    }
-                                }}
-                            >
-                                <LayoutDashboard size={20} color={currentView === 'dashboard' ? 'white' : '#6b7280'} />
-                                <span>Dashboard</span>
-                            </button>
-                            <button
-                                style={{
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    gap: '0.75rem',
-                                    padding: '0.625rem 0.75rem',
-                                    borderRadius: '0.5rem',
-                                    border: 'none',
-                                    fontSize: '0.875rem',
-                                    fontWeight: '500',
-                                    cursor: 'pointer',
-                                    transition: 'all 0.2s',
-                                    backgroundColor: currentView === 'harvests' ? '#10b981' : 'transparent',
-                                    color: currentView === 'harvests' ? 'white' : '#374151',
-                                    boxShadow: currentView === 'harvests' ? '0 1px 2px 0 rgba(0, 0, 0, 0.05)' : 'none'
-                                }}
-                                onClick={() => onViewChange('harvests')}
-                                onMouseEnter={(e) => {
-                                    if (currentView !== 'harvests') {
-                                        e.currentTarget.style.backgroundColor = '#f3f4f6';
-                                    }
-                                }}
-                                onMouseLeave={(e) => {
-                                    if (currentView !== 'harvests') {
-                                        e.currentTarget.style.backgroundColor = 'transparent';
-                                    }
-                                }}
-                            >
-                                <Sprout size={20} color={currentView === 'harvests' ? 'white' : '#6b7280'} />
-                                <span>Harvests</span>
-                            </button>
-                            <button
-                                style={{
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    gap: '0.75rem',
-                                    padding: '0.625rem 0.75rem',
-                                    borderRadius: '0.5rem',
-                                    border: 'none',
-                                    fontSize: '0.875rem',
-                                    fontWeight: '500',
-                                    cursor: 'pointer',
-                                    transition: 'all 0.2s',
-                                    backgroundColor: currentView === 'reports' ? '#10b981' : 'transparent',
-                                    color: currentView === 'reports' ? 'white' : '#374151',
-                                    boxShadow: currentView === 'reports' ? '0 1px 2px 0 rgba(0, 0, 0, 0.05)' : 'none'
-                                }}
-                                onClick={() => onViewChange('reports')}
-                                onMouseEnter={(e) => {
-                                    if (currentView !== 'reports') {
-                                        e.currentTarget.style.backgroundColor = '#f3f4f6';
-                                    }
-                                }}
-                                onMouseLeave={(e) => {
-                                    if (currentView !== 'reports') {
-                                        e.currentTarget.style.backgroundColor = 'transparent';
-                                    }
-                                }}
-                            >
-                                <BarChart3 size={20} color={currentView === 'reports' ? 'white' : '#6b7280'} />
-                                <span>Reports</span>
-                            </button>
+                        {/* New Chat Button */}
+                        <button
+                            onClick={() => {
+                                onNewConversation();
+                                onViewChange('ai');
+                            }}
+                            style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '0.75rem',
+                                padding: '0.5rem 0.75rem',
+                                borderRadius: '0.5rem',
+                                border: '1px solid #e5e7eb',
+                                fontSize: '0.8125rem',
+                                fontWeight: '500',
+                                cursor: 'pointer',
+                                transition: 'all 0.2s',
+                                backgroundColor: 'transparent',
+                                color: '#374151',
+                                width: '100%',
+                                marginBottom: '0.5rem',
+                            }}
+                            onMouseEnter={(e) => {
+                                e.currentTarget.style.backgroundColor = '#f0fdf4';
+                                e.currentTarget.style.borderColor = '#86efac';
+                            }}
+                            onMouseLeave={(e) => {
+                                e.currentTarget.style.backgroundColor = 'transparent';
+                                e.currentTarget.style.borderColor = '#e5e7eb';
+                            }}
+                        >
+                            <Plus size={16} />
+                            <span>New chat</span>
+                        </button>
+
+                        {/* Conversation History */}
+                        {conversations.length > 0 && (
+                            <div className="conversation-history">
+                                <h4 className="text-xs font-semibold text-gray-400 uppercase tracking-wider px-2 mb-1">Recent</h4>
+                                <div className="conversation-list">
+                                    {conversations.map((convo) => (
+                                        <div
+                                            key={convo.id}
+                                            className={`conversation-item ${
+                                                currentView === 'ai' && activeConversationId === convo.id ? 'active' : ''
+                                            }`}
+                                            onClick={() => {
+                                                onSelectConversation(convo.id);
+                                                onViewChange('ai');
+                                            }}
+                                        >
+                                            <MessageSquare size={14} className="shrink-0 text-gray-400" />
+                                            <div className="flex-1 min-w-0">
+                                                <p className="text-sm text-gray-700 truncate">{convo.title}</p>
+                                                <p className="text-xs text-gray-400">{formatRelativeTime(convo.updatedAt)}</p>
+                                            </div>
+                                            <button
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    onDeleteConversation(convo.id);
+                                                }}
+                                                className="opacity-0 group-hover:opacity-100 p-1 rounded hover:bg-gray-200 text-gray-400 hover:text-red-500 transition-all"
+                                            >
+                                                <Trash2 size={12} />
+                                            </button>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Navigation */}
+                        <div className="nav-links" style={{ marginTop: '0.75rem', borderTop: '1px solid #e5e7eb', paddingTop: '0.75rem' }}>
+                            <h4 className="text-xs font-semibold text-gray-400 uppercase tracking-wider px-2 mb-1">Views</h4>
+                            {navItems.map(({ view, icon, label }) => (
+                                <button
+                                    key={view}
+                                    style={{
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: '0.75rem',
+                                        padding: '0.5rem 0.75rem',
+                                        borderRadius: '0.5rem',
+                                        border: 'none',
+                                        fontSize: '0.875rem',
+                                        fontWeight: '500',
+                                        cursor: 'pointer',
+                                        transition: 'all 0.2s',
+                                        width: '100%',
+                                        backgroundColor: currentView === view ? '#10b981' : 'transparent',
+                                        color: currentView === view ? 'white' : '#374151',
+                                        boxShadow: currentView === view ? '0 1px 2px 0 rgba(0, 0, 0, 0.05)' : 'none',
+                                    }}
+                                    onClick={() => onViewChange(view)}
+                                    onMouseEnter={(e) => {
+                                        if (currentView !== view) {
+                                            e.currentTarget.style.backgroundColor = '#f3f4f6';
+                                        }
+                                    }}
+                                    onMouseLeave={(e) => {
+                                        if (currentView !== view) {
+                                            e.currentTarget.style.backgroundColor = 'transparent';
+                                        }
+                                    }}
+                                >
+                                    {icon(currentView === view ? 'white' : '#6b7280')}
+                                    <span>{label}</span>
+                                </button>
+                            ))}
                         </div>
 
-                        <div className="roster-section border-t pt-4">
-                            <div className="flex items-center justify-between mb-2 px-2">
-                                <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Trimmer Roster</h4>
-                            </div>
-                            <div className="roster-list">
+                        {/* Trimmer Roster — collapsed section */}
+                        <details className="mt-3 border-t pt-3 border-gray-200">
+                            <summary className="text-xs font-semibold text-gray-400 uppercase tracking-wider px-2 cursor-pointer hover:text-gray-600 list-none flex items-center justify-between">
+                                Trimmer Roster
+                                <span className="text-gray-300 text-[10px] font-normal normal-case">{profiles.length}</span>
+                            </summary>
+                            <div className="roster-list mt-2">
                                 {profiles.length === 0 ? (
                                     <p className="empty-roster">No trimmers in roster.</p>
                                 ) : (
@@ -167,12 +236,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                     ))
                                 )}
                             </div>
-
                             <button className="btn-add-roster" onClick={() => setIsModalOpen(true)}>
                                 <Plus size={16} />
                                 Add Trimmer
                             </button>
-                        </div>
+                        </details>
 
                         {/* User and Logout Section */}
                         <div className="border-t mt-auto pt-4 space-y-2">
@@ -228,4 +296,3 @@ export const Sidebar: React.FC<SidebarProps> = ({
         </>
     );
 };
-

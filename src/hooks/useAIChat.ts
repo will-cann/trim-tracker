@@ -1,43 +1,48 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import type { TrimSession, TrimmerProfile, ProposedAction, ChatMessage, Harvest } from '../types/definitions';
 import { apiService } from '../services/apiService';
-
-const CHAT_STORAGE_KEY = 'trim-tracker-chat-messages';
-
-const loadMessages = (): ChatMessage[] => {
-    try {
-        const stored = sessionStorage.getItem(CHAT_STORAGE_KEY);
-        if (!stored) return [];
-        const msgs: ChatMessage[] = JSON.parse(stored);
-        // Clear any stale pending status on reload — those actions are lost
-        return msgs.map(m => m.status === 'pending' ? { ...m, status: 'cancelled' as const } : m);
-    } catch {
-        return [];
-    }
-};
-
-const saveMessages = (messages: ChatMessage[]) => {
-    try {
-        sessionStorage.setItem(CHAT_STORAGE_KEY, JSON.stringify(messages));
-    } catch { /* quota exceeded — ignore */ }
-};
 
 interface UseAIChatOptions {
     session: TrimSession | null;
     trimmerProfiles: TrimmerProfile[];
     harvests?: Harvest[];
     onSessionUpdate: () => Promise<void>;
+    conversationId?: string | null;
+    onSaveConversation?: (id: string, title: string, messages: ChatMessage[]) => Promise<void>;
 }
 
-export const useAIChat = ({ session, trimmerProfiles, harvests, onSessionUpdate }: UseAIChatOptions) => {
-    const [messages, setMessages] = useState<ChatMessage[]>(loadMessages);
+export const useAIChat = ({
+    session,
+    trimmerProfiles,
+    harvests,
+    onSessionUpdate,
+    conversationId,
+    onSaveConversation,
+}: UseAIChatOptions) => {
+    const [messages, setMessages] = useState<ChatMessage[]>([]);
     const [isLoading, setIsLoading] = useState(false);
     const [pendingActions, setPendingActions] = useState<ProposedAction[] | null>(null);
     const [isExecuting, setIsExecuting] = useState(false);
+    const messagesRef = useRef(messages);
+    messagesRef.current = messages;
 
+    // Persist to Dexie when messages change (only for conversation-backed chats)
     useEffect(() => {
-        saveMessages(messages);
-    }, [messages]);
+        if (conversationId && onSaveConversation && messages.length > 0) {
+            const firstUserMsg = messages.find(m => m.role === 'user');
+            const title = firstUserMsg
+                ? firstUserMsg.content.slice(0, 50) + (firstUserMsg.content.length > 50 ? '...' : '')
+                : 'New conversation';
+            onSaveConversation(conversationId, title, messages);
+        }
+    }, [messages, conversationId, onSaveConversation]);
+
+    const loadMessages = useCallback((msgs: ChatMessage[]) => {
+        // Clear stale pending status
+        const cleaned = msgs.map(m => m.status === 'pending' ? { ...m, status: 'cancelled' as const } : m);
+        setMessages(cleaned);
+        setPendingActions(null);
+    }, []);
 
     const buildContext = useCallback(() => ({
         hasActiveSession: !!session,
@@ -96,7 +101,7 @@ export const useAIChat = ({ session, trimmerProfiles, harvests, onSessionUpdate 
     const sendCSV = useCallback(async (csvText: string) => {
         if (isLoading) return;
 
-        addMessage('user', '📎 Uploaded CSV file');
+        addMessage('user', '\u{1F4CE} Uploaded CSV file');
         setIsLoading(true);
 
         try {
@@ -193,7 +198,6 @@ export const useAIChat = ({ session, trimmerProfiles, harvests, onSessionUpdate 
                 }
             }
 
-            // Update the last assistant message status
             setMessages(prev => {
                 const updated = [...prev];
                 for (let i = updated.length - 1; i >= 0; i--) {
@@ -242,7 +246,6 @@ export const useAIChat = ({ session, trimmerProfiles, harvests, onSessionUpdate 
     const clearMessages = useCallback(() => {
         setMessages([]);
         setPendingActions(null);
-        sessionStorage.removeItem(CHAT_STORAGE_KEY);
     }, []);
 
     return {
@@ -256,5 +259,6 @@ export const useAIChat = ({ session, trimmerProfiles, harvests, onSessionUpdate 
         cancelActions,
         editAction,
         clearMessages,
+        loadMessages,
     };
 };

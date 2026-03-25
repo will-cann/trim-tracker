@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import type { TrimSession, CreateTrimSessionDTO, TrimmerProfile, Harvest } from './types/definitions';
 import { apiService } from './services/apiService';
+import { AIHome } from './components/AIHome';
 import { AIAssistant } from './components/AIAssistant';
 import { ChatPanel } from './components/ChatPanel';
 import { Dashboard } from './components/Dashboard';
@@ -9,14 +10,25 @@ import { HarvestDashboard } from './components/Harvest/HarvestDashboard';
 import { Sidebar } from './components/Sidebar';
 import { Auth0Wrapper, useAuth } from './contexts/authContext';
 import { Login } from './components/Login';
+import { useConversationHistory } from './hooks/useConversationHistory';
+
+type ViewType = 'ai' | 'dashboard' | 'reports' | 'harvests';
 
 function AppContent() {
   const { user, loading: authLoading } = useAuth();
   const [session, setSession] = useState<TrimSession | null>(null);
   const [loading, setLoading] = useState(true);
-  const [currentView, setCurrentView] = useState<'dashboard' | 'reports' | 'harvests'>('dashboard');
+  const [currentView, setCurrentView] = useState<ViewType>('ai');
   const [trimmerProfiles, setTrimmerProfiles] = useState<TrimmerProfile[]>([]);
   const [harvests, setHarvests] = useState<Harvest[]>([]);
+  const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
+
+  const {
+    conversations,
+    saveConversation,
+    loadConversation,
+    deleteConversation,
+  } = useConversationHistory();
 
   const loadSession = useCallback(async () => {
     setLoading(true);
@@ -77,7 +89,6 @@ function AppContent() {
       try {
         const result = await apiService.submitSession();
         if (result.rolledOver > 0) {
-          // Reload — a new session was created with the rolled-over batches
           await loadSession();
           await loadTrimmerProfiles();
         } else {
@@ -143,6 +154,20 @@ function AppContent() {
     setTrimmerProfiles(updatedProfiles);
   };
 
+  const handleNewConversation = () => {
+    setActiveConversationId(null);
+    setCurrentView('ai');
+  };
+
+  const handleSelectConversation = (id: string) => {
+    setActiveConversationId(id);
+    setCurrentView('ai');
+  };
+
+  const handleConversationStarted = (id: string) => {
+    setActiveConversationId(id);
+  };
+
   if (loading) return <div className="loading flex items-center justify-center min-h-screen bg-slate-900 text-white">Loading App Data...</div>;
 
   return (
@@ -153,67 +178,81 @@ function AppContent() {
         onDeleteProfile={handleDeleteProfile}
         currentView={currentView}
         onViewChange={setCurrentView}
+        conversations={conversations}
+        activeConversationId={activeConversationId}
+        onSelectConversation={handleSelectConversation}
+        onNewConversation={handleNewConversation}
+        onDeleteConversation={deleteConversation}
       />
       <div className="main-content">
         <header className="app-header">
         </header>
 
-        {currentView === 'harvests' ? (
+        {currentView === 'ai' ? (
+          <AIHome
+            conversationId={activeConversationId}
+            session={session}
+            trimmerProfiles={trimmerProfiles}
+            harvests={harvests}
+            onSessionUpdate={refreshAll}
+            onSaveConversation={saveConversation}
+            onLoadConversation={loadConversation}
+            onConversationStarted={handleConversationStarted}
+            onStart={handleStartSession}
+          />
+        ) : currentView === 'harvests' ? (
           <HarvestDashboard />
         ) : currentView === 'reports' ? (
           <ReportsDashboard />
+        ) : !session ? (
+          <AIAssistant
+            onStart={handleStartSession}
+            onNavigateToAI={handleNewConversation}
+          />
         ) : (
-          !session ? (
-            <AIAssistant
-              onStart={handleStartSession}
-              trimmerProfiles={trimmerProfiles}
-              onSessionUpdate={refreshAll}
-            />
-          ) : (
-            <Dashboard
-              session={session}
-              onUpdateWeight={handleUpdateWeight}
-              onSubmit={handleSubmitSession}
-              onAddBatch={handleAddBatch}
-              onUpdateStrain={handleUpdateStrain}
-              onAddTrimmer={handleAddTrimmer}
-              onUpdateTrimmer={handleUpdateTrimmer}
-              onRemoveTrimmer={handleRemoveTrimmer}
-              onDeleteBatch={handleDeleteBatch}
-              onSubmitBatch={handleSubmitBatch}
-              onStartBatch={async (entryId) => {
-                setSession(prev => prev ? {
-                  ...prev,
-                  entries: prev.entries.map(e => e.id === entryId ? { ...e, status: 'active' } : e),
-                } : prev);
-                let updatedSession = await apiService.startBatch(entryId);
-                const newTrimmer = {
-                  name: '',
-                  startTime: '',
-                  endTime: '',
-                  flowerWeight: 0,
-                  shakeWeight: 0,
-                  trimWeight: 0,
-                  wasteWeight: 0
-                };
-                updatedSession = await apiService.addTrimmer(entryId, newTrimmer);
-                setSession({ ...updatedSession });
-              }}
-              onRevertBatch={async (entryId) => {
-                setSession(prev => prev ? {
-                  ...prev,
-                  entries: prev.entries.map(e => e.id === entryId ? { ...e, status: 'upcoming' } : e),
-                } : prev);
-                const updatedSession = await apiService.revertBatch(entryId);
-                setSession({ ...updatedSession });
-              }}
-              trimmerProfiles={trimmerProfiles}
-            />
-          )
+          <Dashboard
+            session={session}
+            onUpdateWeight={handleUpdateWeight}
+            onSubmit={handleSubmitSession}
+            onAddBatch={handleAddBatch}
+            onUpdateStrain={handleUpdateStrain}
+            onAddTrimmer={handleAddTrimmer}
+            onUpdateTrimmer={handleUpdateTrimmer}
+            onRemoveTrimmer={handleRemoveTrimmer}
+            onDeleteBatch={handleDeleteBatch}
+            onSubmitBatch={handleSubmitBatch}
+            onStartBatch={async (entryId) => {
+              setSession(prev => prev ? {
+                ...prev,
+                entries: prev.entries.map(e => e.id === entryId ? { ...e, status: 'active' } : e),
+              } : prev);
+              let updatedSession = await apiService.startBatch(entryId);
+              const newTrimmer = {
+                name: '',
+                startTime: '',
+                endTime: '',
+                flowerWeight: 0,
+                shakeWeight: 0,
+                trimWeight: 0,
+                wasteWeight: 0
+              };
+              updatedSession = await apiService.addTrimmer(entryId, newTrimmer);
+              setSession({ ...updatedSession });
+            }}
+            onRevertBatch={async (entryId) => {
+              setSession(prev => prev ? {
+                ...prev,
+                entries: prev.entries.map(e => e.id === entryId ? { ...e, status: 'upcoming' } : e),
+              } : prev);
+              const updatedSession = await apiService.revertBatch(entryId);
+              setSession({ ...updatedSession });
+            }}
+            trimmerProfiles={trimmerProfiles}
+          />
         )}
 
-        {/* AI Chat — available on dashboard and harvests views */}
-        {currentView !== 'reports' && (
+        {/* Floating AI Chat — available on non-AI views except reports */}
+        {currentView !== 'ai' && currentView !== 'reports' && (
           <ChatPanel
             session={session}
             trimmerProfiles={trimmerProfiles}
