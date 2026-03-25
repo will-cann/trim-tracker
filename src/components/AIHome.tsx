@@ -336,6 +336,16 @@ export const AIHome: React.FC<AIHomeProps> = ({
                                 >
                                     <ReactMarkdown>{msg.content}</ReactMarkdown>
                                 </div>
+                                {/* Render confirmed/cancelled actions inline */}
+                                {msg.actions && msg.actions.length > 0 && (msg.status === 'confirmed' || msg.status === 'cancelled') && (
+                                    <div className="ai-msg-actions">
+                                        <ActionPreview
+                                            actions={msg.actions}
+                                            readonly
+                                            status={msg.status}
+                                        />
+                                    </div>
+                                )}
                             </div>
                         ))}
 

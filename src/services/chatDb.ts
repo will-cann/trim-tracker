@@ -17,6 +17,9 @@ class ChatDatabase extends Dexie {
         this.version(1).stores({
             conversations: 'id, updatedAt',
         });
+        this.version(2).stores({
+            conversations: 'id, updatedAt, createdAt',
+        });
     }
 }
 

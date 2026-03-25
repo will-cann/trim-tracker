@@ -2594,6 +2594,14 @@ body {
   margin-top: 0.5rem;
 }
 
+/* Inline action preview on messages */
+.ai-msg-actions {
+  max-width: 768px;
+  width: 100%;
+  margin: 0.25rem auto 0;
+  padding-left: 40px;
+}
+
 /* Edit button on user messages */
 .ai-msg-edit-btn {
   opacity: 0;

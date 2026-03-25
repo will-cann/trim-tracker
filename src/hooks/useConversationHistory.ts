@@ -7,7 +7,7 @@ export const useConversationHistory = () => {
 
     const loadConversations = useCallback(async () => {
         const records = await chatDb.conversations
-            .orderBy('updatedAt')
+            .orderBy('createdAt')
             .reverse()
             .toArray();
         setConversations(records.map(r => ({
