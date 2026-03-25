@@ -2,6 +2,65 @@ import { useState, useCallback, useEffect, useRef } from 'react';
 import type { TrimSession, TrimmerProfile, ProposedAction, ChatMessage, Harvest } from '../types/definitions';
 import { apiService } from '../services/apiService';
 
+const ACTION_WORDS: Record<string, string> = {
+    start: 'Start', starting: 'Start', begin: 'Start', create: 'New', 'new': 'New',
+    add: 'Add', adding: 'Add', assign: 'Assign', assigning: 'Assign',
+    record: 'Record', recording: 'Record', log: 'Log',
+    move: 'Move', moving: 'Move', transfer: 'Transfer',
+    upload: 'Upload CSV', uploaded: 'Upload CSV',
+    remove: 'Remove', delete: 'Delete',
+    track: 'Track', tracking: 'Track',
+    weigh: 'Weigh', weight: 'Weight',
+    allocate: 'Allocate', harvest: 'Harvest',
+};
+
+const FILLER = new Set([
+    'a', 'an', 'the', 'to', 'for', 'with', 'of', 'in', 'on', 'at', 'and', 'or',
+    'my', 'our', 'this', 'that', 'some', 'please', 'can', 'you', 'i', 'we',
+    'want', 'need', 'would', 'like', 'today', 'now', 'also', 'me', 'it', 'is',
+    'am', 'are', 'was', 'do', 'does', 'did', 'have', 'has', 'just', 'go', 'gonna',
+]);
+
+function summarizeMessage(text: string): string {
+    // Handle CSV uploads
+    if (text.includes('CSV') || text.includes('csv')) return 'CSV upload';
+
+    const words = text.replace(/[^\w\s]/g, '').toLowerCase().split(/\s+/).filter(Boolean);
+    if (words.length === 0) return 'New conversation';
+
+    // Find the action word
+    let action = '';
+    let actionIdx = -1;
+    for (let i = 0; i < words.length; i++) {
+        if (ACTION_WORDS[words[i]]) {
+            action = ACTION_WORDS[words[i]];
+            actionIdx = i;
+            break;
+        }
+    }
+
+    // Collect meaningful subject words (skip filler)
+    const subjectWords: string[] = [];
+    const startFrom = actionIdx >= 0 ? actionIdx + 1 : 0;
+    for (let i = startFrom; i < words.length && subjectWords.length < 4; i++) {
+        if (!FILLER.has(words[i]) && !ACTION_WORDS[words[i]]) {
+            subjectWords.push(words[i]);
+        }
+    }
+
+    // Capitalize subject
+    const subject = subjectWords
+        .map(w => w.charAt(0).toUpperCase() + w.slice(1))
+        .join(' ');
+
+    if (action && subject) return `${action} ${subject}`;
+    if (action) return action;
+    if (subject) return subject;
+
+    // Fallback: first 40 chars
+    return text.slice(0, 40) + (text.length > 40 ? '...' : '');
+}
+
 interface UseAIChatOptions {
     session: TrimSession | null;
     trimmerProfiles: TrimmerProfile[];
@@ -31,7 +90,7 @@ export const useAIChat = ({
         if (conversationId && onSaveConversation && messages.length > 0) {
             const firstUserMsg = messages.find(m => m.role === 'user');
             const title = firstUserMsg
-                ? firstUserMsg.content.slice(0, 50) + (firstUserMsg.content.length > 50 ? '...' : '')
+                ? summarizeMessage(firstUserMsg.content)
                 : 'New conversation';
             onSaveConversation(conversationId, title, messages);
         }
