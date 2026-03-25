@@ -57,8 +57,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
     };
 
     const navItems: { view: ViewType; icon: (color: string) => React.ReactNode; label: string }[] = [
-        { view: 'dashboard', icon: (color) => <LayoutDashboard size={20} color={color} />, label: 'Dashboard' },
-        { view: 'harvests', icon: (color) => <Sprout size={20} color={color} />, label: 'Harvests' },
+        { view: 'dashboard', icon: (color) => <LayoutDashboard size={20} color={color} />, label: 'Trim Tracker' },
+        { view: 'harvests', icon: (color) => <Sprout size={20} color={color} />, label: 'Harvest Day' },
         { view: 'reports', icon: (color) => <BarChart3 size={20} color={color} />, label: 'Reports' },
     ];
 
