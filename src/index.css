@@ -703,6 +703,34 @@ body {
   background: linear-gradient(to right, transparent, #f0fdf4);
 }
 
+/* Expand tab — sits on rail edge when panel is collapsed */
+.sidebar-expand-tab {
+  position: fixed;
+  left: 54px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 16px;
+  height: 48px;
+  border: none;
+  border-radius: 0 4px 4px 0;
+  background: #f0fdf4;
+  color: #10b981;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  z-index: 106;
+  transition: all 0.15s;
+  opacity: 0.7;
+}
+
+.sidebar-expand-tab:hover {
+  width: 20px;
+  background: #10b981;
+  color: white;
+  opacity: 1;
+}
+
 .sidebar-panel-content {
   flex: 1;
   display: flex;

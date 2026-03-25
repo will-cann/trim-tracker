@@ -148,17 +148,30 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 </div>
             </div>
 
+            {/* Expand tab — shows on rail edge when panel is collapsed */}
+            {hasContextPanel && !isPanelOpen && (
+                <button
+                    className="sidebar-expand-tab"
+                    onClick={togglePanel}
+                    title="Expand panel"
+                >
+                    <GripVertical size={12} />
+                </button>
+            )}
+
             {/* Context panel — slides in/out based on view */}
             {hasContextPanel && (
                 <div className={`sidebar-panel ${isPanelOpen ? 'open' : 'closed'}`}>
-                    {/* Panel edge grip — always visible */}
-                    <div
-                        className="sidebar-panel-grip"
-                        onClick={togglePanel}
-                        title={isPanelOpen ? 'Collapse panel' : 'Expand panel'}
-                    >
-                        <GripVertical size={14} />
-                    </div>
+                    {/* Panel edge grip — always visible when open */}
+                    {isPanelOpen && (
+                        <div
+                            className="sidebar-panel-grip"
+                            onClick={togglePanel}
+                            title="Collapse panel"
+                        >
+                            <GripVertical size={14} />
+                        </div>
+                    )}
 
                     {isPanelOpen && (
                         <div className="sidebar-panel-content">
