@@ -194,7 +194,7 @@ function AppContent() {
         activeSession={session}
         completedSessions={completedSessions}
       />
-      <div className={`main-content ${isPanelOpen && (currentView === 'ai' || currentView === 'dashboard') ? 'with-panel' : ''} ${currentView === 'dashboard' && session && isRightPanelOpen ? 'with-right-panel' : ''}`}>
+      <div className={`main-content ${isPanelOpen && (currentView === 'ai' || currentView === 'dashboard') ? 'with-panel' : ''}`}>
         <header className="app-header">
         </header>
 

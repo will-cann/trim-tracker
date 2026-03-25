@@ -45,7 +45,7 @@ export const RightPanel: React.FC<RightPanelProps> = ({
 
     return (
         <>
-            {/* Expand tab when collapsed */}
+            {/* Expand tab when closed */}
             {!isOpen && (
                 <button
                     className="right-expand-tab"
@@ -54,6 +54,11 @@ export const RightPanel: React.FC<RightPanelProps> = ({
                 >
                     <GripVertical size={12} />
                 </button>
+            )}
+
+            {/* Click-away overlay */}
+            {isOpen && (
+                <div className="right-panel-overlay" onClick={onToggle} />
             )}
 
             <div className={`right-panel ${isOpen ? 'open' : 'closed'}`}>
