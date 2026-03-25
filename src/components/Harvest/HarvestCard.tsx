@@ -134,7 +134,14 @@ export const HarvestCard: React.FC<HarvestCardProps> = ({
                             ) : (
                                 <div className="summary-item">
                                     <span className="label">Allocation</span>
-                                    <span className="value">—</span>
+                                    <span
+                                        className="value"
+                                        style={{ cursor: 'pointer', color: '#10b981' }}
+                                        onClick={(e) => { e.stopPropagation(); setShowAllocateModal(true); }}
+                                        title="Set allocation"
+                                    >
+                                        —
+                                    </span>
                                 </div>
                             )}
                         </div>
@@ -239,7 +246,7 @@ export const HarvestCard: React.FC<HarvestCardProps> = ({
 
                         {/* Action buttons */}
                         <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', paddingTop: '0.75rem', borderTop: '1px solid var(--border-color, #e5e7eb)' }}>
-                            {harvest.status === 'active' && harvest.totalWetWeight > 0 && harvest.allocations.length === 0 && (
+                            {(harvest.status === 'planning' || harvest.status === 'active') && harvest.allocations.length === 0 && (
                                 <button className="btn-start-batch" onClick={() => setShowAllocateModal(true)}>
                                     <ArrowRightLeft size={14} style={{ marginRight: '0.25rem' }} />
                                     Allocate
