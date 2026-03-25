@@ -102,6 +102,22 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     {isOpen ? <PanelLeftClose size={18} /> : <PanelLeft size={18} />}
                 </button>
 
+                {/* Collapsed mini nav icons */}
+                {!isOpen && (
+                    <div className="sidebar-collapsed-nav">
+                        {navItems.map(({ view, icon, label }) => (
+                            <button
+                                key={view}
+                                className={`sidebar-collapsed-btn ${currentView === view ? 'active' : ''}`}
+                                onClick={() => onViewChange(view)}
+                                title={label}
+                            >
+                                {icon(currentView === view ? '#10b981' : '#6b7280')}
+                            </button>
+                        ))}
+                    </div>
+                )}
+
                 {isOpen && (
                     <div className="sidebar-content">
                         {/* New Chat Button */}

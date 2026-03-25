@@ -2530,3 +2530,34 @@ body {
 .sidebar:hover .sidebar-toggle-hover {
   opacity: 1;
 }
+
+/* Collapsed sidebar mini nav */
+.sidebar-collapsed-nav {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 0.5rem 0;
+  margin-top: 0.25rem;
+}
+
+.sidebar-collapsed-btn {
+  width: 40px;
+  height: 40px;
+  border-radius: 0.5rem;
+  border: none;
+  background: transparent;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background-color 0.15s;
+}
+
+.sidebar-collapsed-btn:hover {
+  background-color: #f3f4f6;
+}
+
+.sidebar-collapsed-btn.active {
+  background-color: #f0fdf4;
+}
