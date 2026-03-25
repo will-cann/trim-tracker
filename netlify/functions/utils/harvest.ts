@@ -31,7 +31,10 @@ export function createHarvestBatchId(licenseNumber: string, strainName: string, 
     const dateSegment = `${mm}${dd}${yy}`;
     const abbrev = getStrainAbbrev(strainName);
 
-    return `${dateSegment}[${licenseNumber}]${abbrev}`;
+    if (licenseNumber) {
+        return `${dateSegment}[${licenseNumber}]${abbrev}`;
+    }
+    return `${dateSegment}-${abbrev}`;
 }
 
 /**

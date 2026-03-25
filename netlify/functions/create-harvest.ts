@@ -17,10 +17,10 @@ export const handler: Handler = async (event) => {
         const data = JSON.parse(event.body || '{}');
         const { licenseNumber, strain, allocation, name, plantCount, dryingLocation, targetWeight, manicureLocation } = data;
 
-        if (!licenseNumber || !strain || !allocation) {
+        if (!strain || !allocation) {
             return {
                 statusCode: 400,
-                body: JSON.stringify({ error: 'licenseNumber, strain, and allocation are required' }),
+                body: JSON.stringify({ error: 'strain and allocation are required' }),
             };
         }
 
@@ -31,7 +31,7 @@ export const handler: Handler = async (event) => {
             };
         }
 
-        const batchId = name || createHarvestBatchId(licenseNumber, strain);
+        const batchId = name || createHarvestBatchId(licenseNumber || '', strain);
 
         const client = await pool.connect();
         try {

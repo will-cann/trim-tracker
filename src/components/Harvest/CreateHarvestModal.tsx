@@ -19,13 +19,13 @@ export const CreateHarvestModal: React.FC<CreateHarvestModalProps> = ({ onClose,
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        if (!strain || !licenseNumber) return;
+        if (!strain) return;
 
         if (allocation === 'Both' && !targetWeight) return;
 
         onSubmit({
             strain,
-            licenseNumber,
+            licenseNumber: licenseNumber || '',
             allocation,
             name: name || undefined,
             plantCount: plantCount ? Number(plantCount) : undefined,
@@ -56,13 +56,12 @@ export const CreateHarvestModal: React.FC<CreateHarvestModalProps> = ({ onClose,
                         />
                     </div>
                     <div className="form-group">
-                        <label>License Number *</label>
+                        <label>License Number</label>
                         <input
                             type="text"
                             value={licenseNumber}
                             onChange={e => setLicenseNumber(e.target.value)}
-                            placeholder="e.g. LIC-123456"
-                            required
+                            placeholder="Optional"
                         />
                     </div>
                     <div className="form-group">
