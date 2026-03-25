@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { ChevronDown, Trash2, Snowflake, Flower2, ArrowRightLeft, Scissors } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { ChevronDown, Trash2, Snowflake, Flower2, ArrowRightLeft, Scissors, Clock } from 'lucide-react';
 import type { Harvest, HarvestWasteType } from '../../types/definitions';
 import { WasteEntryForm } from './WasteEntryForm';
 import { RecordWeightModal } from './RecordWeightModal';
@@ -43,8 +43,32 @@ export const HarvestCard: React.FC<HarvestCardProps> = ({
     const [isExpanded, setIsExpanded] = useState(false);
     const [showWeightModal, setShowWeightModal] = useState(false);
     const [showAllocateModal, setShowAllocateModal] = useState(false);
+    const [, setTick] = useState(0);
 
     const available = harvest.totalWetWeight - harvest.totalWasteWeight;
+
+    // Tick every minute to keep drying time live
+    useEffect(() => {
+        if (harvest.status !== 'drying') return;
+        const interval = setInterval(() => setTick(t => t + 1), 60000);
+        return () => clearInterval(interval);
+    }, [harvest.status]);
+
+    // Calculate drying duration from harvestEndDate (when wet weight was recorded / harvest set)
+    const getDryingInfo = () => {
+        const startDate = harvest.harvestEndDate || harvest.createdAt;
+        if (!startDate || harvest.status !== 'drying') return null;
+        const start = new Date(startDate);
+        const now = new Date();
+        const diffMs = now.getTime() - start.getTime();
+        const days = Math.floor(diffMs / 86400000);
+        const hours = Math.floor((diffMs % 86400000) / 3600000);
+        return {
+            harvestDate: start.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }),
+            duration: days > 0 ? `${days}d ${hours}h` : `${hours}h`,
+        };
+    };
+    const dryingInfo = getDryingInfo();
 
     return (
         <>
@@ -79,6 +103,17 @@ export const HarvestCard: React.FC<HarvestCardProps> = ({
                                     <>
                                         <span className="separator">&bull;</span>
                                         <span>{harvest.dryingLocation}</span>
+                                    </>
+                                )}
+                                {dryingInfo && (
+                                    <>
+                                        <span className="separator">&bull;</span>
+                                        <span>{dryingInfo.harvestDate}</span>
+                                        <span className="separator">&bull;</span>
+                                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '3px', color: '#f59e0b' }}>
+                                            <Clock size={11} />
+                                            {dryingInfo.duration}
+                                        </span>
                                     </>
                                 )}
                             </div>
