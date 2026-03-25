@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Plus, Trash2, GripVertical } from 'lucide-react';
-import type { TrimmerProfile } from '../types/definitions';
+import type { TrimmerProfile, TrimSession } from '../types/definitions';
 
 interface RightPanelProps {
     trimmerProfiles: TrimmerProfile[];
@@ -8,10 +8,12 @@ interface RightPanelProps {
     onDeleteProfile: (id: string) => void;
     isOpen: boolean;
     onToggle: () => void;
+    session: TrimSession | null;
 }
 
 export const RightPanel: React.FC<RightPanelProps> = ({
     trimmerProfiles,
+    session,
     onAddProfile,
     onDeleteProfile,
     isOpen,
@@ -19,6 +21,13 @@ export const RightPanel: React.FC<RightPanelProps> = ({
 }) => {
     const [isAdding, setIsAdding] = useState(false);
     const [newName, setNewName] = useState('');
+
+    // Build set of profile IDs assigned to the active session
+    const assignedProfileIds = new Set(
+        session?.entries.flatMap(e =>
+            e.trimmers.filter(t => t.profileId).map(t => t.profileId!)
+        ) || []
+    );
 
     const handleAdd = () => {
         const trimmed = newName.trim();
@@ -101,7 +110,10 @@ export const RightPanel: React.FC<RightPanelProps> = ({
                             ) : (
                                 trimmerProfiles.map(profile => (
                                     <div key={profile.id} className="right-panel-item">
-                                        <div className={`trimmer-status-dot ${profile.status}`} />
+                                        <div
+                                            className={`trimmer-status-dot ${assignedProfileIds.has(profile.id) ? 'assigned' : 'available'}`}
+                                            title={assignedProfileIds.has(profile.id) ? 'In session' : 'Available'}
+                                        />
                                         <span className="flex-1 text-sm text-gray-700 truncate">
                                             {profile.name}
                                         </span>

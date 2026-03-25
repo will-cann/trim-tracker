@@ -279,6 +279,7 @@ function AppContent() {
             onDeleteProfile={handleDeleteProfile}
             isOpen={isRightPanelOpen}
             onToggle={() => setIsRightPanelOpen(prev => !prev)}
+            session={session}
           />
         )}
       </div>

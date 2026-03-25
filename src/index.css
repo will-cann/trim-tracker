@@ -2876,12 +2876,12 @@ body {
   flex-shrink: 0;
 }
 
-.trimmer-status-dot.active {
+.trimmer-status-dot.assigned {
   background: #10b981;
 }
 
-.trimmer-status-dot.inactive {
-  background: #9ca3af;
+.trimmer-status-dot.available {
+  background: #f59e0b;
 }
 
 .main-content.with-right-panel {
