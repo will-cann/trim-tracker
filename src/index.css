@@ -680,7 +680,10 @@ body {
 
 .sidebar-panel-overlay {
   position: fixed;
-  inset: 0;
+  top: 0;
+  left: 300px; /* 60px rail + 240px panel */
+  right: 0;
+  bottom: 0;
   z-index: 115;
 }
 
