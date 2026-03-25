@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Plus, ChevronLeft, ChevronRight, LayoutDashboard, BarChart3, Sprout, LogOut, User as UserIcon, Trash2, MessageSquare } from 'lucide-react';
+import { Plus, PanelLeft, PanelLeftClose, LayoutDashboard, BarChart3, Sprout, LogOut, User as UserIcon, Trash2, MessageSquare } from 'lucide-react';
 import { useAuth } from '../contexts/authContext';
 import type { TrimmerProfile, ConversationSummary } from '../types/definitions';
 import { AddTrimmerProfileModal } from './AddTrimmerProfileModal';
@@ -91,10 +91,16 @@ export const Sidebar: React.FC<SidebarProps> = ({
                             </h3>
                         )}
                     </div>
-                    <button className="toggle-btn" onClick={() => setIsOpen(!isOpen)}>
-                        {isOpen ? <ChevronLeft size={16} /> : <ChevronRight size={16} />}
-                    </button>
                 </div>
+
+                {/* Toggle button — appears on hover at the right edge, vertically centered */}
+                <button
+                    className="sidebar-toggle-hover"
+                    onClick={() => setIsOpen(!isOpen)}
+                    title={isOpen ? 'Collapse sidebar' : 'Expand sidebar'}
+                >
+                    {isOpen ? <PanelLeftClose size={18} /> : <PanelLeft size={18} />}
+                </button>
 
                 {isOpen && (
                     <div className="sidebar-content">
