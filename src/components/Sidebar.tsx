@@ -119,7 +119,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                 }}
                                 title={label}
                             >
-                                {icon(isActive ? '#10b981' : '#9ca3af')}
+                                {icon(isActive ? '#10b981' : '#6b7280')}
                             </button>
                         );
                     })}
