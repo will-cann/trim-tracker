@@ -281,7 +281,7 @@ export const handler: Handler = async (event) => {
         if (!apiResponse.ok) {
             const errText = await apiResponse.text();
             console.error('Anthropic API error:', apiResponse.status, errText);
-            return { statusCode: 502, body: JSON.stringify({ error: 'AI service error' }) };
+            return { statusCode: 502, body: JSON.stringify({ error: 'AI service error', detail: errText, status: apiResponse.status }) };
         }
 
         const response = await apiResponse.json();
