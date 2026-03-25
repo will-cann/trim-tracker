@@ -307,6 +307,16 @@ export const useAIChat = ({
         setPendingActions(null);
     }, []);
 
+    const editMessage = useCallback((messageId: string): string | null => {
+        const idx = messages.findIndex(m => m.id === messageId);
+        if (idx === -1 || messages[idx].role !== 'user') return null;
+        const text = messages[idx].content;
+        // Remove this message and everything after it
+        setMessages(prev => prev.slice(0, idx));
+        setPendingActions(null);
+        return text;
+    }, [messages]);
+
     return {
         messages,
         isLoading,
@@ -317,6 +327,7 @@ export const useAIChat = ({
         confirmActions,
         cancelActions,
         editAction,
+        editMessage,
         clearMessages,
         loadMessages,
     };

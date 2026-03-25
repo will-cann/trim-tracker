@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import ReactMarkdown from 'react-markdown';
-import { Mic, MicOff, Upload, FileText, ArrowRight, Loader2 } from 'lucide-react';
+import { Mic, MicOff, Upload, FileText, ArrowRight, Loader2, Pencil } from 'lucide-react';
 import { useSpeechRecognition } from '../hooks/useSpeechRecognition';
 import { useAIChat } from '../hooks/useAIChat';
 import { ActionPreview } from './ActionPreview';
@@ -49,6 +49,7 @@ export const AIHome: React.FC<AIHomeProps> = ({
         confirmActions,
         cancelActions,
         editAction,
+        editMessage,
         clearMessages,
         loadMessages,
     } = useAIChat({
@@ -296,6 +297,21 @@ export const AIHome: React.FC<AIHomeProps> = ({
                                     <div className="ai-msg-avatar">
                                         <img src={logo} alt="" className="w-5 h-5 object-contain" />
                                     </div>
+                                )}
+                                {msg.role === 'user' && (
+                                    <button
+                                        className="ai-msg-edit-btn"
+                                        onClick={() => {
+                                            const text = editMessage(msg.id);
+                                            if (text) {
+                                                setInputText(text);
+                                                textareaRef.current?.focus();
+                                            }
+                                        }}
+                                        title="Edit and resend"
+                                    >
+                                        <Pencil size={12} />
+                                    </button>
                                 )}
                                 <div
                                     className={`ai-msg-bubble ${

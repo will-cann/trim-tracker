@@ -2448,6 +2448,33 @@ body {
   margin-top: 0.5rem;
 }
 
+/* Edit button on user messages */
+.ai-msg-edit-btn {
+  opacity: 0;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: none;
+  background: #e5e7eb;
+  color: #6b7280;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: opacity 0.15s, background-color 0.15s;
+  flex-shrink: 0;
+  align-self: center;
+}
+
+.ai-msg-edit-btn:hover {
+  background: #d1d5db;
+  color: #374151;
+}
+
+.ai-msg-row:hover .ai-msg-edit-btn {
+  opacity: 1;
+}
+
 /* Input bar pinned to bottom */
 .ai-home-input-bar {
   border-top: 1px solid var(--border-color);
