@@ -149,8 +149,15 @@ export const useAIChat = ({
         setIsLoading(true);
 
         try {
+            // Send full conversation history for multi-turn context
+            const history = [...messagesRef.current.map(m => ({
+                role: m.role,
+                content: m.content,
+            })), { role: 'user' as const, content: text }];
+
             const result = await apiService.aiParse({
                 message: text,
+                history,
                 context: buildContext(),
             });
 

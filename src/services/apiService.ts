@@ -202,6 +202,7 @@ export const revertBatch = async (entryId: string): Promise<TrimSession> => {
 export const aiParse = async (request: {
     message?: string;
     csvData?: string;
+    history?: Array<{ role: string; content: string }>;
     context: {
         hasActiveSession: boolean;
         sessionId?: string;

@@ -192,6 +192,7 @@ const tools = [
 interface AIParseRequest {
     message?: string;
     csvData?: string;
+    history?: Array<{ role: string; content: string }>;
     context: {
         hasActiveSession: boolean;
         sessionId?: string;
@@ -262,6 +263,19 @@ export const handler: Handler = async (event) => {
             return { statusCode: 500, body: JSON.stringify({ error: 'AI service not configured' }) };
         }
 
+        // Build multi-turn messages from history, or single message
+        let messages: Array<{ role: string; content: string }>;
+        if (request.history && request.history.length > 1) {
+            // Use history but replace the last user message with context-enriched version
+            messages = request.history.slice(0, -1).map(m => ({
+                role: m.role,
+                content: m.content,
+            }));
+            messages.push({ role: 'user', content: userMessage });
+        } else {
+            messages = [{ role: 'user', content: userMessage }];
+        }
+
         const apiResponse = await fetch(ANTHROPIC_API_URL, {
             method: 'POST',
             headers: {
@@ -274,7 +288,7 @@ export const handler: Handler = async (event) => {
                 max_tokens: 4096,
                 system: SYSTEM_PROMPT,
                 tools,
-                messages: [{ role: 'user', content: userMessage }],
+                messages,
             }),
         });
 
