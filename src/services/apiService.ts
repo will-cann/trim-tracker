@@ -337,6 +337,16 @@ export const createLicense = async (licenseNumber: string, label?: string): Prom
     return await response.json();
 };
 
+export const updateLicenseLabel = async (id: string, label: string): Promise<License> => {
+    const response = await fetchWithAuth(`${API_BASE}/manage-license`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, label }),
+    });
+    if (!response.ok) throw new Error('Failed to update license');
+    return await response.json();
+};
+
 export const deleteLicense = async (id: string): Promise<void> => {
     const response = await fetchWithAuth(`${API_BASE}/manage-license?id=${id}`, {
         method: 'DELETE',
@@ -404,6 +414,7 @@ export const apiService = {
     getMyLicenses,
     getAllLicenses,
     createLicense,
+    updateLicenseLabel,
     deleteLicense,
     // Strains
     getStrains,

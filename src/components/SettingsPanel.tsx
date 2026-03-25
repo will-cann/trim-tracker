@@ -9,6 +9,8 @@ export const SettingsPanel: React.FC = () => {
     const [isAdding, setIsAdding] = useState(false);
     const [newNumber, setNewNumber] = useState('');
     const [newLabel, setNewLabel] = useState('');
+    const [editingId, setEditingId] = useState<string | null>(null);
+    const [editLabel, setEditLabel] = useState('');
 
     const loadLicenses = useCallback(async () => {
         setLoading(true);
@@ -28,6 +30,12 @@ export const SettingsPanel: React.FC = () => {
         setNewNumber('');
         setNewLabel('');
         setIsAdding(false);
+        await loadLicenses();
+    };
+
+    const handleSaveLabel = async (id: string) => {
+        await apiService.updateLicenseLabel(id, editLabel.trim());
+        setEditingId(null);
         await loadLicenses();
     };
 
@@ -145,8 +153,30 @@ export const SettingsPanel: React.FC = () => {
                                     <td style={{ padding: '0.75rem 1.25rem', fontWeight: 500, color: '#111827', fontFamily: 'monospace' }}>
                                         {lic.licenseNumber}
                                     </td>
-                                    <td style={{ padding: '0.75rem 1.25rem', color: '#6b7280' }}>
-                                        {lic.label || '—'}
+                                    <td style={{ padding: '0.5rem 1.25rem', color: '#6b7280' }}>
+                                        {editingId === lic.id ? (
+                                            <input
+                                                type="text"
+                                                value={editLabel}
+                                                onChange={e => setEditLabel(e.target.value)}
+                                                onBlur={() => handleSaveLabel(lic.id)}
+                                                onKeyDown={e => {
+                                                    if (e.key === 'Enter') handleSaveLabel(lic.id);
+                                                    if (e.key === 'Escape') setEditingId(null);
+                                                }}
+                                                autoFocus
+                                                className="text-sm px-2 py-1 border border-emerald-300 rounded
+                                                           focus:outline-none focus:ring-1 focus:ring-emerald-400 w-full"
+                                            />
+                                        ) : (
+                                            <span
+                                                onClick={() => { setEditingId(lic.id); setEditLabel(lic.label || ''); }}
+                                                style={{ cursor: 'pointer', borderBottom: '1px dashed #d1d5db', paddingBottom: 1 }}
+                                                title="Click to edit"
+                                            >
+                                                {lic.label || '—'}
+                                            </span>
+                                        )}
                                     </td>
                                     <td style={{ padding: '0.75rem 1.25rem', color: '#9ca3af', fontSize: '0.8125rem' }}>
                                         {new Date(lic.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}

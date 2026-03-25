@@ -46,6 +46,36 @@ export const handler: Handler = async (event) => {
             };
         }
 
+        // UPDATE
+        if (event.httpMethod === 'PUT') {
+            const { id, label } = JSON.parse(event.body || '{}');
+            if (!id) {
+                return { statusCode: 400, body: JSON.stringify({ error: 'License ID is required' }) };
+            }
+
+            const result = await sql`
+                UPDATE licenses SET label = ${label?.trim() || null}, updated_at = NOW()
+                WHERE id = ${id} AND company_id = ${context.companyId}
+                RETURNING id, license_number, label, created_at
+            `;
+
+            if (result.rows.length === 0) {
+                return { statusCode: 404, body: JSON.stringify({ error: 'License not found' }) };
+            }
+
+            const lic = result.rows[0];
+            return {
+                statusCode: 200,
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    id: lic.id,
+                    licenseNumber: lic.license_number,
+                    label: lic.label,
+                    createdAt: lic.created_at,
+                }),
+            };
+        }
+
         // DELETE
         if (event.httpMethod === 'DELETE') {
             const id = event.queryStringParameters?.id;
