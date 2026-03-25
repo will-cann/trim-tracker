@@ -1,4 +1,4 @@
-import type { TrimSession, CreateTrimSessionDTO, Trimmer, TrimmerProfile, ProposedAction } from '../types/definitions';
+import type { TrimSession, CreateTrimSessionDTO, Trimmer, TrimmerProfile, ProposedAction, Harvest, CreateHarvestDTO, HarvestWasteType, HarvestAllocation } from '../types/definitions';
 
 const API_BASE = '/.netlify/functions';
 
@@ -224,6 +224,92 @@ export const getCompletedSessions = async (): Promise<TrimSession[]> => {
     return await response.json();
 };
 
+// ============================================================================
+// HARVEST API
+// ============================================================================
+
+export const getHarvests = async (status?: string): Promise<Harvest[]> => {
+    const url = status
+        ? `${API_BASE}/get-harvests?status=${status}`
+        : `${API_BASE}/get-harvests`;
+    const response = await fetchWithAuth(url);
+    if (!response.ok) return [];
+    return await response.json();
+};
+
+export const createHarvest = async (data: CreateHarvestDTO): Promise<Harvest> => {
+    const response = await fetchWithAuth(`${API_BASE}/create-harvest`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+    });
+    if (!response.ok) {
+        const err = await response.json().catch(() => ({ error: 'Failed to create harvest' }));
+        throw new Error(err.error);
+    }
+    return await response.json();
+};
+
+export const updateHarvest = async (harvestId: string, updates: Record<string, any>): Promise<Harvest> => {
+    const response = await fetchWithAuth(`${API_BASE}/update-harvest`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ harvestId, ...updates }),
+    });
+    if (!response.ok) throw new Error('Failed to update harvest');
+    return await response.json();
+};
+
+export const recordWetWeight = async (harvestId: string, weight: number): Promise<any> => {
+    const response = await fetchWithAuth(`${API_BASE}/record-wet-weight`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ harvestId, weight }),
+    });
+    if (!response.ok) throw new Error('Failed to record wet weight');
+    return await response.json();
+};
+
+export const allocateHarvest = async (harvestId: string, allocations: Array<{ type: string; targetWeight: number }>): Promise<{ allocations: HarvestAllocation[] }> => {
+    const response = await fetchWithAuth(`${API_BASE}/allocate-harvest`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ harvestId, allocations }),
+    });
+    if (!response.ok) {
+        const err = await response.json().catch(() => ({ error: 'Failed to allocate' }));
+        throw new Error(err.error);
+    }
+    return await response.json();
+};
+
+export const recordHarvestWaste = async (harvestId: string, wasteType: HarvestWasteType, weight: number): Promise<any> => {
+    const response = await fetchWithAuth(`${API_BASE}/record-harvest-waste`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ harvestId, wasteType, weight }),
+    });
+    if (!response.ok) throw new Error('Failed to record waste');
+    return await response.json();
+};
+
+export const convertToTrim = async (allocationId: string): Promise<any> => {
+    const response = await fetchWithAuth(`${API_BASE}/convert-to-trim`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ allocationId }),
+    });
+    if (!response.ok) throw new Error('Failed to convert to trim');
+    return await response.json();
+};
+
+export const deleteHarvest = async (id: string): Promise<void> => {
+    const response = await fetchWithAuth(`${API_BASE}/delete-harvest?id=${id}`, {
+        method: 'DELETE',
+    });
+    if (!response.ok) throw new Error('Failed to delete harvest');
+};
+
 export const apiService = {
     setAuthToken,
     getSession,
@@ -244,4 +330,13 @@ export const apiService = {
     revertBatch,
     getCompletedSessions,
     aiParse,
+    // Harvest
+    getHarvests,
+    createHarvest,
+    updateHarvest,
+    recordWetWeight,
+    allocateHarvest,
+    recordHarvestWaste,
+    convertToTrim,
+    deleteHarvest,
 };

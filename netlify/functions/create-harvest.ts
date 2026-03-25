@@ -1,0 +1,103 @@
+import { Handler } from '@netlify/functions';
+import { pool } from './utils/db';
+import { resolveContext } from './utils/auth';
+import { createHarvestBatchId } from './utils/harvest';
+
+export const handler: Handler = async (event) => {
+    if (event.httpMethod !== 'POST') {
+        return { statusCode: 405, body: 'Method Not Allowed' };
+    }
+
+    try {
+        const context = await resolveContext(event.headers.authorization);
+        if (!context) {
+            return { statusCode: 401, body: JSON.stringify({ error: 'Unauthorized' }) };
+        }
+
+        const data = JSON.parse(event.body || '{}');
+        const { licenseNumber, strain, allocation, name, plantCount, dryingLocation, targetWeight, manicureLocation } = data;
+
+        if (!licenseNumber || !strain || !allocation) {
+            return {
+                statusCode: 400,
+                body: JSON.stringify({ error: 'licenseNumber, strain, and allocation are required' }),
+            };
+        }
+
+        if (allocation === 'Both' && !targetWeight) {
+            return {
+                statusCode: 400,
+                body: JSON.stringify({ error: 'targetWeight is required when allocation is Both' }),
+            };
+        }
+
+        const batchId = name || createHarvestBatchId(licenseNumber, strain);
+
+        const client = await pool.connect();
+        try {
+            await client.query('BEGIN');
+
+            // Check for duplicate batch ID within company
+            const existing = await client.query(
+                `SELECT id FROM harvests WHERE company_id = $1 AND batch_id = $2`,
+                [context.companyId, batchId]
+            );
+            if (existing.rows.length > 0) {
+                await client.query('ROLLBACK');
+                return {
+                    statusCode: 409,
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ error: 'A harvest with this Batch ID already exists' }),
+                };
+            }
+
+            const { rows: [harvest] } = await client.query(`
+                INSERT INTO harvests (
+                    company_id, created_by, batch_id, name, license_number, strain,
+                    plant_count, drying_location, manicure_location, status, harvest_start_date
+                ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'planning', NOW())
+                RETURNING *
+            `, [
+                context.companyId, context.userId, batchId, name || null,
+                licenseNumber, strain, plantCount || 0,
+                dryingLocation || null, manicureLocation || null,
+            ]);
+
+            await client.query('COMMIT');
+
+            return {
+                statusCode: 201,
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    id: harvest.id,
+                    batchId: harvest.batch_id,
+                    name: harvest.name,
+                    licenseNumber: harvest.license_number,
+                    strain: harvest.strain,
+                    plantCount: harvest.plant_count,
+                    totalWetWeight: parseFloat(harvest.total_wet_weight) || 0,
+                    totalWasteWeight: parseFloat(harvest.total_waste_weight) || 0,
+                    dryingLocation: harvest.drying_location,
+                    manicureLocation: harvest.manicure_location,
+                    status: harvest.status,
+                    isOnHold: harvest.is_on_hold,
+                    harvestStartDate: harvest.harvest_start_date,
+                    allocations: [],
+                    waste: [],
+                    createdAt: harvest.created_at,
+                }),
+            };
+        } catch (e) {
+            await client.query('ROLLBACK');
+            throw e;
+        } finally {
+            client.release();
+        }
+    } catch (error) {
+        console.error('Error creating harvest:', error);
+        return {
+            statusCode: 500,
+            body: JSON.stringify({ error: 'Failed to create harvest' }),
+        };
+    }
+};

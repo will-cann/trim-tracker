@@ -5,6 +5,7 @@ import { AIAssistant } from './components/AIAssistant';
 import { ChatPanel } from './components/ChatPanel';
 import { Dashboard } from './components/Dashboard';
 import { ReportsDashboard } from './components/Reports/ReportsDashboard';
+import { HarvestDashboard } from './components/Harvest/HarvestDashboard';
 import { Sidebar } from './components/Sidebar';
 import { Auth0Wrapper, useAuth } from './contexts/authContext';
 import { Login } from './components/Login';
@@ -13,7 +14,7 @@ function AppContent() {
   const { user, loading: authLoading } = useAuth();
   const [session, setSession] = useState<TrimSession | null>(null);
   const [loading, setLoading] = useState(true);
-  const [currentView, setCurrentView] = useState<'dashboard' | 'reports'>('dashboard');
+  const [currentView, setCurrentView] = useState<'dashboard' | 'reports' | 'harvests'>('dashboard');
   const [trimmerProfiles, setTrimmerProfiles] = useState<TrimmerProfile[]>([]);
 
   const loadSession = useCallback(async () => {
@@ -150,7 +151,9 @@ function AppContent() {
         <header className="app-header">
         </header>
 
-        {currentView === 'reports' ? (
+        {currentView === 'harvests' ? (
+          <HarvestDashboard />
+        ) : currentView === 'reports' ? (
           <ReportsDashboard />
         ) : (
           !session ? (

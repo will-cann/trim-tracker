@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Plus, Trash2, ChevronLeft, ChevronRight, LayoutDashboard, BarChart3, LogOut, User as UserIcon } from 'lucide-react';
+import { Plus, Trash2, ChevronLeft, ChevronRight, LayoutDashboard, BarChart3, Sprout, LogOut, User as UserIcon } from 'lucide-react';
 import { useAuth } from '../contexts/authContext';
 import type { TrimmerProfile } from '../types/definitions';
 import { AddTrimmerProfileModal } from './AddTrimmerProfileModal';
@@ -9,8 +9,8 @@ interface SidebarProps {
     profiles: TrimmerProfile[];
     onAddProfile: (name: string) => void;
     onDeleteProfile: (id: string) => void;
-    currentView: 'dashboard' | 'reports';
-    onViewChange: (view: 'dashboard' | 'reports') => void;
+    currentView: 'dashboard' | 'reports' | 'harvests';
+    onViewChange: (view: 'dashboard' | 'reports' | 'harvests') => void;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -77,6 +77,37 @@ export const Sidebar: React.FC<SidebarProps> = ({
                             >
                                 <LayoutDashboard size={20} color={currentView === 'dashboard' ? 'white' : '#6b7280'} />
                                 <span>Dashboard</span>
+                            </button>
+                            <button
+                                style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '0.75rem',
+                                    padding: '0.625rem 0.75rem',
+                                    borderRadius: '0.5rem',
+                                    border: 'none',
+                                    fontSize: '0.875rem',
+                                    fontWeight: '500',
+                                    cursor: 'pointer',
+                                    transition: 'all 0.2s',
+                                    backgroundColor: currentView === 'harvests' ? '#10b981' : 'transparent',
+                                    color: currentView === 'harvests' ? 'white' : '#374151',
+                                    boxShadow: currentView === 'harvests' ? '0 1px 2px 0 rgba(0, 0, 0, 0.05)' : 'none'
+                                }}
+                                onClick={() => onViewChange('harvests')}
+                                onMouseEnter={(e) => {
+                                    if (currentView !== 'harvests') {
+                                        e.currentTarget.style.backgroundColor = '#f3f4f6';
+                                    }
+                                }}
+                                onMouseLeave={(e) => {
+                                    if (currentView !== 'harvests') {
+                                        e.currentTarget.style.backgroundColor = 'transparent';
+                                    }
+                                }}
+                            >
+                                <Sprout size={20} color={currentView === 'harvests' ? 'white' : '#6b7280'} />
+                                <span>Harvests</span>
                             </button>
                             <button
                                 style={{
