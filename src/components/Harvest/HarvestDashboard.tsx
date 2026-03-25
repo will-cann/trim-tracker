@@ -4,20 +4,22 @@ import type { Harvest, HarvestStatus, HarvestWasteType, CreateHarvestDTO } from 
 import { apiService } from '../../services/apiService';
 import { HarvestCard } from './HarvestCard';
 import { CreateHarvestModal } from './CreateHarvestModal';
+import { StrainTable } from './StrainTable';
 
-const TABS: { key: HarvestStatus | 'all'; label: string }[] = [
+const TABS: { key: HarvestStatus | 'all' | 'strains'; label: string }[] = [
     { key: 'all', label: 'All' },
     { key: 'planning', label: 'Planning' },
     { key: 'active', label: 'Active' },
     { key: 'drying', label: 'Drying' },
     { key: 'ready', label: 'Ready' },
     { key: 'completed', label: 'Completed' },
+    { key: 'strains', label: 'Strains' },
 ];
 
 export const HarvestDashboard: React.FC = () => {
     const [harvests, setHarvests] = useState<Harvest[]>([]);
     const [loading, setLoading] = useState(true);
-    const [activeTab, setActiveTab] = useState<HarvestStatus | 'all'>('all');
+    const [activeTab, setActiveTab] = useState<HarvestStatus | 'all' | 'strains'>('all');
     const [showCreateModal, setShowCreateModal] = useState(false);
 
     const loadHarvests = useCallback(async () => {
@@ -33,7 +35,9 @@ export const HarvestDashboard: React.FC = () => {
 
     const filteredHarvests = activeTab === 'all'
         ? harvests.filter(h => h.status !== 'completed')
-        : harvests.filter(h => h.status === activeTab);
+        : activeTab === 'strains'
+            ? []
+            : harvests.filter(h => h.status === activeTab);
 
     const handleCreate = async (data: CreateHarvestDTO) => {
         await apiService.createHarvest(data);
@@ -163,8 +167,10 @@ export const HarvestDashboard: React.FC = () => {
                 </button>
             </div>
 
-            {/* Harvest list */}
-            {loading ? (
+            {/* Content */}
+            {activeTab === 'strains' ? (
+                <StrainTable />
+            ) : loading ? (
                 <div style={{ textAlign: 'center', padding: '3rem', color: '#9ca3af' }}>Loading harvests...</div>
             ) : filteredHarvests.length === 0 ? (
                 <div className="trim-card" style={{ textAlign: 'center', padding: '3rem', color: '#9ca3af' }}>

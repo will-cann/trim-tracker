@@ -59,6 +59,15 @@ export const handler: Handler = async (event) => {
       RETURNING *
     `;
 
+        // Auto-capture strain
+        if (strain) {
+            await sql`
+                INSERT INTO strains (company_id, name)
+                VALUES (${context.companyId}, ${strain})
+                ON CONFLICT (company_id, LOWER(name)) DO NOTHING
+            `;
+        }
+
         return {
             statusCode: 201,
             headers: { 'Content-Type': 'application/json' },

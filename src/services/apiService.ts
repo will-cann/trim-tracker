@@ -1,4 +1,4 @@
-import type { TrimSession, CreateTrimSessionDTO, Trimmer, TrimmerProfile, ProposedAction, Harvest, CreateHarvestDTO, HarvestWasteType, HarvestAllocation } from '../types/definitions';
+import type { TrimSession, CreateTrimSessionDTO, Trimmer, TrimmerProfile, ProposedAction, Harvest, CreateHarvestDTO, HarvestWasteType, HarvestAllocation, Strain } from '../types/definitions';
 
 const API_BASE = '/.netlify/functions';
 
@@ -310,6 +310,33 @@ export const deleteHarvest = async (id: string): Promise<void> => {
     if (!response.ok) throw new Error('Failed to delete harvest');
 };
 
+// ============================================================================
+// STRAINS
+// ============================================================================
+
+export const getStrains = async (): Promise<Strain[]> => {
+    const response = await fetchWithAuth(`${API_BASE}/get-strains`);
+    if (!response.ok) return [];
+    return await response.json();
+};
+
+export const upsertStrain = async (name: string): Promise<Strain> => {
+    const response = await fetchWithAuth(`${API_BASE}/upsert-strain`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name }),
+    });
+    if (!response.ok) throw new Error('Failed to create strain');
+    return await response.json();
+};
+
+export const deleteStrain = async (id: string): Promise<void> => {
+    const response = await fetchWithAuth(`${API_BASE}/delete-strain?id=${id}`, {
+        method: 'DELETE',
+    });
+    if (!response.ok) throw new Error('Failed to delete strain');
+};
+
 export const apiService = {
     setAuthToken,
     getSession,
@@ -339,4 +366,8 @@ export const apiService = {
     recordHarvestWaste,
     convertToTrim,
     deleteHarvest,
+    // Strains
+    getStrains,
+    upsertStrain,
+    deleteStrain,
 };

@@ -63,6 +63,15 @@ export const handler: Handler = async (event) => {
                 dryingLocation || null, manicureLocation || null,
             ]);
 
+            // Auto-capture strain
+            if (strain) {
+                await client.query(`
+                    INSERT INTO strains (company_id, name)
+                    VALUES ($1, $2)
+                    ON CONFLICT (company_id, LOWER(name)) DO NOTHING
+                `, [context.companyId, strain]);
+            }
+
             await client.query('COMMIT');
 
             return {

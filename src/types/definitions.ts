@@ -120,6 +120,19 @@ export interface CreateHarvestDTO {
 }
 
 // ============================================================================
+// STRAIN TYPES
+// ============================================================================
+
+export interface Strain {
+  id: string;
+  name: string;
+  harvestCount: number;
+  sessionCount: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// ============================================================================
 // AI / CHAT TYPES
 // ============================================================================
 

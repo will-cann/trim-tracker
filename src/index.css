@@ -2898,3 +2898,28 @@ body {
 }
 
 /* right panel is now an overlay — no margin needed */
+
+/* Strain table */
+.strain-table-row:hover {
+  background-color: #f9fafb;
+}
+
+.strain-delete-btn {
+  opacity: 0;
+  padding: 4px;
+  border: none;
+  background: transparent;
+  border-radius: 4px;
+  color: #9ca3af;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.strain-table-row:hover .strain-delete-btn {
+  opacity: 1;
+}
+
+.strain-delete-btn:hover {
+  color: #ef4444;
+  background: #fef2f2;
+}
