@@ -22,6 +22,7 @@ function AppContent() {
   const [trimmerProfiles, setTrimmerProfiles] = useState<TrimmerProfile[]>([]);
   const [harvests, setHarvests] = useState<Harvest[]>([]);
   const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
+  const [isPanelOpen, setIsPanelOpen] = useState(true);
 
   const {
     conversations,
@@ -183,8 +184,9 @@ function AppContent() {
         onSelectConversation={handleSelectConversation}
         onNewConversation={handleNewConversation}
         onDeleteConversation={deleteConversation}
+        onPanelOpenChange={setIsPanelOpen}
       />
-      <div className="main-content">
+      <div className={`main-content ${isPanelOpen && (currentView === 'ai' || currentView === 'dashboard') ? 'with-panel' : ''}`}>
         <header className="app-header">
         </header>
 

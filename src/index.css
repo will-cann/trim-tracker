@@ -548,78 +548,217 @@ body {
   flex-direction: column;
   overflow-x: hidden;
   margin-left: 60px;
-  /* Space for closed sidebar */
+  /* Space for icon rail */
+  transition: margin-left 0.25s ease;
 }
 
-/* Sidebar Styles */
-.sidebar {
+.main-content.with-panel {
+  margin-left: 300px;
+  /* 60px rail + 240px panel */
+}
+
+/* ============================================================================
+   SIDEBAR — Icon Rail (always visible, 60px)
+   ============================================================================ */
+.sidebar-rail {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 60px;
+  height: 100vh;
   background: white;
   border-right: 1px solid var(--border-color);
   display: flex;
   flex-direction: column;
-  transition: width 0.3s ease;
-  z-index: 100;
-  height: 100vh;
+  align-items: center;
+  z-index: 110;
+  padding: 0.75rem 0;
+}
+
+.sidebar-rail-logo {
+  width: 36px;
+  height: 36px;
+  border-radius: 0.5rem;
+  background: #10b981;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  cursor: pointer;
+  transition: background-color 0.15s;
+  margin-bottom: 1rem;
+  flex-shrink: 0;
+}
+
+.sidebar-rail-logo:hover {
+  background: #059669;
+}
+
+.sidebar-rail-nav {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.sidebar-rail-btn {
+  width: 40px;
+  height: 40px;
+  border-radius: 0.5rem;
+  border: none;
+  background: transparent;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background-color 0.15s;
+}
+
+.sidebar-rail-btn:hover {
+  background-color: #f3f4f6;
+}
+
+.sidebar-rail-btn.active {
+  background-color: #f0fdf4;
+}
+
+.sidebar-rail-bottom {
+  margin-top: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.sidebar-rail-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: #ecfdf5;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #10b981;
+  overflow: hidden;
+  margin-bottom: 4px;
+}
+
+/* ============================================================================
+   SIDEBAR — Context Panel (dynamic, 240px)
+   ============================================================================ */
+.sidebar-panel {
   position: fixed;
   top: 0;
-  left: 0;
-  box-shadow: var(--shadow-lg);
+  left: 60px;
+  width: 240px;
+  height: 100vh;
+  background: white;
+  border-right: 1px solid var(--border-color);
+  z-index: 105;
+  display: flex;
+  flex-direction: column;
+  transition: width 0.25s ease, opacity 0.25s ease;
+  overflow: hidden;
 }
 
-.sidebar.open {
-  width: 280px;
+.sidebar-panel.closed {
+  width: 0;
+  border-right: none;
 }
 
-.sidebar.closed {
-  width: 60px;
+.sidebar-panel-toggle {
+  position: absolute;
+  right: -14px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  border: 1px solid var(--border-color);
+  background: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.2s, background-color 0.15s;
+  color: #6b7280;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+  z-index: 10;
 }
 
-.sidebar-header {
-  height: 64px;
+.sidebar-panel-toggle:hover {
+  background: #f3f4f6;
+  color: #374151;
+}
+
+.sidebar-panel:hover .sidebar-panel-toggle {
+  opacity: 1;
+}
+
+.sidebar-panel-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  padding: 1rem;
+  overflow-y: auto;
+  min-width: 240px;
+}
+
+.sidebar-panel-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 1rem;
-  border-bottom: 1px solid var(--border-color);
+  margin-bottom: 0.75rem;
 }
 
-.header-content {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  color: var(--primary-color);
-}
-
-.header-content h3 {
+.sidebar-panel-header h3 {
   font-size: 1rem;
   font-weight: 600;
   margin: 0;
   white-space: nowrap;
 }
 
-.toggle-btn {
-  background: transparent;
-  border: none;
-  color: var(--text-secondary);
-  cursor: pointer;
-  padding: 0.5rem;
-  border-radius: 0.375rem;
+.sidebar-panel-new-btn {
   display: flex;
   align-items: center;
-  justify-content: center;
+  gap: 0.75rem;
+  padding: 0.5rem 0.75rem;
+  border-radius: 0.5rem;
+  border: 1px solid #e5e7eb;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  background-color: transparent;
+  color: #374151;
+  width: 100%;
+  margin-bottom: 0.75rem;
 }
 
-.toggle-btn:hover {
-  background: var(--bg-color);
-  color: var(--text-primary);
+.sidebar-panel-new-btn:hover {
+  background-color: #f0fdf4;
+  border-color: #86efac;
 }
 
-.sidebar-content {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  padding: 1rem;
-  overflow-y: auto;
+.sidebar-convo-delete {
+  opacity: 0;
+  padding: 2px;
+  border: none;
+  background: transparent;
+  border-radius: 4px;
+  color: #9ca3af;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.sidebar-convo-delete:hover {
+  color: #ef4444;
+  background: #fef2f2;
+}
+
+.conversation-item:hover .sidebar-convo-delete {
+  opacity: 1;
 }
 
 .roster-list {
@@ -2527,64 +2666,4 @@ body {
   font-weight: 500;
 }
 
-/* Sidebar toggle — hover-reveal at right edge, vertically centered */
-.sidebar-toggle-hover {
-  position: absolute;
-  right: -14px;
-  top: 50%;
-  transform: translateY(-50%);
-  width: 28px;
-  height: 28px;
-  border-radius: 6px;
-  border: 1px solid var(--border-color);
-  background: white;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  opacity: 0;
-  transition: opacity 0.2s, background-color 0.15s;
-  color: #6b7280;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
-  z-index: 10;
-}
-
-.sidebar-toggle-hover:hover {
-  background: #f3f4f6;
-  color: #374151;
-}
-
-.sidebar:hover .sidebar-toggle-hover {
-  opacity: 1;
-}
-
-/* Collapsed sidebar mini nav */
-.sidebar-collapsed-nav {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 4px;
-  padding: 0.5rem 0;
-  margin-top: 0.25rem;
-}
-
-.sidebar-collapsed-btn {
-  width: 40px;
-  height: 40px;
-  border-radius: 0.5rem;
-  border: none;
-  background: transparent;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  transition: background-color 0.15s;
-}
-
-.sidebar-collapsed-btn:hover {
-  background-color: #f3f4f6;
-}
-
-.sidebar-collapsed-btn.active {
-  background-color: #f0fdf4;
-}
+/* (old sidebar-toggle-hover and sidebar-collapsed styles removed — replaced by rail + panel layout) */
