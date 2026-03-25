@@ -620,6 +620,22 @@ body {
 
 .sidebar-rail-btn.active {
   background-color: #f0fdf4;
+  position: relative;
+}
+
+.sidebar-rail-btn.active::before {
+  content: '';
+  position: absolute;
+  left: -10px;
+  top: 8px;
+  bottom: 8px;
+  width: 3px;
+  border-radius: 0 2px 2px 0;
+  background: #10b981;
+}
+
+.sidebar-rail-logo.active {
+  box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.3);
 }
 
 .sidebar-rail-bottom {
@@ -666,34 +682,25 @@ body {
   border-right: none;
 }
 
-.sidebar-panel-toggle {
+/* Panel edge grip — always visible */
+.sidebar-panel-grip {
   position: absolute;
-  right: -14px;
-  top: 50%;
-  transform: translateY(-50%);
-  width: 28px;
-  height: 28px;
-  border-radius: 6px;
-  border: 1px solid var(--border-color);
-  background: white;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  width: 12px;
   display: flex;
   align-items: center;
   justify-content: center;
-  cursor: pointer;
-  opacity: 0;
-  transition: opacity 0.2s, background-color 0.15s;
-  color: #6b7280;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+  cursor: col-resize;
+  color: #d1d5db;
+  transition: color 0.15s, background-color 0.15s;
   z-index: 10;
 }
 
-.sidebar-panel-toggle:hover {
-  background: #f3f4f6;
-  color: #374151;
-}
-
-.sidebar-panel:hover .sidebar-panel-toggle {
-  opacity: 1;
+.sidebar-panel-grip:hover {
+  color: #10b981;
+  background: linear-gradient(to right, transparent, #f0fdf4);
 }
 
 .sidebar-panel-content {

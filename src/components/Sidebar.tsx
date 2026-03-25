@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Plus, PanelLeft, PanelLeftClose, LayoutDashboard, BarChart3, Sprout, LogOut, User as UserIcon, Trash2, MessageSquare } from 'lucide-react';
+import { Plus, LayoutDashboard, BarChart3, Sprout, LogOut, User as UserIcon, Trash2, MessageSquare, GripVertical } from 'lucide-react';
 import { useAuth } from '../contexts/authContext';
 import type { TrimmerProfile, ConversationSummary } from '../types/definitions';
 import { AddTrimmerProfileModal } from './AddTrimmerProfileModal';
@@ -76,30 +76,52 @@ export const Sidebar: React.FC<SidebarProps> = ({
     return (
         <>
             <div className="sidebar-rail">
-                {/* Logo */}
+                {/* Logo — click toggles AI panel, double-click starts new conversation */}
                 <button
                     onClick={() => {
-                        onNewConversation();
-                        onViewChange('ai');
+                        if (currentView === 'ai') {
+                            togglePanel();
+                        } else {
+                            onNewConversation();
+                            onViewChange('ai');
+                            if (!isPanelOpen) {
+                                setIsPanelOpen(true);
+                                onPanelOpenChange?.(true);
+                            }
+                        }
                     }}
-                    className="sidebar-rail-logo"
-                    title="New conversation"
+                    className={`sidebar-rail-logo ${currentView === 'ai' ? 'active' : ''}`}
+                    title={currentView === 'ai' ? (isPanelOpen ? 'Hide chats' : 'Show chats') : 'New conversation'}
                 >
                     <img src={logo} alt="Logo" className="w-5 h-5 object-contain brightness-0 invert" />
                 </button>
 
-                {/* Module icons */}
+                {/* Module icons — clicking active icon toggles panel */}
                 <div className="sidebar-rail-nav">
-                    {navItems.map(({ view, icon, label }) => (
-                        <button
-                            key={view}
-                            className={`sidebar-rail-btn ${currentView === view ? 'active' : ''}`}
-                            onClick={() => onViewChange(view)}
-                            title={label}
-                        >
-                            {icon(currentView === view ? '#10b981' : '#9ca3af')}
-                        </button>
-                    ))}
+                    {navItems.map(({ view, icon, label }) => {
+                        const isActive = currentView === view;
+                        const viewHasPanel = view === 'dashboard';
+                        return (
+                            <button
+                                key={view}
+                                className={`sidebar-rail-btn ${isActive ? 'active' : ''}`}
+                                onClick={() => {
+                                    if (isActive && viewHasPanel) {
+                                        togglePanel();
+                                    } else {
+                                        onViewChange(view);
+                                        if (viewHasPanel && !isPanelOpen) {
+                                            setIsPanelOpen(true);
+                                            onPanelOpenChange?.(true);
+                                        }
+                                    }
+                                }}
+                                title={label}
+                            >
+                                {icon(isActive ? '#10b981' : '#9ca3af')}
+                            </button>
+                        );
+                    })}
                 </div>
 
                 {/* Bottom: user avatar + logout */}
@@ -129,14 +151,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
             {/* Context panel — slides in/out based on view */}
             {hasContextPanel && (
                 <div className={`sidebar-panel ${isPanelOpen ? 'open' : 'closed'}`}>
-                    {/* Panel toggle */}
-                    <button
-                        className="sidebar-panel-toggle"
+                    {/* Panel edge grip — always visible */}
+                    <div
+                        className="sidebar-panel-grip"
                         onClick={togglePanel}
-                        title={isPanelOpen ? 'Collapse' : 'Expand'}
+                        title={isPanelOpen ? 'Collapse panel' : 'Expand panel'}
                     >
-                        {isPanelOpen ? <PanelLeftClose size={16} /> : <PanelLeft size={16} />}
-                    </button>
+                        <GripVertical size={14} />
+                    </div>
 
                     {isPanelOpen && (
                         <div className="sidebar-panel-content">
