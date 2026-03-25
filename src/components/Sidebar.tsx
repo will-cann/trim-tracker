@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
-import { Plus, LayoutDashboard, BarChart3, Sprout, LogOut, User as UserIcon, Trash2, MessageSquare, GripVertical, Scissors } from 'lucide-react';
+import { Plus, LayoutDashboard, BarChart3, Sprout, LogOut, User as UserIcon, Trash2, MessageSquare, GripVertical, Scissors, Settings } from 'lucide-react';
 import { useAuth } from '../contexts/authContext';
 import type { ConversationSummary, TrimSession } from '../types/definitions';
 import logo from '../assets/logo.png';
 
-type ViewType = 'ai' | 'dashboard' | 'reports' | 'harvests';
+type ViewType = 'ai' | 'dashboard' | 'reports' | 'harvests' | 'settings';
 
 interface SidebarProps {
     currentView: ViewType;
@@ -125,8 +125,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     })}
                 </div>
 
-                {/* Bottom: user avatar + logout */}
+                {/* Bottom: settings, user, logout */}
                 <div className="sidebar-rail-bottom">
+                    <button
+                        className={`sidebar-rail-btn ${currentView === 'settings' ? 'active' : ''}`}
+                        onClick={() => onViewChange('settings')}
+                        title="Settings"
+                    >
+                        <Settings size={18} color={currentView === 'settings' ? '#10b981' : '#6b7280'} />
+                    </button>
                     {user && (
                         <div
                             className="sidebar-rail-avatar"

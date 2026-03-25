@@ -68,6 +68,7 @@ interface UseAIChatOptions {
     onSessionUpdate: () => Promise<void>;
     conversationId?: string | null;
     onSaveConversation?: (id: string, title: string, messages: ChatMessage[]) => Promise<void>;
+    activeLicense?: string | null;
 }
 
 export const useAIChat = ({
@@ -77,6 +78,7 @@ export const useAIChat = ({
     onSessionUpdate,
     conversationId,
     onSaveConversation,
+    activeLicense,
 }: UseAIChatOptions) => {
     const [messages, setMessages] = useState<ChatMessage[]>([]);
     const [isLoading, setIsLoading] = useState(false);
@@ -128,7 +130,8 @@ export const useAIChat = ({
             strain: h.strain,
             status: h.status,
         })),
-    }), [session, trimmerProfiles, harvests]);
+        activeLicenseNumber: activeLicense || undefined,
+    }), [session, trimmerProfiles, harvests, activeLicense]);
 
     const addMessage = useCallback((role: 'user' | 'assistant', content: string, actions?: ProposedAction[]) => {
         const msg: ChatMessage = {

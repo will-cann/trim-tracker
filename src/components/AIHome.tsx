@@ -4,7 +4,7 @@ import { Mic, MicOff, Upload, FileText, ArrowRight, Loader2, Pencil } from 'luci
 import { useSpeechRecognition } from '../hooks/useSpeechRecognition';
 import { useAIChat } from '../hooks/useAIChat';
 import { ActionPreview } from './ActionPreview';
-import type { TrimSession, TrimmerProfile, Harvest, ChatMessage, CreateTrimSessionDTO } from '../types/definitions';
+import type { TrimSession, TrimmerProfile, Harvest, ChatMessage, CreateTrimSessionDTO, License } from '../types/definitions';
 import logo from '../assets/logo.png';
 
 interface AIHomeProps {
@@ -17,6 +17,9 @@ interface AIHomeProps {
     onLoadConversation: (id: string) => Promise<ChatMessage[]>;
     onConversationStarted: (id: string) => void;
     onStart: (dto: CreateTrimSessionDTO) => void;
+    licenses?: License[];
+    activeLicenseId?: string | null;
+    onLicenseChange?: (id: string) => void;
 }
 
 export const AIHome: React.FC<AIHomeProps> = ({
@@ -28,6 +31,9 @@ export const AIHome: React.FC<AIHomeProps> = ({
     onSaveConversation,
     onLoadConversation,
     onConversationStarted,
+    licenses = [],
+    activeLicenseId,
+    onLicenseChange,
 }) => {
     const [inputText, setInputText] = useState('');
     const [isDragOver, setIsDragOver] = useState(false);
@@ -60,6 +66,7 @@ export const AIHome: React.FC<AIHomeProps> = ({
         onSessionUpdate,
         conversationId,
         onSaveConversation,
+        activeLicense: licenses.find(l => l.id === activeLicenseId)?.licenseNumber || null,
     });
 
     // Load conversation when conversationId changes
@@ -169,6 +176,21 @@ export const AIHome: React.FC<AIHomeProps> = ({
 
     const hasMessages = messages.length > 0;
 
+    const licenseSelector = licenses.length > 0 ? (
+        <div className="ai-license-selector">
+            {licenses.map(lic => (
+                <button
+                    key={lic.id}
+                    className={`ai-license-pill ${lic.id === activeLicenseId ? 'active' : ''}`}
+                    onClick={() => onLicenseChange?.(lic.id)}
+                    title={lic.label || lic.licenseNumber}
+                >
+                    {lic.label || lic.licenseNumber}
+                </button>
+            ))}
+        </div>
+    ) : null;
+
     return (
         <div className="ai-home">
             {!hasMessages ? (
@@ -181,6 +203,9 @@ export const AIHome: React.FC<AIHomeProps> = ({
                     <p className="text-sm text-gray-500 mb-8">
                         Start a session, add batches, manage trimmers, track harvests — just tell me.
                     </p>
+
+                    {/* License selector */}
+                    {licenseSelector}
 
                     {/* Input */}
                     <form onSubmit={handleSubmit} className="w-full max-w-2xl space-y-3">
@@ -377,6 +402,11 @@ export const AIHome: React.FC<AIHomeProps> = ({
 
                     {/* Input bar pinned to bottom */}
                     <div className="ai-home-input-bar">
+                        {licenseSelector && (
+                            <div className="max-w-3xl mx-auto w-full mb-2">
+                                {licenseSelector}
+                            </div>
+                        )}
                         <form onSubmit={handleSubmit} className="max-w-3xl mx-auto w-full flex items-end gap-2">
                             <div className="flex-1 relative">
                                 <textarea

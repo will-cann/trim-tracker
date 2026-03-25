@@ -1,4 +1,4 @@
-import type { TrimSession, CreateTrimSessionDTO, Trimmer, TrimmerProfile, ProposedAction, Harvest, CreateHarvestDTO, HarvestWasteType, HarvestAllocation, Strain } from '../types/definitions';
+import type { TrimSession, CreateTrimSessionDTO, Trimmer, TrimmerProfile, ProposedAction, Harvest, CreateHarvestDTO, HarvestWasteType, HarvestAllocation, Strain, License } from '../types/definitions';
 
 const API_BASE = '/.netlify/functions';
 
@@ -312,6 +312,39 @@ export const deleteHarvest = async (id: string): Promise<void> => {
 };
 
 // ============================================================================
+// LICENSES
+// ============================================================================
+
+export const getMyLicenses = async (): Promise<License[]> => {
+    const response = await fetchWithAuth(`${API_BASE}/get-licenses?mine=true`);
+    if (!response.ok) return [];
+    return await response.json();
+};
+
+export const getAllLicenses = async (): Promise<License[]> => {
+    const response = await fetchWithAuth(`${API_BASE}/get-licenses`);
+    if (!response.ok) return [];
+    return await response.json();
+};
+
+export const createLicense = async (licenseNumber: string, label?: string): Promise<License> => {
+    const response = await fetchWithAuth(`${API_BASE}/manage-license`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ licenseNumber, label }),
+    });
+    if (!response.ok) throw new Error('Failed to create license');
+    return await response.json();
+};
+
+export const deleteLicense = async (id: string): Promise<void> => {
+    const response = await fetchWithAuth(`${API_BASE}/manage-license?id=${id}`, {
+        method: 'DELETE',
+    });
+    if (!response.ok) throw new Error('Failed to delete license');
+};
+
+// ============================================================================
 // STRAINS
 // ============================================================================
 
@@ -367,6 +400,11 @@ export const apiService = {
     recordHarvestWaste,
     convertToTrim,
     deleteHarvest,
+    // Licenses
+    getMyLicenses,
+    getAllLicenses,
+    createLicense,
+    deleteLicense,
     // Strains
     getStrains,
     upsertStrain,

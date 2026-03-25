@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
-import type { TrimSession, CreateTrimSessionDTO, TrimmerProfile, Harvest } from './types/definitions';
+import type { TrimSession, CreateTrimSessionDTO, TrimmerProfile, Harvest, License } from './types/definitions';
 import { apiService } from './services/apiService';
 import { AIHome } from './components/AIHome';
 import { AIAssistant } from './components/AIAssistant';
@@ -9,11 +9,12 @@ import { ReportsDashboard } from './components/Reports/ReportsDashboard';
 import { HarvestDashboard } from './components/Harvest/HarvestDashboard';
 import { Sidebar } from './components/Sidebar';
 import { RightPanel } from './components/RightPanel';
+import { SettingsPanel } from './components/SettingsPanel';
 import { Auth0Wrapper, useAuth } from './contexts/authContext';
 import { Login } from './components/Login';
 import { useConversationHistory } from './hooks/useConversationHistory';
 
-type ViewType = 'ai' | 'dashboard' | 'reports' | 'harvests';
+type ViewType = 'ai' | 'dashboard' | 'reports' | 'harvests' | 'settings';
 
 function AppContent() {
   const { user, loading: authLoading } = useAuth();
@@ -27,6 +28,8 @@ function AppContent() {
   const [completedSessions, setCompletedSessions] = useState<TrimSession[]>([]);
   const [isRightPanelOpen, setIsRightPanelOpen] = useState(false);
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
+  const [myLicenses, setMyLicenses] = useState<License[]>([]);
+  const [activeLicenseId, setActiveLicenseId] = useState<string | null>(null);
 
   const {
     conversations,
@@ -57,9 +60,18 @@ function AppContent() {
     setCompletedSessions(data);
   }, []);
 
+  const loadLicenses = useCallback(async () => {
+    const data = await apiService.getMyLicenses();
+    setMyLicenses(data);
+    // Auto-select first license if none selected
+    if (data.length > 0 && !activeLicenseId) {
+      setActiveLicenseId(data[0].id);
+    }
+  }, [activeLicenseId]);
+
   const refreshAll = useCallback(async () => {
-    await Promise.all([loadSession(), loadTrimmerProfiles(), loadHarvests(), loadCompletedSessions()]);
-  }, [loadSession, loadTrimmerProfiles, loadHarvests, loadCompletedSessions]);
+    await Promise.all([loadSession(), loadTrimmerProfiles(), loadHarvests(), loadCompletedSessions(), loadLicenses()]);
+  }, [loadSession, loadTrimmerProfiles, loadHarvests, loadCompletedSessions, loadLicenses]);
 
   useEffect(() => {
     if (user) {
@@ -67,8 +79,9 @@ function AppContent() {
       loadTrimmerProfiles();
       loadHarvests();
       loadCompletedSessions();
+      loadLicenses();
     }
-  }, [user, loadSession, loadTrimmerProfiles, loadHarvests, loadCompletedSessions]);
+  }, [user, loadSession, loadTrimmerProfiles, loadHarvests, loadCompletedSessions, loadLicenses]);
 
   if (authLoading) {
     return (
@@ -212,7 +225,12 @@ function AppContent() {
             onLoadConversation={loadConversation}
             onConversationStarted={handleConversationStarted}
             onStart={handleStartSession}
+            licenses={myLicenses}
+            activeLicenseId={activeLicenseId}
+            onLicenseChange={setActiveLicenseId}
           />
+        ) : currentView === 'settings' ? (
+          <SettingsPanel />
         ) : currentView === 'harvests' ? (
           <HarvestDashboard />
         ) : currentView === 'reports' ? (

@@ -255,6 +255,10 @@ export const handler: Handler = async (event) => {
             contextInfo.push(`- Harvests: None`);
         }
 
+        if ((request.context as any).activeLicenseNumber) {
+            contextInfo.push(`- Active license number: ${(request.context as any).activeLicenseNumber} (use this automatically for any new batches or harvests unless the user specifies a different one)`);
+        }
+
         userMessage += contextInfo.join('\n');
 
         const apiKey = process.env.ANTHROPIC_API_KEY;
