@@ -85,16 +85,25 @@ export const useAIChat = ({
     const messagesRef = useRef(messages);
     messagesRef.current = messages;
 
+    // Track effective conversationId via ref so it's available immediately after creation
+    const conversationIdRef = useRef(conversationId);
+    conversationIdRef.current = conversationId;
+
+    const setConversationId = useCallback((id: string) => {
+        conversationIdRef.current = id;
+    }, []);
+
     // Persist to Dexie when messages change (only for conversation-backed chats)
     useEffect(() => {
-        if (conversationId && onSaveConversation && messages.length > 0) {
+        const effectiveId = conversationIdRef.current;
+        if (effectiveId && onSaveConversation && messages.length > 0) {
             const firstUserMsg = messages.find(m => m.role === 'user');
             const title = firstUserMsg
                 ? summarizeMessage(firstUserMsg.content)
                 : 'New conversation';
-            onSaveConversation(conversationId, title, messages);
+            onSaveConversation(effectiveId, title, messages);
         }
-    }, [messages, conversationId, onSaveConversation]);
+    }, [messages, onSaveConversation]);
 
     const loadMessages = useCallback((msgs: ChatMessage[]) => {
         // Clear stale pending status
@@ -330,5 +339,6 @@ export const useAIChat = ({
         editMessage,
         clearMessages,
         loadMessages,
+        setConversationId,
     };
 };

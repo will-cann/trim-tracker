@@ -52,6 +52,7 @@ export const AIHome: React.FC<AIHomeProps> = ({
         editMessage,
         clearMessages,
         loadMessages,
+        setConversationId,
     } = useAIChat({
         session,
         trimmerProfiles,
@@ -62,18 +63,29 @@ export const AIHome: React.FC<AIHomeProps> = ({
     });
 
     // Load conversation when conversationId changes
+    const isNewConversationRef = useRef(false);
+
     useEffect(() => {
         if (conversationId && conversationId !== conversationIdRef.current) {
+            const prevId = conversationIdRef.current;
             conversationIdRef.current = conversationId;
+
+            // If we just created this conversation (no previous id or transitioning from null),
+            // don't load from Dexie — the messages are already in state
+            if (prevId === null && messages.length > 0) {
+                isNewConversationRef.current = true;
+                return;
+            }
+
             onLoadConversation(conversationId).then(msgs => {
                 if (msgs.length > 0) {
                     loadMessages(msgs);
-                } else {
-                    clearMessages();
                 }
+                // Don't clear if empty — could be a brand new conversation
             });
         } else if (!conversationId && conversationIdRef.current !== null) {
             conversationIdRef.current = null;
+            isNewConversationRef.current = false;
             clearMessages();
         }
     }, [conversationId, onLoadConversation, loadMessages, clearMessages]);
@@ -101,15 +113,16 @@ export const AIHome: React.FC<AIHomeProps> = ({
 
     const handleSend = useCallback((text: string) => {
         if (!text.trim() || isLoading) return;
-        // If no conversation yet, create one
+        // If no conversation yet, create one and set the ref immediately
         if (!conversationId) {
             const newId = crypto.randomUUID();
+            setConversationId(newId);
             onConversationStarted(newId);
         }
         sendMessage(text.trim());
         setInputText('');
         resetTranscript();
-    }, [isLoading, conversationId, onConversationStarted, sendMessage, resetTranscript]);
+    }, [isLoading, conversationId, onConversationStarted, sendMessage, resetTranscript, setConversationId]);
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
@@ -138,6 +151,7 @@ export const AIHome: React.FC<AIHomeProps> = ({
             if (text?.trim()) {
                 if (!conversationId) {
                     const newId = crypto.randomUUID();
+                    setConversationId(newId);
                     onConversationStarted(newId);
                 }
                 sendCSV(text);
