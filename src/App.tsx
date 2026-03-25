@@ -23,9 +23,10 @@ function AppContent() {
   const [trimmerProfiles, setTrimmerProfiles] = useState<TrimmerProfile[]>([]);
   const [harvests, setHarvests] = useState<Harvest[]>([]);
   const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
-  const [isPanelOpen, setIsPanelOpen] = useState(true);
+  const [, setIsPanelOpen] = useState(true);
   const [completedSessions, setCompletedSessions] = useState<TrimSession[]>([]);
   const [isRightPanelOpen, setIsRightPanelOpen] = useState(true);
+  const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
 
   const {
     conversations,
@@ -193,8 +194,10 @@ function AppContent() {
         onPanelOpenChange={setIsPanelOpen}
         activeSession={session}
         completedSessions={completedSessions}
+        selectedSessionId={selectedSessionId}
+        onSelectSession={setSelectedSessionId}
       />
-      <div className={`main-content ${isPanelOpen && (currentView === 'ai' || currentView === 'dashboard') ? 'with-panel' : ''}`}>
+      <div className="main-content">
         <header className="app-header">
         </header>
 
@@ -214,14 +217,18 @@ function AppContent() {
           <HarvestDashboard />
         ) : currentView === 'reports' ? (
           <ReportsDashboard />
-        ) : !session ? (
+        ) : !session && !selectedSessionId ? (
           <AIAssistant
             onStart={handleStartSession}
             onNavigateToAI={handleNewConversation}
           />
         ) : (
           <Dashboard
-            session={session}
+            session={
+              selectedSessionId
+                ? completedSessions.find(s => s.id === selectedSessionId) || session!
+                : session!
+            }
             onUpdateWeight={handleUpdateWeight}
             onSubmit={handleSubmitSession}
             onAddBatch={handleAddBatch}

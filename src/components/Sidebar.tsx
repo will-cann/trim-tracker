@@ -17,6 +17,8 @@ interface SidebarProps {
     onPanelOpenChange?: (isOpen: boolean) => void;
     activeSession: TrimSession | null;
     completedSessions: TrimSession[];
+    selectedSessionId: string | null;
+    onSelectSession: (sessionId: string | null) => void;
 }
 
 const formatRelativeTime = (dateStr: string) => {
@@ -51,6 +53,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
     onPanelOpenChange,
     activeSession,
     completedSessions,
+    selectedSessionId,
+    onSelectSession,
 }) => {
     const { user, logout } = useAuth();
     const [isPanelOpen, setIsPanelOpen] = useState(true);
@@ -156,6 +160,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 </button>
             )}
 
+            {/* Click-away overlay for left panel */}
+            {hasContextPanel && isPanelOpen && (
+                <div className="sidebar-panel-overlay" onClick={togglePanel} />
+            )}
+
             {/* Context panel — slides in/out based on view */}
             {hasContextPanel && (
                 <div className={`sidebar-panel ${isPanelOpen ? 'open' : 'closed'}`}>
@@ -244,10 +253,21 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                                 const date = s.startTime
                                                     ? new Date(s.startTime).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
                                                     : '';
+                                                const isSelected = 'isActive' in s && s.isActive
+                                                    ? selectedSessionId === null
+                                                    : selectedSessionId === s.id;
                                                 return (
                                                     <div
                                                         key={s.id}
-                                                        className={`conversation-item ${'isActive' in s && s.isActive ? 'active' : ''}`}
+                                                        className={`conversation-item ${isSelected ? 'active' : ''}`}
+                                                        onClick={() => {
+                                                            if ('isActive' in s && s.isActive) {
+                                                                onSelectSession(null);
+                                                            } else {
+                                                                onSelectSession(s.id);
+                                                            }
+                                                            onViewChange('dashboard');
+                                                        }}
                                                     >
                                                         <Scissors size={14} className={`shrink-0 ${'isActive' in s && s.isActive ? 'text-emerald-500' : 'text-gray-400'}`} />
                                                         <div className="flex-1 min-w-0">
