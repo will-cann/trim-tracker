@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect } from 'react';
-import type { TrimSession, TrimmerProfile, ProposedAction, ChatMessage } from '../types/definitions';
+import type { TrimSession, TrimmerProfile, ProposedAction, ChatMessage, Harvest } from '../types/definitions';
 import { apiService } from '../services/apiService';
 
 const CHAT_STORAGE_KEY = 'trim-tracker-chat-messages';
@@ -25,10 +25,11 @@ const saveMessages = (messages: ChatMessage[]) => {
 interface UseAIChatOptions {
     session: TrimSession | null;
     trimmerProfiles: TrimmerProfile[];
+    harvests?: Harvest[];
     onSessionUpdate: () => Promise<void>;
 }
 
-export const useAIChat = ({ session, trimmerProfiles, onSessionUpdate }: UseAIChatOptions) => {
+export const useAIChat = ({ session, trimmerProfiles, harvests, onSessionUpdate }: UseAIChatOptions) => {
     const [messages, setMessages] = useState<ChatMessage[]>(loadMessages);
     const [isLoading, setIsLoading] = useState(false);
     const [pendingActions, setPendingActions] = useState<ProposedAction[] | null>(null);
@@ -48,7 +49,13 @@ export const useAIChat = ({ session, trimmerProfiles, onSessionUpdate }: UseAICh
             strain: e.strain,
             status: e.status,
         })),
-    }), [session, trimmerProfiles]);
+        harvests: (harvests || []).map(h => ({
+            id: h.id,
+            batchId: h.batchId,
+            strain: h.strain,
+            status: h.status,
+        })),
+    }), [session, trimmerProfiles, harvests]);
 
     const addMessage = useCallback((role: 'user' | 'assistant', content: string, actions?: ProposedAction[]) => {
         const msg: ChatMessage = {
@@ -150,6 +157,37 @@ export const useAIChat = ({ session, trimmerProfiles, onSessionUpdate }: UseAICh
                                 trimWeight: 0,
                                 wasteWeight: 0,
                             });
+                        }
+                        break;
+                    case 'create_harvest':
+                        await apiService.createHarvest({
+                            strain: action.data.strain,
+                            licenseNumber: action.data.licenseNumber || '',
+                            allocation: action.data.allocation || 'Flower',
+                            name: action.data.name,
+                            plantCount: action.data.plantCount,
+                            dryingLocation: action.data.dryingLocation,
+                            targetWeight: action.data.targetWeight,
+                        });
+                        break;
+                    case 'record_wet_weight':
+                        if (action.data.harvestId) {
+                            await apiService.recordWetWeight(action.data.harvestId, action.data.weight);
+                        }
+                        break;
+                    case 'allocate_harvest':
+                        if (action.data.harvestId) {
+                            await apiService.allocateHarvest(action.data.harvestId, action.data.allocations);
+                        }
+                        break;
+                    case 'record_harvest_waste':
+                        if (action.data.harvestId) {
+                            await apiService.recordHarvestWaste(action.data.harvestId, action.data.wasteType, action.data.weight);
+                        }
+                        break;
+                    case 'move_harvest':
+                        if (action.data.harvestId) {
+                            await apiService.updateHarvest(action.data.harvestId, { dryingLocation: action.data.dryingLocation });
                         }
                         break;
                 }

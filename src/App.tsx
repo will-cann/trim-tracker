@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
-import type { TrimSession, CreateTrimSessionDTO, TrimmerProfile } from './types/definitions';
+import type { TrimSession, CreateTrimSessionDTO, TrimmerProfile, Harvest } from './types/definitions';
 import { apiService } from './services/apiService';
 import { AIAssistant } from './components/AIAssistant';
 import { ChatPanel } from './components/ChatPanel';
@@ -16,6 +16,7 @@ function AppContent() {
   const [loading, setLoading] = useState(true);
   const [currentView, setCurrentView] = useState<'dashboard' | 'reports' | 'harvests'>('dashboard');
   const [trimmerProfiles, setTrimmerProfiles] = useState<TrimmerProfile[]>([]);
+  const [harvests, setHarvests] = useState<Harvest[]>([]);
 
   const loadSession = useCallback(async () => {
     setLoading(true);
@@ -29,16 +30,22 @@ function AppContent() {
     setTrimmerProfiles(profiles);
   }, []);
 
+  const loadHarvests = useCallback(async () => {
+    const data = await apiService.getHarvests();
+    setHarvests(data);
+  }, []);
+
   const refreshAll = useCallback(async () => {
-    await Promise.all([loadSession(), loadTrimmerProfiles()]);
-  }, [loadSession, loadTrimmerProfiles]);
+    await Promise.all([loadSession(), loadTrimmerProfiles(), loadHarvests()]);
+  }, [loadSession, loadTrimmerProfiles, loadHarvests]);
 
   useEffect(() => {
     if (user) {
       loadSession();
       loadTrimmerProfiles();
+      loadHarvests();
     }
-  }, [user, loadSession, loadTrimmerProfiles]);
+  }, [user, loadSession, loadTrimmerProfiles, loadHarvests]);
 
   if (authLoading) {
     return (
@@ -208,6 +215,7 @@ function AppContent() {
               <ChatPanel
                 session={session}
                 trimmerProfiles={trimmerProfiles}
+                harvests={harvests}
                 onSessionUpdate={refreshAll}
               />
             </>

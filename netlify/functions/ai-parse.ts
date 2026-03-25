@@ -10,17 +10,21 @@ The application tracks:
 - **Batches (Trim Entries)**: Individual harvest batches within a session. Each has a harvest name, strain, license number, and start weight (in grams). Status can be 'active' or 'upcoming'.
 - **Trimmers**: Workers assigned to batches. Each has a name, start time (HH:mm 24-hour format), and tool (scissors or machine).
 - **Trimmer Profiles**: A company roster of available trimmers that can be assigned to batches.
+- **Harvests**: Pre-trim records tracking plant harvest through drying. Each has a batch ID, strain, license number, wet weight, waste, and allocations (flower for dry trim, frozen for fresh frozen, or both).
 
 When the user provides information, use the available tools to create structured actions. Key rules:
 - Match trimmer names to existing trimmer profiles when possible (fuzzy match is fine — "Maria" matches "Maria Garcia").
 - Match batch references (by harvest name or strain) to existing entries when assigning trimmers.
+- Match harvest references by batch ID or strain to existing harvests.
 - Default tool to "scissors" if not specified.
 - Default status to "upcoming" for new batches added to existing sessions.
 - If creating a new session, the first batch should have status "active".
-- Start weight should be in grams. Convert if user specifies other units (e.g., "1 lb" = 453.6g).
+- All weights should be in grams. Convert if user specifies other units (e.g., "1 lb" = 453.6g).
 - Start times should be in HH:mm 24-hour format. Convert from natural language (e.g., "8am" = "08:00", "2:30pm" = "14:30").
 - If a user mentions trimmers who don't exist in the roster, suggest adding them as new profiles first.
 - For CSV data, intelligently map column headers to the appropriate fields regardless of exact naming conventions.
+- For harvests, allocation can be "Flower" (dry trim), "Frozen" (fresh frozen), or "Both" (split). Default to "Flower" if not specified.
+- Waste types include: powdery_mildew, bud_rot, insects, other (contamination) and stems, leaves (biomass).
 
 Be conversational in your text responses but always use tools to represent the structured data.`;
 
@@ -107,6 +111,82 @@ const tools = [
             required: ['profiles'],
         },
     },
+    {
+        name: 'create_harvest',
+        description: 'Create a new harvest record. Use when the user wants to start tracking a new harvest.',
+        input_schema: {
+            type: 'object' as const,
+            properties: {
+                strain: { type: 'string', description: 'Cannabis strain name' },
+                licenseNumber: { type: 'string', description: 'License number' },
+                allocation: { type: 'string', enum: ['Flower', 'Frozen', 'Both'], description: 'Allocation type. Default to Flower.' },
+                name: { type: 'string', description: 'Optional custom batch ID. Auto-generated if not provided.' },
+                plantCount: { type: 'number', description: 'Number of plants harvested' },
+                dryingLocation: { type: 'string', description: 'Drying room/location name' },
+                targetWeight: { type: 'number', description: 'Fresh frozen target weight in grams. Required when allocation is Both.' },
+            },
+            required: ['strain', 'licenseNumber', 'allocation'],
+        },
+    },
+    {
+        name: 'record_wet_weight',
+        description: 'Record the wet weight for a harvest. Transitions the harvest from planning to active.',
+        input_schema: {
+            type: 'object' as const,
+            properties: {
+                harvestIdentifier: { type: 'string', description: 'Batch ID or strain to identify the harvest' },
+                weight: { type: 'number', description: 'Wet weight in grams' },
+            },
+            required: ['harvestIdentifier', 'weight'],
+        },
+    },
+    {
+        name: 'allocate_harvest',
+        description: 'Allocate a harvest to flower (dry trim), frozen (fresh frozen), or both. Use after wet weight is recorded.',
+        input_schema: {
+            type: 'object' as const,
+            properties: {
+                harvestIdentifier: { type: 'string', description: 'Batch ID or strain to identify the harvest' },
+                allocations: {
+                    type: 'array',
+                    items: {
+                        type: 'object',
+                        properties: {
+                            type: { type: 'string', enum: ['flower', 'frozen'], description: 'Allocation type' },
+                            targetWeight: { type: 'number', description: 'Weight in grams to allocate' },
+                        },
+                        required: ['type', 'targetWeight'],
+                    },
+                },
+            },
+            required: ['harvestIdentifier', 'allocations'],
+        },
+    },
+    {
+        name: 'record_harvest_waste',
+        description: 'Record waste for a harvest. Types: powdery_mildew, bud_rot, insects, other, stems, leaves.',
+        input_schema: {
+            type: 'object' as const,
+            properties: {
+                harvestIdentifier: { type: 'string', description: 'Batch ID or strain to identify the harvest' },
+                wasteType: { type: 'string', enum: ['powdery_mildew', 'bud_rot', 'insects', 'other', 'stems', 'leaves', 'plant_material', 'fibrous', 'root_ball'], description: 'Type of waste' },
+                weight: { type: 'number', description: 'Waste weight in grams' },
+            },
+            required: ['harvestIdentifier', 'wasteType', 'weight'],
+        },
+    },
+    {
+        name: 'move_harvest',
+        description: 'Move a harvest to a different drying location.',
+        input_schema: {
+            type: 'object' as const,
+            properties: {
+                harvestIdentifier: { type: 'string', description: 'Batch ID or strain to identify the harvest' },
+                dryingLocation: { type: 'string', description: 'New drying location name' },
+            },
+            required: ['harvestIdentifier', 'dryingLocation'],
+        },
+    },
 ];
 
 interface AIParseRequest {
@@ -117,11 +197,12 @@ interface AIParseRequest {
         sessionId?: string;
         trimmerProfiles: Array<{ id: string; name: string }>;
         existingEntries: Array<{ id: string; harvestName: string; strain: string; status: string }>;
+        harvests?: Array<{ id: string; batchId: string; strain: string; status: string }>;
     };
 }
 
 interface ProposedAction {
-    type: 'create_session' | 'add_batch' | 'assign_trimmer' | 'add_trimmer_profile';
+    type: string;
     data: Record<string, any>;
 }
 
@@ -165,6 +246,12 @@ export const handler: Handler = async (event) => {
 
         if (request.context.existingEntries.length > 0) {
             contextInfo.push(`- Current batches: ${request.context.existingEntries.map(e => `"${e.harvestName}" / ${e.strain} [${e.status}] (ID: ${e.id})`).join(', ')}`);
+        }
+
+        if (request.context.harvests && request.context.harvests.length > 0) {
+            contextInfo.push(`- Harvests: ${request.context.harvests.map(h => `"${h.batchId}" / ${h.strain} [${h.status}] (ID: ${h.id})`).join(', ')}`);
+        } else {
+            contextInfo.push(`- Harvests: None`);
         }
 
         userMessage += contextInfo.join('\n');
@@ -244,6 +331,70 @@ export const handler: Handler = async (event) => {
                             actions.push({ type: 'add_trimmer_profile', data: { name: profile.name } });
                         }
                         break;
+                    case 'create_harvest':
+                        actions.push({ type: 'create_harvest', data: input });
+                        break;
+                    case 'record_wet_weight': {
+                        const matchedHarvest = (request.context.harvests || []).find(
+                            h => h.batchId.toLowerCase().includes(input.harvestIdentifier.toLowerCase()) ||
+                                h.strain.toLowerCase().includes(input.harvestIdentifier.toLowerCase())
+                        );
+                        actions.push({
+                            type: 'record_wet_weight',
+                            data: {
+                                harvestId: matchedHarvest?.id || null,
+                                harvestName: matchedHarvest?.batchId || input.harvestIdentifier,
+                                weight: input.weight,
+                            },
+                        });
+                        break;
+                    }
+                    case 'allocate_harvest': {
+                        const matchedH = (request.context.harvests || []).find(
+                            h => h.batchId.toLowerCase().includes(input.harvestIdentifier.toLowerCase()) ||
+                                h.strain.toLowerCase().includes(input.harvestIdentifier.toLowerCase())
+                        );
+                        actions.push({
+                            type: 'allocate_harvest',
+                            data: {
+                                harvestId: matchedH?.id || null,
+                                harvestName: matchedH?.batchId || input.harvestIdentifier,
+                                allocations: input.allocations,
+                            },
+                        });
+                        break;
+                    }
+                    case 'record_harvest_waste': {
+                        const matchedHW = (request.context.harvests || []).find(
+                            h => h.batchId.toLowerCase().includes(input.harvestIdentifier.toLowerCase()) ||
+                                h.strain.toLowerCase().includes(input.harvestIdentifier.toLowerCase())
+                        );
+                        actions.push({
+                            type: 'record_harvest_waste',
+                            data: {
+                                harvestId: matchedHW?.id || null,
+                                harvestName: matchedHW?.batchId || input.harvestIdentifier,
+                                wasteType: input.wasteType,
+                                weight: input.weight,
+                            },
+                        });
+                        break;
+                    }
+                    case 'move_harvest': {
+                        const matchedHM = (request.context.harvests || []).find(
+                            h => h.batchId.toLowerCase().includes(input.harvestIdentifier.toLowerCase()) ||
+                                h.strain.toLowerCase().includes(input.harvestIdentifier.toLowerCase())
+                        );
+                        actions.push({
+                            type: 'move_harvest',
+                            data: {
+                                harvestId: matchedHM?.id || null,
+                                harvestName: matchedHM?.batchId || input.harvestIdentifier,
+                                dryingLocation: input.dryingLocation,
+                            },
+                        });
+                        break;
+                    }
                 }
             }
         }

@@ -77,6 +77,8 @@ export const HarvestDashboard: React.FC = () => {
         return acc;
     }, {} as Record<string, number>);
 
+    const activeCount = (statusCounts.planning || 0) + (statusCounts.active || 0) + (statusCounts.drying || 0) + (statusCounts.ready || 0);
+
     const totalWetWeight = harvests
         .filter(h => h.status !== 'completed')
         .reduce((sum, h) => sum + h.totalWetWeight, 0);
@@ -94,54 +96,51 @@ export const HarvestDashboard: React.FC = () => {
         .reduce((sum, a) => sum + a.targetWeight, 0);
 
     return (
-        <div className="dashboard" style={{ maxWidth: '1200px', margin: '0 auto', padding: '1.5rem' }}>
-            {/* Stats row */}
-            <div style={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(4, 1fr)',
-                gap: '1rem',
-                marginBottom: '1.5rem',
-            }}>
-                <div className="stat-item">
-                    <div className="stat-icon" style={{ backgroundColor: '#ecfdf5' }}>
-                        <Sprout size={24} color="#10b981" />
+        <div className="dashboard">
+            {/* Stats */}
+            <div className="dashboard-top-section">
+                <div className="stats-grid">
+                    <div className="stat-item">
+                        <div className="stat-icon" style={{ backgroundColor: '#ecfdf5', color: '#10b981' }}>
+                            <Sprout size={24} />
+                        </div>
+                        <div className="stat-content">
+                            <label>Active Harvests</label>
+                            <p className="stat-value">{activeCount}</p>
+                        </div>
                     </div>
-                    <div className="stat-content">
-                        <label>Active Harvests</label>
-                        <p className="stat-value">{(statusCounts.planning || 0) + (statusCounts.active || 0) + (statusCounts.drying || 0) + (statusCounts.ready || 0)}</p>
+                    <div className="stat-item">
+                        <div className="stat-icon start-icon">
+                            <Package size={24} />
+                        </div>
+                        <div className="stat-content">
+                            <label>Total Wet Weight</label>
+                            <p className="stat-value">{totalWetWeight.toFixed(0)}g</p>
+                        </div>
                     </div>
-                </div>
-                <div className="stat-item">
-                    <div className="stat-icon" style={{ backgroundColor: '#dbeafe' }}>
-                        <Package size={24} color="#3b82f6" />
+                    <div className="stat-item">
+                        <div className="stat-icon flower-icon">
+                            <Flower2 size={24} />
+                        </div>
+                        <div className="stat-content">
+                            <label>Flower Allocated</label>
+                            <p className="stat-value">{flowerWeight.toFixed(0)}g</p>
+                        </div>
                     </div>
-                    <div className="stat-content">
-                        <label>Total Wet Weight</label>
-                        <p className="stat-value">{totalWetWeight.toFixed(0)}g</p>
-                    </div>
-                </div>
-                <div className="stat-item">
-                    <div className="stat-icon" style={{ backgroundColor: '#fef3c7' }}>
-                        <Flower2 size={24} color="#d97706" />
-                    </div>
-                    <div className="stat-content">
-                        <label>Flower Allocated</label>
-                        <p className="stat-value">{flowerWeight.toFixed(0)}g</p>
-                    </div>
-                </div>
-                <div className="stat-item">
-                    <div className="stat-icon" style={{ backgroundColor: '#dbeafe' }}>
-                        <Snowflake size={24} color="#3b82f6" />
-                    </div>
-                    <div className="stat-content">
-                        <label>Frozen Allocated</label>
-                        <p className="stat-value">{frozenWeight.toFixed(0)}g</p>
+                    <div className="stat-item">
+                        <div className="stat-icon" style={{ backgroundColor: '#dbeafe', color: '#3b82f6' }}>
+                            <Snowflake size={24} />
+                        </div>
+                        <div className="stat-content">
+                            <label>Frozen Allocated</label>
+                            <p className="stat-value">{frozenWeight.toFixed(0)}g</p>
+                        </div>
                     </div>
                 </div>
             </div>
 
             {/* Tabs + New Harvest button */}
-            <div className="actions-row" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+            <div className="actions-row">
                 <div className="tabs-container">
                     {TABS.map(tab => (
                         <button
@@ -168,20 +167,13 @@ export const HarvestDashboard: React.FC = () => {
             {loading ? (
                 <div style={{ textAlign: 'center', padding: '3rem', color: '#9ca3af' }}>Loading harvests...</div>
             ) : filteredHarvests.length === 0 ? (
-                <div style={{
-                    textAlign: 'center',
-                    padding: '3rem',
-                    color: '#9ca3af',
-                    backgroundColor: 'white',
-                    borderRadius: '0.75rem',
-                    border: '1px solid #e5e7eb',
-                }}>
+                <div className="trim-card" style={{ textAlign: 'center', padding: '3rem', color: '#9ca3af' }}>
                     <Sprout size={48} color="#d1d5db" style={{ margin: '0 auto 1rem' }} />
                     <p style={{ fontSize: '1rem', fontWeight: 500 }}>No harvests{activeTab !== 'all' ? ` in ${activeTab}` : ''}</p>
                     <p style={{ fontSize: '0.875rem', marginTop: '0.25rem' }}>Create a new harvest to get started.</p>
                 </div>
             ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                <div className="entry-list">
                     {filteredHarvests.map(harvest => (
                         <HarvestCard
                             key={harvest.id}

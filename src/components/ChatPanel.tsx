@@ -4,15 +4,16 @@ import { Sparkles, X, Mic, MicOff, Upload, ArrowRight, Loader2 } from 'lucide-re
 import { useSpeechRecognition } from '../hooks/useSpeechRecognition';
 import { useAIChat } from '../hooks/useAIChat';
 import { ActionPreview } from './ActionPreview';
-import type { TrimSession, TrimmerProfile } from '../types/definitions';
+import type { TrimSession, TrimmerProfile, Harvest } from '../types/definitions';
 
 interface ChatPanelProps {
     session: TrimSession;
     trimmerProfiles: TrimmerProfile[];
+    harvests?: Harvest[];
     onSessionUpdate: () => Promise<void>;
 }
 
-export const ChatPanel: React.FC<ChatPanelProps> = ({ session, trimmerProfiles, onSessionUpdate }) => {
+export const ChatPanel: React.FC<ChatPanelProps> = ({ session, trimmerProfiles, harvests, onSessionUpdate }) => {
     const [isOpen, setIsOpen] = useState(false);
     const [inputText, setInputText] = useState('');
     const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -31,7 +32,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ session, trimmerProfiles, 
         confirmActions,
         cancelActions,
         editAction,
-    } = useAIChat({ session, trimmerProfiles, onSessionUpdate });
+    } = useAIChat({ session, trimmerProfiles, harvests, onSessionUpdate });
 
     // When final transcript updates, commit it to input
     useEffect(() => {
