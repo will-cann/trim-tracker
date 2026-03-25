@@ -7,7 +7,7 @@ import { ActionPreview } from './ActionPreview';
 import type { TrimSession, TrimmerProfile, Harvest } from '../types/definitions';
 
 interface ChatPanelProps {
-    session: TrimSession;
+    session: TrimSession | null;
     trimmerProfiles: TrimmerProfile[];
     harvests?: Harvest[];
     onSessionUpdate: () => Promise<void>;

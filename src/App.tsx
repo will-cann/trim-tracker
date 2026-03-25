@@ -170,56 +170,56 @@ function AppContent() {
               onSessionUpdate={refreshAll}
             />
           ) : (
-            <>
-              <Dashboard
-                session={session}
-                onUpdateWeight={handleUpdateWeight}
-                onSubmit={handleSubmitSession}
-                onAddBatch={handleAddBatch}
-                onUpdateStrain={handleUpdateStrain}
-                onAddTrimmer={handleAddTrimmer}
-                onUpdateTrimmer={handleUpdateTrimmer}
-                onRemoveTrimmer={handleRemoveTrimmer}
-                onDeleteBatch={handleDeleteBatch}
-                onSubmitBatch={handleSubmitBatch}
-                onStartBatch={async (entryId) => {
-                  // Optimistic update — move entry to active immediately
-                  setSession(prev => prev ? {
-                    ...prev,
-                    entries: prev.entries.map(e => e.id === entryId ? { ...e, status: 'active' } : e),
-                  } : prev);
-                  let updatedSession = await apiService.startBatch(entryId);
-                  const newTrimmer = {
-                    name: '',
-                    startTime: '',
-                    endTime: '',
-                    flowerWeight: 0,
-                    shakeWeight: 0,
-                    trimWeight: 0,
-                    wasteWeight: 0
-                  };
-                  updatedSession = await apiService.addTrimmer(entryId, newTrimmer);
-                  setSession({ ...updatedSession });
-                }}
-                onRevertBatch={async (entryId) => {
-                  // Optimistic update — move entry to upcoming immediately
-                  setSession(prev => prev ? {
-                    ...prev,
-                    entries: prev.entries.map(e => e.id === entryId ? { ...e, status: 'upcoming' } : e),
-                  } : prev);
-                  const updatedSession = await apiService.revertBatch(entryId);
-                  setSession({ ...updatedSession });
-                }}
-                trimmerProfiles={trimmerProfiles}
-              />
-              <ChatPanel
-                session={session}
-                trimmerProfiles={trimmerProfiles}
-                harvests={harvests}
-                onSessionUpdate={refreshAll}
-              />
-            </>
+            <Dashboard
+              session={session}
+              onUpdateWeight={handleUpdateWeight}
+              onSubmit={handleSubmitSession}
+              onAddBatch={handleAddBatch}
+              onUpdateStrain={handleUpdateStrain}
+              onAddTrimmer={handleAddTrimmer}
+              onUpdateTrimmer={handleUpdateTrimmer}
+              onRemoveTrimmer={handleRemoveTrimmer}
+              onDeleteBatch={handleDeleteBatch}
+              onSubmitBatch={handleSubmitBatch}
+              onStartBatch={async (entryId) => {
+                setSession(prev => prev ? {
+                  ...prev,
+                  entries: prev.entries.map(e => e.id === entryId ? { ...e, status: 'active' } : e),
+                } : prev);
+                let updatedSession = await apiService.startBatch(entryId);
+                const newTrimmer = {
+                  name: '',
+                  startTime: '',
+                  endTime: '',
+                  flowerWeight: 0,
+                  shakeWeight: 0,
+                  trimWeight: 0,
+                  wasteWeight: 0
+                };
+                updatedSession = await apiService.addTrimmer(entryId, newTrimmer);
+                setSession({ ...updatedSession });
+              }}
+              onRevertBatch={async (entryId) => {
+                setSession(prev => prev ? {
+                  ...prev,
+                  entries: prev.entries.map(e => e.id === entryId ? { ...e, status: 'upcoming' } : e),
+                } : prev);
+                const updatedSession = await apiService.revertBatch(entryId);
+                setSession({ ...updatedSession });
+              }}
+              trimmerProfiles={trimmerProfiles}
+            />
           )
+        )}
+
+        {/* AI Chat — available on dashboard and harvests views */}
+        {currentView !== 'reports' && (
+          <ChatPanel
+            session={session}
+            trimmerProfiles={trimmerProfiles}
+            harvests={harvests}
+            onSessionUpdate={refreshAll}
+          />
         )}
       </div>
     </div>
