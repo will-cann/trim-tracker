@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ChevronDown, Scale, Trash2, Snowflake, Flower2, ArrowRightLeft, Scissors } from 'lucide-react';
+import { ChevronDown, Trash2, Snowflake, Flower2, ArrowRightLeft, Scissors } from 'lucide-react';
 import type { Harvest, HarvestWasteType } from '../../types/definitions';
 import { WasteEntryForm } from './WasteEntryForm';
 import { RecordWeightModal } from './RecordWeightModal';
@@ -104,11 +104,25 @@ export const HarvestCard: React.FC<HarvestCardProps> = ({
                         <div className="trim-card-summary">
                             <div className="summary-item">
                                 <span className="label">Wet Weight</span>
-                                <span className="value">{harvest.totalWetWeight > 0 ? `${harvest.totalWetWeight.toFixed(0)}g` : '—'}</span>
-                            </div>
-                            <div className="summary-item">
-                                <span className="label">Waste</span>
-                                <span className="value">{harvest.totalWasteWeight > 0 ? `${harvest.totalWasteWeight.toFixed(0)}g` : '—'}</span>
+                                {harvest.totalWetWeight > 0 ? (
+                                    <span
+                                        className="value"
+                                        style={{ cursor: 'pointer' }}
+                                        onClick={(e) => { e.stopPropagation(); setShowWeightModal(true); }}
+                                        title="Update weight"
+                                    >
+                                        {harvest.totalWetWeight.toFixed(0)}g
+                                    </span>
+                                ) : (
+                                    <span
+                                        className="value"
+                                        style={{ cursor: 'pointer', color: '#10b981' }}
+                                        onClick={(e) => { e.stopPropagation(); setShowWeightModal(true); }}
+                                        title="Record wet weight"
+                                    >
+                                        —
+                                    </span>
+                                )}
                             </div>
                             {harvest.allocations.length > 0 ? (
                                 harvest.allocations.map(a => (
@@ -134,8 +148,13 @@ export const HarvestCard: React.FC<HarvestCardProps> = ({
                         <div className="trim-card-summary" style={{ borderBottom: '1px solid var(--border-color, #e5e7eb)', paddingBottom: '0.75rem', marginBottom: '0.75rem' }}>
                             <div className="summary-item">
                                 <span className="label">Wet Weight</span>
-                                <span className="value" style={{ fontSize: '1.125rem' }}>
-                                    {harvest.totalWetWeight > 0 ? `${harvest.totalWetWeight.toFixed(0)}g` : '—'}
+                                <span
+                                    className="value"
+                                    style={{ fontSize: '1.125rem', cursor: 'pointer' }}
+                                    onClick={() => setShowWeightModal(true)}
+                                    title={harvest.totalWetWeight > 0 ? 'Update weight' : 'Record wet weight'}
+                                >
+                                    {harvest.totalWetWeight > 0 ? `${harvest.totalWetWeight.toFixed(0)}g` : <span style={{ color: '#10b981' }}>—</span>}
                                 </span>
                             </div>
                             <div className="summary-item">
@@ -220,12 +239,6 @@ export const HarvestCard: React.FC<HarvestCardProps> = ({
 
                         {/* Action buttons */}
                         <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', paddingTop: '0.75rem', borderTop: '1px solid var(--border-color, #e5e7eb)' }}>
-                            {(harvest.status === 'planning' || harvest.status === 'active') && (
-                                <button className="btn-start-batch" onClick={() => setShowWeightModal(true)}>
-                                    <Scale size={14} style={{ marginRight: '0.25rem' }} />
-                                    {harvest.totalWetWeight > 0 ? 'Update Weight' : 'Record Wet Weight'}
-                                </button>
-                            )}
                             {harvest.status === 'active' && harvest.totalWetWeight > 0 && harvest.allocations.length === 0 && (
                                 <button className="btn-start-batch" onClick={() => setShowAllocateModal(true)}>
                                     <ArrowRightLeft size={14} style={{ marginRight: '0.25rem' }} />
