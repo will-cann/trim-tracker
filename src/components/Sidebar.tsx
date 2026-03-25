@@ -57,7 +57,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     onSelectSession,
 }) => {
     const { user, logout } = useAuth();
-    const [isPanelOpen, setIsPanelOpen] = useState(true);
+    const [isPanelOpen, setIsPanelOpen] = useState(false);
 
     const togglePanel = () => {
         const next = !isPanelOpen;
@@ -149,14 +149,17 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 </div>
             </div>
 
-            {/* Expand tab — shows on rail edge when panel is collapsed */}
+            {/* Expand tab — contextual icon on rail edge when panel is collapsed */}
             {hasContextPanel && !isPanelOpen && (
                 <button
                     className="sidebar-expand-tab"
                     onClick={togglePanel}
-                    title="Expand panel"
+                    title={currentView === 'ai' ? 'Chat history' : 'Trim sessions'}
                 >
-                    <GripVertical size={12} />
+                    {currentView === 'ai'
+                        ? <MessageSquare size={12} />
+                        : <Scissors size={12} />
+                    }
                 </button>
             )}
 

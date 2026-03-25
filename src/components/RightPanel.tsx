@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Plus, Trash2, GripVertical } from 'lucide-react';
+import { Plus, Trash2, GripVertical, Users } from 'lucide-react';
 import type { TrimmerProfile, TrimSession } from '../types/definitions';
 
 interface RightPanelProps {
@@ -50,9 +50,9 @@ export const RightPanel: React.FC<RightPanelProps> = ({
                 <button
                     className="right-expand-tab"
                     onClick={onToggle}
-                    title="Show trimmer roster"
+                    title="Trimmer roster"
                 >
-                    <GripVertical size={12} />
+                    <Users size={12} />
                 </button>
             )}
 

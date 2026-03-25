@@ -25,7 +25,7 @@ function AppContent() {
   const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
   const [, setIsPanelOpen] = useState(true);
   const [completedSessions, setCompletedSessions] = useState<TrimSession[]>([]);
-  const [isRightPanelOpen, setIsRightPanelOpen] = useState(true);
+  const [isRightPanelOpen, setIsRightPanelOpen] = useState(false);
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
 
   const {
