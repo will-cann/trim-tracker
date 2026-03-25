@@ -69,6 +69,12 @@ export const HarvestCard: React.FC<HarvestCardProps> = ({
                                         <span className="license-number">{harvest.licenseNumber}</span>
                                     </>
                                 )}
+                                {harvest.plantCount > 0 && (
+                                    <>
+                                        <span className="separator">&bull;</span>
+                                        <span>{harvest.plantCount} plant{harvest.plantCount > 1 ? 's' : ''}</span>
+                                    </>
+                                )}
                                 {harvest.dryingLocation && (
                                     <>
                                         <span className="separator">&bull;</span>
