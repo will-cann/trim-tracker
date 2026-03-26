@@ -10,6 +10,7 @@ import { HarvestDashboard } from './components/Harvest/HarvestDashboard';
 import { TasksPanel } from './components/TasksPanel';
 import { Sidebar } from './components/Sidebar';
 import { RightPanel } from './components/RightPanel';
+import { TaskRightPanel } from './components/TaskRightPanel';
 import { SettingsPanel } from './components/SettingsPanel';
 import { Auth0Wrapper, useAuth } from './contexts/authContext';
 import { Login } from './components/Login';
@@ -29,6 +30,7 @@ function AppContent() {
   const [, setIsPanelOpen] = useState(true);
   const [completedSessions, setCompletedSessions] = useState<TrimSession[]>([]);
   const [isRightPanelOpen, setIsRightPanelOpen] = useState(false);
+  const [isTaskPanelOpen, setIsTaskPanelOpen] = useState(false);
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
   const [myLicenses, setMyLicenses] = useState<License[]>([]);
   const [activeLicenseId, setActiveLicenseId] = useState<string | null>(null);
@@ -336,6 +338,19 @@ function AppContent() {
             isOpen={isRightPanelOpen}
             onToggle={() => setIsRightPanelOpen(prev => !prev)}
             session={session}
+          />
+        )}
+
+        {/* Task panel — right side on AI view */}
+        {currentView === 'ai' && (
+          <TaskRightPanel
+            tasks={humanTasks}
+            isOpen={isTaskPanelOpen}
+            onToggle={() => setIsTaskPanelOpen(prev => !prev)}
+            onUpdateStatus={updateTaskStatus}
+            onDeleteTask={deleteHumanTask}
+            pendingCount={taskPendingCount}
+            onViewAll={() => setCurrentView('tasks')}
           />
         )}
       </div>

@@ -205,15 +205,41 @@ export const useDeepgram = ({
     }, [cleanup]);
 
     const stopListening = useCallback(() => {
-        // Send close frame to Deepgram to flush final transcript
+        // Stop audio pipeline immediately so no more audio is sent
+        if (processorRef.current) {
+            processorRef.current.disconnect();
+            processorRef.current = null;
+        }
+        if (streamRef.current) {
+            streamRef.current.getTracks().forEach(t => t.stop());
+            streamRef.current = null;
+        }
+        if (audioContextRef.current) {
+            audioContextRef.current.close();
+            audioContextRef.current = null;
+        }
+
+        // Update state immediately so UI reflects "stopped"
+        setIsListening(false);
+
+        // Send close frame to Deepgram to flush any final transcript, then close
         if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
             wsRef.current.send(JSON.stringify({ type: 'CloseStream' }));
-            // Give it a moment to flush, then clean up
-            setTimeout(cleanup, 500);
+            setTimeout(() => {
+                if (wsRef.current) {
+                    wsRef.current.close();
+                    wsRef.current = null;
+                }
+                setIsConnected(false);
+            }, 300);
         } else {
-            cleanup();
+            if (wsRef.current) {
+                wsRef.current.close();
+                wsRef.current = null;
+            }
+            setIsConnected(false);
         }
-    }, [cleanup]);
+    }, []);
 
     return {
         isConnected,

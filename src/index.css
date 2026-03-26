@@ -2884,3 +2884,106 @@ body {
   color: var(--danger-color);
   background: rgba(239, 68, 68, 0.05);
 }
+
+/* ============================================================================
+   TASK RIGHT PANEL — mirrors right-panel pattern
+   ============================================================================ */
+.task-panel {
+  position: fixed;
+  top: 0;
+  right: 0;
+  width: 260px;
+  height: 100vh;
+  background: white;
+  border-left: 1px solid var(--border-color);
+  z-index: 120;
+  display: flex;
+  flex-direction: column;
+  transition: transform 0.25s ease;
+  box-shadow: -4px 0 12px rgba(0, 0, 0, 0.08);
+}
+
+.task-panel.closed {
+  transform: translateX(100%);
+}
+
+.task-panel-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 115;
+}
+
+.task-panel-grip {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: col-resize;
+  color: #d1d5db;
+  transition: color 0.15s, background-color 0.15s;
+  z-index: 10;
+}
+
+.task-panel-grip:hover {
+  color: var(--primary-color);
+  background: linear-gradient(to left, transparent, var(--primary-light));
+}
+
+.task-expand-tab {
+  position: fixed;
+  right: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 16px;
+  height: 48px;
+  border: none;
+  border-radius: 4px 0 0 4px;
+  background: var(--primary-light);
+  color: var(--primary-color);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  cursor: pointer;
+  z-index: 106;
+  transition: all 0.15s;
+  opacity: 0.7;
+}
+
+.task-expand-tab:hover {
+  width: 20px;
+  background: var(--primary-color);
+  color: white;
+  opacity: 1;
+}
+
+.task-expand-badge {
+  font-size: 8px;
+  font-weight: 700;
+  line-height: 1;
+  min-width: 12px;
+  text-align: center;
+  background: var(--primary-color);
+  color: white;
+  border-radius: 6px;
+  padding: 1px 3px;
+}
+
+.task-expand-tab:hover .task-expand-badge {
+  background: white;
+  color: var(--primary-color);
+}
+
+.task-panel-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  padding: 0.75rem;
+  overflow-y: auto;
+  min-width: 260px;
+}

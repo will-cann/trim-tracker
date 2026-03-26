@@ -1,11 +1,10 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import ReactMarkdown from 'react-markdown';
-import { Mic, MicOff, Upload, FileText, ArrowRight, Loader2, Pencil, Radio } from 'lucide-react';
+import { Mic, MicOff, Upload, FileText, ArrowRight, Loader2, Pencil } from 'lucide-react';
 import { useDeepgram } from '../hooks/useDeepgram';
 import { useAIChat } from '../hooks/useAIChat';
 import { ActionPreview } from './ActionPreview';
 import { ActionResult } from './ActionResult';
-import { VoiceInterface } from './VoiceInterface';
 import type { TrimSession, TrimmerProfile, Harvest, ChatMessage, CreateTrimSessionDTO, License } from '../types/definitions';
 import logo from '../assets/logo.png';
 
@@ -43,16 +42,15 @@ export const AIHome: React.FC<AIHomeProps> = ({
 }) => {
     const [inputText, setInputText] = useState('');
     const [isDragOver, setIsDragOver] = useState(false);
-    const [showVoice, setShowVoice] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
     const textareaRef = useRef<HTMLTextAreaElement>(null);
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const conversationIdRef = useRef<string | null>(null);
 
     // Deepgram for inline text input mic (action mode, push-to-talk style)
-    const [inlineMicActive, setInlineMicActive] = useState(false);
     const inlineTranscriptRef = useRef('');
     const [inlineInterim, setInlineInterim] = useState('');
+    const [micError, setMicError] = useState<string | null>(null);
 
     const handleInlineTranscript = useCallback((text: string, isFinal: boolean) => {
         if (isFinal) {
@@ -77,21 +75,31 @@ export const AIHome: React.FC<AIHomeProps> = ({
         // Don't auto-send for inline mic — let user review and send
     }, []);
 
-    const { isListening: inlineListening, startListening: inlineStart, stopListening: inlineStop } = useDeepgram({
+    const handleInlineError = useCallback((err: string) => {
+        setMicError(err);
+        // Auto-clear after 5s
+        setTimeout(() => setMicError(null), 5000);
+    }, []);
+
+    const { isListening: inlineListening, startListening: inlineStart, stopListening: inlineStop, error: deepgramError } = useDeepgram({
         mode: 'action',
         onTranscript: handleInlineTranscript,
         onUtteranceEnd: handleInlineUtteranceEnd,
+        onError: handleInlineError,
     });
 
     const handleInlineMicToggle = useCallback(async () => {
+        setMicError(null);
         if (inlineListening) {
             inlineStop();
-            setInlineMicActive(false);
         } else {
             inlineTranscriptRef.current = inputText;
             setInlineInterim('');
-            setInlineMicActive(true);
-            await inlineStart();
+            try {
+                await inlineStart();
+            } catch (err) {
+                setMicError(err instanceof Error ? err.message : 'Failed to start mic');
+            }
         }
     }, [inlineListening, inlineStart, inlineStop, inputText]);
 
@@ -163,7 +171,6 @@ export const AIHome: React.FC<AIHomeProps> = ({
         setInlineInterim('');
         if (inlineListening) {
             inlineStop();
-            setInlineMicActive(false);
         }
     }, [isLoading, conversationId, onConversationStarted, sendMessage, setConversationId, inlineListening, inlineStop]);
 
@@ -227,25 +234,6 @@ export const AIHome: React.FC<AIHomeProps> = ({
         </div>
     ) : null;
 
-    // Voice mode view
-    if (showVoice) {
-        return (
-            <div className="ai-home">
-                <VoiceInterface
-                    session={session}
-                    trimmerProfiles={trimmerProfiles}
-                    harvests={harvests}
-                    onSessionUpdate={onSessionUpdate}
-                    conversationId={conversationId}
-                    activeLicense={licenses.find(l => l.id === activeLicenseId)?.licenseNumber || null}
-                    licenses={licenses}
-                    onClose={() => setShowVoice(false)}
-                    onCreateHumanTasks={onCreateHumanTasks}
-                />
-            </div>
-        );
-    }
-
     return (
         <div className="ai-home">
             {!hasMessages ? (
@@ -291,13 +279,13 @@ export const AIHome: React.FC<AIHomeProps> = ({
                                     type="button"
                                     onClick={handleInlineMicToggle}
                                     className={`p-2 rounded-lg transition-colors ${
-                                        inlineMicActive
+                                        inlineListening
                                             ? 'bg-red-100 text-red-500 hover:bg-red-200'
                                             : 'text-gray-400 hover:text-gray-600 hover:bg-gray-100'
                                     }`}
-                                    title={inlineMicActive ? 'Stop recording' : 'Voice input'}
+                                    title={inlineListening ? 'Stop recording' : 'Voice input'}
                                 >
-                                    {inlineMicActive ? <MicOff size={16} /> : <Mic size={16} />}
+                                    {inlineListening ? <MicOff size={16} /> : <Mic size={16} />}
                                 </button>
                                 <button
                                     type="submit"
@@ -349,17 +337,8 @@ export const AIHome: React.FC<AIHomeProps> = ({
                         </div>
                     </form>
 
-                    {/* Voice mode + Suggestions */}
+                    {/* Suggestions */}
                     <div className="mt-6 flex flex-wrap justify-center gap-2 max-w-2xl">
-                        <button
-                            onClick={() => setShowVoice(true)}
-                            className="text-xs text-emerald-600 px-3 py-2 font-medium
-                                       rounded-full border border-emerald-200 bg-emerald-50
-                                       hover:bg-emerald-100 transition-colors flex items-center gap-1.5"
-                        >
-                            <Radio size={12} />
-                            Voice Mode
-                        </button>
                         {[
                             'Start a new trim session with OG Kush',
                             'Add 3 batches of Blue Dream',
@@ -472,6 +451,11 @@ export const AIHome: React.FC<AIHomeProps> = ({
 
                     {/* Input bar pinned to bottom */}
                     <div className="ai-home-input-bar">
+                        {(micError || deepgramError) && (
+                            <div className="max-w-3xl mx-auto w-full mb-2">
+                                <p className="text-xs text-red-500 px-1">{micError || deepgramError}</p>
+                            </div>
+                        )}
                         {licenseSelector && (
                             <div className="max-w-3xl mx-auto w-full mb-2">
                                 {licenseSelector}
@@ -502,14 +486,6 @@ export const AIHome: React.FC<AIHomeProps> = ({
                             <div className="flex items-center gap-1 pb-1">
                                 <button
                                     type="button"
-                                    onClick={() => setShowVoice(true)}
-                                    className="p-2.5 rounded-lg text-emerald-500 hover:bg-emerald-50 transition-colors"
-                                    title="Voice mode"
-                                >
-                                    <Radio size={18} />
-                                </button>
-                                <button
-                                    type="button"
                                     onClick={() => fileInputRef.current?.click()}
                                     className="p-2.5 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
                                     title="Upload CSV"
@@ -531,13 +507,13 @@ export const AIHome: React.FC<AIHomeProps> = ({
                                     type="button"
                                     onClick={handleInlineMicToggle}
                                     className={`p-2.5 rounded-lg transition-colors ${
-                                        inlineMicActive
+                                        inlineListening
                                             ? 'bg-red-100 text-red-500'
                                             : 'text-gray-400 hover:text-gray-600 hover:bg-gray-100'
                                     }`}
-                                    title={inlineMicActive ? 'Stop' : 'Voice input'}
+                                    title={inlineListening ? 'Stop' : 'Voice input'}
                                 >
-                                    {inlineMicActive ? <MicOff size={18} /> : <Mic size={18} />}
+                                    {inlineListening ? <MicOff size={18} /> : <Mic size={18} />}
                                 </button>
                                 <button
                                     type="submit"
