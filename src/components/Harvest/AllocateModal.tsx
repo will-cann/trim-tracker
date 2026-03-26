@@ -37,17 +37,17 @@ export const AllocateModal: React.FC<AllocateModalProps> = ({ harvest, onClose, 
 
     return (
         <div className="modal-overlay">
-            <div className="modal-content" style={{ maxWidth: '440px' }}>
+            <div className="modal-content max-w-md">
                 <div className="modal-header">
                     <h3>Allocate Harvest</h3>
                     <button className="close-btn" onClick={onClose}>
                         <X size={24} />
                     </button>
                 </div>
-                <div style={{ padding: '0 1.5rem', marginBottom: '0.75rem' }}>
-                    <p style={{ fontSize: '0.875rem', color: '#6b7280' }}>
+                <div className="px-6 mb-3">
+                    <p className="text-sm text-gray-500">
                         Available: <strong>{available.toFixed(0)}g</strong>
-                        <span style={{ marginLeft: '0.5rem', fontSize: '0.75rem' }}>
+                        <span className="ml-2 text-xs">
                             (Wet {harvest.totalWetWeight.toFixed(0)}g - Waste {harvest.totalWasteWeight.toFixed(0)}g)
                         </span>
                     </p>
@@ -55,24 +55,17 @@ export const AllocateModal: React.FC<AllocateModalProps> = ({ harvest, onClose, 
                 <form onSubmit={handleSubmit} className="add-batch-form">
                     <div className="form-group">
                         <label>Allocation Type</label>
-                        <div style={{ display: 'flex', gap: '0.5rem' }}>
+                        <div className="flex gap-2">
                             {(['flower', 'frozen', 'both'] as const).map(m => (
                                 <button
                                     key={m}
                                     type="button"
                                     onClick={() => setMode(m)}
-                                    style={{
-                                        flex: 1,
-                                        padding: '0.5rem',
-                                        borderRadius: '0.375rem',
-                                        border: mode === m ? '2px solid #10b981' : '1px solid #d1d5db',
-                                        backgroundColor: mode === m ? '#ecfdf5' : 'white',
-                                        color: mode === m ? '#065f46' : '#374151',
-                                        fontWeight: mode === m ? 600 : 400,
-                                        fontSize: '0.875rem',
-                                        cursor: 'pointer',
-                                        textTransform: 'capitalize',
-                                    }}
+                                    className={`flex-1 py-2 rounded-md text-sm capitalize cursor-pointer transition-colors ${
+                                        mode === m
+                                            ? 'border-2 border-emerald-500 bg-emerald-50 text-emerald-800 font-semibold'
+                                            : 'border border-gray-300 bg-white text-gray-700'
+                                    }`}
                                 >
                                     {m === 'flower' ? 'Flower' : m === 'frozen' ? 'Fresh Frozen' : 'Both'}
                                 </button>
@@ -81,13 +74,13 @@ export const AllocateModal: React.FC<AllocateModalProps> = ({ harvest, onClose, 
                     </div>
 
                     {mode === 'flower' && (
-                        <p style={{ fontSize: '0.875rem', color: '#6b7280', padding: '0 0.25rem' }}>
+                        <p className="text-sm text-gray-500 px-1">
                             All {available.toFixed(0)}g will be allocated to flower (dry trim).
                         </p>
                     )}
 
                     {mode === 'frozen' && (
-                        <p style={{ fontSize: '0.875rem', color: '#6b7280', padding: '0 0.25rem' }}>
+                        <p className="text-sm text-gray-500 px-1">
                             All {available.toFixed(0)}g will be allocated to fresh frozen.
                         </p>
                     )}
@@ -125,7 +118,7 @@ export const AllocateModal: React.FC<AllocateModalProps> = ({ harvest, onClose, 
                                 />
                             </div>
                             {Number(flowerWeight) + Number(frozenWeight) > available && (
-                                <p style={{ color: '#ef4444', fontSize: '0.75rem' }}>
+                                <p className="text-red-500 text-xs">
                                     Total exceeds available weight
                                 </p>
                             )}

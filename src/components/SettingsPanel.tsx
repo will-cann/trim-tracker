@@ -46,32 +46,31 @@ export const SettingsPanel: React.FC = () => {
     };
 
     return (
-        <div className="dashboard" style={{ maxWidth: 800, margin: '0 auto' }}>
+        <div className="dashboard max-w-3xl mx-auto">
             {/* Header */}
-            <div style={{ marginBottom: '2rem' }}>
+            <div className="mb-8">
                 <div className="flex items-center gap-3 mb-1">
-                    <div style={{ width: 40, height: 40, borderRadius: '0.75rem', background: '#f0fdf4', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                        <Shield size={20} color="#10b981" />
+                    <div className="w-10 h-10 rounded-xl bg-emerald-50 flex items-center justify-center">
+                        <Shield size={20} className="text-emerald-500" />
                     </div>
                     <div>
-                        <h2 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 700, color: '#111827' }}>Settings</h2>
-                        <p style={{ margin: 0, fontSize: '0.8125rem', color: '#9ca3af' }}>Manage your company licenses and configuration</p>
+                        <h2 className="text-xl font-bold text-gray-900">Settings</h2>
+                        <p className="text-sm text-gray-400">Manage your company licenses and configuration</p>
                     </div>
                 </div>
             </div>
 
             {/* License Management */}
-            <div className="trim-card" style={{ padding: 0, overflow: 'hidden' }}>
-                <div style={{ padding: '1rem 1.25rem', borderBottom: '1px solid #e5e7eb', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div className="trim-card !p-0 overflow-hidden">
+                <div className="px-5 py-4 border-b border-gray-200 flex justify-between items-center">
                     <div className="flex items-center gap-2">
-                        <KeyRound size={16} color="#6b7280" />
-                        <h3 style={{ margin: 0, fontSize: '0.9375rem', fontWeight: 600, color: '#374151' }}>License Numbers</h3>
+                        <KeyRound size={16} className="text-gray-500" />
+                        <h3 className="text-sm font-semibold text-gray-700">License Numbers</h3>
                     </div>
                     {!isAdding && (
                         <button
                             onClick={() => setIsAdding(true)}
-                            className="btn-new-batch"
-                            style={{ padding: '0.375rem 0.75rem', fontSize: '0.8125rem' }}
+                            className="btn-new-batch text-sm px-3 py-1.5"
                         >
                             <Plus size={14} />
                             Add License
@@ -81,8 +80,8 @@ export const SettingsPanel: React.FC = () => {
 
                 {/* Add form */}
                 {isAdding && (
-                    <div style={{ padding: '1rem 1.25rem', borderBottom: '1px solid #e5e7eb', background: '#f9fafb' }}>
-                        <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.5rem' }}>
+                    <div className="px-5 py-4 border-b border-gray-200 bg-gray-50">
+                        <div className="flex gap-2 mb-2">
                             <input
                                 type="text"
                                 value={newNumber}
@@ -103,18 +102,16 @@ export const SettingsPanel: React.FC = () => {
                                            focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:border-emerald-400"
                             />
                         </div>
-                        <div style={{ display: 'flex', gap: '0.5rem' }}>
+                        <div className="flex gap-2">
                             <button
                                 onClick={handleAdd}
-                                className="text-sm px-3 py-1.5 bg-emerald-500 text-white rounded-lg hover:bg-emerald-600 transition-colors"
-                                style={{ border: 'none', cursor: 'pointer', fontWeight: 500 }}
+                                className="text-sm font-medium px-3 py-1.5 bg-emerald-500 text-white rounded-lg hover:bg-emerald-600 transition-colors border-none cursor-pointer"
                             >
                                 Save
                             </button>
                             <button
                                 onClick={() => { setIsAdding(false); setNewNumber(''); setNewLabel(''); }}
-                                className="text-sm px-3 py-1.5 text-gray-500 rounded-lg hover:bg-gray-100 transition-colors"
-                                style={{ border: 'none', cursor: 'pointer' }}
+                                className="text-sm px-3 py-1.5 text-gray-500 rounded-lg hover:bg-gray-100 transition-colors border-none cursor-pointer"
                             >
                                 Cancel
                             </button>
@@ -124,36 +121,36 @@ export const SettingsPanel: React.FC = () => {
 
                 {/* License list */}
                 {loading ? (
-                    <div style={{ padding: '2rem', textAlign: 'center', color: '#9ca3af' }}>Loading...</div>
+                    <div className="p-8 text-center text-gray-400">Loading...</div>
                 ) : licenses.length === 0 ? (
-                    <div style={{ padding: '2rem', textAlign: 'center', color: '#9ca3af' }}>
-                        <KeyRound size={32} color="#d1d5db" style={{ margin: '0 auto 0.75rem' }} />
-                        <p style={{ fontSize: '0.875rem', fontWeight: 500 }}>No licenses configured</p>
-                        <p style={{ fontSize: '0.8125rem', marginTop: '0.25rem' }}>Add a license number to get started. It will auto-fill when creating harvests and sessions.</p>
+                    <div className="p-8 text-center text-gray-400">
+                        <KeyRound size={32} className="text-gray-300 mx-auto mb-3" />
+                        <p className="text-sm font-medium">No licenses configured</p>
+                        <p className="text-sm mt-1">Add a license number to get started. It will auto-fill when creating harvests and sessions.</p>
                     </div>
                 ) : (
-                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.875rem' }}>
+                    <table className="w-full text-sm border-collapse">
                         <thead>
-                            <tr style={{ borderBottom: '1px solid #e5e7eb', backgroundColor: '#f9fafb' }}>
-                                <th style={{ textAlign: 'left', padding: '0.625rem 1.25rem', fontWeight: 600, color: '#6b7280', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                            <tr className="border-b border-gray-200 bg-gray-50">
+                                <th className="text-left px-5 py-2.5 font-semibold text-gray-500 text-xs uppercase tracking-wider">
                                     License Number
                                 </th>
-                                <th style={{ textAlign: 'left', padding: '0.625rem 1.25rem', fontWeight: 600, color: '#6b7280', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                                <th className="text-left px-5 py-2.5 font-semibold text-gray-500 text-xs uppercase tracking-wider">
                                     Label
                                 </th>
-                                <th style={{ textAlign: 'left', padding: '0.625rem 1.25rem', fontWeight: 600, color: '#6b7280', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                                <th className="text-left px-5 py-2.5 font-semibold text-gray-500 text-xs uppercase tracking-wider">
                                     Added
                                 </th>
-                                <th style={{ width: '40px' }}></th>
+                                <th className="w-10"></th>
                             </tr>
                         </thead>
                         <tbody>
                             {licenses.map(lic => (
-                                <tr key={lic.id} style={{ borderBottom: '1px solid #f3f4f6' }} className="strain-table-row">
-                                    <td style={{ padding: '0.75rem 1.25rem', fontWeight: 500, color: '#111827', fontFamily: 'monospace' }}>
+                                <tr key={lic.id} className="border-b border-gray-100 strain-table-row">
+                                    <td className="px-5 py-3 font-medium text-gray-900 font-mono">
                                         {lic.licenseNumber}
                                     </td>
-                                    <td style={{ padding: '0.5rem 1.25rem', color: '#6b7280' }}>
+                                    <td className="px-5 py-2 text-gray-500">
                                         {editingId === lic.id ? (
                                             <input
                                                 type="text"
@@ -166,22 +163,22 @@ export const SettingsPanel: React.FC = () => {
                                                 }}
                                                 autoFocus
                                                 className="text-sm px-2 py-1 border border-emerald-300 rounded
-                                                           focus:outline-none focus:ring-1 focus:ring-emerald-400 w-full"
+                                                           focus:outline-none focus:ring-2 focus:ring-emerald-400 w-full"
                                             />
                                         ) : (
                                             <span
                                                 onClick={() => { setEditingId(lic.id); setEditLabel(lic.label || ''); }}
-                                                style={{ cursor: 'pointer', borderBottom: '1px dashed #d1d5db', paddingBottom: 1 }}
+                                                className="cursor-pointer border-b border-dashed border-gray-300 pb-px"
                                                 title="Click to edit"
                                             >
                                                 {lic.label || '—'}
                                             </span>
                                         )}
                                     </td>
-                                    <td style={{ padding: '0.75rem 1.25rem', color: '#9ca3af', fontSize: '0.8125rem' }}>
+                                    <td className="px-5 py-3 text-gray-400 text-sm">
                                         {new Date(lic.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
                                     </td>
-                                    <td style={{ padding: '0.75rem 0.5rem' }}>
+                                    <td className="px-2 py-3">
                                         <button
                                             onClick={() => handleDelete(lic.id)}
                                             className="strain-delete-btn"

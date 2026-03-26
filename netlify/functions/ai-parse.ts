@@ -192,6 +192,7 @@ const tools = [
 interface AIParseRequest {
     message?: string;
     csvData?: string;
+    transcriptChunks?: string[];
     history?: Array<{ role: string; content: string }>;
     context: {
         hasActiveSession: boolean;
@@ -220,14 +221,17 @@ export const handler: Handler = async (event) => {
 
         const request: AIParseRequest = JSON.parse(event.body || '{}');
 
-        if (!request.message && !request.csvData) {
-            return { statusCode: 400, body: JSON.stringify({ error: 'Either message or csvData is required' }) };
+        if (!request.message && !request.csvData && !request.transcriptChunks?.length) {
+            return { statusCode: 400, body: JSON.stringify({ error: 'Either message, csvData, or transcriptChunks is required' }) };
         }
 
         // Build user message with context
         let userMessage = '';
 
-        if (request.csvData) {
+        if (request.transcriptChunks?.length) {
+            const fullTranscript = request.transcriptChunks.join('\n');
+            userMessage = `Analyze this voice transcript of someone describing their cannabis operations. Extract ALL actionable tasks you can identify — these might include creating sessions, adding batches, assigning trimmers, creating harvests, recording weights, moving harvests, or any other trackable operation. Be thorough — capture every actionable item mentioned, even if briefly. Here is the transcript:\n\n"${fullTranscript}"`;
+        } else if (request.csvData) {
             userMessage = `Parse this CSV data into batch entries for the trim tracker. Map the columns to harvest name, strain, license number, and start weight fields. Here is the CSV data:\n\n${request.csvData}`;
         } else {
             userMessage = request.message!;

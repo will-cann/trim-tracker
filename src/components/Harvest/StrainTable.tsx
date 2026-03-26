@@ -41,26 +41,25 @@ export const StrainTable: React.FC = () => {
     };
 
     if (loading) {
-        return <div style={{ textAlign: 'center', padding: '3rem', color: '#9ca3af' }}>Loading strains...</div>;
+        return <div className="text-center p-12 text-gray-400">Loading strains...</div>;
     }
 
     return (
         <div>
             {/* Header */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+            <div className="flex justify-between items-center mb-4">
                 <div>
-                    <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 600, color: '#374151' }}>
+                    <h3 className="text-base font-semibold text-gray-700">
                         Strain Registry
                     </h3>
-                    <p style={{ margin: '0.25rem 0 0', fontSize: '0.8125rem', color: '#9ca3af' }}>
+                    <p className="text-sm text-gray-400 mt-1">
                         {strains.length} strain{strains.length !== 1 ? 's' : ''} tracked
                     </p>
                 </div>
                 {!isAdding && (
                     <button
                         onClick={() => setIsAdding(true)}
-                        className="btn-new-batch"
-                        style={{ padding: '0.5rem 1rem' }}
+                        className="btn-new-batch px-4 py-2"
                     >
                         <Plus size={16} />
                         Add Strain
@@ -70,7 +69,7 @@ export const StrainTable: React.FC = () => {
 
             {/* Add input */}
             {isAdding && (
-                <div style={{ marginBottom: '1rem' }}>
+                <div className="mb-4">
                     <input
                         type="text"
                         value={newName}
@@ -87,53 +86,52 @@ export const StrainTable: React.FC = () => {
 
             {/* Table */}
             {strains.length === 0 ? (
-                <div className="trim-card" style={{ textAlign: 'center', padding: '3rem', color: '#9ca3af' }}>
-                    <Leaf size={48} color="#d1d5db" style={{ margin: '0 auto 1rem' }} />
-                    <p style={{ fontSize: '1rem', fontWeight: 500 }}>No strains registered</p>
-                    <p style={{ fontSize: '0.875rem', marginTop: '0.25rem' }}>
+                <div className="trim-card text-center p-12 text-gray-400">
+                    <Leaf size={48} className="text-gray-300 mx-auto mb-4" />
+                    <p className="text-base font-medium">No strains registered</p>
+                    <p className="text-sm mt-1">
                         Strains are auto-captured from harvests and trim sessions, or add one manually.
                     </p>
                 </div>
             ) : (
-                <div className="trim-card" style={{ padding: 0, overflow: 'hidden' }}>
-                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.875rem' }}>
+                <div className="trim-card !p-0 overflow-hidden">
+                    <table className="w-full border-collapse text-sm">
                         <thead>
-                            <tr style={{ borderBottom: '1px solid #e5e7eb', backgroundColor: '#f9fafb' }}>
-                                <th style={{ textAlign: 'left', padding: '0.75rem 1rem', fontWeight: 600, color: '#6b7280', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                            <tr className="border-b border-gray-200 bg-gray-50">
+                                <th className="text-left px-4 py-3 font-semibold text-gray-500 text-xs uppercase tracking-wider">
                                     Strain
                                 </th>
-                                <th style={{ textAlign: 'center', padding: '0.75rem 1rem', fontWeight: 600, color: '#6b7280', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                                <th className="text-center px-4 py-3 font-semibold text-gray-500 text-xs uppercase tracking-wider">
                                     Harvests
                                 </th>
-                                <th style={{ textAlign: 'center', padding: '0.75rem 1rem', fontWeight: 600, color: '#6b7280', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                                <th className="text-center px-4 py-3 font-semibold text-gray-500 text-xs uppercase tracking-wider">
                                     Sessions
                                 </th>
-                                <th style={{ textAlign: 'left', padding: '0.75rem 1rem', fontWeight: 600, color: '#6b7280', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                                <th className="text-left px-4 py-3 font-semibold text-gray-500 text-xs uppercase tracking-wider">
                                     First Seen
                                 </th>
-                                <th style={{ width: '40px' }}></th>
+                                <th className="w-10"></th>
                             </tr>
                         </thead>
                         <tbody>
                             {strains.map((strain) => (
                                 <tr
                                     key={strain.id}
-                                    style={{ borderBottom: '1px solid #f3f4f6' }}
-                                    className="strain-table-row"
+                                    className="border-b border-gray-100 strain-table-row"
                                 >
-                                    <td style={{ padding: '0.75rem 1rem', fontWeight: 500, color: '#111827' }}>
+                                    <td className="px-4 py-3 font-medium text-gray-900">
                                         {strain.name}
                                     </td>
-                                    <td style={{ padding: '0.75rem 1rem', textAlign: 'center', color: '#6b7280' }}>
+                                    <td className="px-4 py-3 text-center text-gray-500">
                                         {strain.harvestCount}
                                     </td>
-                                    <td style={{ padding: '0.75rem 1rem', textAlign: 'center', color: '#6b7280' }}>
+                                    <td className="px-4 py-3 text-center text-gray-500">
                                         {strain.sessionCount}
                                     </td>
-                                    <td style={{ padding: '0.75rem 1rem', color: '#9ca3af', fontSize: '0.8125rem' }}>
+                                    <td className="px-4 py-3 text-gray-400 text-sm">
                                         {new Date(strain.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
                                     </td>
-                                    <td style={{ padding: '0.75rem 0.5rem' }}>
+                                    <td className="px-2 py-3">
                                         <button
                                             onClick={() => handleDelete(strain.id)}
                                             className="strain-delete-btn"

@@ -54,7 +54,6 @@ export const HarvestCard: React.FC<HarvestCardProps> = ({
         return () => clearInterval(interval);
     }, [harvest.status]);
 
-    // Calculate drying duration from harvestEndDate (when wet weight was recorded / harvest set)
     const getDryingInfo = () => {
         const startDate = harvest.harvestEndDate || harvest.createdAt;
         if (!startDate || harvest.status !== 'drying') return null;
@@ -82,7 +81,7 @@ export const HarvestCard: React.FC<HarvestCardProps> = ({
                                     {STATUS_LABEL[harvest.status] || harvest.status}
                                 </span>
                                 {harvest.isOnHold && (
-                                    <span className="status-badge" style={{ backgroundColor: '#fef2f2', color: '#ef4444' }}>Hold</span>
+                                    <span className="status-badge bg-red-50 text-red-500">Hold</span>
                                 )}
                             </div>
                             <div className="trim-card-subtitle">
@@ -110,7 +109,7 @@ export const HarvestCard: React.FC<HarvestCardProps> = ({
                                         <span className="separator">&bull;</span>
                                         <span>{dryingInfo.harvestDate}</span>
                                         <span className="separator">&bull;</span>
-                                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '3px', color: '#f59e0b' }}>
+                                        <span className="inline-flex items-center gap-0.5 text-amber-500">
                                             <Clock size={11} />
                                             {dryingInfo.duration}
                                         </span>
@@ -141,8 +140,7 @@ export const HarvestCard: React.FC<HarvestCardProps> = ({
                                 <span className="label">Wet Weight</span>
                                 {harvest.totalWetWeight > 0 ? (
                                     <span
-                                        className="value"
-                                        style={{ cursor: 'pointer' }}
+                                        className="value cursor-pointer"
                                         onClick={(e) => { e.stopPropagation(); setShowWeightModal(true); }}
                                         title="Update weight"
                                     >
@@ -150,8 +148,7 @@ export const HarvestCard: React.FC<HarvestCardProps> = ({
                                     </span>
                                 ) : (
                                     <span
-                                        className="value"
-                                        style={{ cursor: 'pointer', color: '#10b981' }}
+                                        className="value cursor-pointer text-emerald-500"
                                         onClick={(e) => { e.stopPropagation(); setShowWeightModal(true); }}
                                         title="Record wet weight"
                                     >
@@ -170,8 +167,7 @@ export const HarvestCard: React.FC<HarvestCardProps> = ({
                                 <div className="summary-item">
                                     <span className="label">Allocation</span>
                                     <span
-                                        className="value"
-                                        style={{ cursor: 'pointer', color: '#10b981' }}
+                                        className="value cursor-pointer text-emerald-500"
                                         onClick={(e) => { e.stopPropagation(); setShowAllocateModal(true); }}
                                         title="Set allocation"
                                     >
@@ -187,75 +183,67 @@ export const HarvestCard: React.FC<HarvestCardProps> = ({
                 {isExpanded && (
                     <div className="trim-card-body" onClick={e => e.stopPropagation()}>
                         {/* Weight grid */}
-                        <div className="trim-card-summary" style={{ borderBottom: '1px solid var(--border-color, #e5e7eb)', paddingBottom: '0.75rem', marginBottom: '0.75rem' }}>
+                        <div className="trim-card-summary border-b border-gray-200 pb-3 mb-3">
                             <div className="summary-item">
                                 <span className="label">Wet Weight</span>
                                 <span
-                                    className="value"
-                                    style={{ fontSize: '1.125rem', cursor: 'pointer' }}
+                                    className="value text-lg cursor-pointer"
                                     onClick={() => setShowWeightModal(true)}
                                     title={harvest.totalWetWeight > 0 ? 'Update weight' : 'Record wet weight'}
                                 >
-                                    {harvest.totalWetWeight > 0 ? `${harvest.totalWetWeight.toFixed(0)}g` : <span style={{ color: '#10b981' }}>—</span>}
+                                    {harvest.totalWetWeight > 0 ? `${harvest.totalWetWeight.toFixed(0)}g` : <span className="text-emerald-500">—</span>}
                                 </span>
                             </div>
                             <div className="summary-item">
                                 <span className="label">Waste</span>
-                                <span className="value" style={{ fontSize: '1.125rem', color: '#ef4444' }}>
+                                <span className="value text-lg text-red-500">
                                     {harvest.totalWasteWeight.toFixed(0)}g
                                 </span>
                             </div>
                             <div className="summary-item">
                                 <span className="label">Available</span>
-                                <span className="value" style={{ fontSize: '1.125rem', color: '#10b981' }}>
+                                <span className="value text-lg text-emerald-500">
                                     {available > 0 ? `${available.toFixed(0)}g` : '—'}
                                 </span>
                             </div>
                         </div>
 
                         {harvest.plantCount > 0 && (
-                            <p style={{ fontSize: '0.8125rem', color: '#6b7280', margin: '0 0 0.75rem' }}>
+                            <p className="text-sm text-gray-500 mb-3">
                                 {harvest.plantCount} plant{harvest.plantCount > 1 ? 's' : ''}
                             </p>
                         )}
 
                         {/* Allocations */}
                         {harvest.allocations.length > 0 && (
-                            <div style={{ marginBottom: '1rem' }}>
-                                <h4 style={{ fontSize: '0.6875rem', fontWeight: 600, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.5rem' }}>
+                            <div className="mb-4">
+                                <h4 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">
                                     Allocations
                                 </h4>
                                 {harvest.allocations.map(alloc => (
                                     <div
                                         key={alloc.id}
-                                        style={{
-                                            display: 'flex',
-                                            justifyContent: 'space-between',
-                                            alignItems: 'center',
-                                            padding: '0.5rem 0.75rem',
-                                            backgroundColor: alloc.allocationType === 'flower' ? '#fffbeb' : '#eff6ff',
-                                            borderRadius: '0.5rem',
-                                            marginBottom: '0.375rem',
-                                            fontSize: '0.8125rem',
-                                        }}
+                                        className={`flex justify-between items-center px-3 py-2 rounded-lg mb-1.5 text-sm ${
+                                            alloc.allocationType === 'flower' ? 'bg-amber-50' : 'bg-blue-50'
+                                        }`}
                                     >
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                        <div className="flex items-center gap-2">
                                             {alloc.allocationType === 'flower'
-                                                ? <Flower2 size={16} color="#d97706" />
-                                                : <Snowflake size={16} color="#3b82f6" />
+                                                ? <Flower2 size={16} className="text-amber-600" />
+                                                : <Snowflake size={16} className="text-blue-500" />
                                             }
-                                            <span style={{ fontWeight: 500 }}>
+                                            <span className="font-medium">
                                                 {alloc.allocationType === 'flower' ? 'Flower (Dry Trim)' : 'Fresh Frozen'}
                                             </span>
                                         </div>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                                            <span style={{ fontWeight: 600 }}>{alloc.targetWeight.toFixed(0)}g</span>
+                                        <div className="flex items-center gap-2">
+                                            <span className="font-semibold">{alloc.targetWeight.toFixed(0)}g</span>
                                             <span className={`status-badge ${alloc.status === 'completed' ? 'status-complete' : 'status-upcoming'}`}>
                                                 {alloc.status}
                                             </span>
                                             {alloc.allocationType === 'flower' && alloc.status !== 'completed' && harvest.status === 'ready' && (
                                                 <button className="btn-start-batch" onClick={() => onConvertToTrim(alloc.id)}>
-                                                    <Scissors size={12} style={{ marginRight: '0.25rem' }} />
+                                                    <Scissors size={12} className="mr-1" />
                                                     Send to Trim
                                                 </button>
                                             )}
@@ -267,8 +255,8 @@ export const HarvestCard: React.FC<HarvestCardProps> = ({
 
                         {/* Waste section */}
                         {harvest.status !== 'completed' && (
-                            <div style={{ marginBottom: '1rem' }}>
-                                <h4 style={{ fontSize: '0.6875rem', fontWeight: 600, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.5rem' }}>
+                            <div className="mb-4">
+                                <h4 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">
                                     Waste
                                 </h4>
                                 <WasteEntryForm
@@ -280,17 +268,16 @@ export const HarvestCard: React.FC<HarvestCardProps> = ({
                         )}
 
                         {/* Action buttons */}
-                        <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', paddingTop: '0.75rem', borderTop: '1px solid var(--border-color, #e5e7eb)' }}>
+                        <div className="flex gap-2 flex-wrap pt-3 border-t border-gray-200">
                             {(harvest.status === 'planning' || harvest.status === 'active') && harvest.allocations.length === 0 && (
                                 <button className="btn-start-batch" onClick={() => setShowAllocateModal(true)}>
-                                    <ArrowRightLeft size={14} style={{ marginRight: '0.25rem' }} />
+                                    <ArrowRightLeft size={14} className="mr-1" />
                                     Allocate
                                 </button>
                             )}
                             {harvest.status === 'drying' && (
                                 <button
                                     className="btn-start-batch"
-                                    style={{ backgroundColor: '#10b981', color: 'white', borderColor: '#10b981' }}
                                     onClick={() => onUpdate(harvest.id, { status: 'ready' })}
                                 >
                                     Mark Ready

@@ -1,9 +1,10 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import ReactMarkdown from 'react-markdown';
-import { Mic, MicOff, Upload, FileText, ArrowRight, Loader2, Pencil } from 'lucide-react';
-import { useSpeechRecognition } from '../hooks/useSpeechRecognition';
+import { Mic, MicOff, Upload, FileText, ArrowRight, Loader2, Pencil, Radio } from 'lucide-react';
+import { useDeepgram } from '../hooks/useDeepgram';
 import { useAIChat } from '../hooks/useAIChat';
 import { ActionPreview } from './ActionPreview';
+import { VoiceInterface } from './VoiceInterface';
 import type { TrimSession, TrimmerProfile, Harvest, ChatMessage, CreateTrimSessionDTO, License } from '../types/definitions';
 import logo from '../assets/logo.png';
 
@@ -37,13 +38,57 @@ export const AIHome: React.FC<AIHomeProps> = ({
 }) => {
     const [inputText, setInputText] = useState('');
     const [isDragOver, setIsDragOver] = useState(false);
+    const [showVoice, setShowVoice] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
     const textareaRef = useRef<HTMLTextAreaElement>(null);
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const conversationIdRef = useRef<string | null>(null);
 
-    const { isListening, finalTranscript, interimTranscript, startListening, stopListening, hasSupport, resetTranscript } = useSpeechRecognition();
-    const [preListeningText, setPreListeningText] = useState('');
+    // Deepgram for inline text input mic (action mode, push-to-talk style)
+    const [inlineMicActive, setInlineMicActive] = useState(false);
+    const inlineTranscriptRef = useRef('');
+    const [inlineInterim, setInlineInterim] = useState('');
+
+    const handleInlineTranscript = useCallback((text: string, isFinal: boolean) => {
+        if (isFinal) {
+            inlineTranscriptRef.current = inlineTranscriptRef.current
+                ? `${inlineTranscriptRef.current} ${text}`
+                : text;
+            setInputText(prev => {
+                const base = prev.replace(inlineInterim, '').trimEnd();
+                return base ? `${base} ${text}` : text;
+            });
+            setInlineInterim('');
+        } else {
+            setInlineInterim(text);
+            setInputText(prev => {
+                const base = inlineTranscriptRef.current || prev.replace(inlineInterim, '').trimEnd();
+                return base ? `${base} ${text}` : text;
+            });
+        }
+    }, [inlineInterim]);
+
+    const handleInlineUtteranceEnd = useCallback(() => {
+        // Don't auto-send for inline mic — let user review and send
+    }, []);
+
+    const { isListening: inlineListening, startListening: inlineStart, stopListening: inlineStop } = useDeepgram({
+        mode: 'action',
+        onTranscript: handleInlineTranscript,
+        onUtteranceEnd: handleInlineUtteranceEnd,
+    });
+
+    const handleInlineMicToggle = useCallback(async () => {
+        if (inlineListening) {
+            inlineStop();
+            setInlineMicActive(false);
+        } else {
+            inlineTranscriptRef.current = inputText;
+            setInlineInterim('');
+            setInlineMicActive(true);
+            await inlineStart();
+        }
+    }, [inlineListening, inlineStart, inlineStop, inputText]);
 
     const {
         messages,
@@ -77,8 +122,6 @@ export const AIHome: React.FC<AIHomeProps> = ({
             const prevId = conversationIdRef.current;
             conversationIdRef.current = conversationId;
 
-            // If we just created this conversation (no previous id or transitioning from null),
-            // don't load from Dexie — the messages are already in state
             if (prevId === null && messages.length > 0) {
                 isNewConversationRef.current = true;
                 return;
@@ -88,7 +131,6 @@ export const AIHome: React.FC<AIHomeProps> = ({
                 if (msgs.length > 0) {
                     loadMessages(msgs);
                 }
-                // Don't clear if empty — could be a brand new conversation
             });
         } else if (!conversationId && conversationIdRef.current !== null) {
             conversationIdRef.current = null;
@@ -97,22 +139,6 @@ export const AIHome: React.FC<AIHomeProps> = ({
         }
     }, [conversationId, onLoadConversation, loadMessages, clearMessages]);
 
-    // Speech recognition effects
-    useEffect(() => {
-        if (finalTranscript) {
-            setInputText(preListeningText ? `${preListeningText} ${finalTranscript}` : finalTranscript);
-        }
-    }, [finalTranscript]);
-
-    useEffect(() => {
-        if (isListening && interimTranscript) {
-            const base = finalTranscript
-                ? (preListeningText ? `${preListeningText} ${finalTranscript}` : finalTranscript)
-                : preListeningText;
-            setInputText(base ? `${base} ${interimTranscript}` : interimTranscript);
-        }
-    }, [interimTranscript, isListening]);
-
     // Auto-scroll
     useEffect(() => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -120,7 +146,6 @@ export const AIHome: React.FC<AIHomeProps> = ({
 
     const handleSend = useCallback((text: string) => {
         if (!text.trim() || isLoading) return;
-        // If no conversation yet, create one and set the ref immediately
         if (!conversationId) {
             const newId = crypto.randomUUID();
             setConversationId(newId);
@@ -128,8 +153,13 @@ export const AIHome: React.FC<AIHomeProps> = ({
         }
         sendMessage(text.trim());
         setInputText('');
-        resetTranscript();
-    }, [isLoading, conversationId, onConversationStarted, sendMessage, resetTranscript, setConversationId]);
+        inlineTranscriptRef.current = '';
+        setInlineInterim('');
+        if (inlineListening) {
+            inlineStop();
+            setInlineMicActive(false);
+        }
+    }, [isLoading, conversationId, onConversationStarted, sendMessage, setConversationId, inlineListening, inlineStop]);
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
@@ -191,6 +221,24 @@ export const AIHome: React.FC<AIHomeProps> = ({
         </div>
     ) : null;
 
+    // Voice mode view
+    if (showVoice) {
+        return (
+            <div className="ai-home">
+                <VoiceInterface
+                    session={session}
+                    trimmerProfiles={trimmerProfiles}
+                    harvests={harvests}
+                    onSessionUpdate={onSessionUpdate}
+                    conversationId={conversationId}
+                    activeLicense={licenses.find(l => l.id === activeLicenseId)?.licenseNumber || null}
+                    licenses={licenses}
+                    onClose={() => setShowVoice(false)}
+                />
+            </div>
+        );
+    }
+
     return (
         <div className="ai-home">
             {!hasMessages ? (
@@ -232,27 +280,18 @@ export const AIHome: React.FC<AIHomeProps> = ({
                                 >
                                     <Upload size={16} />
                                 </button>
-                                {hasSupport && (
-                                    <button
-                                        type="button"
-                                        onClick={() => {
-                                            if (isListening) {
-                                                stopListening();
-                                            } else {
-                                                setPreListeningText(inputText);
-                                                startListening();
-                                            }
-                                        }}
-                                        className={`p-2 rounded-lg transition-colors ${
-                                            isListening
-                                                ? 'bg-red-100 text-red-500 hover:bg-red-200'
-                                                : 'text-gray-400 hover:text-gray-600 hover:bg-gray-100'
-                                        }`}
-                                        title={isListening ? 'Stop recording' : 'Voice input'}
-                                    >
-                                        {isListening ? <MicOff size={16} /> : <Mic size={16} />}
-                                    </button>
-                                )}
+                                <button
+                                    type="button"
+                                    onClick={handleInlineMicToggle}
+                                    className={`p-2 rounded-lg transition-colors ${
+                                        inlineMicActive
+                                            ? 'bg-red-100 text-red-500 hover:bg-red-200'
+                                            : 'text-gray-400 hover:text-gray-600 hover:bg-gray-100'
+                                    }`}
+                                    title={inlineMicActive ? 'Stop recording' : 'Voice input'}
+                                >
+                                    {inlineMicActive ? <MicOff size={16} /> : <Mic size={16} />}
+                                </button>
                                 <button
                                     type="submit"
                                     disabled={!inputText.trim() || isLoading || isExecuting}
@@ -303,8 +342,17 @@ export const AIHome: React.FC<AIHomeProps> = ({
                         </div>
                     </form>
 
-                    {/* Suggestions */}
+                    {/* Voice mode + Suggestions */}
                     <div className="mt-6 flex flex-wrap justify-center gap-2 max-w-2xl">
+                        <button
+                            onClick={() => setShowVoice(true)}
+                            className="text-xs text-emerald-600 px-3 py-2 font-medium
+                                       rounded-full border border-emerald-200 bg-emerald-50
+                                       hover:bg-emerald-100 transition-colors flex items-center gap-1.5"
+                        >
+                            <Radio size={12} />
+                            Voice Mode
+                        </button>
                         {[
                             'Start a new trim session with OG Kush',
                             'Add 3 batches of Blue Dream',
@@ -432,6 +480,14 @@ export const AIHome: React.FC<AIHomeProps> = ({
                             <div className="flex items-center gap-1 pb-1">
                                 <button
                                     type="button"
+                                    onClick={() => setShowVoice(true)}
+                                    className="p-2.5 rounded-lg text-emerald-500 hover:bg-emerald-50 transition-colors"
+                                    title="Voice mode"
+                                >
+                                    <Radio size={18} />
+                                </button>
+                                <button
+                                    type="button"
                                     onClick={() => fileInputRef.current?.click()}
                                     className="p-2.5 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
                                     title="Upload CSV"
@@ -449,27 +505,18 @@ export const AIHome: React.FC<AIHomeProps> = ({
                                     }}
                                     className="hidden"
                                 />
-                                {hasSupport && (
-                                    <button
-                                        type="button"
-                                        onClick={() => {
-                                            if (isListening) {
-                                                stopListening();
-                                            } else {
-                                                setPreListeningText(inputText);
-                                                startListening();
-                                            }
-                                        }}
-                                        className={`p-2.5 rounded-lg transition-colors ${
-                                            isListening
-                                                ? 'bg-red-100 text-red-500'
-                                                : 'text-gray-400 hover:text-gray-600 hover:bg-gray-100'
-                                        }`}
-                                        title={isListening ? 'Stop' : 'Voice input'}
-                                    >
-                                        {isListening ? <MicOff size={18} /> : <Mic size={18} />}
-                                    </button>
-                                )}
+                                <button
+                                    type="button"
+                                    onClick={handleInlineMicToggle}
+                                    className={`p-2.5 rounded-lg transition-colors ${
+                                        inlineMicActive
+                                            ? 'bg-red-100 text-red-500'
+                                            : 'text-gray-400 hover:text-gray-600 hover:bg-gray-100'
+                                    }`}
+                                    title={inlineMicActive ? 'Stop' : 'Voice input'}
+                                >
+                                    {inlineMicActive ? <MicOff size={18} /> : <Mic size={18} />}
+                                </button>
                                 <button
                                     type="submit"
                                     disabled={!inputText.trim() || isLoading || isExecuting}

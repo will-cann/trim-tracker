@@ -1,7 +1,7 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import ReactMarkdown from 'react-markdown';
 import { X, Mic, MicOff, Upload, ArrowRight, Loader2 } from 'lucide-react';
-import { useSpeechRecognition } from '../hooks/useSpeechRecognition';
+import { useDeepgram } from '../hooks/useDeepgram';
 import { useAIChat } from '../hooks/useAIChat';
 import { ActionPreview } from './ActionPreview';
 import type { TrimSession, TrimmerProfile, Harvest } from '../types/definitions';
@@ -20,8 +20,36 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ session, trimmerProfiles, 
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
-    const { isListening, finalTranscript, interimTranscript, startListening, stopListening, hasSupport, resetTranscript } = useSpeechRecognition();
-    const [preListeningText, setPreListeningText] = useState('');
+    // Deepgram for inline mic (action mode)
+    const [micActive, setMicActive] = useState(false);
+    const transcriptRef = useRef('');
+
+    const handleTranscript = useCallback((text: string, isFinal: boolean) => {
+        if (isFinal) {
+            transcriptRef.current = transcriptRef.current
+                ? `${transcriptRef.current} ${text}`
+                : text;
+            setInputText(transcriptRef.current);
+        } else {
+            setInputText(transcriptRef.current ? `${transcriptRef.current} ${text}` : text);
+        }
+    }, []);
+
+    const { isListening, startListening, stopListening } = useDeepgram({
+        mode: 'action',
+        onTranscript: handleTranscript,
+    });
+
+    const handleMicToggle = useCallback(async () => {
+        if (isListening) {
+            stopListening();
+            setMicActive(false);
+        } else {
+            transcriptRef.current = inputText;
+            setMicActive(true);
+            await startListening();
+        }
+    }, [isListening, startListening, stopListening, inputText]);
 
     const {
         messages,
@@ -35,23 +63,6 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ session, trimmerProfiles, 
         editAction,
     } = useAIChat({ session, trimmerProfiles, harvests, onSessionUpdate });
 
-    // When final transcript updates, commit it to input
-    useEffect(() => {
-        if (finalTranscript) {
-            setInputText(preListeningText ? `${preListeningText} ${finalTranscript}` : finalTranscript);
-        }
-    }, [finalTranscript]);
-
-    // Show interim text as a live preview
-    useEffect(() => {
-        if (isListening && interimTranscript) {
-            const base = finalTranscript
-                ? (preListeningText ? `${preListeningText} ${finalTranscript}` : finalTranscript)
-                : preListeningText;
-            setInputText(base ? `${base} ${interimTranscript}` : interimTranscript);
-        }
-    }, [interimTranscript, isListening]);
-
     // Auto-scroll to bottom
     useEffect(() => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -62,7 +73,12 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ session, trimmerProfiles, 
         if (!inputText.trim() || isLoading) return;
         sendMessage(inputText.trim());
         setInputText('');
-        resetTranscript();
+        transcriptRef.current = '';
+        setInterimText('');
+        if (isListening) {
+            stopListening();
+            setMicActive(false);
+        }
     };
 
     const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -152,10 +168,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ session, trimmerProfiles, 
                                 ].map((suggestion) => (
                                     <button
                                         key={suggestion}
-                                        onClick={() => {
-                                            setInputText(suggestion);
-                                            // Focus the textarea
-                                        }}
+                                        onClick={() => setInputText(suggestion)}
                                         className="block w-full text-left text-xs text-gray-500 px-3 py-2
                                                    rounded-lg border border-gray-100 hover:border-emerald-200
                                                    hover:bg-emerald-50 transition-colors"
@@ -253,27 +266,18 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ session, trimmerProfiles, 
                             />
 
                             {/* Mic */}
-                            {hasSupport && (
-                                <button
-                                    type="button"
-                                    onClick={() => {
-                                        if (isListening) {
-                                            stopListening();
-                                        } else {
-                                            setPreListeningText(inputText);
-                                            startListening();
-                                        }
-                                    }}
-                                    className={`p-2 rounded-lg transition-colors ${
-                                        isListening
-                                            ? 'bg-red-100 text-red-500'
-                                            : 'text-gray-400 hover:text-gray-600 hover:bg-gray-100'
-                                    }`}
-                                    title={isListening ? 'Stop' : 'Voice input'}
-                                >
-                                    {isListening ? <MicOff size={16} /> : <Mic size={16} />}
-                                </button>
-                            )}
+                            <button
+                                type="button"
+                                onClick={handleMicToggle}
+                                className={`p-2 rounded-lg transition-colors ${
+                                    micActive
+                                        ? 'bg-red-100 text-red-500'
+                                        : 'text-gray-400 hover:text-gray-600 hover:bg-gray-100'
+                                }`}
+                                title={micActive ? 'Stop' : 'Voice input'}
+                            >
+                                {micActive ? <MicOff size={16} /> : <Mic size={16} />}
+                            </button>
 
                             {/* Send */}
                             <button

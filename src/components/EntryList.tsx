@@ -1,5 +1,5 @@
 import React from 'react';
-import type { TrimEntry } from '../types/definitions';
+import type { TrimEntry, TrimmerProfile } from '../types/definitions';
 import { TrimCard } from './TrimCard';
 
 interface EntryListProps {
@@ -7,13 +7,13 @@ interface EntryListProps {
     onUpdateWeight: (entryId: string, type: 'flower' | 'shake' | 'trim' | 'waste', val: number) => void;
     onUpdateStrain: (entryId: string, strain: string) => void;
     onAddTrimmer: (entryId: string) => void;
-    onUpdateTrimmer: (entryId: string, trimmerId: string, updates: any) => void;
+    onUpdateTrimmer: (entryId: string, trimmerId: string, updates: Partial<Record<string, string | number>>) => void;
     onRemoveTrimmer: (entryId: string, trimmerId: string) => void;
     onDeleteBatch: (entryId: string) => void;
     onSubmitBatch?: (entryId: string) => void;
     onStartBatch?: (entryId: string) => void;
     onRevertBatch?: (entryId: string) => void;
-    trimmerProfiles: any[];
+    trimmerProfiles: TrimmerProfile[];
 }
 
 export const EntryList: React.FC<EntryListProps> = ({

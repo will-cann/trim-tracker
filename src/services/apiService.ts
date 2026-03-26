@@ -1,4 +1,4 @@
-import type { TrimSession, CreateTrimSessionDTO, Trimmer, TrimmerProfile, ProposedAction, Harvest, CreateHarvestDTO, HarvestWasteType, HarvestAllocation, Strain, License } from '../types/definitions';
+import type { TrimSession, CreateTrimSessionDTO, Trimmer, TrimmerProfile, ProposedAction, Harvest, CreateHarvestDTO, HarvestWasteType, HarvestAllocation, Strain, License, SpeechMode } from '../types/definitions';
 
 const API_BASE = '/.netlify/functions';
 
@@ -18,36 +18,22 @@ const getAuthHeaders = (): Record<string, string> => {
  */
 const fetchWithAuth = async (url: string, options: RequestInit = {}) => {
     const authHeaders = getAuthHeaders();
-    console.log(`[API] Request: ${url}`, { headers: authHeaders });
-    try {
-        const response = await fetch(url, {
-            ...options,
-            headers: {
-                ...options.headers as Record<string, string>,
-                ...authHeaders,
-            }
-        });
-        console.log(`[API] Response: ${url} (${response.status})`);
-        return response;
-    } catch (err) {
-        console.error(`[API] Fetch Error: ${url}`, err);
-        throw err;
-    }
+    const response = await fetch(url, {
+        ...options,
+        headers: {
+            ...options.headers as Record<string, string>,
+            ...authHeaders,
+        }
+    });
+    return response;
 };
 
 export const getSession = async (): Promise<TrimSession | null> => {
-    console.log('[API] Calling getSession');
     try {
         const response = await fetchWithAuth(`${API_BASE}/get-active-session`);
-        if (!response.ok) {
-            console.log('[API] getSession returned non-ok:', response.status);
-            return null;
-        }
-        const data = await response.json();
-        console.log('[API] getSession Success:', data);
-        return data;
-    } catch (err) {
-        console.error('[API] getSession Failed:', err);
+        if (!response.ok) return null;
+        return await response.json();
+    } catch {
         return null;
     }
 };
@@ -202,6 +188,7 @@ export const revertBatch = async (entryId: string): Promise<TrimSession> => {
 export const aiParse = async (request: {
     message?: string;
     csvData?: string;
+    transcriptChunks?: string[];
     history?: Array<{ role: string; content: string }>;
     context: {
         hasActiveSession: boolean;
@@ -216,6 +203,16 @@ export const aiParse = async (request: {
         body: JSON.stringify(request),
     });
     if (!response.ok) throw new Error('AI parsing failed');
+    return await response.json();
+};
+
+export const getDeepgramToken = async (mode: SpeechMode): Promise<{ key: string }> => {
+    const response = await fetchWithAuth(`${API_BASE}/deepgram-token`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mode }),
+    });
+    if (!response.ok) throw new Error('Failed to get speech token');
     return await response.json();
 };
 
@@ -401,6 +398,7 @@ export const apiService = {
     revertBatch,
     getCompletedSessions,
     aiParse,
+    getDeepgramToken,
     // Harvest
     getHarvests,
     createHarvest,

@@ -17,8 +17,6 @@ const COLORS = {
 
 export const DonutChart: React.FC<DonutChartProps & { showLegend?: boolean; height?: number }> = ({
     entry,
-    // showLegend = false, // Default to false as per new design
-
     height = 200
 }) => {
     const { flowerWeight, shakeWeight, trimWeight, wasteWeight, startWeight } = entry;

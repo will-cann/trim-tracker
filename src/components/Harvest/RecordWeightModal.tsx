@@ -25,7 +25,7 @@ export const RecordWeightModal: React.FC<RecordWeightModalProps> = ({
 
     return (
         <div className="modal-overlay">
-            <div className="modal-content" style={{ maxWidth: '380px' }}>
+            <div className="modal-content max-w-sm">
                 <div className="modal-header">
                     <h3>{title}</h3>
                     <button className="close-btn" onClick={onClose}>
@@ -44,7 +44,7 @@ export const RecordWeightModal: React.FC<RecordWeightModalProps> = ({
                             step="0.01"
                             required
                             autoFocus
-                            style={{ fontSize: '1.25rem', padding: '0.75rem' }}
+                            className="text-xl py-3"
                         />
                     </div>
                     <div className="modal-actions">

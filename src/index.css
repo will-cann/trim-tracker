@@ -15,22 +15,25 @@
 
   --primary-color: var(--color-flower);
   --primary-dark: #059669;
+  --primary-hover: #059669;
+  --primary-light: rgba(16, 185, 129, 0.15);
   --secondary-color: var(--color-trim);
+  --danger-color: #EF4444;
+  --warning-color: #F59E0B;
 
   --background-color: #F3F4F6;
-  /* Gray 100 */
+  --bg-color: #F3F4F6;
   --card-bg: #FFFFFF;
   --text-color: #1F2937;
-  /* Gray 800 */
+  --text-primary: #1F2937;
   --text-secondary: #6B7280;
-  /* Gray 500 */
 
   --border-radius: 8px;
-  /* Updated radius */
   --border-color: #E5E7EB;
 
   --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
   --shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
   --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
 
   --transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
@@ -51,29 +54,11 @@ body {
   /* Ensure numbers align */
 }
 
-.app-container {
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: 40px 20px;
-}
-
 .app-header {
   text-align: center;
   margin-bottom: 60px;
 }
 
-.app-header h1 {
-  font-size: 3rem;
-  font-weight: 800;
-  color: var(--text-color);
-  margin: 0;
-  letter-spacing: -0.025em;
-  background: linear-gradient(to right, var(--primary-color), var(--secondary-color));
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-}
-
-/* Dashboard */
 /* Dashboard */
 .dashboard {
   margin-bottom: 40px;
@@ -90,31 +75,6 @@ body {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   gap: 1rem;
-}
-
-.stat-item {
-  background: var(--card-bg);
-  padding: 1.5rem;
-  border-radius: 16px;
-  border: 1px solid var(--border-color);
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
-}
-
-.stat-item:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.05);
-}
-
-.stat-icon {
-  width: 48px;
-  height: 48px;
-  border-radius: 12px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
 }
 
 .start-icon {
@@ -172,19 +132,6 @@ body {
 .stat-item.highlight {
   background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
   border-color: var(--primary-color);
-}
-
-/* Utility Classes */
-.flex {
-  display: flex;
-}
-
-.gap-2 {
-  gap: 0.5rem;
-}
-
-.items-center {
-  align-items: center;
 }
 
 .actions-row {
@@ -576,7 +523,7 @@ body {
   width: 36px;
   height: 36px;
   border-radius: 0.5rem;
-  background: #10b981;
+  background: var(--primary-color);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -588,7 +535,7 @@ body {
 }
 
 .sidebar-rail-logo:hover {
-  background: #059669;
+  background: var(--primary-dark);
 }
 
 .sidebar-rail-nav {
@@ -612,11 +559,11 @@ body {
 }
 
 .sidebar-rail-btn:hover {
-  background-color: #f3f4f6;
+  background-color: var(--bg-color);
 }
 
 .sidebar-rail-btn.active {
-  background-color: #f0fdf4;
+  background-color: var(--primary-light);
   position: relative;
 }
 
@@ -628,7 +575,7 @@ body {
   bottom: 8px;
   width: 3px;
   border-radius: 0 2px 2px 0;
-  background: #10b981;
+  background: var(--primary-color);
 }
 
 .sidebar-rail-logo.active {
@@ -651,7 +598,7 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #10b981;
+  color: var(--primary-color);
   overflow: hidden;
   margin-bottom: 4px;
 }
@@ -704,7 +651,7 @@ body {
 }
 
 .sidebar-panel-grip:hover {
-  color: #10b981;
+  color: var(--primary-color);
   background: linear-gradient(to right, transparent, #f0fdf4);
 }
 
@@ -718,8 +665,8 @@ body {
   height: 48px;
   border: none;
   border-radius: 0 4px 4px 0;
-  background: #f0fdf4;
-  color: #10b981;
+  background: var(--primary-light);
+  color: var(--primary-color);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -731,7 +678,7 @@ body {
 
 .sidebar-expand-tab:hover {
   width: 20px;
-  background: #10b981;
+  background: var(--primary-color);
   color: white;
   opacity: 1;
 }
@@ -777,7 +724,7 @@ body {
 }
 
 .sidebar-panel-new-btn:hover {
-  background-color: #f0fdf4;
+  background-color: var(--primary-light);
   border-color: #86efac;
 }
 
@@ -787,14 +734,14 @@ body {
   border: none;
   background: transparent;
   border-radius: 4px;
-  color: #9ca3af;
+  color: var(--text-secondary);
   cursor: pointer;
   transition: all 0.15s;
 }
 
 .sidebar-convo-delete:hover {
-  color: #ef4444;
-  background: #fef2f2;
+  color: var(--danger-color);
+  background: rgba(239, 68, 68, 0.05);
 }
 
 .conversation-item:hover .sidebar-convo-delete {
@@ -988,10 +935,6 @@ body {
 
 .btn-delete-confirm:hover {
   background-color: #DC2626;
-}
-
-.text-red-500 {
-  color: #EF4444;
 }
 
 .delete-batch-btn {
@@ -2099,20 +2042,6 @@ body {
   animation: pulse 1.5s infinite;
 }
 
-@keyframes pulse {
-  0% {
-    box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4);
-  }
-
-  70% {
-    box-shadow: 0 0 0 6px rgba(239, 68, 68, 0);
-  }
-
-  100% {
-    box-shadow: 0 0 0 0 rgba(239, 68, 68, 0);
-  }
-}
-
 /* New Trimmer Layout Styles */
 .trimmer-row {
   display: block;
@@ -2178,7 +2107,7 @@ body {
   outline: none;
   background-color: white;
   border-color: var(--primary-color);
-  box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.1);
+  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.1);
 }
 
 /* Tabs Styling */
@@ -2562,7 +2491,7 @@ body {
   width: 64px;
   height: 64px;
   border-radius: 1rem;
-  background: #f0fdf4;
+  background: var(--primary-light);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -2606,7 +2535,7 @@ body {
   width: 28px;
   height: 28px;
   border-radius: 50%;
-  background: #f0fdf4;
+  background: var(--primary-light);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -2660,13 +2589,13 @@ body {
 }
 
 .ai-license-pill:hover {
-  border-color: #10b981;
-  color: #059669;
+  border-color: var(--primary-color);
+  color: var(--primary-dark);
 }
 
 .ai-license-pill.active {
-  background: #10b981;
-  border-color: #10b981;
+  background: var(--primary-color);
+  border-color: var(--primary-color);
   color: white;
 }
 
@@ -2733,7 +2662,7 @@ body {
 }
 
 .conversation-item:hover {
-  background-color: #f3f4f6;
+  background-color: var(--bg-color);
 }
 
 .conversation-item:hover button {
@@ -2741,11 +2670,11 @@ body {
 }
 
 .conversation-item.active {
-  background-color: #f0fdf4;
+  background-color: var(--primary-light);
 }
 
 .conversation-item.active p:first-child {
-  color: #059669;
+  color: var(--primary-dark);
   font-weight: 500;
 }
 
@@ -2793,7 +2722,7 @@ body {
 }
 
 .right-panel-grip:hover {
-  color: #10b981;
+  color: var(--primary-color);
   background: linear-gradient(to left, transparent, #f0fdf4);
 }
 
@@ -2806,8 +2735,8 @@ body {
   height: 48px;
   border: none;
   border-radius: 4px 0 0 4px;
-  background: #f0fdf4;
-  color: #10b981;
+  background: var(--primary-light);
+  color: var(--primary-color);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -2819,7 +2748,7 @@ body {
 
 .right-expand-tab:hover {
   width: 20px;
-  background: #10b981;
+  background: var(--primary-color);
   color: white;
   opacity: 1;
 }
@@ -2865,9 +2794,9 @@ body {
 }
 
 .right-panel-add-btn:hover {
-  border-color: #10b981;
-  color: #10b981;
-  background: #f0fdf4;
+  border-color: var(--primary-color);
+  color: var(--primary-color);
+  background: var(--primary-light);
 }
 
 .right-panel-add-input {
@@ -2900,7 +2829,7 @@ body {
   border: none;
   background: transparent;
   border-radius: 4px;
-  color: #9ca3af;
+  color: var(--text-secondary);
   cursor: pointer;
   transition: all 0.15s;
 }
@@ -2910,8 +2839,8 @@ body {
 }
 
 .right-panel-item-delete:hover {
-  color: #ef4444;
-  background: #fef2f2;
+  color: var(--danger-color);
+  background: rgba(239, 68, 68, 0.05);
 }
 
 .trimmer-status-dot {
@@ -2922,7 +2851,7 @@ body {
 }
 
 .trimmer-status-dot.assigned {
-  background: #10b981;
+  background: var(--primary-color);
 }
 
 .trimmer-status-dot.available {
@@ -2942,7 +2871,7 @@ body {
   border: none;
   background: transparent;
   border-radius: 4px;
-  color: #9ca3af;
+  color: var(--text-secondary);
   cursor: pointer;
   transition: all 0.15s;
 }
@@ -2952,6 +2881,6 @@ body {
 }
 
 .strain-delete-btn:hover {
-  color: #ef4444;
-  background: #fef2f2;
+  color: var(--danger-color);
+  background: rgba(239, 68, 68, 0.05);
 }

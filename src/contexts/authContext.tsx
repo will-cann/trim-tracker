@@ -82,7 +82,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     };
 
     useEffect(() => {
-        console.log('Auth0 State:', { isAuthenticated, isLoading, user: !!auth0User });
         if (isAuthenticated && !isLoading) {
             getToken().then(() => setTokenReady(true));
         } else if (!isLoading) {
@@ -121,7 +120,6 @@ export const useAuth = () => {
 // Wrapper for Auth0Provider
 export const Auth0Wrapper: React.FC<{ children: ReactNode }> = ({ children }) => {
     if (DEV_BYPASS) {
-        console.log('🔓 Dev bypass auth enabled');
         return <DevBypassProvider>{children}</DevBypassProvider>;
     }
 

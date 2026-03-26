@@ -37,7 +37,7 @@ export const CreateHarvestModal: React.FC<CreateHarvestModalProps> = ({ onClose,
 
     return (
         <div className="modal-overlay">
-            <div className="modal-content" style={{ maxWidth: '500px' }}>
+            <div className="modal-content max-w-lg">
                 <div className="modal-header">
                     <h3>New Harvest</h3>
                     <button className="close-btn" onClick={onClose}>
@@ -97,14 +97,8 @@ export const CreateHarvestModal: React.FC<CreateHarvestModalProps> = ({ onClose,
                         <select
                             value={allocation}
                             onChange={e => setAllocation(e.target.value as AllocationChoice)}
-                            style={{
-                                width: '100%',
-                                padding: '0.5rem 0.75rem',
-                                borderRadius: '0.375rem',
-                                border: '1px solid #d1d5db',
-                                fontSize: '0.875rem',
-                                backgroundColor: 'white',
-                            }}
+                            className="w-full px-3 py-2 rounded-md border border-gray-300 text-sm bg-white
+                                       focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:border-emerald-400"
                         >
                             <option value="Flower">Flower (Dry Trim)</option>
                             <option value="Frozen">Fresh Frozen</option>

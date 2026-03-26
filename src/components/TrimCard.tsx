@@ -22,7 +22,6 @@ interface TrimCardProps {
 
 export const TrimCard: React.FC<TrimCardProps> = ({
     entry,
-    // onUpdateWeight, // Kept in interface but unused in component body
     onUpdateStrain,
     onAddTrimmer,
     onUpdateTrimmer,

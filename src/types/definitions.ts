@@ -147,10 +147,40 @@ export interface Strain {
 // AI / CHAT TYPES
 // ============================================================================
 
+export type ProposedActionType =
+  | 'create_session' | 'add_batch' | 'assign_trimmer' | 'add_trimmer_profile'
+  | 'create_harvest' | 'record_wet_weight' | 'allocate_harvest' | 'record_harvest_waste'
+  | 'move_harvest' | 'convert_to_trim';
+
 export interface ProposedAction {
-  type: 'create_session' | 'add_batch' | 'assign_trimmer' | 'add_trimmer_profile'
-    | 'create_harvest' | 'record_wet_weight' | 'allocate_harvest' | 'record_harvest_waste' | 'move_harvest' | 'convert_to_trim';
+  type: ProposedActionType;
   data: Record<string, any>;
+}
+
+// ============================================================================
+// TASK / VOICE TYPES
+// ============================================================================
+
+export type TaskStatus = 'pending' | 'edited' | 'executing' | 'completed' | 'failed' | 'skipped';
+export type SpeechMode = 'ambient' | 'action';
+
+export interface Task {
+  id: string;
+  action: ProposedAction;
+  status: TaskStatus;
+  source: SpeechMode;
+  sourceText: string;
+  createdAt: string;
+  completedAt?: string;
+  error?: string;
+}
+
+export interface TranscriptChunk {
+  id: string;
+  text: string;
+  timestamp: string;
+  isFinal: boolean;
+  processed: boolean;
 }
 
 export interface ChatMessage {

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import type { TrimSession, CreateTrimSessionDTO } from '../types/definitions';
+import type { TrimSession, CreateTrimSessionDTO, TrimmerProfile } from '../types/definitions';
 import { Cannabis, Trash2, Scale, Plus, Package, Hourglass, Users } from 'lucide-react';
 
 import { DashboardDonutChart } from './DashboardDonutChart';
@@ -13,13 +13,13 @@ interface DashboardProps {
     onAddBatch: (data: CreateTrimSessionDTO) => void;
     onUpdateStrain: (entryId: string, strain: string) => void;
     onAddTrimmer: (entryId: string) => void;
-    onUpdateTrimmer: (entryId: string, trimmerId: string, updates: any) => void;
+    onUpdateTrimmer: (entryId: string, trimmerId: string, updates: Partial<Record<string, string | number>>) => void;
     onRemoveTrimmer: (entryId: string, trimmerId: string) => void;
     onDeleteBatch: (entryId: string) => void;
     onSubmitBatch?: (entryId: string) => void;
     onStartBatch?: (entryId: string) => void;
     onRevertBatch?: (entryId: string) => void;
-    trimmerProfiles: any[]; // TODO: Import type
+    trimmerProfiles: TrimmerProfile[];
 }
 
 export const Dashboard: React.FC<DashboardProps> = ({
@@ -164,10 +164,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                         <Plus size={20} />
                         New Batch
                     </button>
-                    <button type="button" className="btn-submit" onClick={(e) => {
-                        console.log('Submit button clicked!', e);
-                        onSubmit(e);
-                    }}>
+                    <button type="button" className="btn-submit" onClick={onSubmit}>
                         Submit Session
                     </button>
                 </div>
