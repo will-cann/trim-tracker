@@ -15,6 +15,7 @@ interface VoiceInterfaceProps {
     activeLicense?: string | null;
     licenses?: License[];
     onClose: () => void;
+    onCreateHumanTasks?: (tasks: Array<{ title: string; description?: string; priority: string; category: string; dueDate?: string; assignee?: string; location?: string }>) => Promise<void>;
 }
 
 export const VoiceInterface = ({
@@ -25,6 +26,7 @@ export const VoiceInterface = ({
     conversationId,
     activeLicense,
     onClose,
+    onCreateHumanTasks,
 }: VoiceInterfaceProps) => {
     const [mode, setMode] = useState<SpeechMode>('action');
     const [transcript, setTranscript] = useState('');
@@ -72,9 +74,21 @@ export const VoiceInterface = ({
                 transcriptChunks: [text],
                 context: buildContext(),
             });
-            if (result.actions.length > 0) {
-                addTasks(result.actions, mode, text.slice(0, 100));
-            } else {
+
+            // Split human tasks from automated actions
+            const humanTaskActions = result.actions.filter((a: any) => a.type === 'create_human_task');
+            const automatedActions = result.actions.filter((a: any) => a.type !== 'create_human_task');
+
+            if (automatedActions.length > 0) {
+                addTasks(automatedActions, mode, text.slice(0, 100));
+            }
+
+            // Create human tasks directly
+            if (humanTaskActions.length > 0 && onCreateHumanTasks) {
+                await onCreateHumanTasks(humanTaskActions.map((a: any) => a.data));
+            }
+
+            if (result.actions.length === 0) {
                 setAnalyzeError('No actionable tasks found in transcript. Try being more specific.');
             }
         } catch (error) {
@@ -83,7 +97,7 @@ export const VoiceInterface = ({
         } finally {
             setIsAnalyzing(false);
         }
-    }, [buildContext, addTasks, mode]);
+    }, [buildContext, addTasks, mode, onCreateHumanTasks]);
 
     // Handle Deepgram transcripts
     const handleTranscript = useCallback((text: string, isFinal: boolean) => {

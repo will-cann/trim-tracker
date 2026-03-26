@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
-import type { TrimSession, TrimmerProfile, ProposedAction, ChatMessage, Harvest } from '../types/definitions';
+import type { TrimSession, TrimmerProfile, ProposedAction, ChatMessage, Harvest, ActionResultItem } from '../types/definitions';
 import { apiService } from '../services/apiService';
 import { executeAction } from '../services/actionExecutor';
 
@@ -70,6 +70,7 @@ interface UseAIChatOptions {
     conversationId?: string | null;
     onSaveConversation?: (id: string, title: string, messages: ChatMessage[]) => Promise<void>;
     activeLicense?: string | null;
+    onCreateHumanTasks?: (tasks: Array<{ title: string; description?: string; priority: string; category: string; dueDate?: string; assignee?: string; location?: string }>) => Promise<void>;
 }
 
 export const useAIChat = ({
@@ -80,6 +81,7 @@ export const useAIChat = ({
     conversationId,
     onSaveConversation,
     activeLicense,
+    onCreateHumanTasks,
 }: UseAIChatOptions) => {
     const [messages, setMessages] = useState<ChatMessage[]>([]);
     const [isLoading, setIsLoading] = useState(false);
@@ -134,13 +136,14 @@ export const useAIChat = ({
         activeLicenseNumber: activeLicense || undefined,
     }), [session, trimmerProfiles, harvests, activeLicense]);
 
-    const addMessage = useCallback((role: 'user' | 'assistant', content: string, actions?: ProposedAction[]) => {
+    const addMessage = useCallback((role: 'user' | 'assistant', content: string, extra?: { actions?: ProposedAction[]; results?: ActionResultItem[] }) => {
         const msg: ChatMessage = {
             id: crypto.randomUUID(),
             role,
             content,
-            actions,
-            status: actions?.length ? 'pending' : undefined,
+            actions: extra?.actions,
+            results: extra?.results,
+            status: extra?.actions?.length ? 'pending' : undefined,
         };
         setMessages(prev => [...prev, msg]);
         return msg;
@@ -165,7 +168,7 @@ export const useAIChat = ({
                 context: buildContext(),
             });
 
-            addMessage('assistant', result.message, result.actions);
+            addMessage('assistant', result.message, { actions: result.actions });
 
             if (result.actions.length > 0) {
                 setPendingActions(result.actions);
@@ -189,7 +192,7 @@ export const useAIChat = ({
                 context: buildContext(),
             });
 
-            addMessage('assistant', result.message, result.actions);
+            addMessage('assistant', result.message, { actions: result.actions });
 
             if (result.actions.length > 0) {
                 setPendingActions(result.actions);
@@ -206,8 +209,17 @@ export const useAIChat = ({
 
         setIsExecuting(true);
         try {
-            for (const action of pendingActions) {
+            // Split human tasks from automated actions
+            const humanTaskActions = pendingActions.filter(a => a.type === 'create_human_task');
+            const automatedActions = pendingActions.filter(a => a.type !== 'create_human_task');
+
+            for (const action of automatedActions) {
                 await executeAction(action);
+            }
+
+            // Create human tasks via callback
+            if (humanTaskActions.length > 0 && onCreateHumanTasks) {
+                await onCreateHumanTasks(humanTaskActions.map(a => a.data as any));
             }
 
             setMessages(prev => {
@@ -224,7 +236,36 @@ export const useAIChat = ({
             setPendingActions(null);
             await onSessionUpdate();
 
-            addMessage('assistant', 'Done! All actions have been applied.');
+            // Build structured results with navigation links
+            const results: ActionResultItem[] = pendingActions.map(action => {
+                const d = action.data;
+                switch (action.type) {
+                    case 'create_session':
+                        return { type: action.type, label: 'Session started', summary: [d.strain, d.harvestName].filter(Boolean).join(' · '), navigateTo: 'dashboard' as const };
+                    case 'add_batch':
+                        return { type: action.type, label: 'Batch added', summary: [d.strain, d.startWeight && `${d.startWeight}g`].filter(Boolean).join(' · '), navigateTo: 'dashboard' as const };
+                    case 'assign_trimmer':
+                        return { type: action.type, label: 'Trimmer assigned', summary: [d.name, d.entryName].filter(Boolean).join(' → '), navigateTo: 'dashboard' as const };
+                    case 'add_trimmer_profile':
+                        return { type: action.type, label: 'Added to roster', summary: d.name || '' };
+                    case 'create_harvest':
+                        return { type: action.type, label: 'Harvest created', summary: [d.strain, d.plantCount && `${d.plantCount} plants`].filter(Boolean).join(' · '), navigateTo: 'harvests' as const };
+                    case 'record_wet_weight':
+                        return { type: action.type, label: 'Weight recorded', summary: [d.harvestIdentifier, d.weight && `${d.weight}g`].filter(Boolean).join(' · '), navigateTo: 'harvests' as const };
+                    case 'allocate_harvest':
+                        return { type: action.type, label: 'Harvest allocated', summary: d.harvestIdentifier || '', navigateTo: 'harvests' as const };
+                    case 'record_harvest_waste':
+                        return { type: action.type, label: 'Waste recorded', summary: [d.wasteType, d.weight && `${d.weight}g`].filter(Boolean).join(' · '), navigateTo: 'harvests' as const };
+                    case 'move_harvest':
+                        return { type: action.type, label: 'Harvest moved', summary: [d.harvestIdentifier, d.dryingLocation].filter(Boolean).join(' → '), navigateTo: 'harvests' as const };
+                    case 'create_human_task':
+                        return { type: action.type, label: 'Task created', summary: d.title || '', navigateTo: 'tasks' as const };
+                    default:
+                        return { type: action.type, label: 'Action applied', summary: '' };
+                }
+            });
+
+            addMessage('assistant', `${results.length} action${results.length !== 1 ? 's' : ''} applied.`, { results });
         } catch (error) {
             addMessage('assistant', `Something went wrong while applying actions: ${error instanceof Error ? error.message : 'Unknown error'}. Some actions may have been partially applied.`);
         } finally {

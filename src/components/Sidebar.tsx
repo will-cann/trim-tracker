@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
-import { Plus, LayoutDashboard, BarChart3, Sprout, LogOut, User as UserIcon, Trash2, MessageSquare, GripVertical, Scissors, Settings } from 'lucide-react';
+import { Plus, LayoutDashboard, BarChart3, Sprout, LogOut, User as UserIcon, Trash2, MessageSquare, GripVertical, Scissors, Settings, ClipboardList } from 'lucide-react';
 import { useAuth } from '../contexts/authContext';
 import type { ConversationSummary, TrimSession } from '../types/definitions';
 import logo from '../assets/logo.png';
 
-type ViewType = 'ai' | 'dashboard' | 'reports' | 'harvests' | 'settings';
+type ViewType = 'ai' | 'dashboard' | 'reports' | 'harvests' | 'settings' | 'tasks';
 
 interface SidebarProps {
     currentView: ViewType;
@@ -19,6 +19,7 @@ interface SidebarProps {
     completedSessions: TrimSession[];
     selectedSessionId: string | null;
     onSelectSession: (sessionId: string | null) => void;
+    taskCount?: number;
 }
 
 const formatRelativeTime = (dateStr: string) => {
@@ -39,6 +40,7 @@ const formatRelativeTime = (dateStr: string) => {
 const navItems: { view: ViewType; icon: (color: string) => React.ReactNode; label: string }[] = [
     { view: 'dashboard', icon: (color) => <LayoutDashboard size={20} color={color} />, label: 'Trim Tracker' },
     { view: 'harvests', icon: (color) => <Sprout size={20} color={color} />, label: 'Harvest Day' },
+    { view: 'tasks', icon: (color) => <ClipboardList size={20} color={color} />, label: 'Tasks' },
     { view: 'reports', icon: (color) => <BarChart3 size={20} color={color} />, label: 'Reports' },
 ];
 
@@ -55,6 +57,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     completedSessions,
     selectedSessionId,
     onSelectSession,
+    taskCount = 0,
 }) => {
     const { user, logout } = useAuth();
     const [isPanelOpen, setIsPanelOpen] = useState(false);
@@ -119,7 +122,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                 }}
                                 title={label}
                             >
-                                {icon(isActive ? '#10b981' : '#6b7280')}
+                                <span className="relative">
+                                    {icon(isActive ? '#10b981' : '#6b7280')}
+                                    {view === 'tasks' && taskCount > 0 && (
+                                        <span className="absolute -top-1.5 -right-1.5 bg-teal-500 text-white text-[9px] font-bold min-w-[16px] h-4 flex items-center justify-center rounded-full px-1">
+                                            {taskCount > 99 ? '99+' : taskCount}
+                                        </span>
+                                    )}
+                                </span>
                             </button>
                         );
                     })}

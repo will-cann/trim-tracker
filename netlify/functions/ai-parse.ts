@@ -3,16 +3,38 @@ import { resolveContext } from './utils/auth';
 
 const ANTHROPIC_API_URL = 'https://api.anthropic.com/v1/messages';
 
-const SYSTEM_PROMPT = `You are an AI assistant for a cannabis trim tracking application called Trim Tracker. Your job is to parse user input (natural language or CSV data) into structured actions for the application.
+const SYSTEM_PROMPT = `You are an AI assistant for a cannabis cultivation and manufacturing application called Trim Tracker. Your job is to parse user input (natural language, voice transcripts, or CSV data) into structured actions for the application.
 
-The application tracks:
+## Application Features (Automated Actions)
+
+The application can automate these operations:
 - **Trim Sessions**: A work session containing multiple batches. One active session at a time per company.
 - **Batches (Trim Entries)**: Individual harvest batches within a session. Each has a harvest name, strain, license number, and start weight (in grams). Status can be 'active' or 'upcoming'.
 - **Trimmers**: Workers assigned to batches. Each has a name, start time (HH:mm 24-hour format), and tool (scissors or machine).
 - **Trimmer Profiles**: A company roster of available trimmers that can be assigned to batches.
 - **Harvests**: Pre-trim records tracking plant harvest through drying. Each has a batch ID, strain, license number, wet weight, waste, and allocations (flower for dry trim, frozen for fresh frozen, or both).
 
-When the user provides information, use the available tools to create structured actions. Key rules:
+## Full Cannabis Operations Knowledge
+
+You understand the FULL range of cannabis cultivation, processing, and manufacturing operations. Beyond automated actions, you can create **human tasks** for anything that requires physical action by a person. Common operational domains include:
+
+- **Drying/Curing**: Room monitoring, rack assignments, cure jar rotations, moisture content checks, dry room temps/humidity
+- **IPM (Integrated Pest Management)**: Scouting reports, spray schedules, pest identification, beneficial insect releases, treatment logging, quarantine procedures
+- **Compliance/METRC**: Manifest submission, package creation, tag management, transfer tracking, inventory reconciliation, state reporting, waste disposal documentation
+- **Equipment Maintenance**: Scale calibration, HVAC servicing, dehumidifier maintenance, trimming equipment sharpening/cleaning, extraction equipment servicing
+- **Environmental Monitoring**: Temperature/humidity checks, CO2 levels, light cycle verification, VPD monitoring, water pH/EC testing, nutrient reservoir checks
+- **Packaging/Labeling**: Package creation, label printing, weight verification, lot assignment, compliance label checks, seal testing
+- **Quality Control/Testing**: Sample collection, potency testing, compliance testing, terpene analysis, moisture testing, visual inspection
+- **Inventory**: Stock counts, transfer between rooms/areas, supply ordering, input tracking (nutrients, soil, etc.)
+- **Transportation**: Manifest preparation, driver assignment, delivery scheduling, chain-of-custody, vehicle inspection
+- **Cleaning/Sanitation**: Room turnover, equipment sterilization, sanitization schedules, waste area cleaning
+- **Employee/Training**: Certification tracking, SOP reviews, training session scheduling, safety briefings
+- **Cultivation**: Feeding schedules, transplanting, defoliation, topping, flushing, light adjustments, clone management
+- **Extraction/Manufacturing**: Run schedules, solvent management, purging, post-processing, edible/concentrate production
+
+**IMPORTANT**: When the user describes any task that CANNOT be automated through the existing application tools, ALWAYS create a human task using the \`create_human_tasks\` tool. Don't just acknowledge it in text — capture it as a trackable task. Even brief mentions like "check room 2 humidity" or "remind me to calibrate the scale" should become human tasks.
+
+## Rules for Automated Actions
 - Match trimmer names to existing trimmer profiles when possible (fuzzy match is fine — "Maria" matches "Maria Garcia").
 - Match batch references (by harvest name or strain) to existing entries when assigning trimmers.
 - Match harvest references by batch ID or strain to existing harvests.
@@ -25,6 +47,14 @@ When the user provides information, use the available tools to create structured
 - For CSV data, intelligently map column headers to the appropriate fields regardless of exact naming conventions.
 - For harvests, allocation can be "Flower" (dry trim), "Frozen" (fresh frozen), or "Both" (split). Default to "Flower" if not specified.
 - Waste types include: powdery_mildew, bud_rot, insects, other (contamination) and stems, leaves (biomass).
+
+## Rules for Human Tasks
+- Use descriptive, actionable titles (e.g., "Check humidity in Dry Room 2" not "humidity check")
+- Assign the correct category from the available options
+- Default priority to "medium" unless urgency is clear from context
+- If the user mentions a specific person, set them as the assignee
+- If the user mentions a location/room, capture it in the location field
+- If the user mentions a deadline or timeframe, set an appropriate dueDate
 
 Be conversational in your text responses but always use tools to represent the structured data.`;
 
@@ -185,6 +215,40 @@ const tools = [
                 dryingLocation: { type: 'string', description: 'New drying location name' },
             },
             required: ['harvestIdentifier', 'dryingLocation'],
+        },
+    },
+    {
+        name: 'create_human_tasks',
+        description: 'Create one or more human tasks that require physical action by a person. Use this for ANY operational task that cannot be automated through the other tools. Examples: checking environmental conditions, IPM scouting, METRC submissions, calibrating equipment, cleaning rooms, collecting QC samples, packaging product, feeding plants, flushing, transplanting, defoliation, extraction runs, label printing, supply ordering, driver assignments, training, SOPs, and anything else that requires a human to do.',
+        input_schema: {
+            type: 'object' as const,
+            properties: {
+                tasks: {
+                    type: 'array',
+                    items: {
+                        type: 'object',
+                        properties: {
+                            title: { type: 'string', description: 'Short, actionable task title' },
+                            description: { type: 'string', description: 'Detailed description of what needs to be done' },
+                            priority: { type: 'string', enum: ['low', 'medium', 'high', 'urgent'], description: 'Task priority level. Default to medium.' },
+                            category: {
+                                type: 'string',
+                                enum: [
+                                    'drying_curing', 'ipm', 'compliance', 'equipment',
+                                    'environmental', 'packaging', 'qc_testing', 'inventory',
+                                    'transportation', 'sanitation', 'training', 'trim', 'harvest', 'other',
+                                ],
+                                description: 'Department/category for the task',
+                            },
+                            dueDate: { type: 'string', description: 'Optional ISO date string for when the task is due' },
+                            assignee: { type: 'string', description: 'Optional name of person to assign the task to' },
+                            location: { type: 'string', description: 'Optional room/area where the task should be performed' },
+                        },
+                        required: ['title', 'category'],
+                    },
+                },
+            },
+            required: ['tasks'],
         },
     },
 ];
@@ -417,6 +481,22 @@ export const handler: Handler = async (event) => {
                         });
                         break;
                     }
+                    case 'create_human_tasks':
+                        for (const task of (input.tasks || [])) {
+                            actions.push({
+                                type: 'create_human_task',
+                                data: {
+                                    title: task.title,
+                                    description: task.description || '',
+                                    priority: task.priority || 'medium',
+                                    category: task.category || 'other',
+                                    dueDate: task.dueDate || undefined,
+                                    assignee: task.assignee || undefined,
+                                    location: task.location || undefined,
+                                },
+                            });
+                        }
+                        break;
                 }
             }
         }

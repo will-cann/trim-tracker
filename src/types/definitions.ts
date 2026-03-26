@@ -150,7 +150,7 @@ export interface Strain {
 export type ProposedActionType =
   | 'create_session' | 'add_batch' | 'assign_trimmer' | 'add_trimmer_profile'
   | 'create_harvest' | 'record_wet_weight' | 'allocate_harvest' | 'record_harvest_waste'
-  | 'move_harvest' | 'convert_to_trim';
+  | 'move_harvest' | 'convert_to_trim' | 'create_human_task';
 
 export interface ProposedAction {
   type: ProposedActionType;
@@ -175,6 +175,33 @@ export interface Task {
   error?: string;
 }
 
+// ============================================================================
+// HUMAN TASK TYPES
+// ============================================================================
+
+export type HumanTaskStatus = 'pending' | 'in_progress' | 'completed';
+export type HumanTaskPriority = 'low' | 'medium' | 'high' | 'urgent';
+export type HumanTaskCategory =
+  | 'drying_curing' | 'ipm' | 'compliance' | 'equipment'
+  | 'environmental' | 'packaging' | 'qc_testing' | 'inventory'
+  | 'transportation' | 'sanitation' | 'training' | 'trim' | 'harvest' | 'other';
+
+export interface HumanTask {
+  id: string;
+  title: string;
+  description?: string;
+  priority: HumanTaskPriority;
+  category: HumanTaskCategory;
+  status: HumanTaskStatus;
+  dueDate?: string;
+  assignee?: string;
+  location?: string;
+  sourceConversationId?: string;
+  createdAt: string;
+  updatedAt: string;
+  completedAt?: string;
+}
+
 export interface TranscriptChunk {
   id: string;
   text: string;
@@ -183,12 +210,20 @@ export interface TranscriptChunk {
   processed: boolean;
 }
 
+export interface ActionResultItem {
+  type: string;
+  label: string;
+  summary: string;
+  navigateTo?: 'dashboard' | 'harvests' | 'reports' | 'tasks';
+}
+
 export interface ChatMessage {
   id: string;
   role: 'user' | 'assistant';
   content: string;
   actions?: ProposedAction[];
   status?: 'pending' | 'confirmed' | 'cancelled';
+  results?: ActionResultItem[];
 }
 
 export interface Conversation {

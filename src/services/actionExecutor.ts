@@ -74,6 +74,9 @@ export async function executeAction(action: ProposedAction): Promise<void> {
                 await apiService.updateHarvest(action.data.harvestId, { dryingLocation: action.data.dryingLocation });
             }
             break;
+        case 'create_human_task':
+            // Human tasks are handled separately via useHumanTasks hook — no-op here
+            break;
     }
 }
 

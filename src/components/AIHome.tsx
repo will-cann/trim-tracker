@@ -4,6 +4,7 @@ import { Mic, MicOff, Upload, FileText, ArrowRight, Loader2, Pencil, Radio } fro
 import { useDeepgram } from '../hooks/useDeepgram';
 import { useAIChat } from '../hooks/useAIChat';
 import { ActionPreview } from './ActionPreview';
+import { ActionResult } from './ActionResult';
 import { VoiceInterface } from './VoiceInterface';
 import type { TrimSession, TrimmerProfile, Harvest, ChatMessage, CreateTrimSessionDTO, License } from '../types/definitions';
 import logo from '../assets/logo.png';
@@ -21,6 +22,8 @@ interface AIHomeProps {
     licenses?: License[];
     activeLicenseId?: string | null;
     onLicenseChange?: (id: string) => void;
+    onViewChange?: (view: 'dashboard' | 'harvests' | 'reports' | 'tasks') => void;
+    onCreateHumanTasks?: (tasks: Array<{ title: string; description?: string; priority: string; category: string; dueDate?: string; assignee?: string; location?: string }>) => Promise<void>;
 }
 
 export const AIHome: React.FC<AIHomeProps> = ({
@@ -35,6 +38,8 @@ export const AIHome: React.FC<AIHomeProps> = ({
     licenses = [],
     activeLicenseId,
     onLicenseChange,
+    onViewChange,
+    onCreateHumanTasks,
 }) => {
     const [inputText, setInputText] = useState('');
     const [isDragOver, setIsDragOver] = useState(false);
@@ -112,6 +117,7 @@ export const AIHome: React.FC<AIHomeProps> = ({
         conversationId,
         onSaveConversation,
         activeLicense: licenses.find(l => l.id === activeLicenseId)?.licenseNumber || null,
+        onCreateHumanTasks,
     });
 
     // Load conversation when conversationId changes
@@ -234,6 +240,7 @@ export const AIHome: React.FC<AIHomeProps> = ({
                     activeLicense={licenses.find(l => l.id === activeLicenseId)?.licenseNumber || null}
                     licenses={licenses}
                     onClose={() => setShowVoice(false)}
+                    onCreateHumanTasks={onCreateHumanTasks}
                 />
             </div>
         );
@@ -375,10 +382,15 @@ export const AIHome: React.FC<AIHomeProps> = ({
                 /* Chat view — messages + input at bottom */
                 <div className="ai-home-chat">
                     <div className="ai-home-messages">
-                        {messages.map((msg) => (
+                        {messages.map((msg) => {
+                            const isCommandMode = !!(pendingActions && pendingActions.length > 0);
+                            const isThePendingMsg = msg.status === 'pending';
+                            return (
                             <div
                                 key={msg.id}
-                                className={`ai-msg-row ${msg.role === 'user' ? 'ai-msg-user' : 'ai-msg-assistant'}`}
+                                className={`ai-msg-row ${msg.role === 'user' ? 'ai-msg-user' : 'ai-msg-assistant'} ${
+                                    isCommandMode && !isThePendingMsg ? 'opacity-40 transition-opacity' : 'transition-opacity'
+                                }`}
                             >
                                 {msg.role === 'assistant' && (
                                     <div className="ai-msg-avatar">
@@ -419,8 +431,18 @@ export const AIHome: React.FC<AIHomeProps> = ({
                                         />
                                     </div>
                                 )}
+                                {/* Render result cards with navigation */}
+                                {msg.results && msg.results.length > 0 && (
+                                    <div className="ai-msg-actions">
+                                        <ActionResult
+                                            results={msg.results}
+                                            onNavigate={onViewChange}
+                                        />
+                                    </div>
+                                )}
                             </div>
-                        ))}
+                        );
+                        })}
 
                         {isLoading && (
                             <div className="ai-msg-row ai-msg-assistant">
@@ -462,9 +484,9 @@ export const AIHome: React.FC<AIHomeProps> = ({
                                     value={inputText}
                                     onChange={(e) => setInputText(e.target.value)}
                                     onKeyDown={handleKeyDown}
-                                    placeholder="Type a message..."
+                                    placeholder={pendingActions && pendingActions.length > 0 ? "Review actions above..." : "Type a message..."}
                                     rows={1}
-                                    disabled={isLoading || isExecuting}
+                                    disabled={isLoading || isExecuting || !!(pendingActions && pendingActions.length > 0)}
                                     className="w-full px-4 py-3 border border-gray-200 rounded-xl resize-none
                                                text-sm text-gray-800 placeholder-gray-400
                                                focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:border-emerald-400

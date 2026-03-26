@@ -2,7 +2,7 @@ import { useState } from 'react';
 import {
     Package, Plus, UserPlus, User, Sprout, Scale, ArrowRightLeft,
     Trash2, MapPin, Play, SkipForward, X, ChevronDown, ChevronUp,
-    Check, AlertCircle, Loader2, GripVertical,
+    Check, AlertCircle, Loader2, GripVertical, ClipboardList,
 } from 'lucide-react';
 import type { Task } from '../types/definitions';
 
@@ -24,6 +24,7 @@ const ACTION_CONFIG: Record<string, { icon: typeof Package; label: string; color
     allocate_harvest: { icon: ArrowRightLeft, label: 'Allocate Harvest', color: 'text-amber-600', bgColor: 'bg-amber-50' },
     record_harvest_waste: { icon: Trash2, label: 'Record Waste', color: 'text-red-600', bgColor: 'bg-red-50' },
     move_harvest: { icon: MapPin, label: 'Move Harvest', color: 'text-purple-600', bgColor: 'bg-purple-50' },
+    create_human_task: { icon: ClipboardList, label: 'Task', color: 'text-teal-600', bgColor: 'bg-teal-50' },
 };
 
 const FIELD_LABELS: Record<string, string> = {
@@ -33,6 +34,8 @@ const FIELD_LABELS: Record<string, string> = {
     allocation: 'Allocation', plantCount: 'Plant Count',
     dryingLocation: 'Drying Location', targetWeight: 'Target Weight (g)',
     weight: 'Weight (g)', wasteType: 'Waste Type',
+    title: 'Title', description: 'Description', priority: 'Priority',
+    category: 'Category', dueDate: 'Due Date', assignee: 'Assignee', location: 'Location',
 };
 
 const HIDDEN_FIELDS = ['entryId', 'profileId', 'harvestId'];

@@ -1,5 +1,5 @@
 import Dexie, { type Table } from 'dexie';
-import type { ChatMessage, Task } from '../types/definitions';
+import type { ChatMessage, Task, HumanTask } from '../types/definitions';
 
 interface ConversationRecord {
     id: string;
@@ -20,6 +20,7 @@ interface TaskRecord {
 class ChatDatabase extends Dexie {
     conversations!: Table<ConversationRecord, string>;
     tasks!: Table<TaskRecord, string>;
+    humanTasks!: Table<HumanTask, string>;
 
     constructor() {
         super('TrimTrackerChatDB');
@@ -32,6 +33,11 @@ class ChatDatabase extends Dexie {
         this.version(3).stores({
             conversations: 'id, updatedAt, createdAt',
             tasks: 'id, conversationId, createdAt, updatedAt',
+        });
+        this.version(4).stores({
+            conversations: 'id, updatedAt, createdAt',
+            tasks: 'id, conversationId, createdAt, updatedAt',
+            humanTasks: 'id, status, category, priority, dueDate, createdAt',
         });
     }
 }

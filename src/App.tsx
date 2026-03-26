@@ -7,14 +7,16 @@ import { ChatPanel } from './components/ChatPanel';
 import { Dashboard } from './components/Dashboard';
 import { ReportsDashboard } from './components/Reports/ReportsDashboard';
 import { HarvestDashboard } from './components/Harvest/HarvestDashboard';
+import { TasksPanel } from './components/TasksPanel';
 import { Sidebar } from './components/Sidebar';
 import { RightPanel } from './components/RightPanel';
 import { SettingsPanel } from './components/SettingsPanel';
 import { Auth0Wrapper, useAuth } from './contexts/authContext';
 import { Login } from './components/Login';
 import { useConversationHistory } from './hooks/useConversationHistory';
+import { useHumanTasks } from './hooks/useHumanTasks';
 
-type ViewType = 'ai' | 'dashboard' | 'reports' | 'harvests' | 'settings';
+type ViewType = 'ai' | 'dashboard' | 'reports' | 'harvests' | 'settings' | 'tasks';
 
 function AppContent() {
   const { user, loading: authLoading } = useAuth();
@@ -37,6 +39,29 @@ function AppContent() {
     loadConversation,
     deleteConversation,
   } = useConversationHistory();
+
+  const {
+    tasks: humanTasks,
+    filters: taskFilters,
+    setFilters: setTaskFilters,
+    addHumanTasks,
+    updateTaskStatus,
+    updateTask: updateHumanTask,
+    deleteTask: deleteHumanTask,
+    pendingCount: taskPendingCount,
+  } = useHumanTasks();
+
+  const handleCreateHumanTasks = useCallback(async (tasks: Array<{ title: string; description?: string; priority: string; category: string; dueDate?: string; assignee?: string; location?: string }>) => {
+    await addHumanTasks(tasks.map(t => ({
+      title: t.title,
+      description: t.description,
+      priority: (t.priority || 'medium') as any,
+      category: (t.category || 'other') as any,
+      dueDate: t.dueDate,
+      assignee: t.assignee,
+      location: t.location,
+    })));
+  }, [addHumanTasks]);
 
   const loadSession = useCallback(async () => {
     const data = await apiService.getSession();
@@ -202,6 +227,7 @@ function AppContent() {
         completedSessions={completedSessions}
         selectedSessionId={selectedSessionId}
         onSelectSession={setSelectedSessionId}
+        taskCount={taskPendingCount}
       />
       <div className="main-content">
         <header className="app-header">
@@ -221,6 +247,18 @@ function AppContent() {
             licenses={myLicenses}
             activeLicenseId={activeLicenseId}
             onLicenseChange={setActiveLicenseId}
+            onViewChange={setCurrentView}
+            onCreateHumanTasks={handleCreateHumanTasks}
+          />
+        ) : currentView === 'tasks' ? (
+          <TasksPanel
+            tasks={humanTasks}
+            filters={taskFilters}
+            onSetFilters={setTaskFilters}
+            onUpdateStatus={updateTaskStatus}
+            onUpdateTask={updateHumanTask}
+            onDeleteTask={deleteHumanTask}
+            pendingCount={taskPendingCount}
           />
         ) : currentView === 'settings' ? (
           <SettingsPanel />
