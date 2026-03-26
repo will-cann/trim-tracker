@@ -55,6 +55,21 @@ const FIELD_LABELS: Record<string, string> = {
 
 const HIDDEN_FIELDS = new Set(['entryId', 'profileId', 'harvestId']);
 
+/** Key fields shown inline per action type — everything else is behind expand */
+const KEY_FIELDS: Record<string, string[]> = {
+    create_session: ['strain', 'startWeight', 'harvestName'],
+    add_batch: ['strain', 'startWeight', 'harvestName'],
+    assign_trimmer: ['name', 'startTime', 'entryName'],
+    add_trimmer_profile: ['name'],
+    create_harvest: ['strain', 'plantCount', 'allocation'],
+    record_wet_weight: ['harvestIdentifier', 'weight'],
+    allocate_harvest: ['harvestIdentifier', 'allocations'],
+    record_harvest_waste: ['harvestIdentifier', 'wasteType', 'weight'],
+    move_harvest: ['harvestIdentifier', 'dryingLocation'],
+    convert_to_trim: ['harvestIdentifier'],
+    create_human_task: ['title', 'priority', 'category'],
+};
+
 /** Build a human-readable one-liner from action data */
 function summarizeAction(action: ProposedAction): string {
     const d = action.data;
@@ -76,9 +91,50 @@ function summarizeAction(action: ProposedAction): string {
             return [d.harvestIdentifier, d.wasteType, d.weight && `${d.weight}g`].filter(Boolean).join(' · ');
         case 'move_harvest':
             return [d.harvestIdentifier, d.dryingLocation && `→ ${d.dryingLocation}`].filter(Boolean).join(' ');
+        case 'create_human_task':
+            return d.title || '';
         default:
             return Object.values(d).filter(v => v && !HIDDEN_FIELDS.has(String(v))).slice(0, 3).join(' · ');
     }
+}
+
+function FieldRow({
+    fieldKey,
+    value,
+    isExecuting,
+    isReadonly,
+    onChange,
+}: {
+    fieldKey: string;
+    value: any;
+    isExecuting?: boolean;
+    isReadonly: boolean;
+    onChange: (newVal: any) => void;
+}) {
+    return (
+        <div className="flex items-center gap-2">
+            <label className="text-xs text-gray-400 w-24 flex-shrink-0 text-right">
+                {FIELD_LABELS[fieldKey] || fieldKey}
+            </label>
+            {isReadonly ? (
+                <span className="flex-1 text-sm text-gray-700 px-2 py-1">
+                    {typeof value === 'object' ? JSON.stringify(value) : String(value ?? '—')}
+                </span>
+            ) : (
+                <input
+                    type={typeof value === 'number' ? 'number' : 'text'}
+                    value={value ?? ''}
+                    onChange={(e) => {
+                        onChange(typeof value === 'number' ? parseFloat(e.target.value) || 0 : e.target.value);
+                    }}
+                    disabled={isExecuting}
+                    className="flex-1 text-sm px-2 py-1 border border-gray-200 rounded-md
+                               focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:border-emerald-400
+                               disabled:bg-gray-50 disabled:text-gray-400"
+                />
+            )}
+        </div>
+    );
 }
 
 function ActionItem({
@@ -100,78 +156,84 @@ function ActionItem({
     const config = ACTION_CONFIG[action.type] || ACTION_CONFIG.add_batch;
     const Icon = config.icon;
     const summary = summarizeAction(action);
-    const editableFields = Object.entries(action.data).filter(([key]) => !HIDDEN_FIELDS.has(key));
+
+    const allFields = Object.entries(action.data).filter(([key]) => !HIDDEN_FIELDS.has(key));
+    const keyFieldNames = new Set(KEY_FIELDS[action.type] || []);
+    const keyFields = allFields.filter(([key]) => keyFieldNames.has(key));
+    const secondaryFields = allFields.filter(([key]) => !keyFieldNames.has(key));
+    const hasSecondary = secondaryFields.length > 0;
 
     return (
         <div className={`rounded-lg border transition-colors ${
             status === 'cancelled' ? 'border-gray-100 opacity-40' :
-            status === 'confirmed' ? 'border-emerald-200 bg-emerald-50/30' :
-            expanded ? 'border-gray-300 bg-white shadow-sm' :
-            'border-gray-200 bg-white hover:border-gray-300'
+            status === 'confirmed' ? 'border-emerald-200' :
+            'border-gray-200 bg-white'
         }`}>
-            {/* Summary row — always visible */}
-            <button
-                type="button"
-                onClick={() => !isReadonly && setExpanded(!expanded)}
-                disabled={isReadonly}
-                className="w-full flex items-center gap-3 px-3 py-2.5 text-left disabled:cursor-default"
-            >
-                {/* Status icon */}
-                <div className={`w-7 h-7 rounded-md flex items-center justify-center flex-shrink-0 ${
-                    status === 'confirmed' ? 'bg-emerald-100' :
-                    status === 'cancelled' ? 'bg-gray-100' :
-                    config.bgColor
-                }`}>
-                    {status === 'confirmed' ? <Check size={14} className="text-emerald-600" /> :
-                     status === 'cancelled' ? <X size={14} className="text-gray-400" /> :
-                     <Icon size={14} className={config.color} />}
-                </div>
-
-                {/* Label + summary */}
-                <div className="flex-1 min-w-0">
-                    <span className={`text-sm font-medium ${
-                        status === 'confirmed' ? 'text-emerald-700' :
-                        status === 'cancelled' ? 'text-gray-400' :
-                        'text-gray-900'
-                    }`}>
-                        {config.label}
-                    </span>
-                    {summary && (
-                        <span className="text-sm text-gray-500 ml-2">{summary}</span>
-                    )}
-                </div>
-
-                {/* Expand chevron */}
-                {!isReadonly && (
-                    <ChevronDown size={14} className={`text-gray-400 transition-transform ${expanded ? 'rotate-180' : ''}`} />
+            {/* Header — colored bar with icon + label + summary */}
+            <div className={`flex items-center gap-2 px-3 py-2 ${
+                status === 'confirmed' ? 'bg-emerald-50' : config.bgColor
+            }`}>
+                {status === 'confirmed' ? (
+                    <Check size={14} className="text-emerald-500" />
+                ) : status === 'cancelled' ? (
+                    <X size={14} className="text-gray-400" />
+                ) : (
+                    <Icon size={14} className={config.color} />
                 )}
-            </button>
+                <span className={`text-xs font-semibold ${
+                    status === 'confirmed' ? 'text-emerald-600' :
+                    status === 'cancelled' ? 'text-gray-400' :
+                    config.color
+                }`}>
+                    {config.label}
+                </span>
+                {summary && (
+                    <span className="text-xs text-gray-500 ml-1 truncate">{summary}</span>
+                )}
+            </div>
 
-            {/* Expanded edit fields */}
-            {expanded && !isReadonly && (
-                <div className="px-3 pb-3 pt-1 border-t border-gray-100 space-y-2">
-                    {editableFields.map(([key, value]) => (
-                        <div key={key} className="flex items-center gap-2">
-                            <label className="text-xs text-gray-400 w-28 flex-shrink-0 text-right">
-                                {FIELD_LABELS[key] || key}
-                            </label>
-                            <input
-                                type={typeof value === 'number' ? 'number' : 'text'}
-                                value={value ?? ''}
-                                onChange={(e) => {
-                                    const newVal = typeof value === 'number'
-                                        ? parseFloat(e.target.value) || 0
-                                        : e.target.value;
-                                    onEditAction?.(index, { [key]: newVal });
-                                }}
-                                disabled={isExecuting}
-                                className="flex-1 text-sm px-2 py-1 border border-gray-200 rounded-md
-                                           focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:border-emerald-400
-                                           disabled:bg-gray-50 disabled:text-gray-400"
-                            />
-                        </div>
+            {/* Key fields — always visible */}
+            {keyFields.length > 0 && (
+                <div className="px-3 py-2 space-y-1.5">
+                    {keyFields.map(([key, value]) => (
+                        <FieldRow
+                            key={key}
+                            fieldKey={key}
+                            value={value}
+                            isExecuting={isExecuting}
+                            isReadonly={isReadonly}
+                            onChange={(newVal) => onEditAction?.(index, { [key]: newVal })}
+                        />
                     ))}
                 </div>
+            )}
+
+            {/* Secondary fields — behind expand */}
+            {hasSecondary && !isReadonly && (
+                <>
+                    <button
+                        type="button"
+                        onClick={() => setExpanded(!expanded)}
+                        className="w-full flex items-center justify-center gap-1 py-1.5 text-xs text-gray-400 hover:text-gray-600 border-t border-gray-100 transition-colors"
+                    >
+                        <ChevronDown size={12} className={`transition-transform ${expanded ? 'rotate-180' : ''}`} />
+                        {expanded ? 'Less' : `${secondaryFields.length} more`}
+                    </button>
+                    {expanded && (
+                        <div className="px-3 pb-2 space-y-1.5">
+                            {secondaryFields.map(([key, value]) => (
+                                <FieldRow
+                                    key={key}
+                                    fieldKey={key}
+                                    value={value}
+                                    isExecuting={isExecuting}
+                                    isReadonly={isReadonly}
+                                    onChange={(newVal) => onEditAction?.(index, { [key]: newVal })}
+                                />
+                            ))}
+                        </div>
+                    )}
+                </>
             )}
         </div>
     );
@@ -218,7 +280,7 @@ export const ActionPreview = ({ actions, onConfirm, onCancel, onEditAction, isEx
                         onClick={onConfirm}
                         disabled={isExecuting}
                         className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg
-                                   bg-gray-900 hover:bg-gray-800 text-white text-sm font-medium
+                                   bg-emerald-500 hover:bg-emerald-600 text-white text-sm font-medium
                                    disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                     >
                         {isExecuting ? (
@@ -229,7 +291,7 @@ export const ActionPreview = ({ actions, onConfirm, onCancel, onEditAction, isEx
                         ) : (
                             <>
                                 <Check size={14} />
-                                Confirm
+                                Confirm All
                             </>
                         )}
                     </button>

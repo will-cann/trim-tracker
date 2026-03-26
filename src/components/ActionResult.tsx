@@ -34,7 +34,7 @@ export const ActionResult = ({ results, onNavigate }: ActionResultProps) => {
     return (
         <div className="space-y-3">
             {/* Result items */}
-            <div className="rounded-lg border border-emerald-200 bg-gradient-to-b from-emerald-50/60 to-white overflow-hidden">
+            <div className="rounded-lg border border-emerald-200 bg-emerald-50/30 overflow-hidden">
                 {results.map((result, i) => {
                     const Icon = RESULT_ICONS[result.type] || Check;
                     return (
