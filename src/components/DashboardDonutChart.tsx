@@ -18,8 +18,9 @@ export const DashboardDonutChart: React.FC<DashboardDonutChartProps> = ({ sessio
     if (totalStart === 0) {
         return (
             <div className="donut-chart-container dashboard-chart">
-                <div className="donut-chart-placeholder">
-                    <span>No Data</span>
+                <div className="flex flex-col items-center justify-center py-6 text-center">
+                    <div className="w-16 h-16 rounded-full border-4 border-gray-100 mb-3" />
+                    <p className="text-xs text-gray-400">No weight data yet</p>
                 </div>
             </div>
         );

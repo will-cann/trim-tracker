@@ -121,7 +121,9 @@ export const SettingsPanel: React.FC = () => {
 
                 {/* License list */}
                 {loading ? (
-                    <div className="p-8 text-center text-gray-400">Loading...</div>
+                    <div className="flex items-center justify-center py-12">
+                        <div className="animate-spin rounded-full h-6 w-6 border-2 border-gray-200 border-t-emerald-500"></div>
+                    </div>
                 ) : licenses.length === 0 ? (
                     <div className="p-8 text-center text-gray-400">
                         <KeyRound size={32} className="text-gray-300 mx-auto mb-3" />

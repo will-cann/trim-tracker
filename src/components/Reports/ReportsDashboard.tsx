@@ -41,7 +41,7 @@ export const ReportsDashboard: React.FC = () => {
         return (
             <div className="reports-dashboard p-8 max-w-7xl mx-auto">
                 <div className="flex items-center justify-center h-64">
-                    <div className="text-gray-500">Loading reports...</div>
+                    <div className="animate-spin rounded-full h-8 w-8 border-2 border-gray-200 border-t-emerald-500"></div>
                 </div>
             </div>
         );

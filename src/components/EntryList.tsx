@@ -1,4 +1,5 @@
 import React from 'react';
+import { Package } from 'lucide-react';
 import type { TrimEntry, TrimmerProfile } from '../types/definitions';
 import { TrimCard } from './TrimCard';
 
@@ -49,8 +50,12 @@ export const EntryList: React.FC<EntryListProps> = ({
                     />
                 ))}
                 {entries.length === 0 && (
-                    <div className="empty-state">
-                        <p>No batches found.</p>
+                    <div className="flex flex-col items-center justify-center py-12 text-center">
+                        <div className="w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center mb-3">
+                            <Package size={20} className="text-gray-300" />
+                        </div>
+                        <p className="text-sm text-gray-500 font-medium">No batches in this tab</p>
+                        <p className="text-xs text-gray-400 mt-1">Batches will appear here as they move through the workflow.</p>
                     </div>
                 )}
             </div>

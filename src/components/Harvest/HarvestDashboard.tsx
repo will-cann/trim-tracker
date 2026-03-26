@@ -171,12 +171,20 @@ export const HarvestDashboard: React.FC = () => {
             {activeTab === 'strains' ? (
                 <StrainTable />
             ) : loading ? (
-                <div style={{ textAlign: 'center', padding: '3rem', color: '#9ca3af' }}>Loading harvests...</div>
+                <div className="flex items-center justify-center py-16">
+                    <div className="animate-spin rounded-full h-8 w-8 border-2 border-gray-200 border-t-emerald-500"></div>
+                </div>
             ) : filteredHarvests.length === 0 ? (
-                <div className="trim-card" style={{ textAlign: 'center', padding: '3rem', color: '#9ca3af' }}>
-                    <Sprout size={48} color="#d1d5db" style={{ margin: '0 auto 1rem' }} />
-                    <p style={{ fontSize: '1rem', fontWeight: 500 }}>No harvests{activeTab !== 'all' ? ` in ${activeTab}` : ''}</p>
-                    <p style={{ fontSize: '0.875rem', marginTop: '0.25rem' }}>Create a new harvest to get started.</p>
+                <div className="flex flex-col items-center justify-center py-16 text-center">
+                    <div className="w-14 h-14 rounded-full bg-emerald-50 flex items-center justify-center mb-4">
+                        <Sprout size={24} className="text-emerald-300" />
+                    </div>
+                    <h3 className="text-sm font-medium text-gray-500 mb-1">
+                        No harvests{activeTab !== 'all' ? ` in ${activeTab}` : ''}
+                    </h3>
+                    <p className="text-xs text-gray-400 max-w-xs">
+                        Create a new harvest to start tracking plants through drying and allocation.
+                    </p>
                 </div>
             ) : (
                 <div className="entry-list">

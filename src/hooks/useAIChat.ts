@@ -189,7 +189,7 @@ export const useAIChat = ({
                 setPendingActions(result.actions);
             }
         } catch (error) {
-            addMessage('assistant', 'Sorry, I had trouble understanding that. Could you try rephrasing?');
+            addMessage('assistant', 'I wasn\'t able to process that. Here are some things you can try:\n\n- **Start a session**: "Start a trim session with OG Kush 500g"\n- **Add batches**: "Add 3 batches of Blue Dream at 750g each"\n- **Create a harvest**: "New harvest for Gelato, 12 plants"\n- **Assign trimmers**: "Put Maria on the OG Kush batch at 8am"\n- **Create tasks**: "Remind me to check dry room humidity"');
         } finally {
             setIsLoading(false);
         }
@@ -213,7 +213,7 @@ export const useAIChat = ({
                 setPendingActions(result.actions);
             }
         } catch (error) {
-            addMessage('assistant', 'Sorry, I had trouble parsing that CSV. Please check the format and try again.');
+            addMessage('assistant', 'I couldn\'t parse that CSV. Make sure it has columns for **harvest name**, **strain**, **license number**, and **start weight**. Column names don\'t need to match exactly — I\'ll figure out the mapping.');
         } finally {
             setIsLoading(false);
         }
@@ -305,7 +305,8 @@ export const useAIChat = ({
 
             addMessage('assistant', `${results.length} action${results.length !== 1 ? 's' : ''} applied.`, { results });
         } catch (error) {
-            addMessage('assistant', `Something went wrong while applying actions: ${error instanceof Error ? error.message : 'Unknown error'}. Some actions may have been partially applied.`);
+            const errMsg = error instanceof Error ? error.message : 'Unknown error';
+            addMessage('assistant', `Some actions failed to apply: **${errMsg}**\n\nActions that completed before the error are already saved. You can try again or ask me to retry the remaining ones.`);
         } finally {
             setIsExecuting(false);
         }
