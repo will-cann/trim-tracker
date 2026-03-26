@@ -18,6 +18,8 @@ const RESULT_ICONS: Record<string, typeof Package> = {
     move_harvest: MapPin,
     convert_to_trim: Scissors,
     create_human_task: ClipboardList,
+    update_human_task: ClipboardList,
+    delete_human_task: Trash2,
 };
 
 const NAV_LABELS: Record<string, string> = {

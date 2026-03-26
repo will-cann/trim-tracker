@@ -150,7 +150,7 @@ export interface Strain {
 export type ProposedActionType =
   | 'create_session' | 'add_batch' | 'assign_trimmer' | 'add_trimmer_profile'
   | 'create_harvest' | 'record_wet_weight' | 'allocate_harvest' | 'record_harvest_waste'
-  | 'move_harvest' | 'convert_to_trim' | 'create_human_task';
+  | 'move_harvest' | 'convert_to_trim' | 'create_human_task' | 'update_human_task' | 'delete_human_task';
 
 export interface ProposedAction {
   type: ProposedActionType;

@@ -5,7 +5,7 @@ import { useDeepgram } from '../hooks/useDeepgram';
 import { useAIChat } from '../hooks/useAIChat';
 import { ActionPreview } from './ActionPreview';
 import { ActionResult } from './ActionResult';
-import type { TrimSession, TrimmerProfile, Harvest, ChatMessage, CreateTrimSessionDTO, License } from '../types/definitions';
+import type { TrimSession, TrimmerProfile, Harvest, ChatMessage, CreateTrimSessionDTO, License, HumanTask } from '../types/definitions';
 import logo from '../assets/logo.png';
 
 interface AIHomeProps {
@@ -23,6 +23,9 @@ interface AIHomeProps {
     onLicenseChange?: (id: string) => void;
     onViewChange?: (view: 'dashboard' | 'harvests' | 'reports' | 'tasks') => void;
     onCreateHumanTasks?: (tasks: Array<{ title: string; description?: string; priority: string; category: string; dueDate?: string; assignee?: string; location?: string }>) => Promise<void>;
+    onUpdateHumanTask?: (id: string, updates: Partial<HumanTask>) => Promise<void>;
+    onDeleteHumanTask?: (id: string) => Promise<void>;
+    humanTasks?: HumanTask[];
 }
 
 export const AIHome: React.FC<AIHomeProps> = ({
@@ -39,6 +42,9 @@ export const AIHome: React.FC<AIHomeProps> = ({
     onLicenseChange,
     onViewChange,
     onCreateHumanTasks,
+    onUpdateHumanTask,
+    onDeleteHumanTask,
+    humanTasks,
 }) => {
     const [inputText, setInputText] = useState('');
     const [isDragOver, setIsDragOver] = useState(false);
@@ -126,6 +132,17 @@ export const AIHome: React.FC<AIHomeProps> = ({
         onSaveConversation,
         activeLicense: licenses.find(l => l.id === activeLicenseId)?.licenseNumber || null,
         onCreateHumanTasks,
+        onUpdateHumanTask,
+        onDeleteHumanTask,
+        humanTasks: humanTasks?.map(t => ({
+            id: t.id,
+            title: t.title,
+            status: t.status,
+            priority: t.priority,
+            category: t.category,
+            assignee: t.assignee,
+            location: t.location,
+        })),
     });
 
     // Load conversation when conversationId changes

@@ -251,6 +251,64 @@ const tools = [
             required: ['tasks'],
         },
     },
+    {
+        name: 'update_human_tasks',
+        description: 'Update one or more existing human tasks. Use when the user wants to change the status, priority, assignee, due date, or any other field of existing tasks. Match tasks by title or description — fuzzy matching is fine.',
+        input_schema: {
+            type: 'object' as const,
+            properties: {
+                updates: {
+                    type: 'array',
+                    items: {
+                        type: 'object',
+                        properties: {
+                            taskIdentifier: { type: 'string', description: 'Title or description fragment to identify which task to update' },
+                            taskId: { type: 'string', description: 'Exact task ID if known from context' },
+                            status: { type: 'string', enum: ['pending', 'in_progress', 'completed'], description: 'New status' },
+                            title: { type: 'string', description: 'Updated title' },
+                            description: { type: 'string', description: 'Updated description' },
+                            priority: { type: 'string', enum: ['low', 'medium', 'high', 'urgent'], description: 'Updated priority' },
+                            category: {
+                                type: 'string',
+                                enum: [
+                                    'drying_curing', 'ipm', 'compliance', 'equipment',
+                                    'environmental', 'packaging', 'qc_testing', 'inventory',
+                                    'transportation', 'sanitation', 'training', 'trim', 'harvest', 'other',
+                                ],
+                                description: 'Updated category',
+                            },
+                            dueDate: { type: 'string', description: 'Updated due date (ISO string)' },
+                            assignee: { type: 'string', description: 'Updated assignee name' },
+                            location: { type: 'string', description: 'Updated location' },
+                        },
+                        required: ['taskIdentifier'],
+                    },
+                },
+            },
+            required: ['updates'],
+        },
+    },
+    {
+        name: 'delete_human_tasks',
+        description: 'Delete one or more existing human tasks. Use when the user wants to remove tasks entirely.',
+        input_schema: {
+            type: 'object' as const,
+            properties: {
+                deletions: {
+                    type: 'array',
+                    items: {
+                        type: 'object',
+                        properties: {
+                            taskIdentifier: { type: 'string', description: 'Title or description fragment to identify which task to delete' },
+                            taskId: { type: 'string', description: 'Exact task ID if known from context' },
+                        },
+                        required: ['taskIdentifier'],
+                    },
+                },
+            },
+            required: ['deletions'],
+        },
+    },
 ];
 
 interface AIParseRequest {
@@ -264,6 +322,7 @@ interface AIParseRequest {
         trimmerProfiles: Array<{ id: string; name: string }>;
         existingEntries: Array<{ id: string; harvestName: string; strain: string; status: string }>;
         harvests?: Array<{ id: string; batchId: string; strain: string; status: string }>;
+        humanTasks?: Array<{ id: string; title: string; status: string; priority: string; category: string; assignee?: string; location?: string }>;
     };
 }
 
@@ -321,6 +380,12 @@ export const handler: Handler = async (event) => {
             contextInfo.push(`- Harvests: ${request.context.harvests.map(h => `"${h.batchId}" / ${h.strain} [${h.status}] (ID: ${h.id})`).join(', ')}`);
         } else {
             contextInfo.push(`- Harvests: None`);
+        }
+
+        if (request.context.humanTasks && request.context.humanTasks.length > 0) {
+            contextInfo.push(`- Human tasks: ${request.context.humanTasks.map(t => `"${t.title}" [${t.status}/${t.priority}] ${t.assignee ? `assigned to ${t.assignee}` : ''} ${t.location ? `@ ${t.location}` : ''} (ID: ${t.id})`).join(', ')}`);
+        } else {
+            contextInfo.push(`- Human tasks: None`);
         }
 
         if ((request.context as any).activeLicenseNumber) {
@@ -495,6 +560,41 @@ export const handler: Handler = async (event) => {
                                     location: task.location || undefined,
                                 },
                             });
+                        }
+                        break;
+                    case 'update_human_tasks':
+                        for (const update of (input.updates || [])) {
+                            // Resolve taskIdentifier to actual taskId
+                            const matchedTask = (request.context.humanTasks || []).find(
+                                t => update.taskId === t.id ||
+                                    t.title.toLowerCase().includes(update.taskIdentifier.toLowerCase())
+                            );
+                            if (matchedTask) {
+                                const updates: Record<string, any> = { taskId: matchedTask.id, taskTitle: matchedTask.title };
+                                if (update.status) updates.status = update.status;
+                                if (update.title) updates.title = update.title;
+                                if (update.description) updates.description = update.description;
+                                if (update.priority) updates.priority = update.priority;
+                                if (update.category) updates.category = update.category;
+                                if (update.dueDate) updates.dueDate = update.dueDate;
+                                if (update.assignee) updates.assignee = update.assignee;
+                                if (update.location) updates.location = update.location;
+                                actions.push({ type: 'update_human_task', data: updates });
+                            }
+                        }
+                        break;
+                    case 'delete_human_tasks':
+                        for (const deletion of (input.deletions || [])) {
+                            const matchedDel = (request.context.humanTasks || []).find(
+                                t => deletion.taskId === t.id ||
+                                    t.title.toLowerCase().includes(deletion.taskIdentifier.toLowerCase())
+                            );
+                            if (matchedDel) {
+                                actions.push({
+                                    type: 'delete_human_task',
+                                    data: { taskId: matchedDel.id, taskTitle: matchedDel.title },
+                                });
+                            }
                         }
                         break;
                 }

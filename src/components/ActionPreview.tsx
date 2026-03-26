@@ -23,7 +23,9 @@ const ACTION_CONFIG: Record<string, { icon: typeof Package; label: string; color
     record_harvest_waste: { icon: Trash2, label: 'Record Waste', color: 'text-red-600', bgColor: 'bg-red-50' },
     move_harvest: { icon: MapPin, label: 'Move Harvest', color: 'text-purple-600', bgColor: 'bg-purple-50' },
     convert_to_trim: { icon: Scissors, label: 'Send to Trim', color: 'text-emerald-600', bgColor: 'bg-emerald-50' },
-    create_human_task: { icon: ClipboardList, label: 'Task', color: 'text-teal-600', bgColor: 'bg-teal-50' },
+    create_human_task: { icon: ClipboardList, label: 'Create Task', color: 'text-teal-600', bgColor: 'bg-teal-50' },
+    update_human_task: { icon: ClipboardList, label: 'Update Task', color: 'text-blue-600', bgColor: 'bg-blue-50' },
+    delete_human_task: { icon: Trash2, label: 'Delete Task', color: 'text-red-600', bgColor: 'bg-red-50' },
 };
 
 const FIELD_LABELS: Record<string, string> = {
@@ -51,9 +53,11 @@ const FIELD_LABELS: Record<string, string> = {
     dueDate: 'Due Date',
     assignee: 'Assignee',
     location: 'Location',
+    taskId: 'Task ID',
+    taskTitle: 'Task',
 };
 
-const HIDDEN_FIELDS = new Set(['entryId', 'profileId', 'harvestId']);
+const HIDDEN_FIELDS = new Set(['entryId', 'profileId', 'harvestId', 'taskId']);
 
 /** Key fields shown inline per action type — everything else is behind expand */
 const KEY_FIELDS: Record<string, string[]> = {
@@ -68,6 +72,8 @@ const KEY_FIELDS: Record<string, string[]> = {
     move_harvest: ['harvestIdentifier', 'dryingLocation'],
     convert_to_trim: ['harvestIdentifier'],
     create_human_task: ['title', 'priority', 'category'],
+    update_human_task: ['taskTitle', 'status', 'priority', 'assignee'],
+    delete_human_task: ['taskTitle'],
 };
 
 /** Build a human-readable one-liner from action data */
@@ -93,6 +99,10 @@ function summarizeAction(action: ProposedAction): string {
             return [d.harvestIdentifier, d.dryingLocation && `→ ${d.dryingLocation}`].filter(Boolean).join(' ');
         case 'create_human_task':
             return d.title || '';
+        case 'update_human_task':
+            return [d.taskTitle, d.status, d.assignee].filter(Boolean).join(' · ');
+        case 'delete_human_task':
+            return d.taskTitle || '';
         default:
             return Object.values(d).filter(v => v && !HIDDEN_FIELDS.has(String(v))).slice(0, 3).join(' · ');
     }

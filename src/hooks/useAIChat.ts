@@ -71,6 +71,9 @@ interface UseAIChatOptions {
     onSaveConversation?: (id: string, title: string, messages: ChatMessage[]) => Promise<void>;
     activeLicense?: string | null;
     onCreateHumanTasks?: (tasks: Array<{ title: string; description?: string; priority: string; category: string; dueDate?: string; assignee?: string; location?: string }>) => Promise<void>;
+    onUpdateHumanTask?: (id: string, updates: Record<string, any>) => Promise<void>;
+    onDeleteHumanTask?: (id: string) => Promise<void>;
+    humanTasks?: Array<{ id: string; title: string; status: string; priority: string; category: string; assignee?: string; location?: string }>;
 }
 
 export const useAIChat = ({
@@ -82,6 +85,9 @@ export const useAIChat = ({
     onSaveConversation,
     activeLicense,
     onCreateHumanTasks,
+    onUpdateHumanTask,
+    onDeleteHumanTask,
+    humanTasks,
 }: UseAIChatOptions) => {
     const [messages, setMessages] = useState<ChatMessage[]>([]);
     const [isLoading, setIsLoading] = useState(false);
@@ -134,7 +140,16 @@ export const useAIChat = ({
             status: h.status,
         })),
         activeLicenseNumber: activeLicense || undefined,
-    }), [session, trimmerProfiles, harvests, activeLicense]);
+        humanTasks: (humanTasks || []).map(t => ({
+            id: t.id,
+            title: t.title,
+            status: t.status,
+            priority: t.priority,
+            category: t.category,
+            assignee: t.assignee,
+            location: t.location,
+        })),
+    }), [session, trimmerProfiles, harvests, activeLicense, humanTasks]);
 
     const addMessage = useCallback((role: 'user' | 'assistant', content: string, extra?: { actions?: ProposedAction[]; results?: ActionResultItem[] }) => {
         const msg: ChatMessage = {
@@ -209,17 +224,36 @@ export const useAIChat = ({
 
         setIsExecuting(true);
         try {
-            // Split human tasks from automated actions
-            const humanTaskActions = pendingActions.filter(a => a.type === 'create_human_task');
-            const automatedActions = pendingActions.filter(a => a.type !== 'create_human_task');
+            // Split by handler type
+            const humanTaskCreates = pendingActions.filter(a => a.type === 'create_human_task');
+            const humanTaskUpdates = pendingActions.filter(a => a.type === 'update_human_task');
+            const humanTaskDeletes = pendingActions.filter(a => a.type === 'delete_human_task');
+            const automatedActions = pendingActions.filter(a =>
+                a.type !== 'create_human_task' && a.type !== 'update_human_task' && a.type !== 'delete_human_task'
+            );
 
             for (const action of automatedActions) {
                 await executeAction(action);
             }
 
-            // Create human tasks via callback
-            if (humanTaskActions.length > 0 && onCreateHumanTasks) {
-                await onCreateHumanTasks(humanTaskActions.map(a => a.data as any));
+            // Create human tasks
+            if (humanTaskCreates.length > 0 && onCreateHumanTasks) {
+                await onCreateHumanTasks(humanTaskCreates.map(a => a.data as any));
+            }
+
+            // Update human tasks
+            if (onUpdateHumanTask) {
+                for (const action of humanTaskUpdates) {
+                    const { taskId, taskTitle, ...updates } = action.data;
+                    if (taskId) await onUpdateHumanTask(taskId, updates);
+                }
+            }
+
+            // Delete human tasks
+            if (onDeleteHumanTask) {
+                for (const action of humanTaskDeletes) {
+                    if (action.data.taskId) await onDeleteHumanTask(action.data.taskId);
+                }
             }
 
             setMessages(prev => {
@@ -260,6 +294,10 @@ export const useAIChat = ({
                         return { type: action.type, label: 'Harvest moved', summary: [d.harvestIdentifier, d.dryingLocation].filter(Boolean).join(' → '), navigateTo: 'harvests' as const };
                     case 'create_human_task':
                         return { type: action.type, label: 'Task created', summary: d.title || '', navigateTo: 'tasks' as const };
+                    case 'update_human_task':
+                        return { type: action.type, label: 'Task updated', summary: d.taskTitle || '', navigateTo: 'tasks' as const };
+                    case 'delete_human_task':
+                        return { type: action.type, label: 'Task deleted', summary: d.taskTitle || '', navigateTo: 'tasks' as const };
                     default:
                         return { type: action.type, label: 'Action applied', summary: '' };
                 }

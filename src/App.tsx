@@ -251,6 +251,9 @@ function AppContent() {
             onLicenseChange={setActiveLicenseId}
             onViewChange={setCurrentView}
             onCreateHumanTasks={handleCreateHumanTasks}
+            onUpdateHumanTask={updateHumanTask}
+            onDeleteHumanTask={deleteHumanTask}
+            humanTasks={humanTasks}
           />
         ) : currentView === 'tasks' ? (
           <TasksPanel
