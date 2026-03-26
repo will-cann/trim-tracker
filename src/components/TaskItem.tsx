@@ -49,12 +49,12 @@ const STATUS_STYLES: Record<string, { label: string; color: string; bg: string }
 // Summarize key data fields into a short string
 function summarizeData(data: Record<string, unknown>): string {
     const parts: string[] = [];
-    if (data.strain) parts.push(data.strain);
-    if (data.name) parts.push(data.name);
-    if (data.harvestName) parts.push(data.harvestName);
+    if (data.strain) parts.push(String(data.strain));
+    if (data.name) parts.push(String(data.name));
+    if (data.harvestName) parts.push(String(data.harvestName));
     if (data.startWeight) parts.push(`${data.startWeight}g`);
     if (data.weight) parts.push(`${data.weight}g`);
-    if (data.dryingLocation) parts.push(data.dryingLocation);
+    if (data.dryingLocation) parts.push(String(data.dryingLocation));
     return parts.slice(0, 3).join(', ');
 }
 

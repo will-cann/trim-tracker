@@ -74,7 +74,6 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ session, trimmerProfiles, 
         sendMessage(inputText.trim());
         setInputText('');
         transcriptRef.current = '';
-        setInterimText('');
         if (isListening) {
             stopListening();
             setMicActive(false);
