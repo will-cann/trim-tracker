@@ -50,7 +50,7 @@ You understand the FULL range of cannabis cultivation, processing, and manufactu
 
 ## Rules for Human Tasks
 - Use descriptive, actionable titles (e.g., "Check humidity in Dry Room 2" not "humidity check")
-- Assign the correct category from the available options
+- Assign the correct category from the available options. Use "cultivation" for plant care tasks like feeding, transplanting, defoliation, topping, flushing, light adjustments, clone management, and watering. Use "harvest" only for tasks specifically about cutting, weighing, or processing harvested plant material.
 - Default priority to "medium" unless urgency is clear from context
 - If the user mentions a specific person, set them as the assignee
 - If the user mentions a location/room, capture it in the location field
@@ -325,7 +325,7 @@ const tools = [
                                 enum: [
                                     'drying_curing', 'ipm', 'compliance', 'equipment',
                                     'environmental', 'packaging', 'qc_testing', 'inventory',
-                                    'transportation', 'sanitation', 'training', 'trim', 'harvest', 'other',
+                                    'transportation', 'sanitation', 'training', 'trim', 'harvest', 'cultivation', 'other',
                                 ],
                                 description: 'Department/category for the task',
                             },
@@ -362,7 +362,7 @@ const tools = [
                                 enum: [
                                     'drying_curing', 'ipm', 'compliance', 'equipment',
                                     'environmental', 'packaging', 'qc_testing', 'inventory',
-                                    'transportation', 'sanitation', 'training', 'trim', 'harvest', 'other',
+                                    'transportation', 'sanitation', 'training', 'trim', 'harvest', 'cultivation', 'other',
                                 ],
                                 description: 'Updated category',
                             },

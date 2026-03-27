@@ -2,7 +2,7 @@ import { useState } from 'react';
 import {
     ClipboardList, Thermometer, Bug, Shield, Wrench, CloudSun,
     Package, FlaskConical, Warehouse, Truck, SprayCan, GraduationCap,
-    Scissors, Sprout, Circle, Trash2, ChevronUp,
+    Scissors, Sprout, Leaf, Circle, Trash2, ChevronUp,
     CheckCircle2, Clock, PlayCircle, CalendarClock,
     MapPin, User, Search, MoreHorizontal, RotateCcw,
 } from 'lucide-react';
@@ -34,6 +34,7 @@ const CATEGORY_CONFIG: Record<HumanTaskCategory, { icon: typeof ClipboardList; l
     training: { icon: GraduationCap, label: 'Training', color: 'text-pink-700', bg: 'bg-pink-50 border-pink-200', dot: 'bg-pink-500' },
     trim: { icon: Scissors, label: 'Trim', color: 'text-emerald-700', bg: 'bg-emerald-50 border-emerald-200', dot: 'bg-emerald-500' },
     harvest: { icon: Sprout, label: 'Harvest', color: 'text-green-700', bg: 'bg-green-50 border-green-200', dot: 'bg-green-500' },
+    cultivation: { icon: Leaf, label: 'Cultivation', color: 'text-lime-700', bg: 'bg-lime-50 border-lime-200', dot: 'bg-lime-500' },
     other: { icon: Circle, label: 'Other', color: 'text-gray-600', bg: 'bg-gray-50 border-gray-200', dot: 'bg-gray-400' },
 };
 
@@ -262,6 +263,28 @@ const TaskRow = ({
                                     >
                                         <RotateCcw size={14} />
                                         Reopen
+                                    </button>
+                                )}
+                                <label className="w-full flex items-center gap-2 px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50 cursor-pointer">
+                                    <CalendarClock size={14} />
+                                    <span>{task.dueDate ? 'Change due date' : 'Set due date'}</span>
+                                    <input
+                                        type="date"
+                                        className="absolute opacity-0 w-0 h-0"
+                                        value={task.dueDate ? task.dueDate.slice(0, 10) : ''}
+                                        onChange={(e) => {
+                                            onUpdateTask(task.id, { dueDate: e.target.value || undefined });
+                                            onToggleExpand();
+                                        }}
+                                    />
+                                </label>
+                                {task.dueDate && (
+                                    <button
+                                        onClick={() => { onUpdateTask(task.id, { dueDate: undefined }); onToggleExpand(); }}
+                                        className="w-full flex items-center gap-2 px-3 py-1.5 text-sm text-gray-500 hover:bg-gray-50"
+                                    >
+                                        <CalendarClock size={14} />
+                                        Clear due date
                                     </button>
                                 )}
                                 <button
