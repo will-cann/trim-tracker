@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Plus, LayoutDashboard, BarChart3, Sprout, LogOut, User as UserIcon, Trash2, MessageSquare, GripVertical, Scissors, Settings, ClipboardList } from 'lucide-react';
+import { Plus, LayoutDashboard, BarChart3, Sprout, LogOut, User as UserIcon, Trash2, MessageSquare, GripVertical, Scissors, Settings, ClipboardList, Map } from 'lucide-react';
 import { useAuth } from '../contexts/authContext';
 import type { ConversationSummary, TrimSession } from '../types/definitions';
 import logo from '../assets/logo.png';
@@ -40,6 +40,7 @@ const formatRelativeTime = (dateStr: string) => {
 const navItems: { view: ViewType; icon: (color: string) => React.ReactNode; label: string }[] = [
     { view: 'dashboard', icon: (color) => <LayoutDashboard size={20} color={color} />, label: 'Trim Tracker' },
     { view: 'harvests', icon: (color) => <Sprout size={20} color={color} />, label: 'Harvest Day' },
+    { view: 'plant-map', icon: (color) => <Map size={20} color={color} />, label: 'Plant Map' },
     { view: 'tasks', icon: (color) => <ClipboardList size={20} color={color} />, label: 'Tasks' },
     { view: 'reports', icon: (color) => <BarChart3 size={20} color={color} />, label: 'Reports' },
 ];
