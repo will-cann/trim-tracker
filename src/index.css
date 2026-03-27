@@ -2933,50 +2933,73 @@ body {
   background: linear-gradient(to left, transparent, var(--primary-light));
 }
 
-.task-expand-tab {
+/* Task edge controls — vertical strip on right edge */
+.task-edge-controls {
   position: fixed;
   right: 0;
   top: 50%;
   transform: translateY(-50%);
-  width: 16px;
-  height: 48px;
-  border: none;
-  border-radius: 4px 0 0 4px;
-  background: var(--primary-light);
-  color: var(--primary-color);
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
-  gap: 4px;
-  cursor: pointer;
+  gap: 2px;
   z-index: 106;
-  transition: all 0.15s;
-  opacity: 0.7;
+  padding: 4px;
+  border-radius: 8px 0 0 8px;
+  background: white;
+  border: 1px solid var(--border-color);
+  border-right: none;
+  box-shadow: -2px 0 8px rgba(0, 0, 0, 0.06);
 }
 
-.task-expand-tab:hover {
-  width: 20px;
+.task-edge-btn {
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: #9ca3af;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.15s;
+  position: relative;
+}
+
+.task-edge-btn:hover {
+  background: #f3f4f6;
+  color: #374151;
+}
+
+.task-edge-btn.active {
+  background: var(--primary-light);
+  color: var(--primary-color);
+}
+
+.task-edge-btn.voice-active-action {
   background: var(--primary-color);
   color: white;
-  opacity: 1;
+}
+
+.task-edge-btn.voice-active-ambient {
+  background: #6366f1;
+  color: white;
 }
 
 .task-expand-badge {
+  position: absolute;
+  top: -2px;
+  right: -2px;
   font-size: 8px;
   font-weight: 700;
   line-height: 1;
-  min-width: 12px;
+  min-width: 14px;
   text-align: center;
   background: var(--primary-color);
   color: white;
-  border-radius: 6px;
-  padding: 1px 3px;
-}
-
-.task-expand-tab:hover .task-expand-badge {
-  background: white;
-  color: var(--primary-color);
+  border-radius: 7px;
+  padding: 2px 3px;
 }
 
 .task-panel-content {
@@ -3179,3 +3202,42 @@ body {
 
 .sidebar-ambient-dots span:nth-child(2) { animation-delay: 0.2s; }
 .sidebar-ambient-dots span:nth-child(3) { animation-delay: 0.4s; }
+
+/* ============================================================================
+   PLANT MAP
+   ============================================================================ */
+
+.plant-map-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  grid-auto-flow: dense;
+  gap: 16px;
+  padding: 0 4px;
+}
+
+.plant-map-summary {
+  grid-row: span 2;
+  background: white;
+  border: 1px solid #f3f4f6;
+  border-radius: 12px;
+  padding: 20px;
+}
+
+.plant-map-room-card {
+  display: flex;
+  flex-direction: column;
+  text-align: left;
+  background: white;
+  border: 1.5px solid #e5e7eb;
+  border-radius: 12px;
+  padding: 16px;
+  cursor: pointer;
+  transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1),
+              box-shadow 0.2s cubic-bezier(0.4, 0, 0.2, 1),
+              border-color 0.2s;
+}
+
+.plant-map-room-card:hover {
+  transform: scale(1.03);
+  box-shadow: 0 8px 24px -4px rgba(0, 0, 0, 0.08), 0 2px 8px -2px rgba(0, 0, 0, 0.04);
+}

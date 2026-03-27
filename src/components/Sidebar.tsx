@@ -1,11 +1,10 @@
-import React, { useState, useCallback, useRef } from 'react';
-import { Plus, LayoutDashboard, BarChart3, Sprout, LogOut, User as UserIcon, Trash2, MessageSquare, GripVertical, Scissors, Settings, ClipboardList, Mic, Radio } from 'lucide-react';
+import React, { useState } from 'react';
+import { Plus, LayoutDashboard, BarChart3, Sprout, LogOut, User as UserIcon, Trash2, MessageSquare, GripVertical, Scissors, Settings, ClipboardList } from 'lucide-react';
 import { useAuth } from '../contexts/authContext';
-import { useDeepgram } from '../hooks/useDeepgram';
-import type { ConversationSummary, TrimSession, SpeechMode } from '../types/definitions';
+import type { ConversationSummary, TrimSession } from '../types/definitions';
 import logo from '../assets/logo.png';
 
-type ViewType = 'ai' | 'dashboard' | 'reports' | 'harvests' | 'settings' | 'tasks';
+type ViewType = 'ai' | 'dashboard' | 'reports' | 'harvests' | 'settings' | 'tasks' | 'plant-map';
 
 interface SidebarProps {
     currentView: ViewType;
@@ -21,12 +20,6 @@ interface SidebarProps {
     selectedSessionId: string | null;
     onSelectSession: (sessionId: string | null) => void;
     taskCount?: number;
-    // Voice — action mode callback (text goes to AI chat)
-    onActionVoiceText?: (text: string) => void;
-    // Voice — ambient mode callbacks
-    onAmbientAnalyze?: (text: string) => Promise<void>;
-    // Currently active voice mode (for showing state from parent if needed)
-    activeVoiceMode?: SpeechMode | null;
 }
 
 const formatRelativeTime = (dateStr: string) => {
@@ -65,56 +58,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
     selectedSessionId,
     onSelectSession,
     taskCount = 0,
-    onActionVoiceText,
-    onAmbientAnalyze,
 }) => {
     const { user, logout } = useAuth();
     const [isPanelOpen, setIsPanelOpen] = useState(false);
-
-    // === Voice controls ===
-    const [voiceMode, setVoiceMode] = useState<SpeechMode | null>(null); // null = not recording
-    const transcriptRef = useRef('');
-
-    const handleTranscript = useCallback((text: string, isFinal: boolean) => {
-        if (isFinal) {
-            transcriptRef.current = transcriptRef.current ? `${transcriptRef.current} ${text}` : text;
-        }
-    }, []);
-
-    const handleUtteranceEnd = useCallback(() => {
-        if (voiceMode === 'ambient' && transcriptRef.current.trim() && onAmbientAnalyze) {
-            const text = transcriptRef.current;
-            transcriptRef.current = '';
-            onAmbientAnalyze(text);
-        }
-    }, [voiceMode, onAmbientAnalyze]);
-
-    const { isListening, startListening, stopListening } = useDeepgram({
-        mode: voiceMode || 'action',
-        onTranscript: handleTranscript,
-        onUtteranceEnd: handleUtteranceEnd,
-    });
-
-    const startVoice = useCallback(async (mode: SpeechMode) => {
-        transcriptRef.current = '';
-        setVoiceMode(mode);
-        // Small delay to let the mode ref update in useDeepgram
-        setTimeout(async () => {
-            try { await startListening(); } catch { /* error handled by hook */ }
-        }, 50);
-    }, [startListening]);
-
-    const stopVoice = useCallback(() => {
-        if (voiceMode === 'action' && transcriptRef.current.trim() && onActionVoiceText) {
-            onActionVoiceText(transcriptRef.current);
-        }
-        if (voiceMode === 'ambient' && transcriptRef.current.trim() && onAmbientAnalyze) {
-            onAmbientAnalyze(transcriptRef.current);
-        }
-        transcriptRef.current = '';
-        stopListening();
-        setVoiceMode(null);
-    }, [voiceMode, stopListening, onActionVoiceText, onAmbientAnalyze]);
 
     const togglePanel = () => {
         const next = !isPanelOpen;
@@ -189,55 +135,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     })}
                 </div>
 
-                {/* Bottom: voice, settings, user, logout */}
+                {/* Bottom: settings, user, logout */}
                 <div className="sidebar-rail-bottom">
-                    {/* Action voice */}
-                    <button
-                        className={`sidebar-rail-btn ${isListening && voiceMode === 'action' ? 'voice-active-action' : ''}`}
-                        onClick={() => {
-                            if (isListening && voiceMode === 'action') {
-                                stopVoice();
-                            } else {
-                                if (isListening) stopVoice(); // stop ambient if running
-                                if (currentView !== 'ai') { onNewConversation(); onViewChange('ai'); }
-                                startVoice('action');
-                            }
-                        }}
-                        title={isListening && voiceMode === 'action' ? 'Stop dictation' : 'Voice command'}
-                    >
-                        {isListening && voiceMode === 'action' ? (
-                            <div className="sidebar-voice-wave">
-                                <span /><span /><span />
-                            </div>
-                        ) : (
-                            <Mic size={18} color="#6b7280" />
-                        )}
-                    </button>
-
-                    {/* Ambient voice */}
-                    <button
-                        className={`sidebar-rail-btn ${isListening && voiceMode === 'ambient' ? 'voice-active-ambient' : ''}`}
-                        onClick={() => {
-                            if (isListening && voiceMode === 'ambient') {
-                                stopVoice();
-                            } else {
-                                if (isListening) stopVoice(); // stop action if running
-                                startVoice('ambient');
-                            }
-                        }}
-                        title={isListening && voiceMode === 'ambient' ? 'Stop ambient listening' : 'Ambient mode — auto-create tasks'}
-                    >
-                        {isListening && voiceMode === 'ambient' ? (
-                            <div className="sidebar-ambient-dots">
-                                <span /><span /><span />
-                            </div>
-                        ) : (
-                            <Radio size={18} color="#6b7280" />
-                        )}
-                    </button>
-
-                    <div className="w-6 border-t border-gray-200 my-1" />
-
                     <button
                         className={`sidebar-rail-btn ${currentView === 'settings' ? 'active' : ''}`}
                         onClick={() => onViewChange('settings')}

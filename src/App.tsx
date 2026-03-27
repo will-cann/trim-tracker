@@ -16,8 +16,9 @@ import { Auth0Wrapper, useAuth } from './contexts/authContext';
 import { Login } from './components/Login';
 import { useConversationHistory } from './hooks/useConversationHistory';
 import { useHumanTasks } from './hooks/useHumanTasks';
+import { PlantMapDashboard } from './components/PlantMap/PlantMapDashboard';
 
-type ViewType = 'ai' | 'dashboard' | 'reports' | 'harvests' | 'settings' | 'tasks';
+type ViewType = 'ai' | 'dashboard' | 'reports' | 'harvests' | 'settings' | 'tasks' | 'plant-map';
 
 function AppContent() {
   const { user, loading: authLoading } = useAuth();
@@ -52,6 +53,8 @@ function AppContent() {
     updateTask: updateHumanTask,
     deleteTask: deleteHumanTask,
     pendingCount: taskPendingCount,
+    loadError: taskLoadError,
+    retry: retryLoadTasks,
   } = useHumanTasks();
 
   const handleCreateHumanTasks = useCallback(async (tasks: Array<{ title: string; description?: string; priority: string; category: string; dueDate?: string; assignee?: string; location?: string }>) => {
@@ -268,8 +271,6 @@ function AppContent() {
         selectedSessionId={selectedSessionId}
         onSelectSession={setSelectedSessionId}
         taskCount={taskPendingCount}
-        onActionVoiceText={handleActionVoiceText}
-        onAmbientAnalyze={handleAmbientAnalyze}
       />
       <div className="main-content">
         <header className="app-header">
@@ -311,6 +312,8 @@ function AppContent() {
           <SettingsPanel />
         ) : currentView === 'harvests' ? (
           <HarvestDashboard />
+        ) : currentView === 'plant-map' ? (
+          <PlantMapDashboard />
         ) : currentView === 'reports' ? (
           <ReportsDashboard />
         ) : !session && !selectedSessionId ? (
@@ -386,8 +389,8 @@ function AppContent() {
           />
         )}
 
-        {/* Task panel — right side on AI view */}
-        {currentView === 'ai' && (
+        {/* Task panel + voice controls — right side, all views */}
+        {(
           <TaskRightPanel
             tasks={humanTasks}
             isOpen={isTaskPanelOpen}
@@ -396,6 +399,8 @@ function AppContent() {
             onDeleteTask={deleteHumanTask}
             pendingCount={taskPendingCount}
             onViewAll={() => setCurrentView('tasks')}
+            onActionVoiceText={handleActionVoiceText}
+            onAmbientAnalyze={handleAmbientAnalyze}
           />
         )}
       </div>

@@ -1,6 +1,7 @@
-import React from 'react';
-import { CheckCircle2, Circle, Clock, GripVertical, ListTodo, Trash2 } from 'lucide-react';
-import type { HumanTask, HumanTaskStatus } from '../types/definitions';
+import React, { useCallback, useRef, useState } from 'react';
+import { CheckCircle2, Circle, Clock, GripVertical, ListTodo, Trash2, Mic, Radio } from 'lucide-react';
+import { useDeepgram } from '../hooks/useDeepgram';
+import type { HumanTask, HumanTaskStatus, SpeechMode } from '../types/definitions';
 
 interface TaskRightPanelProps {
     tasks: HumanTask[];
@@ -10,6 +11,8 @@ interface TaskRightPanelProps {
     onDeleteTask: (id: string) => void;
     pendingCount: number;
     onViewAll?: () => void;
+    onActionVoiceText?: (text: string) => void;
+    onAmbientAnalyze?: (text: string) => Promise<void>;
 }
 
 const PRIORITY_DOT: Record<string, string> = {
@@ -42,7 +45,53 @@ export const TaskRightPanel: React.FC<TaskRightPanelProps> = ({
     onDeleteTask,
     pendingCount,
     onViewAll,
+    onActionVoiceText,
+    onAmbientAnalyze,
 }) => {
+    // === Voice controls ===
+    const [voiceMode, setVoiceMode] = useState<SpeechMode | null>(null);
+    const transcriptRef = useRef('');
+
+    const handleTranscript = useCallback((text: string, isFinal: boolean) => {
+        if (isFinal) {
+            transcriptRef.current = transcriptRef.current ? `${transcriptRef.current} ${text}` : text;
+        }
+    }, []);
+
+    const handleUtteranceEnd = useCallback(() => {
+        if (voiceMode === 'ambient' && transcriptRef.current.trim() && onAmbientAnalyze) {
+            const text = transcriptRef.current;
+            transcriptRef.current = '';
+            onAmbientAnalyze(text);
+        }
+    }, [voiceMode, onAmbientAnalyze]);
+
+    const { isListening, startListening, stopListening } = useDeepgram({
+        mode: voiceMode || 'action',
+        onTranscript: handleTranscript,
+        onUtteranceEnd: handleUtteranceEnd,
+    });
+
+    const startVoice = useCallback(async (mode: SpeechMode) => {
+        transcriptRef.current = '';
+        setVoiceMode(mode);
+        setTimeout(async () => {
+            try { await startListening(); } catch { /* handled by hook */ }
+        }, 50);
+    }, [startListening]);
+
+    const stopVoice = useCallback(() => {
+        if (voiceMode === 'action' && transcriptRef.current.trim() && onActionVoiceText) {
+            onActionVoiceText(transcriptRef.current);
+        }
+        if (voiceMode === 'ambient' && transcriptRef.current.trim() && onAmbientAnalyze) {
+            onAmbientAnalyze(transcriptRef.current);
+        }
+        transcriptRef.current = '';
+        stopListening();
+        setVoiceMode(null);
+    }, [voiceMode, stopListening, onActionVoiceText, onAmbientAnalyze]);
+
     // Show active tasks first (pending + in_progress), then completed
     const sorted = [...tasks].sort((a, b) => {
         const order: Record<string, number> = { pending: 0, in_progress: 1, completed: 2 };
@@ -56,19 +105,52 @@ export const TaskRightPanel: React.FC<TaskRightPanelProps> = ({
 
     return (
         <>
-            {/* Expand tab when closed */}
-            {!isOpen && (
+            {/* Right edge controls — always visible */}
+            <div className="task-edge-controls">
+                {/* Action voice */}
                 <button
-                    className="task-expand-tab"
+                    className={`task-edge-btn ${isListening && voiceMode === 'action' ? 'voice-active-action' : ''}`}
+                    onClick={() => {
+                        if (isListening && voiceMode === 'action') { stopVoice(); }
+                        else { if (isListening) stopVoice(); startVoice('action'); }
+                    }}
+                    title={isListening && voiceMode === 'action' ? 'Stop dictation' : 'Voice command'}
+                >
+                    {isListening && voiceMode === 'action' ? (
+                        <div className="sidebar-voice-wave"><span /><span /><span /></div>
+                    ) : (
+                        <Mic size={14} />
+                    )}
+                </button>
+
+                {/* Ambient voice */}
+                <button
+                    className={`task-edge-btn ${isListening && voiceMode === 'ambient' ? 'voice-active-ambient' : ''}`}
+                    onClick={() => {
+                        if (isListening && voiceMode === 'ambient') { stopVoice(); }
+                        else { if (isListening) stopVoice(); startVoice('ambient'); }
+                    }}
+                    title={isListening && voiceMode === 'ambient' ? 'Stop ambient' : 'Ambient — auto-create tasks'}
+                >
+                    {isListening && voiceMode === 'ambient' ? (
+                        <div className="sidebar-ambient-dots"><span /><span /><span /></div>
+                    ) : (
+                        <Radio size={14} />
+                    )}
+                </button>
+
+                {/* Tasks expand */}
+                <button
+                    className={`task-edge-btn ${isOpen ? 'active' : ''}`}
                     onClick={onToggle}
                     title="Tasks"
                 >
-                    <ListTodo size={12} />
-                    {pendingCount > 0 && (
+                    <ListTodo size={14} />
+                    {pendingCount > 0 && !isOpen && (
                         <span className="task-expand-badge">{pendingCount}</span>
                     )}
                 </button>
-            )}
+            </div>
 
             {/* Click-away overlay */}
             {isOpen && (
