@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useCallback } from 'react';
 import { Minimize2 } from 'lucide-react';
 import type { LocationMeta, PlantPhase } from '../../types/plantMap';
 import { getHealthColor, HEALTH_COLOR_MAP, abbreviateContaminants } from '../../types/plantMap';
@@ -30,7 +30,12 @@ export const ExpandedRoom: React.FC<ExpandedRoomProps> = ({
     const contaminantStr = abbreviateContaminants(room.contaminants);
     const showHarvestDate = phase === 'flowering' && room.harvestDates[0];
 
-    const { data: roomMapData, loading: roomMapLoading } = useRoomMap(phase, name);
+    const { data: roomMapData, loading: roomMapLoading, refetch: refetchRoomMap } = useRoomMap(phase, name);
+
+    const handleRevalidate = useCallback(() => {
+        onRevalidate();
+        refetchRoomMap();
+    }, [onRevalidate, refetchRoomMap]);
 
     // Scroll into view on mount
     useEffect(() => {
@@ -105,7 +110,7 @@ export const ExpandedRoom: React.FC<ExpandedRoomProps> = ({
                     phase={phase}
                     phaseLabel={phaseLabel}
                     roomName={name}
-                    onRevalidate={() => { onRevalidate(); }}
+                    onRevalidate={handleRevalidate}
                 />
             </div>
         </div>

@@ -1,8 +1,10 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import { ChevronDown, ChevronUp } from 'lucide-react';
 import type { RoomMapData, PlantPhase } from '../../types/plantMap';
 import { getHealthColor, HEALTH_COLOR_MAP, abbreviateContaminants } from '../../types/plantMap';
 import { DialogDrawer } from './DialogDrawer';
+import { PlantActionModal } from './PlantActionModal';
+import type { PlantActionType } from './PlantActionModal';
 
 interface StrainsListProps {
     data: RoomMapData | null;
@@ -16,19 +18,28 @@ interface StrainsListProps {
 type SortKey = 'strain' | 'totalPlants' | 'plantHealth' | 'contamination' | 'plantedDate';
 type SortDir = 'asc' | 'desc';
 
+const ACTION_TYPE_MAP: Record<string, PlantActionType | null> = {
+    'destroy': 'destroy',
+    'change-phase': 'change-phase',
+    'change-room': 'change-room',
+    'plant-health': 'plant-health',
+    'create-harvest': null,    // Future sprint
+    'split-plantings': null,   // Future sprint
+    'create-packages': null,   // Future sprint
+};
+
 export const StrainsList: React.FC<StrainsListProps> = ({
     data,
     loading,
     phase,
     phaseLabel,
     roomName,
-    onRevalidate: _onRevalidate,
+    onRevalidate,
 }) => {
-    // onRevalidate will be used in Sprint 3 when dialog modals are wired
-    void _onRevalidate;
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
     const [sortKey, setSortKey] = useState<SortKey>('strain');
     const [sortDir, setSortDir] = useState<SortDir>('asc');
+    const [activeModal, setActiveModal] = useState<PlantActionType | null>(null);
 
     const rows = useMemo(() => {
         if (!data) return [];
@@ -95,6 +106,19 @@ export const StrainsList: React.FC<StrainsListProps> = ({
         return rows.filter(r => selectedIds.has(r.id));
     }, [rows, selectedIds]);
 
+    const handleAction = useCallback((actionKey: string) => {
+        const modalType = ACTION_TYPE_MAP[actionKey];
+        if (modalType) {
+            setActiveModal(modalType);
+        }
+    }, []);
+
+    const handleModalSuccess = useCallback(() => {
+        setActiveModal(null);
+        setSelectedIds(new Set());
+        onRevalidate();
+    }, [onRevalidate]);
+
     if (loading) {
         return (
             <div className="flex items-center justify-center h-full">
@@ -127,110 +151,122 @@ export const StrainsList: React.FC<StrainsListProps> = ({
     };
 
     return (
-        <div className="flex h-full">
-            <div className="flex-1 flex flex-col min-w-0">
-                {/* Header */}
-                <div className="flex items-center justify-between px-3 py-2 border-b border-gray-100">
-                    <h4 className="text-xs font-semibold text-gray-700">
-                        Strains in {roomName}
-                    </h4>
-                    {totalSelected > 0 && (
-                        <span className="text-[10px] text-emerald-600 font-medium">
-                            {totalSelected} selected
-                        </span>
-                    )}
+        <>
+            <div className="flex h-full">
+                <div className="flex-1 flex flex-col min-w-0">
+                    {/* Header */}
+                    <div className="flex items-center justify-between px-3 py-2 border-b border-gray-100">
+                        <h4 className="text-xs font-semibold text-gray-700">
+                            Strains in {roomName}
+                        </h4>
+                        {totalSelected > 0 && (
+                            <span className="text-[10px] text-emerald-600 font-medium">
+                                {totalSelected} selected
+                            </span>
+                        )}
+                    </div>
+
+                    {/* Table */}
+                    <div className="flex-1 overflow-auto">
+                        <table className="w-full text-xs">
+                            <thead>
+                                <tr className="border-b border-gray-100">
+                                    <th className="w-8 px-2 py-2">
+                                        <input
+                                            type="checkbox"
+                                            checked={allSelected}
+                                            onChange={toggleAll}
+                                            className="rounded border-gray-300 text-emerald-500 focus:ring-emerald-500 h-3.5 w-3.5"
+                                        />
+                                    </th>
+                                    {columns.map(col => (
+                                        <th
+                                            key={col.key}
+                                            className={`px-2 py-2 text-left text-[10px] font-medium text-gray-400 uppercase tracking-wider cursor-pointer hover:text-gray-600 select-none ${col.width}`}
+                                            onClick={() => toggleSort(col.key)}
+                                        >
+                                            <span className="inline-flex items-center">
+                                                {col.label}
+                                                <SortIcon col={col.key} />
+                                            </span>
+                                        </th>
+                                    ))}
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {sortedRows.map(row => {
+                                    const hColor = getHealthColor(row.plantHealth);
+                                    const hHex = HEALTH_COLOR_MAP[hColor];
+                                    const contam = abbreviateContaminants(row.contamination);
+                                    const isSelected = selectedIds.has(row.id);
+                                    return (
+                                        <tr
+                                            key={row.id}
+                                            className={`border-b border-gray-50 cursor-pointer transition-colors ${
+                                                isSelected ? 'bg-emerald-50/50' : 'hover:bg-gray-50'
+                                            }`}
+                                            onClick={() => toggleRow(row.id)}
+                                        >
+                                            <td className="w-8 px-2 py-2">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={isSelected}
+                                                    onChange={() => toggleRow(row.id)}
+                                                    className="rounded border-gray-300 text-emerald-500 focus:ring-emerald-500 h-3.5 w-3.5"
+                                                />
+                                            </td>
+                                            <td className="px-2 py-2 w-16">
+                                                <span className="font-semibold tabular-nums" style={{ color: hHex }}>
+                                                    {row.plantHealth}%
+                                                </span>
+                                            </td>
+                                            <td className="px-2 py-2 flex-1">
+                                                <span className="font-medium text-gray-900" title={row.strain}>
+                                                    {row.strain.length > 12 ? row.strain.slice(0, 12) + '…' : row.strain}
+                                                </span>
+                                            </td>
+                                            <td className="px-2 py-2 w-16 tabular-nums text-gray-700 font-medium">
+                                                {row.totalPlants}
+                                            </td>
+                                            <td className="px-2 py-2 w-24 text-gray-500">
+                                                {contam}
+                                            </td>
+                                            <td className="px-2 py-2 w-20 tabular-nums text-gray-500">
+                                                {row.plantedDate?.slice(5).replace('-', '/')}
+                                            </td>
+                                        </tr>
+                                    );
+                                })}
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
 
-                {/* Table */}
-                <div className="flex-1 overflow-auto">
-                    <table className="w-full text-xs">
-                        <thead>
-                            <tr className="border-b border-gray-100">
-                                <th className="w-8 px-2 py-2">
-                                    <input
-                                        type="checkbox"
-                                        checked={allSelected}
-                                        onChange={toggleAll}
-                                        className="rounded border-gray-300 text-emerald-500 focus:ring-emerald-500 h-3.5 w-3.5"
-                                    />
-                                </th>
-                                {columns.map(col => (
-                                    <th
-                                        key={col.key}
-                                        className={`px-2 py-2 text-left text-[10px] font-medium text-gray-400 uppercase tracking-wider cursor-pointer hover:text-gray-600 select-none ${col.width}`}
-                                        onClick={() => toggleSort(col.key)}
-                                    >
-                                        <span className="inline-flex items-center">
-                                            {col.label}
-                                            <SortIcon col={col.key} />
-                                        </span>
-                                    </th>
-                                ))}
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {sortedRows.map(row => {
-                                const hColor = getHealthColor(row.plantHealth);
-                                const hHex = HEALTH_COLOR_MAP[hColor];
-                                const contam = abbreviateContaminants(row.contamination);
-                                const isSelected = selectedIds.has(row.id);
-                                return (
-                                    <tr
-                                        key={row.id}
-                                        className={`border-b border-gray-50 cursor-pointer transition-colors ${
-                                            isSelected ? 'bg-emerald-50/50' : 'hover:bg-gray-50'
-                                        }`}
-                                        onClick={() => toggleRow(row.id)}
-                                    >
-                                        <td className="w-8 px-2 py-2">
-                                            <input
-                                                type="checkbox"
-                                                checked={isSelected}
-                                                onChange={() => toggleRow(row.id)}
-                                                className="rounded border-gray-300 text-emerald-500 focus:ring-emerald-500 h-3.5 w-3.5"
-                                            />
-                                        </td>
-                                        <td className="px-2 py-2 w-16">
-                                            <span className="font-semibold tabular-nums" style={{ color: hHex }}>
-                                                {row.plantHealth}%
-                                            </span>
-                                        </td>
-                                        <td className="px-2 py-2 flex-1">
-                                            <span className="font-medium text-gray-900" title={row.strain}>
-                                                {row.strain.length > 12 ? row.strain.slice(0, 12) + '…' : row.strain}
-                                            </span>
-                                        </td>
-                                        <td className="px-2 py-2 w-16 tabular-nums text-gray-700 font-medium">
-                                            {row.totalPlants}
-                                        </td>
-                                        <td className="px-2 py-2 w-24 text-gray-500">
-                                            {contam}
-                                        </td>
-                                        <td className="px-2 py-2 w-20 tabular-nums text-gray-500">
-                                            {row.plantedDate?.slice(5).replace('-', '/')}
-                                        </td>
-                                    </tr>
-                                );
-                            })}
-                        </tbody>
-                    </table>
-                </div>
+                {/* Dialog Drawer */}
+                <DialogDrawer
+                    isOpen={totalSelected > 0}
+                    totalSelected={totalSelected}
+                    phase={phase}
+                    phaseLabel={phaseLabel}
+                    selectedGroups={selectedGroups}
+                    roomName={roomName}
+                    onAction={handleAction}
+                    onClearSelection={() => setSelectedIds(new Set())}
+                />
             </div>
 
-            {/* Dialog Drawer */}
-            <DialogDrawer
-                isOpen={totalSelected > 0}
-                totalSelected={totalSelected}
-                phase={phase}
-                phaseLabel={phaseLabel}
-                selectedGroups={selectedGroups}
-                roomName={roomName}
-                onAction={(action) => {
-                    console.log('Bulk action:', action, selectedGroups);
-                    // Sprint 3: wire actual dialog modals
-                }}
-                onClearSelection={() => setSelectedIds(new Set())}
-            />
-        </div>
+            {/* Action Modal */}
+            {activeModal && (
+                <PlantActionModal
+                    action={activeModal}
+                    phase={phase}
+                    phaseLabel={phaseLabel}
+                    roomName={roomName}
+                    selectedGroups={selectedGroups}
+                    onClose={() => setActiveModal(null)}
+                    onSuccess={handleModalSuccess}
+                />
+            )}
+        </>
     );
 };

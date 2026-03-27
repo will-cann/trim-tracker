@@ -490,6 +490,41 @@ export const getRoomMap = async (phase: string, room: string): Promise<Record<st
     }
 };
 
+export const getRooms = async (roomType?: string): Promise<Array<{ id: string; name: string; room_type: string; capacity: number }>> => {
+    try {
+        const url = roomType
+            ? `${API_BASE}/get-rooms?type=${encodeURIComponent(roomType)}`
+            : `${API_BASE}/get-rooms`;
+        const response = await fetchWithAuth(url);
+        if (!response.ok) return [];
+        return await response.json();
+    } catch {
+        return [];
+    }
+};
+
+export const executePlantAction = async (payload: {
+    action: string;
+    plantIds: string[];
+    entityType: 'plants' | 'plantbatches';
+    targetPhase?: string;
+    targetRoomId?: string;
+    health?: number;
+    contaminants?: string[];
+    note?: string;
+}): Promise<{ success: boolean; action: string; affected: number }> => {
+    const response = await fetchWithAuth(`${API_BASE}/plant-actions`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+    });
+    if (!response.ok) {
+        const err = await response.json().catch(() => ({ error: 'Action failed' }));
+        throw new Error(err.error);
+    }
+    return await response.json();
+};
+
 export const apiService = {
     setAuthToken,
     getSession,
@@ -540,4 +575,6 @@ export const apiService = {
     // Plant Map
     getPlantMap,
     getRoomMap,
+    getRooms,
+    executePlantAction,
 };
