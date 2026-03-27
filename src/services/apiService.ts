@@ -1,4 +1,4 @@
-import type { TrimSession, CreateTrimSessionDTO, Trimmer, TrimmerProfile, ProposedAction, Harvest, CreateHarvestDTO, HarvestWasteType, HarvestAllocation, Strain, License, SpeechMode } from '../types/definitions';
+import type { TrimSession, CreateTrimSessionDTO, Trimmer, TrimmerProfile, ProposedAction, Harvest, CreateHarvestDTO, HarvestWasteType, HarvestAllocation, Strain, License, SpeechMode, HumanTask } from '../types/definitions';
 
 const API_BASE = '/.netlify/functions';
 
@@ -378,6 +378,61 @@ export const deleteStrain = async (id: string): Promise<void> => {
     if (!response.ok) throw new Error('Failed to delete strain');
 };
 
+// ============================================================================
+// HUMAN TASKS API
+// ============================================================================
+
+export const getTasks = async (filters?: { status?: string; category?: string; priority?: string }): Promise<HumanTask[]> => {
+    const params = new URLSearchParams();
+    if (filters?.status) params.set('status', filters.status);
+    if (filters?.category) params.set('category', filters.category);
+    if (filters?.priority) params.set('priority', filters.priority);
+    const qs = params.toString();
+    const response = await fetchWithAuth(`${API_BASE}/get-tasks${qs ? `?${qs}` : ''}`);
+    if (!response.ok) return [];
+    return await response.json();
+};
+
+export const createTask = async (task: Omit<HumanTask, 'id' | 'createdAt' | 'updatedAt' | 'status'>): Promise<HumanTask> => {
+    const response = await fetchWithAuth(`${API_BASE}/create-task`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(task),
+    });
+    if (!response.ok) throw new Error('Failed to create task');
+    return await response.json();
+};
+
+export const createTasks = async (tasks: Array<Omit<HumanTask, 'id' | 'createdAt' | 'updatedAt' | 'status'>>): Promise<HumanTask[]> => {
+    const response = await fetchWithAuth(`${API_BASE}/create-task`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tasks }),
+    });
+    if (!response.ok) throw new Error('Failed to create tasks');
+    const result = await response.json();
+    return Array.isArray(result) ? result : [result];
+};
+
+export const updateTask = async (taskId: string, updates: Partial<HumanTask>): Promise<HumanTask> => {
+    const response = await fetchWithAuth(`${API_BASE}/update-task`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ taskId, ...updates }),
+    });
+    if (!response.ok) throw new Error('Failed to update task');
+    return await response.json();
+};
+
+export const deleteTask = async (taskId: string): Promise<void> => {
+    const response = await fetchWithAuth(`${API_BASE}/delete-task`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ taskId }),
+    });
+    if (!response.ok) throw new Error('Failed to delete task');
+};
+
 export const apiService = {
     setAuthToken,
     getSession,
@@ -418,4 +473,10 @@ export const apiService = {
     getStrains,
     upsertStrain,
     deleteStrain,
+    // Human Tasks
+    getTasks,
+    createTask,
+    createTasks,
+    updateTask,
+    deleteTask,
 };

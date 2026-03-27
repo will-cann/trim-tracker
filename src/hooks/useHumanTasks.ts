@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect } from 'react';
 import type { HumanTask, HumanTaskStatus, HumanTaskCategory, HumanTaskPriority } from '../types/definitions';
-import { chatDb } from '../services/chatDb';
+import { apiService } from '../services/apiService';
 
 interface Filters {
     status: HumanTaskStatus | 'all';
@@ -30,10 +30,10 @@ export const useHumanTasks = (): UseHumanTasksReturn => {
         priority: 'all',
     });
 
-    // Load all tasks from Dexie
+    // Load all tasks from server
     const reload = useCallback(async () => {
         try {
-            const all = await chatDb.humanTasks.orderBy('createdAt').reverse().toArray();
+            const all = await apiService.getTasks();
             setTasks(all);
             setIsLoaded(true);
         } catch {
@@ -50,15 +50,7 @@ export const useHumanTasks = (): UseHumanTasksReturn => {
     const addHumanTask = useCallback(async (
         input: Omit<HumanTask, 'id' | 'createdAt' | 'updatedAt' | 'status'>
     ): Promise<HumanTask> => {
-        const now = new Date().toISOString();
-        const task: HumanTask = {
-            ...input,
-            id: crypto.randomUUID(),
-            status: 'pending',
-            createdAt: now,
-            updatedAt: now,
-        };
-        await chatDb.humanTasks.add(task);
+        const task = await apiService.createTask(input);
         setTasks(prev => [task, ...prev]);
         return task;
     }, []);
@@ -66,39 +58,40 @@ export const useHumanTasks = (): UseHumanTasksReturn => {
     const addHumanTasks = useCallback(async (
         inputs: Array<Omit<HumanTask, 'id' | 'createdAt' | 'updatedAt' | 'status'>>
     ): Promise<HumanTask[]> => {
-        const now = new Date().toISOString();
-        const newTasks = inputs.map(input => ({
-            ...input,
-            id: crypto.randomUUID(),
-            status: 'pending' as const,
-            createdAt: now,
-            updatedAt: now,
-        }));
-        await chatDb.humanTasks.bulkAdd(newTasks);
+        const newTasks = await apiService.createTasks(inputs);
         setTasks(prev => [...newTasks, ...prev]);
         return newTasks;
     }, []);
 
     const updateTaskStatus = useCallback(async (id: string, status: HumanTaskStatus) => {
-        const now = new Date().toISOString();
-        const updates: Partial<HumanTask> = { status, updatedAt: now };
-        if (status === 'completed') updates.completedAt = now;
-        await chatDb.humanTasks.update(id, updates);
-        setTasks(prev => prev.map(t => t.id === id ? { ...t, ...updates } : t));
+        try {
+            const updated = await apiService.updateTask(id, { status });
+            setTasks(prev => prev.map(t => t.id === id ? updated : t));
+        } catch (error) {
+            // Offline / failed — show error, don't update local state
+            throw error;
+        }
     }, []);
 
     const updateTask = useCallback(async (id: string, updates: Partial<HumanTask>) => {
-        const withTimestamp = { ...updates, updatedAt: new Date().toISOString() };
-        await chatDb.humanTasks.update(id, withTimestamp);
-        setTasks(prev => prev.map(t => t.id === id ? { ...t, ...withTimestamp } : t));
+        try {
+            const updated = await apiService.updateTask(id, updates);
+            setTasks(prev => prev.map(t => t.id === id ? updated : t));
+        } catch (error) {
+            throw error;
+        }
     }, []);
 
     const deleteTask = useCallback(async (id: string) => {
-        await chatDb.humanTasks.delete(id);
-        setTasks(prev => prev.filter(t => t.id !== id));
+        try {
+            await apiService.deleteTask(id);
+            setTasks(prev => prev.filter(t => t.id !== id));
+        } catch (error) {
+            throw error;
+        }
     }, []);
 
-    // Apply filters
+    // Apply filters client-side
     const filtered = tasks.filter(t => {
         if (filters.status !== 'all' && t.status !== filters.status) return false;
         if (filters.category !== 'all' && t.category !== filters.category) return false;
