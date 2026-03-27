@@ -42,7 +42,6 @@ export const handler: Handler = async (event) => {
         }
 
         const isPlants = entityType === 'plants';
-        const table = isPlants ? 'plants' : 'plant_batches';
         let affectedCount = 0;
 
         switch (action) {

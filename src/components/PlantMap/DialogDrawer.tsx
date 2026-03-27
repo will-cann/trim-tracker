@@ -7,16 +7,17 @@ interface DialogAction {
     label: string;
     icon: React.ReactNode;
     phases: PlantPhase[];
+    implemented: boolean;
 }
 
 const ACTIONS: DialogAction[] = [
-    { key: 'destroy', label: 'Destroy Plants', icon: <Trash2 size={14} />, phases: ['nursery', 'vegetative', 'flowering'] },
-    { key: 'change-phase', label: 'Change Growth Phase', icon: <RefreshCw size={14} />, phases: ['nursery', 'vegetative', 'flowering'] },
-    { key: 'change-room', label: 'Change Rooms', icon: <ArrowRightLeft size={14} />, phases: ['nursery', 'vegetative', 'flowering'] },
-    { key: 'create-harvest', label: 'Create Harvests', icon: <Scissors size={14} />, phases: ['flowering'] },
-    { key: 'plant-health', label: 'Plant Health Report', icon: <Heart size={14} />, phases: ['nursery', 'vegetative', 'flowering'] },
-    { key: 'split-plantings', label: 'Split Plantings', icon: <Sprout size={14} />, phases: ['nursery'] },
-    { key: 'create-packages', label: 'Create Packages', icon: <Package size={14} />, phases: ['nursery'] },
+    { key: 'destroy', label: 'Destroy Plants', icon: <Trash2 size={14} />, phases: ['nursery', 'vegetative', 'flowering'], implemented: true },
+    { key: 'change-phase', label: 'Change Growth Phase', icon: <RefreshCw size={14} />, phases: ['vegetative', 'flowering'], implemented: true },
+    { key: 'change-room', label: 'Change Rooms', icon: <ArrowRightLeft size={14} />, phases: ['nursery', 'vegetative', 'flowering'], implemented: true },
+    { key: 'create-harvest', label: 'Create Harvests', icon: <Scissors size={14} />, phases: ['flowering'], implemented: false },
+    { key: 'plant-health', label: 'Plant Health Report', icon: <Heart size={14} />, phases: ['nursery', 'vegetative', 'flowering'], implemented: true },
+    { key: 'split-plantings', label: 'Split Plantings', icon: <Sprout size={14} />, phases: ['nursery'], implemented: false },
+    { key: 'create-packages', label: 'Create Packages', icon: <Package size={14} />, phases: ['nursery'], implemented: false },
 ];
 
 interface DialogDrawerProps {
@@ -94,11 +95,19 @@ export const DialogDrawer: React.FC<DialogDrawerProps> = ({
                 {availableActions.map(action => (
                     <button
                         key={action.key}
-                        onClick={() => onAction(action.key)}
-                        className="w-full flex items-center gap-2 px-3 py-2 text-xs text-gray-700 hover:bg-emerald-50 hover:text-emerald-700 transition-colors text-left"
+                        onClick={() => action.implemented && onAction(action.key)}
+                        disabled={!action.implemented}
+                        className={`w-full flex items-center gap-2 px-3 py-2 text-xs text-left transition-colors ${
+                            action.implemented
+                                ? 'text-gray-700 hover:bg-emerald-50 hover:text-emerald-700 cursor-pointer'
+                                : 'text-gray-300 cursor-not-allowed'
+                        }`}
                     >
-                        <span className="text-gray-400 group-hover:text-emerald-500">{action.icon}</span>
+                        <span className={action.implemented ? 'text-gray-400' : 'text-gray-200'}>{action.icon}</span>
                         {action.label}
+                        {!action.implemented && (
+                            <span className="ml-auto text-[9px] text-gray-300">Soon</span>
+                        )}
                     </button>
                 ))}
             </div>

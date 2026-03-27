@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useCallback } from 'react';
-import { ChevronDown, ChevronUp } from 'lucide-react';
+import { ChevronDown, ChevronUp, AlertCircle, RefreshCw } from 'lucide-react';
 import type { RoomMapData, PlantPhase } from '../../types/plantMap';
 import { getHealthColor, HEALTH_COLOR_MAP, abbreviateContaminants } from '../../types/plantMap';
 import { DialogDrawer } from './DialogDrawer';
@@ -9,6 +9,7 @@ import type { PlantActionType } from './PlantActionModal';
 interface StrainsListProps {
     data: RoomMapData | null;
     loading: boolean;
+    error?: string | null;
     phase: PlantPhase;
     phaseLabel: string;
     roomName: string;
@@ -31,6 +32,7 @@ const ACTION_TYPE_MAP: Record<string, PlantActionType | null> = {
 export const StrainsList: React.FC<StrainsListProps> = ({
     data,
     loading,
+    error,
     phase,
     phaseLabel,
     roomName,
@@ -106,12 +108,15 @@ export const StrainsList: React.FC<StrainsListProps> = ({
         return rows.filter(r => selectedIds.has(r.id));
     }, [rows, selectedIds]);
 
+    const entityType = rows[0]?.type;
+
     const handleAction = useCallback((actionKey: string) => {
         const modalType = ACTION_TYPE_MAP[actionKey];
-        if (modalType) {
-            setActiveModal(modalType);
-        }
-    }, []);
+        if (!modalType) return;
+        // Block change-phase for batches at the UI level
+        if (modalType === 'change-phase' && entityType === 'plantbatches') return;
+        setActiveModal(modalType);
+    }, [entityType]);
 
     const handleModalSuccess = useCallback(() => {
         setActiveModal(null);
@@ -123,6 +128,21 @@ export const StrainsList: React.FC<StrainsListProps> = ({
         return (
             <div className="flex items-center justify-center h-full">
                 <div className="animate-spin rounded-full h-6 w-6 border-2 border-gray-200 border-t-emerald-500" />
+            </div>
+        );
+    }
+
+    if (error) {
+        return (
+            <div className="flex flex-col items-center justify-center h-full gap-2 text-center px-4">
+                <AlertCircle size={20} className="text-red-400" />
+                <p className="text-xs text-gray-500">{error}</p>
+                <button
+                    onClick={onRevalidate}
+                    className="flex items-center gap-1.5 text-xs text-emerald-600 hover:text-emerald-700 font-medium mt-1"
+                >
+                    <RefreshCw size={12} /> Retry
+                </button>
             </div>
         );
     }

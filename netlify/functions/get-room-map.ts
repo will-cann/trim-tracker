@@ -107,7 +107,7 @@ export const handler: Handler = async (event) => {
 
             group.totalPlants += row.plant_count;
             group.healthSum += row.plant_health * row.plant_count;
-            group.plants.push(row.label);
+            group.plants.push(row.id);
 
             if (Array.isArray(row.contaminants)) {
                 for (const c of row.contaminants) group.contamination.add(c);

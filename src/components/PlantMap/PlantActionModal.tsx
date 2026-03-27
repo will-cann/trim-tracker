@@ -202,12 +202,7 @@ export const PlantActionModal: React.FC<PlantActionModalProps> = ({
                             <label className="block text-xs font-medium text-gray-700 mb-2">
                                 Move to Phase
                             </label>
-                            {entityType === 'plantbatches' ? (
-                                <p className="text-xs text-gray-500">
-                                    Phase changes are only available for individual plants, not batches.
-                                </p>
-                            ) : (
-                                <div className="grid grid-cols-3 gap-2">
+                            <div className="grid grid-cols-3 gap-2">
                                     {phaseOptionsFiltered.map(opt => (
                                         <button
                                             key={opt.value}
@@ -222,7 +217,6 @@ export const PlantActionModal: React.FC<PlantActionModalProps> = ({
                                         </button>
                                     ))}
                                 </div>
-                            )}
                         </div>
                     )}
 
@@ -322,7 +316,7 @@ export const PlantActionModal: React.FC<PlantActionModalProps> = ({
                     </button>
                     <button
                         onClick={handleSubmit}
-                        disabled={submitting || (action === 'change-phase' && entityType === 'plantbatches')}
+                        disabled={submitting}
                         className={isDestructive ? 'btn-delete-confirm' : 'btn-primary'}
                     >
                         {submitting ? (

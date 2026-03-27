@@ -30,7 +30,7 @@ export const ExpandedRoom: React.FC<ExpandedRoomProps> = ({
     const contaminantStr = abbreviateContaminants(room.contaminants);
     const showHarvestDate = phase === 'flowering' && room.harvestDates[0];
 
-    const { data: roomMapData, loading: roomMapLoading, refetch: refetchRoomMap } = useRoomMap(phase, name);
+    const { data: roomMapData, loading: roomMapLoading, error: roomMapError, refetch: refetchRoomMap } = useRoomMap(phase, name);
 
     const handleRevalidate = useCallback(() => {
         onRevalidate();
@@ -107,6 +107,7 @@ export const ExpandedRoom: React.FC<ExpandedRoomProps> = ({
                 <StrainsList
                     data={roomMapData}
                     loading={roomMapLoading}
+                    error={roomMapError}
                     phase={phase}
                     phaseLabel={phaseLabel}
                     roomName={name}
