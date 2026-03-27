@@ -224,7 +224,7 @@ export interface ActionResultItem {
   type: string;
   label: string;
   summary: string;
-  navigateTo?: 'dashboard' | 'harvests' | 'reports' | 'tasks';
+  navigateTo?: 'dashboard' | 'harvests' | 'reports' | 'tasks' | 'plant-map';
 }
 
 export interface ChatMessage {
