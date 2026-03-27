@@ -478,6 +478,18 @@ export const getPlantMap = async (phase: string): Promise<Record<string, any>> =
     }
 };
 
+export const getRoomMap = async (phase: string, room: string): Promise<Record<string, any>> => {
+    try {
+        const response = await fetchWithAuth(
+            `${API_BASE}/get-room-map?phase=${encodeURIComponent(phase)}&room=${encodeURIComponent(room)}`
+        );
+        if (!response.ok) return {};
+        return await response.json();
+    } catch {
+        return {};
+    }
+};
+
 export const apiService = {
     setAuthToken,
     getSession,
@@ -527,4 +539,5 @@ export const apiService = {
     deleteTask,
     // Plant Map
     getPlantMap,
+    getRoomMap,
 };

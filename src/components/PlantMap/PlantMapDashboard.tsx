@@ -1,17 +1,28 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import { Map } from 'lucide-react';
 import type { PlantPhase } from '../../types/plantMap';
 import { PHASE_TABS } from '../../types/plantMap';
 import { usePlantMap } from '../../hooks/usePlantMap';
 import { PlantMapSummary } from './PlantMapSummary';
 import { RoomCard } from './RoomCard';
+import { ExpandedRoom } from './ExpandedRoom';
 
 export const PlantMapDashboard: React.FC = () => {
     const [activePhase, setActivePhase] = useState<PlantPhase>('flowering');
-    const { data, loading } = usePlantMap(activePhase);
+    const [expandedRoom, setExpandedRoom] = useState<string | null>(null);
+    const { data, loading, refetch } = usePlantMap(activePhase);
 
     const currentTab = PHASE_TABS.find(t => t.key === activePhase)!;
     const rooms = data ? Object.entries(data) : [];
+
+    const handlePhaseChange = useCallback((phase: PlantPhase) => {
+        setExpandedRoom(null);
+        setActivePhase(phase);
+    }, []);
+
+    const handleRoomClick = useCallback((name: string) => {
+        setExpandedRoom(prev => prev === name ? null : name);
+    }, []);
 
     return (
         <div className="dashboard">
@@ -35,7 +46,7 @@ export const PlantMapDashboard: React.FC = () => {
                         <button
                             key={tab.key}
                             className={`tab-button ${activePhase === tab.key ? 'active' : ''}`}
-                            onClick={() => setActivePhase(tab.key)}
+                            onClick={() => handlePhaseChange(tab.key)}
                         >
                             {tab.label}
                             {data && activePhase === tab.key && rooms.length > 0 && (
@@ -67,13 +78,25 @@ export const PlantMapDashboard: React.FC = () => {
                 <div className="plant-map-grid">
                     <PlantMapSummary data={data!} />
                     {rooms.map(([name, room]) => (
-                        <RoomCard
-                            key={name}
-                            name={name}
-                            room={room}
-                            phaseLabel={currentTab.label}
-                            onClick={() => {/* Sprint 2: expand room */}}
-                        />
+                        expandedRoom === name ? (
+                            <ExpandedRoom
+                                key={name}
+                                name={name}
+                                room={room}
+                                phase={activePhase}
+                                phaseLabel={currentTab.label}
+                                onCollapse={() => setExpandedRoom(null)}
+                                onRevalidate={refetch}
+                            />
+                        ) : (
+                            <RoomCard
+                                key={name}
+                                name={name}
+                                room={room}
+                                phaseLabel={currentTab.label}
+                                onClick={() => handleRoomClick(name)}
+                            />
+                        )
                     ))}
                 </div>
             )}
