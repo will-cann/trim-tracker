@@ -16,7 +16,7 @@ interface StrainsListProps {
     onRevalidate: () => void;
 }
 
-type SortKey = 'strain' | 'totalPlants' | 'plantHealth' | 'contamination' | 'plantedDate';
+type SortKey = 'strain' | 'totalPlants' | 'plantHealth' | 'contamination' | 'plantedDate' | 'harvestDate';
 type SortDir = 'asc' | 'desc';
 
 const ACTION_TYPE_MAP: Record<string, PlantActionType | null> = {
@@ -68,6 +68,9 @@ export const StrainsList: React.FC<StrainsListProps> = ({
                     break;
                 case 'plantedDate':
                     cmp = a.plantedDate.localeCompare(b.plantedDate);
+                    break;
+                case 'harvestDate':
+                    cmp = (a.harvestDate || '').localeCompare(b.harvestDate || '');
                     break;
             }
             return sortDir === 'asc' ? cmp : -cmp;
@@ -155,12 +158,14 @@ export const StrainsList: React.FC<StrainsListProps> = ({
         );
     }
 
+    const showHarvestCol = phase === 'flowering';
     const columns: { key: SortKey; label: string; width: string }[] = [
         { key: 'plantHealth', label: 'Health', width: 'w-16' },
         { key: 'strain', label: 'Strain', width: 'flex-1' },
-        { key: 'totalPlants', label: 'Plants', width: 'w-16' },
-        { key: 'contamination', label: 'Contamination', width: 'w-24' },
-        { key: 'plantedDate', label: 'Date', width: 'w-20' },
+        { key: 'totalPlants', label: 'Plants', width: 'w-14' },
+        { key: 'contamination', label: 'Contam.', width: 'w-20' },
+        { key: 'plantedDate', label: 'Date', width: 'w-18' },
+        ...(showHarvestCol ? [{ key: 'harvestDate' as SortKey, label: 'Est. Harvest', width: 'w-22' }] : []),
     ];
 
     const SortIcon = ({ col }: { col: SortKey }) => {
@@ -251,9 +256,17 @@ export const StrainsList: React.FC<StrainsListProps> = ({
                                             <td className="px-2 py-2 w-24 text-gray-500">
                                                 {contam}
                                             </td>
-                                            <td className="px-2 py-2 w-20 tabular-nums text-gray-500">
+                                            <td className="px-2 py-2 w-18 tabular-nums text-gray-500">
                                                 {row.plantedDate?.slice(5).replace('-', '/')}
                                             </td>
+                                            {showHarvestCol && (
+                                                <td className="px-2 py-2 w-22 tabular-nums text-gray-500">
+                                                    {row.harvestDate
+                                                        ? <span className="text-amber-600">~{row.harvestDate.slice(5).replace('-', '/')}</span>
+                                                        : <span className="text-gray-300">—</span>
+                                                    }
+                                                </td>
+                                            )}
                                         </tr>
                                     );
                                 })}

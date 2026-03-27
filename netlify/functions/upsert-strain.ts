@@ -13,19 +13,24 @@ export const handler: Handler = async (event) => {
             return { statusCode: 401, body: JSON.stringify({ error: 'Unauthorized' }) };
         }
 
-        const { name } = JSON.parse(event.body || '{}');
+        const { name, defaultFloweringDays } = JSON.parse(event.body || '{}');
         if (!name?.trim()) {
             return { statusCode: 400, body: JSON.stringify({ error: 'Strain name is required' }) };
         }
 
         const trimmedName = name.trim();
+        const floweringDays = (typeof defaultFloweringDays === 'number' && defaultFloweringDays > 0 && defaultFloweringDays <= 120)
+            ? defaultFloweringDays
+            : null;
 
-        // Upsert — insert if not exists, return existing if it does
+        // Upsert — insert if not exists, update flowering days if provided
         const result = await sql`
-            INSERT INTO strains (company_id, name)
-            VALUES (${context.companyId}, ${trimmedName})
-            ON CONFLICT (company_id, LOWER(name)) DO UPDATE SET updated_at = NOW()
-            RETURNING id, name, created_at, updated_at
+            INSERT INTO strains (company_id, name, default_flowering_days)
+            VALUES (${context.companyId}, ${trimmedName}, ${floweringDays})
+            ON CONFLICT (company_id, LOWER(name)) DO UPDATE SET
+                default_flowering_days = COALESCE(${floweringDays}, strains.default_flowering_days),
+                updated_at = NOW()
+            RETURNING id, name, default_flowering_days, created_at, updated_at
         `;
 
         const strain = result.rows[0];
@@ -36,6 +41,7 @@ export const handler: Handler = async (event) => {
             body: JSON.stringify({
                 id: strain.id,
                 name: strain.name,
+                defaultFloweringDays: strain.default_flowering_days || null,
                 createdAt: strain.created_at,
                 updatedAt: strain.updated_at,
             }),

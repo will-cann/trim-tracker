@@ -45,6 +45,7 @@ export type PlantGroup = {
   plants: string[];
   contamination: string[];
   plantedDate: string;
+  harvestDate: string | null;
   strain: string;
   type: 'plants' | 'plantbatches';
 };

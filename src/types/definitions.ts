@@ -143,6 +143,7 @@ export interface License {
 export interface Strain {
   id: string;
   name: string;
+  defaultFloweringDays: number | null;
   harvestCount: number;
   sessionCount: number;
   createdAt: string;
@@ -192,7 +193,7 @@ export type HumanTaskPriority = 'low' | 'medium' | 'high' | 'urgent';
 export type HumanTaskCategory =
   | 'drying_curing' | 'ipm' | 'compliance' | 'equipment'
   | 'environmental' | 'packaging' | 'qc_testing' | 'inventory'
-  | 'transportation' | 'sanitation' | 'training' | 'trim' | 'harvest' | 'other';
+  | 'transportation' | 'sanitation' | 'training' | 'trim' | 'harvest' | 'cultivation' | 'other';
 
 export interface HumanTask {
   id: string;

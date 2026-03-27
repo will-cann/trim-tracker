@@ -10,6 +10,7 @@ interface ActionPayload {
     entityType: 'plants' | 'plantbatches';
     // change-phase
     targetPhase?: string;
+    targetHarvestDate?: string; // YYYY-MM-DD, set when moving to flowering
     // change-room
     targetRoomId?: string;
     // plant-health
@@ -84,8 +85,9 @@ export const handler: Handler = async (event) => {
                     };
                 }
 
-                // Optionally move to a new room at the same time
-                const { targetRoomId } = payload;
+                // Optionally move to a new room and/or set harvest date
+                const { targetRoomId, targetHarvestDate } = payload;
+                const harvestDate = targetHarvestDate || null;
                 if (targetRoomId) {
                     const { rows: roomRows } = await sql`
                         SELECT id FROM rooms WHERE id = ${targetRoomId} AND company_id = ${context.companyId}
@@ -113,6 +115,7 @@ export const handler: Handler = async (event) => {
                         UPDATE plants
                         SET growth_phase = 'flowering',
                             flowering_date = NOW(),
+                            target_harvest_date = COALESCE(${harvestDate}::date, target_harvest_date),
                             room_id = COALESCE(${targetRoomId || null}::uuid, room_id)
                         WHERE id = ANY(${plantIds}::uuid[]) AND company_id = ${context.companyId}
                     `;

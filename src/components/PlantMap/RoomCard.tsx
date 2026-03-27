@@ -20,6 +20,7 @@ export const RoomCard: React.FC<RoomCardProps> = ({ name, room, phaseLabel, onCl
         : undefined;
     const subtitle = weekRatio || `${phaseLabel} Room`;
     const harvestDate = room.harvestDates[0];
+    const extraHarvests = room.harvestDates.length - 1;
     const contaminantStr = abbreviateContaminants(room.contaminants);
 
     return (
@@ -45,9 +46,12 @@ export const RoomCard: React.FC<RoomCardProps> = ({ name, room, phaseLabel, onCl
                 {harvestDate && (
                     <div>
                         <span className="text-gray-400">Harvest </span>
-                        <span className="font-medium text-gray-700 tabular-nums">
-                            {harvestDate.slice(5).replace('-', '/')}
+                        <span className="font-medium text-amber-600 tabular-nums">
+                            ~{harvestDate.slice(5).replace('-', '/')}
                         </span>
+                        {extraHarvests > 0 && (
+                            <span className="text-gray-400"> (+{extraHarvests})</span>
+                        )}
                     </div>
                 )}
                 <div>

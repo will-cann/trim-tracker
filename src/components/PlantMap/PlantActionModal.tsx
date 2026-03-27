@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from 'react';
-import { X, AlertTriangle, Loader2 } from 'lucide-react';
+import React, { useState, useEffect, useMemo } from 'react';
+import { X, AlertTriangle, Loader2, Calendar } from 'lucide-react';
 import type { PlantPhase, PlantGroup } from '../../types/plantMap';
 import { CONTAMINANT_ABBREVS } from '../../types/plantMap';
+import type { Strain } from '../../types/definitions';
 import { apiService } from '../../services/apiService';
 
 export type PlantActionType = 'destroy' | 'change-phase' | 'change-room' | 'plant-health';
@@ -29,6 +30,12 @@ const PHASE_OPTIONS = [
     { value: 'harvested', label: 'Harvested' },
 ];
 
+function addDays(date: Date, days: number): string {
+    const d = new Date(date);
+    d.setDate(d.getDate() + days);
+    return d.toISOString().split('T')[0];
+}
+
 export const PlantActionModal: React.FC<PlantActionModalProps> = ({
     action,
     phase,
@@ -48,6 +55,10 @@ export const PlantActionModal: React.FC<PlantActionModalProps> = ({
     const [rooms, setRooms] = useState<Array<{ id: string; name: string; room_type: string }>>([]);
     const [targetRoomId, setTargetRoomId] = useState('');
 
+    // Harvest date state (for flowering transition)
+    const [strains, setStrains] = useState<Strain[]>([]);
+    const [targetHarvestDate, setTargetHarvestDate] = useState('');
+
     // Plant health state
     const [health, setHealth] = useState(100);
     const [selectedContaminants, setSelectedContaminants] = useState<Set<string>>(new Set());
@@ -56,12 +67,46 @@ export const PlantActionModal: React.FC<PlantActionModalProps> = ({
     const plantIds = selectedGroups.flatMap(g => g.plants);
     const entityType = selectedGroups[0]?.type === 'plantbatches' ? 'plantbatches' as const : 'plants' as const;
 
+    // Unique strain names in selection
+    const selectedStrainNames = useMemo(() => {
+        return [...new Set(selectedGroups.map(g => g.strain))];
+    }, [selectedGroups]);
+
     // Fetch rooms for change-room and change-phase (optional room move)
     useEffect(() => {
         if (action === 'change-room' || action === 'change-phase') {
             apiService.getRooms().then(setRooms);
         }
     }, [action]);
+
+    // Fetch strains for flowering time lookup
+    useEffect(() => {
+        if (action === 'change-phase') {
+            apiService.getStrains().then(setStrains);
+        }
+    }, [action]);
+
+    // Auto-calculate harvest date when flowering is selected
+    useEffect(() => {
+        if (targetPhase !== 'flowering' || strains.length === 0) {
+            if (targetPhase !== 'flowering') setTargetHarvestDate('');
+            return;
+        }
+
+        // Find flowering days for selected strains (use longest if multiple)
+        const floweringDays = selectedStrainNames.map(name => {
+            const strain = strains.find(s => s.name.toLowerCase() === name.toLowerCase());
+            return strain?.defaultFloweringDays || null;
+        });
+
+        const validDays = floweringDays.filter((d): d is number => d !== null);
+        if (validDays.length > 0) {
+            const maxDays = Math.max(...validDays);
+            setTargetHarvestDate(addDays(new Date(), maxDays));
+        } else {
+            setTargetHarvestDate('');
+        }
+    }, [targetPhase, strains, selectedStrainNames]);
 
     // Pre-fill health from selected groups average
     useEffect(() => {
@@ -75,6 +120,20 @@ export const PlantActionModal: React.FC<PlantActionModalProps> = ({
             setSelectedContaminants(contams);
         }
     }, [action, selectedGroups, totalPlants]);
+
+    // Per-strain flowering time breakdown for display
+    const strainFloweringInfo = useMemo(() => {
+        if (targetPhase !== 'flowering') return [];
+        return selectedStrainNames.map(name => {
+            const strain = strains.find(s => s.name.toLowerCase() === name.toLowerCase());
+            const days = strain?.defaultFloweringDays || null;
+            return {
+                name,
+                days,
+                estDate: days ? addDays(new Date(), days) : null,
+            };
+        });
+    }, [targetPhase, strains, selectedStrainNames]);
 
     const handleSubmit = async () => {
         setSubmitting(true);
@@ -102,6 +161,7 @@ export const PlantActionModal: React.FC<PlantActionModalProps> = ({
                         entityType,
                         targetPhase,
                         ...(targetRoomId ? { targetRoomId } : {}),
+                        ...(targetPhase === 'flowering' && targetHarvestDate ? { targetHarvestDate } : {}),
                     });
                     break;
 
@@ -199,11 +259,13 @@ export const PlantActionModal: React.FC<PlantActionModalProps> = ({
                     )}
 
                     {action === 'change-phase' && (
-                        <div>
-                            <label className="block text-xs font-medium text-gray-700 mb-2">
-                                Move to Phase
-                            </label>
-                            <div className="grid grid-cols-3 gap-2">
+                        <div className="space-y-4">
+                            {/* Phase selector */}
+                            <div>
+                                <label className="block text-xs font-medium text-gray-700 mb-2">
+                                    Move to Phase
+                                </label>
+                                <div className="grid grid-cols-3 gap-2">
                                     {phaseOptionsFiltered.map(opt => (
                                         <button
                                             key={opt.value}
@@ -218,9 +280,58 @@ export const PlantActionModal: React.FC<PlantActionModalProps> = ({
                                         </button>
                                     ))}
                                 </div>
+                            </div>
+
+                            {/* Harvest date — shown when flowering selected */}
+                            {targetPhase === 'flowering' && (
+                                <div className="rounded-lg border border-amber-200 bg-amber-50/50 p-3">
+                                    <div className="flex items-center gap-2 mb-2">
+                                        <Calendar size={14} className="text-amber-600" />
+                                        <label className="text-xs font-medium text-gray-700">
+                                            Est. Harvest Date
+                                        </label>
+                                    </div>
+
+                                    {/* Per-strain breakdown */}
+                                    {strainFloweringInfo.length > 1 && (
+                                        <div className="mb-2 space-y-1">
+                                            {strainFloweringInfo.map(info => (
+                                                <div key={info.name} className="flex items-center justify-between text-[11px]">
+                                                    <span className="text-gray-600">{info.name}</span>
+                                                    {info.days ? (
+                                                        <span className="text-gray-500 tabular-nums">{info.days}d → {info.estDate}</span>
+                                                    ) : (
+                                                        <span className="text-amber-600 italic">No flowering time set</span>
+                                                    )}
+                                                </div>
+                                            ))}
+                                            <div className="border-t border-amber-200 my-1" />
+                                        </div>
+                                    )}
+
+                                    {/* Single strain info */}
+                                    {strainFloweringInfo.length === 1 && !strainFloweringInfo[0].days && (
+                                        <p className="text-[11px] text-amber-600 mb-2">
+                                            No flowering time configured for {strainFloweringInfo[0].name}. Enter a date manually.
+                                        </p>
+                                    )}
+                                    {strainFloweringInfo.length === 1 && strainFloweringInfo[0].days && (
+                                        <p className="text-[11px] text-gray-500 mb-2">
+                                            Based on {strainFloweringInfo[0].name} ({strainFloweringInfo[0].days} days)
+                                        </p>
+                                    )}
+
+                                    <input
+                                        type="date"
+                                        value={targetHarvestDate}
+                                        onChange={e => setTargetHarvestDate(e.target.value)}
+                                        className="w-full px-3 py-2 text-xs border border-gray-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500"
+                                    />
+                                </div>
+                            )}
 
                             {/* Optional room move */}
-                            <div className="mt-4">
+                            <div>
                                 <label className="block text-xs font-medium text-gray-700 mb-2">
                                     Also move to room <span className="text-gray-400 font-normal">(optional)</span>
                                 </label>
@@ -288,7 +399,6 @@ export const PlantActionModal: React.FC<PlantActionModalProps> = ({
 
                     {action === 'plant-health' && (
                         <div className="space-y-4">
-                            {/* Health slider */}
                             <div>
                                 <div className="flex items-center justify-between mb-2">
                                     <label className="text-xs font-medium text-gray-700">Health Score</label>
@@ -307,8 +417,6 @@ export const PlantActionModal: React.FC<PlantActionModalProps> = ({
                                     <span>Perfect</span>
                                 </div>
                             </div>
-
-                            {/* Contaminants */}
                             <div>
                                 <label className="block text-xs font-medium text-gray-700 mb-2">
                                     Contaminants

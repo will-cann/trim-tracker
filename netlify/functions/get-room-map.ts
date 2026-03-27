@@ -84,6 +84,7 @@ export const handler: Handler = async (event) => {
             plants: string[];
             contamination: Set<string>;
             plantedDate: string;
+            harvestDate: string | null;
             strain: string;
             type: string;
         }>();
@@ -99,6 +100,7 @@ export const handler: Handler = async (event) => {
                     plants: [],
                     contamination: new Set(),
                     plantedDate: row.planted_date || row.phase_date,
+                    harvestDate: row.target_harvest_date || null,
                     strain: row.strain_name,
                     type: row.entity_type,
                 };
@@ -108,6 +110,10 @@ export const handler: Handler = async (event) => {
             group.totalPlants += row.plant_count;
             group.healthSum += row.plant_health * row.plant_count;
             group.plants.push(row.id);
+            // Use earliest harvest date in group
+            if (row.target_harvest_date && (!group.harvestDate || row.target_harvest_date < group.harvestDate)) {
+                group.harvestDate = row.target_harvest_date;
+            }
 
             if (Array.isArray(row.contaminants)) {
                 for (const c of row.contaminants) group.contamination.add(c);
@@ -123,6 +129,7 @@ export const handler: Handler = async (event) => {
                 plants: group.plants,
                 contamination: [...group.contamination].sort(),
                 plantedDate: group.plantedDate,
+                harvestDate: group.harvestDate,
                 strain: group.strain,
                 type: group.type,
             };

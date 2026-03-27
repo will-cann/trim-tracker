@@ -17,6 +17,7 @@ export const handler: Handler = async (event) => {
             SELECT
                 s.id,
                 s.name,
+                s.default_flowering_days,
                 s.created_at,
                 s.updated_at,
                 (
@@ -36,6 +37,7 @@ export const handler: Handler = async (event) => {
         const strains = result.rows.map((r: any) => ({
             id: r.id,
             name: r.name,
+            defaultFloweringDays: r.default_flowering_days || null,
             harvestCount: r.harvest_count || 0,
             sessionCount: r.session_count || 0,
             createdAt: r.created_at,
