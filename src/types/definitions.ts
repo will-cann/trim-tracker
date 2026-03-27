@@ -1,7 +1,13 @@
+export type TeamRole = 'admin' | 'manager' | 'lead' | 'worker';
+
 export interface TrimmerProfile {
   id: string;
   name: string;
   status: 'active' | 'inactive';
+  role: TeamRole;
+  email?: string;
+  userId?: string;
+  createdAt?: string;
 }
 
 export interface Trimmer {

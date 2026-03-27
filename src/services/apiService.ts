@@ -1,4 +1,4 @@
-import type { TrimSession, CreateTrimSessionDTO, Trimmer, TrimmerProfile, ProposedAction, Harvest, CreateHarvestDTO, HarvestWasteType, HarvestAllocation, Strain, License, SpeechMode, HumanTask } from '../types/definitions';
+import type { TrimSession, CreateTrimSessionDTO, Trimmer, TrimmerProfile, ProposedAction, Harvest, CreateHarvestDTO, HarvestWasteType, HarvestAllocation, Strain, License, SpeechMode, HumanTask, TeamRole } from '../types/definitions';
 
 const API_BASE = '/.netlify/functions';
 
@@ -129,14 +129,24 @@ export const getTrimmerProfiles = async (): Promise<TrimmerProfile[]> => {
     return await response.json();
 };
 
-export const addTrimmerProfile = async (name: string): Promise<TrimmerProfile[]> => {
+export const addTrimmerProfile = async (name: string, role?: TeamRole, email?: string): Promise<TrimmerProfile[]> => {
     const response = await fetchWithAuth(`${API_BASE}/add-trimmer-profile`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name }),
+        body: JSON.stringify({ name, role, email }),
     });
     if (!response.ok) throw new Error('Failed to add profile');
     return await getTrimmerProfiles();
+};
+
+export const updateTrimmerProfile = async (profileId: string, updates: { name?: string; role?: TeamRole; email?: string; status?: string }): Promise<TrimmerProfile> => {
+    const response = await fetchWithAuth(`${API_BASE}/update-trimmer-profile`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ profileId, ...updates }),
+    });
+    if (!response.ok) throw new Error('Failed to update profile');
+    return await response.json();
 };
 
 export const deleteTrimmerProfile = async (id: string): Promise<TrimmerProfile[]> => {
@@ -446,6 +456,7 @@ export const apiService = {
     removeTrimmer,
     getTrimmerProfiles,
     addTrimmerProfile,
+    updateTrimmerProfile,
     deleteTrimmerProfile,
     deleteBatch,
     submitBatch,

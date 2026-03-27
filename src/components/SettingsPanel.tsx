@@ -1,10 +1,12 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Plus, Trash2, Shield, KeyRound } from 'lucide-react';
-import type { License } from '../types/definitions';
+import type { License, TrimmerProfile } from '../types/definitions';
 import { apiService } from '../services/apiService';
+import { TeamSection } from './TeamSection';
 
 export const SettingsPanel: React.FC = () => {
     const [licenses, setLicenses] = useState<License[]>([]);
+    const [profiles, setProfiles] = useState<TrimmerProfile[]>([]);
     const [loading, setLoading] = useState(true);
     const [isAdding, setIsAdding] = useState(false);
     const [newNumber, setNewNumber] = useState('');
@@ -13,15 +15,18 @@ export const SettingsPanel: React.FC = () => {
     const [editLabel, setEditLabel] = useState('');
 
     const loadLicenses = useCallback(async () => {
-        setLoading(true);
         const data = await apiService.getAllLicenses();
         setLicenses(data);
-        setLoading(false);
+    }, []);
+
+    const loadProfiles = useCallback(async () => {
+        const data = await apiService.getTrimmerProfiles();
+        setProfiles(data);
     }, []);
 
     useEffect(() => {
-        loadLicenses();
-    }, [loadLicenses]);
+        Promise.all([loadLicenses(), loadProfiles()]).finally(() => setLoading(false));
+    }, [loadLicenses, loadProfiles]);
 
     const handleAdd = async () => {
         const num = newNumber.trim();
@@ -55,7 +60,7 @@ export const SettingsPanel: React.FC = () => {
                     </div>
                     <div>
                         <h2 className="text-xl font-bold text-gray-900">Settings</h2>
-                        <p className="text-sm text-gray-400">Manage your company licenses and configuration</p>
+                        <p className="text-sm text-gray-400">Manage your team, licenses, and configuration</p>
                     </div>
                 </div>
             </div>
@@ -194,6 +199,11 @@ export const SettingsPanel: React.FC = () => {
                         </tbody>
                     </table>
                 )}
+            </div>
+
+            {/* Team Management */}
+            <div className="mt-6">
+                <TeamSection profiles={profiles} onReload={loadProfiles} />
             </div>
         </div>
     );

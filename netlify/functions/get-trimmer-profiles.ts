@@ -9,29 +9,35 @@ export const handler: Handler = async (event) => {
 
     try {
         const context = await resolveContext(event.headers.authorization);
-
         if (!context) {
-            return {
-                statusCode: 401,
-                body: JSON.stringify({ error: 'Unauthorized' })
-            };
+            return { statusCode: 401, body: JSON.stringify({ error: 'Unauthorized' }) };
         }
 
         const result = await sql`
-      SELECT id, name, status 
-      FROM trimmer_profiles 
-      WHERE company_id = ${context.companyId}
-      ORDER BY name ASC
-    `;
+            SELECT id, name, status, role, email, user_id, created_at
+            FROM trimmer_profiles
+            WHERE company_id = ${context.companyId}
+            ORDER BY name ASC
+        `;
+
+        const profiles = result.rows.map((row: any) => ({
+            id: row.id,
+            name: row.name,
+            status: row.status,
+            role: row.role || 'worker',
+            email: row.email || undefined,
+            userId: row.user_id || undefined,
+            createdAt: row.created_at,
+        }));
 
         return {
             statusCode: 200,
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(result.rows),
+            body: JSON.stringify(profiles),
         };
     } catch (error) {
         const msg = error instanceof Error ? error.message : String(error);
-        console.error('Error fetching trimmer profiles:', msg, error);
+        console.error('Error fetching trimmer profiles:', msg);
         return {
             statusCode: 500,
             headers: { 'Content-Type': 'application/json' },
