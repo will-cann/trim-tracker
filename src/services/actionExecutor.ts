@@ -74,8 +74,63 @@ export async function executeAction(action: ProposedAction): Promise<void> {
                 await apiService.updateHarvest(action.data.harvestId, { dryingLocation: action.data.dryingLocation });
             }
             break;
+        case 'delete_harvest':
+            if (action.data.harvestId) {
+                await apiService.deleteHarvest(action.data.harvestId);
+            }
+            break;
+        case 'update_harvest':
+            if (action.data.harvestId) {
+                const { harvestId, harvestName, ...updates } = action.data;
+                await apiService.updateHarvest(harvestId, updates);
+            }
+            break;
+        case 'delete_batch':
+            if (action.data.entryId) {
+                await apiService.deleteBatch(action.data.entryId);
+            }
+            break;
+        case 'change_batch_status':
+            if (action.data.entryId) {
+                const status = action.data.newStatus;
+                if (status === 'active') await apiService.startBatch(action.data.entryId);
+                else if (status === 'submitted') await apiService.submitBatch(action.data.entryId);
+                else if (status === 'upcoming') await apiService.revertBatch(action.data.entryId);
+            }
+            break;
+        case 'submit_session':
+            await apiService.submitSession();
+            break;
+        case 'remove_trimmer':
+            if (action.data.entryId) {
+                // Resolve trimmerId from name by looking up the session
+                let trimmerId = action.data.trimmerId;
+                if (!trimmerId && action.data.trimmerName) {
+                    const session = await apiService.getSession();
+                    const entry = session?.entries.find(e => e.id === action.data.entryId);
+                    const trimmer = entry?.trimmers.find(
+                        t => t.name.toLowerCase().includes(action.data.trimmerName.toLowerCase())
+                    );
+                    trimmerId = trimmer?.id;
+                }
+                if (trimmerId) {
+                    await apiService.removeTrimmer(action.data.entryId, trimmerId);
+                }
+            }
+            break;
+        case 'delete_trimmer_profile':
+            if (action.data.profileId) {
+                await apiService.deleteTrimmerProfile(action.data.profileId);
+            }
+            break;
         case 'create_human_task':
             // Human tasks are handled separately via useHumanTasks hook — no-op here
+            break;
+        case 'update_human_task':
+            // Handled separately via useAIChat confirmActions — no-op here
+            break;
+        case 'delete_human_task':
+            // Handled separately via useAIChat confirmActions — no-op here
             break;
     }
 }

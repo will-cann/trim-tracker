@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Package, Plus, UserPlus, User, Loader2, Check, X, Sprout, Scale, ArrowRightLeft, Trash2, MapPin, CheckCircle2, XCircle, ChevronDown, Scissors, ClipboardList } from 'lucide-react';
+import { Package, Plus, UserPlus, User, Loader2, Check, X, Sprout, Scale, ArrowRightLeft, Trash2, MapPin, CheckCircle2, XCircle, ChevronDown, Scissors, ClipboardList, Send, UserMinus, RefreshCw, Pencil } from 'lucide-react';
 import type { ProposedAction } from '../types/definitions';
 
 interface ActionPreviewProps {
@@ -23,6 +23,13 @@ const ACTION_CONFIG: Record<string, { icon: typeof Package; label: string; color
     record_harvest_waste: { icon: Trash2, label: 'Record Waste', color: 'text-red-600', bgColor: 'bg-red-50' },
     move_harvest: { icon: MapPin, label: 'Move Harvest', color: 'text-purple-600', bgColor: 'bg-purple-50' },
     convert_to_trim: { icon: Scissors, label: 'Send to Trim', color: 'text-emerald-600', bgColor: 'bg-emerald-50' },
+    delete_harvest: { icon: Trash2, label: 'Delete Harvest', color: 'text-red-600', bgColor: 'bg-red-50' },
+    update_harvest: { icon: Pencil, label: 'Update Harvest', color: 'text-blue-600', bgColor: 'bg-blue-50' },
+    delete_batch: { icon: Trash2, label: 'Delete Batch', color: 'text-red-600', bgColor: 'bg-red-50' },
+    change_batch_status: { icon: RefreshCw, label: 'Change Status', color: 'text-amber-600', bgColor: 'bg-amber-50' },
+    submit_session: { icon: Send, label: 'Submit Session', color: 'text-emerald-600', bgColor: 'bg-emerald-50' },
+    remove_trimmer: { icon: UserMinus, label: 'Remove Trimmer', color: 'text-red-600', bgColor: 'bg-red-50' },
+    delete_trimmer_profile: { icon: UserMinus, label: 'Remove from Roster', color: 'text-red-600', bgColor: 'bg-red-50' },
     create_human_task: { icon: ClipboardList, label: 'Create Task', color: 'text-teal-600', bgColor: 'bg-teal-50' },
     update_human_task: { icon: ClipboardList, label: 'Update Task', color: 'text-blue-600', bgColor: 'bg-blue-50' },
     delete_human_task: { icon: Trash2, label: 'Delete Task', color: 'text-red-600', bgColor: 'bg-red-50' },
@@ -55,6 +62,9 @@ const FIELD_LABELS: Record<string, string> = {
     location: 'Location',
     taskId: 'Task ID',
     taskTitle: 'Task',
+    newStatus: 'New Status',
+    trimmerName: 'Trimmer',
+    profileName: 'Name',
 };
 
 const HIDDEN_FIELDS = new Set(['entryId', 'profileId', 'harvestId', 'taskId']);
@@ -71,6 +81,13 @@ const KEY_FIELDS: Record<string, string[]> = {
     record_harvest_waste: ['harvestIdentifier', 'wasteType', 'weight'],
     move_harvest: ['harvestIdentifier', 'dryingLocation'],
     convert_to_trim: ['harvestIdentifier'],
+    delete_harvest: ['harvestName'],
+    update_harvest: ['harvestName', 'strain', 'plantCount'],
+    delete_batch: ['entryName'],
+    change_batch_status: ['entryName', 'newStatus'],
+    submit_session: [],
+    remove_trimmer: ['entryName', 'trimmerName'],
+    delete_trimmer_profile: ['profileName'],
     create_human_task: ['title', 'priority', 'category'],
     update_human_task: ['taskTitle', 'status', 'priority', 'assignee'],
     delete_human_task: ['taskTitle'],
@@ -97,6 +114,20 @@ function summarizeAction(action: ProposedAction): string {
             return [d.harvestIdentifier, d.wasteType, d.weight && `${d.weight}g`].filter(Boolean).join(' · ');
         case 'move_harvest':
             return [d.harvestIdentifier, d.dryingLocation && `→ ${d.dryingLocation}`].filter(Boolean).join(' ');
+        case 'delete_harvest':
+            return d.harvestName || '';
+        case 'update_harvest':
+            return [d.harvestName, d.strain].filter(Boolean).join(' · ');
+        case 'delete_batch':
+            return d.entryName || '';
+        case 'change_batch_status':
+            return [d.entryName, `→ ${d.newStatus}`].filter(Boolean).join(' ');
+        case 'submit_session':
+            return 'Close active session';
+        case 'remove_trimmer':
+            return [d.trimmerName, d.entryName && `from ${d.entryName}`].filter(Boolean).join(' ');
+        case 'delete_trimmer_profile':
+            return d.profileName || '';
         case 'create_human_task':
             return d.title || '';
         case 'update_human_task':
@@ -145,6 +176,11 @@ const SELECT_OPTIONS: Record<string, Array<{ value: string; label: string }>> = 
         { value: 'Flower', label: 'Flower (Dry Trim)' },
         { value: 'Frozen', label: 'Fresh Frozen' },
         { value: 'Both', label: 'Both' },
+    ],
+    newStatus: [
+        { value: 'upcoming', label: 'Upcoming' },
+        { value: 'active', label: 'Active' },
+        { value: 'submitted', label: 'Submitted' },
     ],
     wasteType: [
         { value: 'powdery_mildew', label: 'Powdery Mildew' },

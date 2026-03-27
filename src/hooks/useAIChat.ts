@@ -298,6 +298,20 @@ export const useAIChat = ({
                         return { type: action.type, label: 'Task updated', summary: d.taskTitle || '', navigateTo: 'tasks' as const };
                     case 'delete_human_task':
                         return { type: action.type, label: 'Task deleted', summary: d.taskTitle || '', navigateTo: 'tasks' as const };
+                    case 'delete_harvest':
+                        return { type: action.type, label: 'Harvest deleted', summary: d.harvestName || '', navigateTo: 'harvests' as const };
+                    case 'update_harvest':
+                        return { type: action.type, label: 'Harvest updated', summary: d.harvestName || '', navigateTo: 'harvests' as const };
+                    case 'delete_batch':
+                        return { type: action.type, label: 'Batch deleted', summary: d.entryName || '', navigateTo: 'dashboard' as const };
+                    case 'change_batch_status':
+                        return { type: action.type, label: 'Status changed', summary: [d.entryName, d.newStatus].filter(Boolean).join(' → '), navigateTo: 'dashboard' as const };
+                    case 'submit_session':
+                        return { type: action.type, label: 'Session submitted', summary: '', navigateTo: 'dashboard' as const };
+                    case 'remove_trimmer':
+                        return { type: action.type, label: 'Trimmer removed', summary: [d.trimmerName, d.entryName].filter(Boolean).join(' from '), navigateTo: 'dashboard' as const };
+                    case 'delete_trimmer_profile':
+                        return { type: action.type, label: 'Removed from roster', summary: d.profileName || '' };
                     default:
                         return { type: action.type, label: 'Action applied', summary: '' };
                 }

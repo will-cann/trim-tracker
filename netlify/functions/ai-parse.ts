@@ -218,6 +218,86 @@ const tools = [
         },
     },
     {
+        name: 'delete_harvest',
+        description: 'Delete a harvest record. Only harvests in planning status can be deleted.',
+        input_schema: {
+            type: 'object' as const,
+            properties: {
+                harvestIdentifier: { type: 'string', description: 'Batch ID or strain to identify the harvest to delete' },
+            },
+            required: ['harvestIdentifier'],
+        },
+    },
+    {
+        name: 'update_harvest',
+        description: 'Update fields on an existing harvest (strain, name, plant count, drying location, etc.).',
+        input_schema: {
+            type: 'object' as const,
+            properties: {
+                harvestIdentifier: { type: 'string', description: 'Batch ID or strain to identify the harvest' },
+                strain: { type: 'string', description: 'Updated strain name' },
+                name: { type: 'string', description: 'Updated batch ID / name' },
+                plantCount: { type: 'number', description: 'Updated plant count' },
+                dryingLocation: { type: 'string', description: 'Updated drying location' },
+            },
+            required: ['harvestIdentifier'],
+        },
+    },
+    {
+        name: 'delete_batch',
+        description: 'Delete a batch (trim entry) from the active session.',
+        input_schema: {
+            type: 'object' as const,
+            properties: {
+                entryIdentifier: { type: 'string', description: 'Harvest name or strain to identify which batch to delete' },
+            },
+            required: ['entryIdentifier'],
+        },
+    },
+    {
+        name: 'change_batch_status',
+        description: 'Change a batch status: start (upcoming→active), submit (active→submitted), or revert (submitted/active→upcoming).',
+        input_schema: {
+            type: 'object' as const,
+            properties: {
+                entryIdentifier: { type: 'string', description: 'Harvest name or strain to identify the batch' },
+                newStatus: { type: 'string', enum: ['active', 'submitted', 'upcoming'], description: 'The target status' },
+            },
+            required: ['entryIdentifier', 'newStatus'],
+        },
+    },
+    {
+        name: 'submit_session',
+        description: 'Submit/close the current active trim session.',
+        input_schema: {
+            type: 'object' as const,
+            properties: {},
+        },
+    },
+    {
+        name: 'remove_trimmer',
+        description: 'Remove/unassign a trimmer from a batch.',
+        input_schema: {
+            type: 'object' as const,
+            properties: {
+                entryIdentifier: { type: 'string', description: 'Harvest name or strain to identify the batch' },
+                trimmerName: { type: 'string', description: 'Name of the trimmer to remove' },
+            },
+            required: ['entryIdentifier', 'trimmerName'],
+        },
+    },
+    {
+        name: 'delete_trimmer_profile',
+        description: 'Remove a trimmer from the company roster.',
+        input_schema: {
+            type: 'object' as const,
+            properties: {
+                profileName: { type: 'string', description: 'Name of the trimmer profile to delete' },
+            },
+            required: ['profileName'],
+        },
+    },
+    {
         name: 'create_human_tasks',
         description: 'Create one or more human tasks that require physical action by a person. Use this for ANY operational task that cannot be automated through the other tools. Examples: checking environmental conditions, IPM scouting, METRC submissions, calibrating equipment, cleaning rooms, collecting QC samples, packaging product, feeding plants, flushing, transplanting, defoliation, extraction runs, label printing, supply ordering, driver assignments, training, SOPs, and anything else that requires a human to do.',
         input_schema: {
@@ -542,6 +622,96 @@ export const handler: Handler = async (event) => {
                                 harvestId: matchedHM?.id || null,
                                 harvestName: matchedHM?.batchId || input.harvestIdentifier,
                                 dryingLocation: input.dryingLocation,
+                            },
+                        });
+                        break;
+                    }
+                    case 'delete_harvest': {
+                        const matchedDH = (request.context.harvests || []).find(
+                            h => h.batchId.toLowerCase().includes(input.harvestIdentifier.toLowerCase()) ||
+                                h.strain.toLowerCase().includes(input.harvestIdentifier.toLowerCase())
+                        );
+                        actions.push({
+                            type: 'delete_harvest',
+                            data: {
+                                harvestId: matchedDH?.id || null,
+                                harvestName: matchedDH?.batchId || input.harvestIdentifier,
+                            },
+                        });
+                        break;
+                    }
+                    case 'update_harvest': {
+                        const matchedUH = (request.context.harvests || []).find(
+                            h => h.batchId.toLowerCase().includes(input.harvestIdentifier.toLowerCase()) ||
+                                h.strain.toLowerCase().includes(input.harvestIdentifier.toLowerCase())
+                        );
+                        const updateFields: Record<string, any> = {
+                            harvestId: matchedUH?.id || null,
+                            harvestName: matchedUH?.batchId || input.harvestIdentifier,
+                        };
+                        if (input.strain) updateFields.strain = input.strain;
+                        if (input.name) updateFields.name = input.name;
+                        if (input.plantCount) updateFields.plantCount = input.plantCount;
+                        if (input.dryingLocation) updateFields.dryingLocation = input.dryingLocation;
+                        actions.push({ type: 'update_harvest', data: updateFields });
+                        break;
+                    }
+                    case 'delete_batch': {
+                        const matchedDB = request.context.existingEntries.find(
+                            e => e.harvestName.toLowerCase().includes(input.entryIdentifier.toLowerCase()) ||
+                                e.strain.toLowerCase().includes(input.entryIdentifier.toLowerCase())
+                        );
+                        actions.push({
+                            type: 'delete_batch',
+                            data: {
+                                entryId: matchedDB?.id || null,
+                                entryName: matchedDB?.harvestName || input.entryIdentifier,
+                            },
+                        });
+                        break;
+                    }
+                    case 'change_batch_status': {
+                        const matchedBS = request.context.existingEntries.find(
+                            e => e.harvestName.toLowerCase().includes(input.entryIdentifier.toLowerCase()) ||
+                                e.strain.toLowerCase().includes(input.entryIdentifier.toLowerCase())
+                        );
+                        actions.push({
+                            type: 'change_batch_status',
+                            data: {
+                                entryId: matchedBS?.id || null,
+                                entryName: matchedBS?.harvestName || input.entryIdentifier,
+                                newStatus: input.newStatus,
+                            },
+                        });
+                        break;
+                    }
+                    case 'submit_session':
+                        actions.push({ type: 'submit_session', data: {} });
+                        break;
+                    case 'remove_trimmer': {
+                        const matchedRT = request.context.existingEntries.find(
+                            e => e.harvestName.toLowerCase().includes(input.entryIdentifier.toLowerCase()) ||
+                                e.strain.toLowerCase().includes(input.entryIdentifier.toLowerCase())
+                        );
+                        actions.push({
+                            type: 'remove_trimmer',
+                            data: {
+                                entryId: matchedRT?.id || null,
+                                entryName: matchedRT?.harvestName || input.entryIdentifier,
+                                trimmerName: input.trimmerName,
+                            },
+                        });
+                        break;
+                    }
+                    case 'delete_trimmer_profile': {
+                        const matchedDP = request.context.trimmerProfiles.find(
+                            p => p.name.toLowerCase().includes(input.profileName.toLowerCase())
+                        );
+                        actions.push({
+                            type: 'delete_trimmer_profile',
+                            data: {
+                                profileId: matchedDP?.id || null,
+                                profileName: matchedDP?.name || input.profileName,
                             },
                         });
                         break;
