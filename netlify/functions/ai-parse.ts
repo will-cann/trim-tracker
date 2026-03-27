@@ -12,7 +12,9 @@ The application can automate these operations:
 - **Batches (Trim Entries)**: Individual harvest batches within a session. Each has a harvest name, strain, license number, and start weight (in grams). Status can be 'active' or 'upcoming'.
 - **Trimmers**: Workers assigned to batches. Each has a name, start time (HH:mm 24-hour format), and tool (scissors or machine).
 - **Trimmer Profiles**: A company roster of available trimmers that can be assigned to batches.
+- **Trimmer Updates**: Update an existing trimmer's start time, end time, tool (scissors/machine), and weights (flower, shake, trim, waste) on an active batch.
 - **Harvests**: Pre-trim records tracking plant harvest through drying. Each has a batch ID, strain, license number, wet weight, waste, and allocations (flower for dry trim, frozen for fresh frozen, or both).
+- **Plant Health**: Update plant health scores (0-100) and contaminant flags for plants or plant batches. Plants/batches are identified by strain and room.
 
 ## Full Cannabis Operations Knowledge
 
@@ -307,6 +309,44 @@ const tools = [
         },
     },
     {
+        name: 'update_trimmer',
+        description: 'Update an existing trimmer on a batch. Can change start time, end time, tool (scissors/machine), and weights (flowerWeight, shakeWeight, trimWeight, wasteWeight). Identify the trimmer by name and the batch by harvest name or strain.',
+        input_schema: {
+            type: 'object' as const,
+            properties: {
+                entryIdentifier: { type: 'string', description: 'Harvest name or strain to identify which batch the trimmer is on' },
+                trimmerName: { type: 'string', description: 'Name of the trimmer to update' },
+                startTime: { type: 'string', description: 'New start time in HH:mm 24-hour format' },
+                endTime: { type: 'string', description: 'New end time in HH:mm 24-hour format' },
+                tool: { type: 'string', enum: ['scissors', 'machine'], description: 'Updated trimming tool' },
+                flowerWeight: { type: 'number', description: 'Flower weight in grams' },
+                shakeWeight: { type: 'number', description: 'Shake weight in grams' },
+                trimWeight: { type: 'number', description: 'Trim weight in grams' },
+                wasteWeight: { type: 'number', description: 'Waste weight in grams' },
+            },
+            required: ['entryIdentifier', 'trimmerName'],
+        },
+    },
+    {
+        name: 'update_plant_health',
+        description: 'Update the health score and/or contaminants for plants or plant batches. Health is 0-100 (100 = perfectly healthy). Contaminants are from a known list. Identify plants by strain and room name from the plant map context.',
+        input_schema: {
+            type: 'object' as const,
+            properties: {
+                plantIdentifier: { type: 'string', description: 'Strain name or room name to identify which plants to update' },
+                roomName: { type: 'string', description: 'Room name where the plants are located' },
+                health: { type: 'number', description: 'Health score from 0 to 100 (100 = healthy)' },
+                contaminants: {
+                    type: 'array',
+                    items: { type: 'string', enum: ['Spider mites', 'Thrips', 'Whiteflies', 'Aphids', 'Fungus gnats', 'Powdery mildew', 'Botrytis', 'Fusarium', 'Verticillium', 'Tobacco mosaic virus', 'Root aphids', 'Hops latent viroid', 'Other'] },
+                    description: 'List of contaminants detected on the plants',
+                },
+                note: { type: 'string', description: 'Optional note about the health update' },
+            },
+            required: ['plantIdentifier'],
+        },
+    },
+    {
         name: 'create_human_tasks',
         description: 'Create one or more human tasks that require physical action by a person. Use this for ANY operational task that cannot be automated through the other tools. Examples: checking environmental conditions, IPM scouting, METRC submissions, calibrating equipment, cleaning rooms, collecting QC samples, packaging product, feeding plants, flushing, transplanting, defoliation, extraction runs, label printing, supply ordering, driver assignments, training, SOPs, and anything else that requires a human to do.',
         input_schema: {
@@ -409,9 +449,10 @@ interface AIParseRequest {
         hasActiveSession: boolean;
         sessionId?: string;
         trimmerProfiles: Array<{ id: string; name: string }>;
-        existingEntries: Array<{ id: string; harvestName: string; strain: string; status: string }>;
+        existingEntries: Array<{ id: string; harvestName: string; strain: string; status: string; trimmers?: Array<{ id: string; name: string; startTime: string; endTime?: string; tool?: string }> }>;
         harvests?: Array<{ id: string; batchId: string; strain: string; status: string }>;
         humanTasks?: Array<{ id: string; title: string; status: string; priority: string; category: string; assignee?: string; location?: string }>;
+        plantMapSummary?: Array<{ roomName: string; roomId: string; strains: string[]; plantIds: string[]; entityType: 'plants' | 'plantbatches'; plantHealth: number; contaminants: string[] }>;
         screenContext?: string;
     };
 }
@@ -468,7 +509,12 @@ export const handler: Handler = async (event) => {
         }
 
         if (request.context.existingEntries.length > 0) {
-            contextInfo.push(`- Current batches: ${request.context.existingEntries.map(e => `"${e.harvestName}" / ${e.strain} [${e.status}] (ID: ${e.id})`).join(', ')}`);
+            contextInfo.push(`- Current batches: ${request.context.existingEntries.map(e => {
+                const trimmerInfo = e.trimmers?.length
+                    ? ` — trimmers: ${e.trimmers.map(t => `${t.name} (ID: ${t.id}, ${t.startTime}${t.endTime ? '-' + t.endTime : ''}, ${t.tool || 'scissors'})`).join(', ')}`
+                    : '';
+                return `"${e.harvestName}" / ${e.strain} [${e.status}] (ID: ${e.id})${trimmerInfo}`;
+            }).join('; ')}`);
         }
 
         if (request.context.harvests && request.context.harvests.length > 0) {
@@ -481,6 +527,10 @@ export const handler: Handler = async (event) => {
             contextInfo.push(`- Human tasks: ${request.context.humanTasks.map(t => `"${t.title}" [${t.status}/${t.priority}] ${t.assignee ? `assigned to ${t.assignee}` : ''} ${t.location ? `@ ${t.location}` : ''} (ID: ${t.id})`).join(', ')}`);
         } else {
             contextInfo.push(`- Human tasks: None`);
+        }
+
+        if (request.context.plantMapSummary && request.context.plantMapSummary.length > 0) {
+            contextInfo.push(`- Plant map: ${request.context.plantMapSummary.map(p => `${p.roomName}: ${p.strains.join(', ')} [${p.entityType}] health=${p.plantHealth}${p.contaminants.length ? ' contaminants: ' + p.contaminants.join(', ') : ''} (roomId: ${p.roomId}, plantIds: ${p.plantIds.join(',')})`).join('; ')}`);
         }
 
         if ((request.context as any).activeLicenseNumber) {
@@ -727,6 +777,51 @@ export const handler: Handler = async (event) => {
                             data: {
                                 profileId: matchedDP?.id || null,
                                 profileName: matchedDP?.name || input.profileName,
+                            },
+                        });
+                        break;
+                    }
+                    case 'update_trimmer': {
+                        const matchedUT = request.context.existingEntries.find(
+                            e => e.harvestName.toLowerCase().includes(input.entryIdentifier.toLowerCase()) ||
+                                e.strain.toLowerCase().includes(input.entryIdentifier.toLowerCase())
+                        );
+                        // Resolve trimmer by name within the matched entry
+                        const matchedTrimmer = matchedUT?.trimmers?.find(
+                            t => t.name.toLowerCase().includes(input.trimmerName.toLowerCase())
+                        );
+                        const updates: Record<string, any> = {};
+                        if (input.startTime) updates.startTime = input.startTime;
+                        if (input.endTime) updates.endTime = input.endTime;
+                        if (input.tool) updates.tool = input.tool;
+                        if (input.flowerWeight !== undefined) updates.flowerWeight = input.flowerWeight;
+                        if (input.shakeWeight !== undefined) updates.shakeWeight = input.shakeWeight;
+                        if (input.trimWeight !== undefined) updates.trimWeight = input.trimWeight;
+                        if (input.wasteWeight !== undefined) updates.wasteWeight = input.wasteWeight;
+                        actions.push({
+                            type: 'update_trimmer',
+                            data: {
+                                entryId: matchedUT?.id || null,
+                                entryName: matchedUT?.harvestName || input.entryIdentifier,
+                                trimmerId: matchedTrimmer?.id || null,
+                                trimmerName: matchedTrimmer?.name || input.trimmerName,
+                                updates,
+                            },
+                        });
+                        break;
+                    }
+                    case 'update_plant_health': {
+                        // Plant IDs will be resolved at execution time via room map lookup
+                        actions.push({
+                            type: 'update_plant_health',
+                            data: {
+                                plantIds: [],
+                                entityType: 'plants',
+                                roomName: input.roomName || input.plantIdentifier,
+                                strain: input.plantIdentifier,
+                                health: input.health,
+                                contaminants: input.contaminants || [],
+                                note: input.note || '',
                             },
                         });
                         break;

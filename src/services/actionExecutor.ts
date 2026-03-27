@@ -123,6 +123,43 @@ export async function executeAction(action: ProposedAction): Promise<void> {
                 await apiService.deleteTrimmerProfile(action.data.profileId);
             }
             break;
+        case 'update_trimmer':
+            if (action.data.entryId && action.data.trimmerId) {
+                await apiService.updateTrimmer(action.data.entryId, action.data.trimmerId, action.data.updates);
+            }
+            break;
+        case 'update_plant_health': {
+            let plantIds = action.data.plantIds as string[];
+            let entityType = action.data.entityType as 'plants' | 'plantbatches';
+            // If no plantIds were resolved client-side, look them up by room + strain
+            if (!plantIds?.length && action.data.roomName) {
+                // Try all phases to find the matching plants
+                for (const phase of ['vegetative', 'flowering', 'nursery'] as const) {
+                    const roomData = await apiService.getRoomMap(phase, action.data.roomName);
+                    // Find matching strain group
+                    for (const [, group] of Object.entries(roomData)) {
+                        const g = group as any;
+                        if (g.plants?.length && (!action.data.strain || g.strain?.toLowerCase().includes(action.data.strain.toLowerCase()))) {
+                            plantIds = g.plants;
+                            entityType = g.type === 'plantbatches' ? 'plantbatches' : 'plants';
+                            break;
+                        }
+                    }
+                    if (plantIds?.length) break;
+                }
+            }
+            if (plantIds?.length) {
+                await apiService.executePlantAction({
+                    action: 'plant-health',
+                    plantIds,
+                    entityType,
+                    health: action.data.health,
+                    contaminants: action.data.contaminants,
+                    note: action.data.note,
+                });
+            }
+            break;
+        }
         case 'create_human_task':
             // Human tasks are handled separately via useHumanTasks hook — no-op here
             break;

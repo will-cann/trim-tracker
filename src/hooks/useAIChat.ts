@@ -74,6 +74,7 @@ interface UseAIChatOptions {
     onUpdateHumanTask?: (id: string, updates: Record<string, any>) => Promise<void>;
     onDeleteHumanTask?: (id: string) => Promise<void>;
     humanTasks?: Array<{ id: string; title: string; status: string; priority: string; category: string; assignee?: string; location?: string }>;
+    plantMapSummary?: Array<{ roomName: string; roomId: string; strains: string[]; plantIds: string[]; entityType: 'plants' | 'plantbatches'; plantHealth: number; contaminants: string[] }>;
     screenContext?: string;
 }
 
@@ -89,6 +90,7 @@ export const useAIChat = ({
     onUpdateHumanTask,
     onDeleteHumanTask,
     humanTasks,
+    plantMapSummary,
     screenContext,
 }: UseAIChatOptions) => {
     const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -134,6 +136,13 @@ export const useAIChat = ({
             harvestName: e.harvestName,
             strain: e.strain,
             status: e.status,
+            trimmers: e.trimmers?.map(t => ({
+                id: t.id,
+                name: t.name,
+                startTime: t.startTime,
+                endTime: t.endTime,
+                tool: t.tool,
+            })),
         })),
         harvests: (harvests || []).map(h => ({
             id: h.id,
@@ -151,8 +160,9 @@ export const useAIChat = ({
             assignee: t.assignee,
             location: t.location,
         })),
+        plantMapSummary: plantMapSummary || undefined,
         screenContext: screenContext || undefined,
-    }), [session, trimmerProfiles, harvests, activeLicense, humanTasks, screenContext]);
+    }), [session, trimmerProfiles, harvests, activeLicense, humanTasks, plantMapSummary, screenContext]);
 
     const addMessage = useCallback((role: 'user' | 'assistant', content: string, extra?: { actions?: ProposedAction[]; results?: ActionResultItem[] }) => {
         const msg: ChatMessage = {
@@ -315,6 +325,10 @@ export const useAIChat = ({
                         return { type: action.type, label: 'Trimmer removed', summary: [d.trimmerName, d.entryName].filter(Boolean).join(' from '), navigateTo: 'dashboard' as const };
                     case 'delete_trimmer_profile':
                         return { type: action.type, label: 'Removed from roster', summary: d.profileName || '' };
+                    case 'update_trimmer':
+                        return { type: action.type, label: 'Trimmer updated', summary: [d.trimmerName, d.entryName].filter(Boolean).join(' on '), navigateTo: 'dashboard' as const };
+                    case 'update_plant_health':
+                        return { type: action.type, label: 'Plant health updated', summary: [d.strain, d.health !== undefined && `health: ${d.health}`].filter(Boolean).join(' · '), navigateTo: 'plant-map' as const };
                     default:
                         return { type: action.type, label: 'Action applied', summary: '' };
                 }

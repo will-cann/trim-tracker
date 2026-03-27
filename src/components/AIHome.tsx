@@ -28,6 +28,7 @@ interface AIHomeProps {
     onUpdateHumanTask?: (id: string, updates: Partial<HumanTask>) => Promise<void>;
     onDeleteHumanTask?: (id: string) => Promise<void>;
     humanTasks?: HumanTask[];
+    plantMapSummary?: Array<{ roomName: string; roomId: string; strains: string[]; plantIds: string[]; entityType: 'plants' | 'plantbatches'; plantHealth: number; contaminants: string[] }>;
     injectedVoiceText?: string | null;
     onClearInjectedText?: () => void;
     screenContext?: string;
@@ -50,6 +51,7 @@ export const AIHome: React.FC<AIHomeProps> = ({
     onUpdateHumanTask,
     onDeleteHumanTask,
     humanTasks,
+    plantMapSummary,
     injectedVoiceText,
     onClearInjectedText,
     screenContext,
@@ -229,6 +231,7 @@ export const AIHome: React.FC<AIHomeProps> = ({
             assignee: t.assignee,
             location: t.location,
         })),
+        plantMapSummary,
         screenContext,
     });
 

@@ -17,6 +17,7 @@ import { Login } from './components/Login';
 import { useConversationHistory } from './hooks/useConversationHistory';
 import { useHumanTasks } from './hooks/useHumanTasks';
 import { PlantMapDashboard } from './components/PlantMap/PlantMapDashboard';
+import { usePlantMapSummary } from './hooks/usePlantMapSummary';
 
 type ViewType = 'ai' | 'dashboard' | 'reports' | 'harvests' | 'settings' | 'tasks' | 'plant-map';
 
@@ -66,6 +67,8 @@ function AppContent() {
     loadError: taskLoadError,
     retry: retryLoadTasks,
   } = useHumanTasks();
+
+  const plantMapSummary = usePlantMapSummary();
 
   const handleCreateHumanTasks = useCallback(async (tasks: Array<{ title: string; description?: string; priority: string; category: string; dueDate?: string; assignee?: string; location?: string }>) => {
     await addHumanTasks(tasks.map(t => ({
@@ -305,6 +308,7 @@ function AppContent() {
             onUpdateHumanTask={updateHumanTask}
             onDeleteHumanTask={deleteHumanTask}
             humanTasks={humanTasks}
+            plantMapSummary={plantMapSummary}
             injectedVoiceText={voiceInjectedText}
             onClearInjectedText={() => setVoiceInjectedText(null)}
             screenContext={VIEW_SCREEN_CONTEXT[currentView]}

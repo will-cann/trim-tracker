@@ -159,7 +159,8 @@ export type ProposedActionType =
   | 'create_harvest' | 'record_wet_weight' | 'allocate_harvest' | 'record_harvest_waste'
   | 'move_harvest' | 'convert_to_trim' | 'create_human_task' | 'update_human_task' | 'delete_human_task'
   | 'delete_harvest' | 'update_harvest' | 'delete_batch' | 'change_batch_status'
-  | 'submit_session' | 'remove_trimmer' | 'delete_trimmer_profile';
+  | 'submit_session' | 'remove_trimmer' | 'delete_trimmer_profile'
+  | 'update_trimmer' | 'update_plant_health';
 
 export interface ProposedAction {
   type: ProposedActionType;
