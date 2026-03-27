@@ -401,9 +401,27 @@ export const getTasks = async (filters?: { status?: string; category?: string; p
     if (filters?.category) params.set('category', filters.category);
     if (filters?.priority) params.set('priority', filters.priority);
     const qs = params.toString();
-    const response = await fetchWithAuth(`${API_BASE}/get-tasks${qs ? `?${qs}` : ''}`);
-    if (!response.ok) return [];
-    return await response.json();
+    const url = `${API_BASE}/get-tasks${qs ? `?${qs}` : ''}`;
+
+    // Retry once on failure (Neon cold starts can cause first-request timeouts)
+    for (let attempt = 0; attempt < 2; attempt++) {
+        try {
+            const response = await fetchWithAuth(url);
+            if (!response.ok) {
+                const msg = await response.text().catch(() => response.statusText);
+                throw new Error(`getTasks failed (${response.status}): ${msg}`);
+            }
+            return await response.json();
+        } catch (err) {
+            if (attempt === 0) {
+                console.warn('[getTasks] First attempt failed, retrying...', err);
+                await new Promise(r => setTimeout(r, 1500));
+                continue;
+            }
+            throw err;
+        }
+    }
+    return []; // unreachable, but satisfies TS
 };
 
 export const createTask = async (task: Omit<HumanTask, 'id' | 'createdAt' | 'updatedAt' | 'status'>): Promise<HumanTask> => {

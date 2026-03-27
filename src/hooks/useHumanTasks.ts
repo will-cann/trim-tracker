@@ -19,11 +19,14 @@ interface UseHumanTasksReturn {
     deleteTask: (id: string) => Promise<void>;
     pendingCount: number;
     isLoaded: boolean;
+    loadError: string | null;
+    retry: () => void;
 }
 
 export const useHumanTasks = (): UseHumanTasksReturn => {
     const [tasks, setTasks] = useState<HumanTask[]>([]);
     const [isLoaded, setIsLoaded] = useState(false);
+    const [loadError, setLoadError] = useState<string | null>(null);
     const [filters, setFiltersState] = useState<Filters>({
         status: 'all',
         category: 'all',
@@ -32,11 +35,14 @@ export const useHumanTasks = (): UseHumanTasksReturn => {
 
     // Load all tasks from server
     const reload = useCallback(async () => {
+        setLoadError(null);
         try {
             const all = await apiService.getTasks();
             setTasks(all);
             setIsLoaded(true);
-        } catch {
+        } catch (err) {
+            console.error('[useHumanTasks] Failed to load tasks:', err);
+            setLoadError(err instanceof Error ? err.message : 'Failed to load tasks');
             setIsLoaded(true);
         }
     }, []);
@@ -112,5 +118,7 @@ export const useHumanTasks = (): UseHumanTasksReturn => {
         deleteTask,
         pendingCount,
         isLoaded,
+        loadError,
+        retry: reload,
     };
 };

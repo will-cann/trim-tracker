@@ -16,6 +16,8 @@ interface TasksPanelProps {
     onUpdateTask: (id: string, updates: Partial<HumanTask>) => Promise<void>;
     onDeleteTask: (id: string) => Promise<void>;
     pendingCount: number;
+    loadError?: string | null;
+    onRetry?: () => void;
 }
 
 const CATEGORY_CONFIG: Record<HumanTaskCategory, { icon: typeof ClipboardList; label: string; color: string; bg: string; dot: string }> = {
@@ -80,19 +82,54 @@ function isOverdue(iso: string): boolean {
     return new Date(iso) < new Date();
 }
 
+const CategoryPicker = ({
+    current,
+    onSelect,
+    onClose,
+}: {
+    current: HumanTaskCategory;
+    onSelect: (cat: HumanTaskCategory) => void;
+    onClose: () => void;
+}) => {
+    const categories = Object.entries(CATEGORY_CONFIG) as [HumanTaskCategory, typeof CATEGORY_CONFIG[HumanTaskCategory]][];
+    return (
+        <div className="absolute left-0 top-8 z-30 bg-white rounded-lg shadow-lg border border-gray-200 py-1 w-48 max-h-72 overflow-y-auto">
+            {categories.map(([key, cfg]) => {
+                const Icon = cfg.icon;
+                const isActive = key === current;
+                return (
+                    <button
+                        key={key}
+                        onClick={() => { onSelect(key); onClose(); }}
+                        className={`w-full flex items-center gap-2 px-3 py-1.5 text-sm transition-colors ${
+                            isActive ? 'bg-gray-100 font-medium' : 'hover:bg-gray-50'
+                        } ${cfg.color}`}
+                    >
+                        <Icon size={14} />
+                        {cfg.label}
+                    </button>
+                );
+            })}
+        </div>
+    );
+};
+
 const TaskRow = ({
     task,
     onUpdateStatus,
+    onUpdateTask,
     onDeleteTask,
     expanded,
     onToggleExpand,
 }: {
     task: HumanTask;
     onUpdateStatus: (id: string, status: HumanTaskStatus) => Promise<void>;
+    onUpdateTask: (id: string, updates: Partial<HumanTask>) => Promise<void>;
     onDeleteTask: (id: string) => Promise<void>;
     expanded: boolean;
     onToggleExpand: () => void;
 }) => {
+    const [showCategoryPicker, setShowCategoryPicker] = useState(false);
     const cat = CATEGORY_CONFIG[task.category] || CATEGORY_CONFIG.other;
     const pri = PRIORITY_CONFIG[task.priority];
     const CatIcon = cat.icon;
@@ -162,12 +199,27 @@ const TaskRow = ({
                     )}
                 </td>
 
-                {/* Category badge */}
+                {/* Category badge — click to edit */}
                 <td className="px-3 py-3 hidden sm:table-cell">
-                    <span className={`inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full border ${cat.bg} ${cat.color}`}>
-                        <CatIcon size={12} />
-                        {cat.label}
-                    </span>
+                    <div className="relative">
+                        <button
+                            onClick={() => setShowCategoryPicker(!showCategoryPicker)}
+                            className={`inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full border cursor-pointer hover:ring-2 hover:ring-offset-1 hover:ring-gray-200 transition-all ${cat.bg} ${cat.color}`}
+                        >
+                            <CatIcon size={12} />
+                            {cat.label}
+                        </button>
+                        {showCategoryPicker && (
+                            <>
+                                <div className="fixed inset-0 z-20" onClick={() => setShowCategoryPicker(false)} />
+                                <CategoryPicker
+                                    current={task.category}
+                                    onSelect={(newCat) => onUpdateTask(task.id, { category: newCat })}
+                                    onClose={() => setShowCategoryPicker(false)}
+                                />
+                            </>
+                        )}
+                    </div>
                 </td>
 
                 {/* Priority */}
@@ -241,9 +293,11 @@ export const TasksPanel = ({
     filters,
     onSetFilters,
     onUpdateStatus,
-    onUpdateTask: _onUpdateTask,
+    onUpdateTask,
     onDeleteTask,
     pendingCount,
+    loadError,
+    onRetry,
 }: TasksPanelProps) => {
     const [searchQuery, setSearchQuery] = useState('');
     const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -275,6 +329,19 @@ export const TasksPanel = ({
                     </div>
                 </div>
             </div>
+
+            {/* Load error banner */}
+            {loadError && (
+                <div className="mx-6 mt-2 flex items-center gap-3 px-4 py-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
+                    <span className="flex-1">Failed to load tasks: {loadError}</span>
+                    {onRetry && (
+                        <button onClick={onRetry} className="flex items-center gap-1.5 px-3 py-1 bg-red-100 hover:bg-red-200 rounded-md font-medium transition-colors">
+                            <RotateCcw size={13} />
+                            Retry
+                        </button>
+                    )}
+                </div>
+            )}
 
             {/* Search + Filters bar */}
             <div className="px-6 py-3 flex items-center gap-3 flex-wrap border-b border-gray-100">
@@ -385,6 +452,7 @@ export const TasksPanel = ({
                                     key={task.id}
                                     task={task}
                                     onUpdateStatus={onUpdateStatus}
+                                    onUpdateTask={onUpdateTask}
                                     onDeleteTask={onDeleteTask}
                                     expanded={expandedId === task.id}
                                     onToggleExpand={() => setExpandedId(expandedId === task.id ? null : task.id)}

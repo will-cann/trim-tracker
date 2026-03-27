@@ -307,6 +307,8 @@ function AppContent() {
             onUpdateTask={updateHumanTask}
             onDeleteTask={deleteHumanTask}
             pendingCount={taskPendingCount}
+            loadError={taskLoadError}
+            onRetry={retryLoadTasks}
           />
         ) : currentView === 'settings' ? (
           <SettingsPanel />
