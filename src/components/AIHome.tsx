@@ -1,11 +1,13 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import ReactMarkdown from 'react-markdown';
-import { Mic, MicOff, Upload, FileText, ArrowRight, Loader2, Pencil } from 'lucide-react';
+import { Upload, FileText, ArrowRight, Loader2, Pencil } from 'lucide-react';
 import { useDeepgram } from '../hooks/useDeepgram';
 import { useAIChat } from '../hooks/useAIChat';
 import { ActionPreview } from './ActionPreview';
 import { ActionResult } from './ActionResult';
-import type { TrimSession, TrimmerProfile, Harvest, ChatMessage, CreateTrimSessionDTO, License, HumanTask } from '../types/definitions';
+import { VoicePill } from './VoicePill';
+import { apiService } from '../services/apiService';
+import type { TrimSession, TrimmerProfile, Harvest, ChatMessage, CreateTrimSessionDTO, License, HumanTask, SpeechMode } from '../types/definitions';
 import logo from '../assets/logo.png';
 
 interface AIHomeProps {
@@ -53,61 +55,139 @@ export const AIHome: React.FC<AIHomeProps> = ({
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const conversationIdRef = useRef<string | null>(null);
 
-    // Deepgram for inline text input mic (action mode, push-to-talk style)
+    // Voice input — dual mode (action fills textarea, ambient auto-creates tasks)
+    const [voiceMode, setVoiceMode] = useState<SpeechMode>('action');
     const inlineTranscriptRef = useRef('');
     const [inlineInterim, setInlineInterim] = useState('');
     const [micError, setMicError] = useState<string | null>(null);
+    const voiceModeRef = useRef(voiceMode);
+    voiceModeRef.current = voiceMode;
+
+    // Build context for ambient mode AI parsing
+    const buildAmbientContext = useCallback(() => ({
+        hasActiveSession: !!session,
+        sessionId: session?.id,
+        trimmerProfiles: trimmerProfiles.map(p => ({ id: p.id, name: p.name })),
+        existingEntries: (session?.entries || []).map(e => ({
+            id: e.id, harvestName: e.harvestName, strain: e.strain, status: e.status,
+        })),
+        harvests: (harvests || []).map(h => ({
+            id: h.id, batchId: h.batchId, strain: h.strain, status: h.status,
+        })),
+        activeLicenseNumber: licenses.find(l => l.id === activeLicenseId)?.licenseNumber || undefined,
+        humanTasks: (humanTasks || []).map(t => ({
+            id: t.id, title: t.title, status: t.status, priority: t.priority,
+            category: t.category, assignee: t.assignee, location: t.location,
+        })),
+    }), [session, trimmerProfiles, harvests, activeLicenseId, licenses, humanTasks]);
+
+    // Ambient mode: auto-analyze transcript chunks into tasks
+    const analyzeAmbientChunk = useCallback(async (text: string) => {
+        if (!text.trim() || !onCreateHumanTasks) return;
+        try {
+            const result = await apiService.aiParse({
+                transcriptChunks: [text],
+                context: buildAmbientContext(),
+            });
+            if (result.actions.length > 0) {
+                const taskActions = result.actions.filter(a => a.type === 'create_human_task');
+                if (taskActions.length > 0) {
+                    await onCreateHumanTasks(taskActions.map(a => a.data as any));
+                }
+            }
+        } catch {
+            // Silent fail for ambient — don't interrupt the flow
+        }
+    }, [buildAmbientContext, onCreateHumanTasks]);
 
     const handleInlineTranscript = useCallback((text: string, isFinal: boolean) => {
-        if (isFinal) {
-            inlineTranscriptRef.current = inlineTranscriptRef.current
-                ? `${inlineTranscriptRef.current} ${text}`
-                : text;
-            setInputText(prev => {
-                const base = prev.replace(inlineInterim, '').trimEnd();
-                return base ? `${base} ${text}` : text;
-            });
-            setInlineInterim('');
+        if (voiceModeRef.current === 'action') {
+            // Action mode: fill the textarea
+            if (isFinal) {
+                inlineTranscriptRef.current = inlineTranscriptRef.current
+                    ? `${inlineTranscriptRef.current} ${text}`
+                    : text;
+                setInputText(prev => {
+                    const base = prev.replace(inlineInterim, '').trimEnd();
+                    return base ? `${base} ${text}` : text;
+                });
+                setInlineInterim('');
+            } else {
+                setInlineInterim(text);
+                setInputText(prev => {
+                    const base = inlineTranscriptRef.current || prev.replace(inlineInterim, '').trimEnd();
+                    return base ? `${base} ${text}` : text;
+                });
+            }
         } else {
-            setInlineInterim(text);
-            setInputText(prev => {
-                const base = inlineTranscriptRef.current || prev.replace(inlineInterim, '').trimEnd();
-                return base ? `${base} ${text}` : text;
-            });
+            // Ambient mode: accumulate transcript (shown in textarea as feedback)
+            if (isFinal) {
+                inlineTranscriptRef.current = inlineTranscriptRef.current
+                    ? `${inlineTranscriptRef.current} ${text}`
+                    : text;
+                setInputText(inlineTranscriptRef.current);
+                setInlineInterim('');
+            } else {
+                setInlineInterim(text);
+                setInputText(inlineTranscriptRef.current ? `${inlineTranscriptRef.current} ${text}` : text);
+            }
         }
     }, [inlineInterim]);
 
-    const handleInlineUtteranceEnd = useCallback(() => {
-        // Don't auto-send for inline mic — let user review and send
-    }, []);
+    const handleUtteranceEnd = useCallback(() => {
+        if (voiceModeRef.current === 'ambient' && inlineTranscriptRef.current.trim()) {
+            // Auto-analyze the accumulated transcript
+            const text = inlineTranscriptRef.current;
+            inlineTranscriptRef.current = '';
+            setInputText('');
+            analyzeAmbientChunk(text);
+        }
+        // Action mode: do nothing — user sends manually
+    }, [analyzeAmbientChunk]);
 
     const handleInlineError = useCallback((err: string) => {
         setMicError(err);
-        // Auto-clear after 5s
         setTimeout(() => setMicError(null), 5000);
     }, []);
 
     const { isListening: inlineListening, startListening: inlineStart, stopListening: inlineStop, error: deepgramError } = useDeepgram({
-        mode: 'action',
+        mode: voiceMode,
         onTranscript: handleInlineTranscript,
-        onUtteranceEnd: handleInlineUtteranceEnd,
+        onUtteranceEnd: handleUtteranceEnd,
         onError: handleInlineError,
     });
 
-    const handleInlineMicToggle = useCallback(async () => {
+    const handleVoiceToggle = useCallback(async () => {
         setMicError(null);
         if (inlineListening) {
+            // If ambient and there's remaining transcript, analyze it
+            if (voiceModeRef.current === 'ambient' && inlineTranscriptRef.current.trim()) {
+                analyzeAmbientChunk(inlineTranscriptRef.current);
+                inlineTranscriptRef.current = '';
+                setInputText('');
+            }
             inlineStop();
         } else {
-            inlineTranscriptRef.current = inputText;
+            inlineTranscriptRef.current = voiceMode === 'action' ? inputText : '';
             setInlineInterim('');
+            if (voiceMode === 'ambient') setInputText('');
             try {
                 await inlineStart();
             } catch (err) {
                 setMicError(err instanceof Error ? err.message : 'Failed to start mic');
             }
         }
-    }, [inlineListening, inlineStart, inlineStop, inputText]);
+    }, [inlineListening, inlineStart, inlineStop, inputText, voiceMode, analyzeAmbientChunk]);
+
+    const handleModeSwitch = useCallback((mode: SpeechMode) => {
+        if (inlineListening) {
+            inlineStop();
+        }
+        setVoiceMode(mode);
+        inlineTranscriptRef.current = '';
+        setInputText('');
+        setInlineInterim('');
+    }, [inlineListening, inlineStop]);
 
     const {
         messages,
@@ -292,18 +372,13 @@ export const AIHome: React.FC<AIHomeProps> = ({
                                 >
                                     <Upload size={16} />
                                 </button>
-                                <button
-                                    type="button"
-                                    onClick={handleInlineMicToggle}
-                                    className={`p-2 rounded-lg transition-colors ${
-                                        inlineListening
-                                            ? 'bg-red-100 text-red-500 hover:bg-red-200'
-                                            : 'text-gray-400 hover:text-gray-600 hover:bg-gray-100'
-                                    }`}
-                                    title={inlineListening ? 'Stop recording' : 'Voice input'}
-                                >
-                                    {inlineListening ? <MicOff size={16} /> : <Mic size={16} />}
-                                </button>
+                                <VoicePill
+                                    isListening={inlineListening}
+                                    mode={voiceMode}
+                                    onToggleListening={handleVoiceToggle}
+                                    onSwitchMode={handleModeSwitch}
+                                    error={micError || deepgramError}
+                                />
                                 <button
                                     type="submit"
                                     disabled={!inputText.trim() || isLoading || isExecuting}
@@ -485,7 +560,7 @@ export const AIHome: React.FC<AIHomeProps> = ({
                                     value={inputText}
                                     onChange={(e) => setInputText(e.target.value)}
                                     onKeyDown={handleKeyDown}
-                                    placeholder={pendingActions && pendingActions.length > 0 ? "Review actions above..." : "Type a message..."}
+                                    placeholder={pendingActions && pendingActions.length > 0 ? "Review actions above..." : inlineListening && voiceMode === 'ambient' ? "Listening... tasks will be created automatically" : "Type a message..."}
                                     rows={1}
                                     disabled={isLoading || isExecuting || !!(pendingActions && pendingActions.length > 0)}
                                     className="w-full px-4 py-3 border border-gray-200 rounded-xl resize-none
@@ -520,18 +595,13 @@ export const AIHome: React.FC<AIHomeProps> = ({
                                     }}
                                     className="hidden"
                                 />
-                                <button
-                                    type="button"
-                                    onClick={handleInlineMicToggle}
-                                    className={`p-2.5 rounded-lg transition-colors ${
-                                        inlineListening
-                                            ? 'bg-red-100 text-red-500'
-                                            : 'text-gray-400 hover:text-gray-600 hover:bg-gray-100'
-                                    }`}
-                                    title={inlineListening ? 'Stop' : 'Voice input'}
-                                >
-                                    {inlineListening ? <MicOff size={18} /> : <Mic size={18} />}
-                                </button>
+                                <VoicePill
+                                    isListening={inlineListening}
+                                    mode={voiceMode}
+                                    onToggleListening={handleVoiceToggle}
+                                    onSwitchMode={handleModeSwitch}
+                                    error={micError || deepgramError}
+                                />
                                 <button
                                     type="submit"
                                     disabled={!inputText.trim() || isLoading || isExecuting}

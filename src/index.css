@@ -2987,3 +2987,146 @@ body {
   overflow-y: auto;
   min-width: 260px;
 }
+
+/* ============================================================================
+   VOICE PILL — inline recording control
+   ============================================================================ */
+.voice-pill {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border-radius: 20px;
+  border: none;
+  background: #f3f4f6;
+  color: #6b7280;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-size: 0;
+  line-height: 0;
+}
+
+.voice-pill:hover {
+  background: #e5e7eb;
+  color: #374151;
+}
+
+.voice-pill-active {
+  background: var(--primary-color);
+  color: white;
+}
+
+.voice-pill-active:hover {
+  background: var(--primary-dark);
+  color: white;
+}
+
+.voice-pill-ambient {
+  background: #6366f1;
+}
+
+.voice-pill-ambient:hover {
+  background: #4f46e5;
+}
+
+.voice-pill-stop {
+  fill: currentColor;
+}
+
+/* Waveform animation — 3 bars */
+.voice-waveform {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  height: 16px;
+}
+
+.voice-bar {
+  display: block;
+  width: 3px;
+  height: 4px;
+  border-radius: 1.5px;
+  background: currentColor;
+  animation: voice-wave 0.6s ease-in-out infinite alternate;
+}
+
+@keyframes voice-wave {
+  0% { height: 4px; }
+  100% { height: 14px; }
+}
+
+/* Ambient dots — pulsing */
+.voice-ambient-dots {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  height: 16px;
+}
+
+.voice-ambient-dots span {
+  display: block;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: currentColor;
+  animation: ambient-pulse 1.2s ease-in-out infinite;
+}
+
+.voice-ambient-dots span:nth-child(2) {
+  animation-delay: 0.2s;
+}
+
+.voice-ambient-dots span:nth-child(3) {
+  animation-delay: 0.4s;
+}
+
+@keyframes ambient-pulse {
+  0%, 100% { opacity: 0.3; transform: scale(0.8); }
+  50% { opacity: 1; transform: scale(1.2); }
+}
+
+/* Mode selector menu */
+.voice-mode-menu {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  right: 0;
+  z-index: 50;
+  background: white;
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+  overflow: hidden;
+  min-width: 200px;
+}
+
+.voice-mode-option {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  width: 100%;
+  padding: 10px 14px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+  font-size: 0.8125rem;
+  color: var(--text-color);
+  transition: background-color 0.15s;
+}
+
+.voice-mode-option:first-child {
+  border-bottom: 1px solid #f3f4f6;
+}
+
+.voice-mode-option:hover {
+  background: #f9fafb;
+}
+
+.voice-mode-option.active {
+  background: var(--primary-light);
+}
+
+.voice-mode-option svg {
+  flex-shrink: 0;
+  margin-top: 2px;
+}
