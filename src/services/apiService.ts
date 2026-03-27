@@ -208,6 +208,7 @@ export const aiParse = async (request: {
         harvests?: Array<{ id: string; batchId: string; strain: string; status: string }>;
         humanTasks?: Array<{ id: string; title: string; status: string; priority: string; category: string; assignee?: string; location?: string }>;
         activeLicenseNumber?: string;
+        screenContext?: string;
     };
 }): Promise<{ actions: ProposedAction[]; message: string }> => {
     const response = await fetchWithAuth(`${API_BASE}/ai-parse`, {
@@ -509,6 +510,7 @@ export const executePlantAction = async (payload: {
     entityType: 'plants' | 'plantbatches';
     targetPhase?: string;
     targetRoomId?: string;
+    targetHarvestDate?: string;
     health?: number;
     contaminants?: string[];
     note?: string;

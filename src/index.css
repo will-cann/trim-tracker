@@ -3204,6 +3204,154 @@ body {
 .sidebar-ambient-dots span:nth-child(3) { animation-delay: 0.4s; }
 
 /* ============================================================================
+   CHATPANEL — Tabs, Ambient, Tooltips, Transcript
+   ============================================================================ */
+
+/* Tab bar */
+.chatpanel-tabs {
+  display: flex;
+  border-bottom: 1px solid #e5e7eb;
+  padding: 0 16px;
+  gap: 0;
+  background: white;
+}
+
+.chatpanel-tab {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 14px;
+  border: none;
+  background: transparent;
+  color: #9ca3af;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  transition: color 0.15s, border-color 0.15s;
+  position: relative;
+}
+
+.chatpanel-tab:hover {
+  color: #6b7280;
+}
+
+.chatpanel-tab.active {
+  color: var(--primary-color);
+  border-bottom-color: var(--primary-color);
+}
+
+.chatpanel-tab-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 9px;
+  background: var(--primary-color);
+  color: white;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  line-height: 1;
+}
+
+.chatpanel-tab-live {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #ef4444;
+  animation: chatpanel-live-pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes chatpanel-live-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.5; transform: scale(0.8); }
+}
+
+/* Ambient pulsing ring on button */
+.chatpanel-ambient-ring {
+  position: absolute;
+  inset: 1px;
+  border-radius: 8px;
+  border: 2px solid var(--primary-color);
+  animation: chatpanel-ring-pulse 2s ease-in-out infinite;
+  pointer-events: none;
+}
+
+@keyframes chatpanel-ring-pulse {
+  0%, 100% { opacity: 0.4; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.05); }
+}
+
+/* Ambient dot indicator in transcript header */
+.chatpanel-ambient-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--primary-color);
+  flex-shrink: 0;
+  animation: chatpanel-live-pulse 1.5s ease-in-out infinite;
+}
+
+/* FAB ambient indicator ring */
+.chatpanel-fab-ambient-ring {
+  position: absolute;
+  inset: -3px;
+  border-radius: 50%;
+  border: 2px solid var(--primary-color);
+  animation: chatpanel-ring-pulse 2s ease-in-out infinite;
+  pointer-events: none;
+}
+
+/* Tooltips */
+.chatpanel-tooltip {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 50%;
+  transform: translateX(-50%) scale(0.95);
+  white-space: nowrap;
+  padding: 6px 10px;
+  background: #1f2937;
+  color: white;
+  font-size: 0.6875rem;
+  border-radius: 6px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s, transform 0.15s;
+  z-index: 50;
+  line-height: 1.3;
+}
+
+.chatpanel-tooltip::after {
+  content: '';
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  border: 4px solid transparent;
+  border-top-color: #1f2937;
+}
+
+.group:hover .chatpanel-tooltip {
+  opacity: 1;
+  transform: translateX(-50%) scale(1);
+}
+
+/* Transcript entries */
+.chatpanel-transcript-entry {
+  padding: 8px;
+  border-radius: 8px;
+  background: #f9fafb;
+  border: 1px solid #f3f4f6;
+}
+
+.chatpanel-transcript-entry + .chatpanel-transcript-entry {
+  margin-top: 8px;
+}
+
+/* ============================================================================
    PLANT MAP
    ============================================================================ */
 

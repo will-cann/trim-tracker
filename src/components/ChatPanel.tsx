@@ -1,56 +1,221 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import ReactMarkdown from 'react-markdown';
-import { X, Mic, MicOff, Upload, ArrowRight, Loader2 } from 'lucide-react';
+import {
+    X, Mic, MicOff, Radio, Upload, ArrowRight, Loader2,
+    MessageSquare, ListTodo, FileText,
+    CheckCircle2, Circle, Clock, Trash2,
+} from 'lucide-react';
 import { useDeepgram } from '../hooks/useDeepgram';
 import { useAIChat } from '../hooks/useAIChat';
 import { ActionPreview } from './ActionPreview';
-import type { TrimSession, TrimmerProfile, Harvest } from '../types/definitions';
+import { apiService } from '../services/apiService';
+import type { TrimSession, TrimmerProfile, Harvest, HumanTask, HumanTaskStatus, SpeechMode } from '../types/definitions';
 import logo from '../assets/logo.png';
+
+type PanelTab = 'chat' | 'tasks' | 'transcript';
+
+interface TranscriptEntry {
+    id: string;
+    text: string;
+    timestamp: Date;
+    status: 'processing' | 'created' | 'no_action' | 'error';
+}
 
 interface ChatPanelProps {
     session: TrimSession | null;
     trimmerProfiles: TrimmerProfile[];
     harvests?: Harvest[];
     onSessionUpdate: () => Promise<void>;
+    screenContext?: string;
+    // Task props
+    tasks?: HumanTask[];
+    onUpdateTaskStatus?: (id: string, status: HumanTaskStatus) => void;
+    onDeleteTask?: (id: string) => void;
+    onCreateHumanTasks?: (tasks: Array<{ title: string; description?: string; priority: string; category: string; dueDate?: string; assignee?: string; location?: string }>) => Promise<void>;
+    taskPendingCount?: number;
+    onViewAllTasks?: () => void;
 }
 
-export const ChatPanel: React.FC<ChatPanelProps> = ({ session, trimmerProfiles, harvests, onSessionUpdate }) => {
+// --- Task list helpers ---
+const PRIORITY_DOT: Record<string, string> = {
+    urgent: 'bg-red-500',
+    high: 'bg-amber-500',
+    medium: 'bg-blue-400',
+    low: 'bg-gray-300',
+};
+
+const STATUS_ICON: Record<string, React.ReactNode> = {
+    pending: <Circle size={14} className="text-gray-300" />,
+    in_progress: <Clock size={14} className="text-amber-500" />,
+    completed: <CheckCircle2 size={14} className="text-emerald-500" />,
+};
+
+function nextStatus(current: HumanTaskStatus): HumanTaskStatus {
+    switch (current) {
+        case 'pending': return 'in_progress';
+        case 'in_progress': return 'completed';
+        case 'completed': return 'pending';
+        default: return 'pending';
+    }
+}
+
+export const ChatPanel: React.FC<ChatPanelProps> = ({
+    session,
+    trimmerProfiles,
+    harvests,
+    onSessionUpdate,
+    screenContext,
+    tasks = [],
+    onUpdateTaskStatus,
+    onDeleteTask,
+    onCreateHumanTasks,
+    taskPendingCount = 0,
+    onViewAllTasks,
+}) => {
     const [isOpen, setIsOpen] = useState(false);
+    const [activeTab, setActiveTab] = useState<PanelTab>('chat');
     const [inputText, setInputText] = useState('');
     const messagesEndRef = useRef<HTMLDivElement>(null);
+    const transcriptEndRef = useRef<HTMLDivElement>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
-    // Deepgram for inline mic (action mode)
-    const [micActive, setMicActive] = useState(false);
-    const transcriptRef = useRef('');
+    // --- Action mic state ---
+    const [actionMicActive, setActionMicActive] = useState(false);
+    const actionTranscriptRef = useRef('');
 
-    const handleTranscript = useCallback((text: string, isFinal: boolean) => {
+    // --- Ambient state ---
+    const [ambientActive, setAmbientActive] = useState(false);
+    const ambientTranscriptRef = useRef('');
+    const [transcriptEntries, setTranscriptEntries] = useState<TranscriptEntry[]>([]);
+    const prevTabRef = useRef<PanelTab>('chat');
+
+    // --- Action mic deepgram ---
+    const handleActionTranscript = useCallback((text: string, isFinal: boolean) => {
         if (isFinal) {
-            transcriptRef.current = transcriptRef.current
-                ? `${transcriptRef.current} ${text}`
+            actionTranscriptRef.current = actionTranscriptRef.current
+                ? `${actionTranscriptRef.current} ${text}`
                 : text;
-            setInputText(transcriptRef.current);
+            setInputText(actionTranscriptRef.current);
         } else {
-            setInputText(transcriptRef.current ? `${transcriptRef.current} ${text}` : text);
+            setInputText(actionTranscriptRef.current ? `${actionTranscriptRef.current} ${text}` : text);
         }
     }, []);
 
-    const { isListening, startListening, stopListening } = useDeepgram({
-        mode: 'action',
-        onTranscript: handleTranscript,
+    const {
+        isListening: actionListening,
+        startListening: actionStart,
+        stopListening: actionStop,
+    } = useDeepgram({
+        mode: 'action' as SpeechMode,
+        onTranscript: handleActionTranscript,
     });
 
-    const handleMicToggle = useCallback(async () => {
-        if (isListening) {
-            stopListening();
-            setMicActive(false);
+    const handleActionMicToggle = useCallback(async () => {
+        if (actionListening) {
+            actionStop();
+            setActionMicActive(false);
         } else {
-            transcriptRef.current = inputText;
-            setMicActive(true);
-            await startListening();
+            actionTranscriptRef.current = inputText;
+            setActionMicActive(true);
+            await actionStart();
         }
-    }, [isListening, startListening, stopListening, inputText]);
+    }, [actionListening, actionStart, actionStop, inputText]);
 
+    // --- Ambient deepgram ---
+    const buildAmbientContext = useCallback(() => ({
+        hasActiveSession: !!session,
+        sessionId: session?.id,
+        trimmerProfiles: trimmerProfiles.map(p => ({ id: p.id, name: p.name })),
+        existingEntries: (session?.entries || []).map(e => ({
+            id: e.id, harvestName: e.harvestName, strain: e.strain, status: e.status,
+        })),
+        harvests: (harvests || []).map(h => ({
+            id: h.id, batchId: h.batchId, strain: h.strain, status: h.status,
+        })),
+        screenContext,
+    }), [session, trimmerProfiles, harvests, screenContext]);
+
+    const analyzeAmbientChunk = useCallback(async (text: string) => {
+        if (!text.trim() || !onCreateHumanTasks) return;
+
+        const entryId = crypto.randomUUID();
+        const entry: TranscriptEntry = {
+            id: entryId,
+            text,
+            timestamp: new Date(),
+            status: 'processing',
+        };
+        setTranscriptEntries(prev => [...prev, entry]);
+
+        try {
+            const result = await apiService.aiParse({
+                transcriptChunks: [text],
+                context: buildAmbientContext(),
+            });
+            const taskActions = result.actions.filter(a => a.type === 'create_human_task');
+            if (taskActions.length > 0) {
+                await onCreateHumanTasks(taskActions.map(a => a.data as any));
+                setTranscriptEntries(prev =>
+                    prev.map(e => e.id === entryId ? { ...e, status: 'created' as const } : e)
+                );
+            } else {
+                setTranscriptEntries(prev =>
+                    prev.map(e => e.id === entryId ? { ...e, status: 'no_action' as const } : e)
+                );
+            }
+        } catch {
+            setTranscriptEntries(prev =>
+                prev.map(e => e.id === entryId ? { ...e, status: 'error' as const } : e)
+            );
+        }
+    }, [buildAmbientContext, onCreateHumanTasks]);
+
+    const handleAmbientTranscript = useCallback((text: string, isFinal: boolean) => {
+        if (isFinal) {
+            ambientTranscriptRef.current = ambientTranscriptRef.current
+                ? `${ambientTranscriptRef.current} ${text}`
+                : text;
+        }
+    }, []);
+
+    const handleAmbientUtteranceEnd = useCallback(() => {
+        if (ambientTranscriptRef.current.trim()) {
+            const text = ambientTranscriptRef.current;
+            ambientTranscriptRef.current = '';
+            analyzeAmbientChunk(text);
+        }
+    }, [analyzeAmbientChunk]);
+
+    const {
+        isListening: ambientListening,
+        startListening: ambientStart,
+        stopListening: ambientStop,
+    } = useDeepgram({
+        mode: 'ambient' as SpeechMode,
+        onTranscript: handleAmbientTranscript,
+        onUtteranceEnd: handleAmbientUtteranceEnd,
+    });
+
+    const handleAmbientToggle = useCallback(async () => {
+        if (ambientListening) {
+            // Flush remaining transcript
+            if (ambientTranscriptRef.current.trim()) {
+                analyzeAmbientChunk(ambientTranscriptRef.current);
+                ambientTranscriptRef.current = '';
+            }
+            ambientStop();
+            setAmbientActive(false);
+        } else {
+            ambientTranscriptRef.current = '';
+            setAmbientActive(true);
+            // Auto-switch to transcript tab
+            prevTabRef.current = activeTab;
+            setActiveTab('transcript');
+            await ambientStart();
+        }
+    }, [ambientListening, ambientStart, ambientStop, analyzeAmbientChunk, activeTab]);
+
+    // --- Chat hook ---
     const {
         messages,
         isLoading,
@@ -61,22 +226,27 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ session, trimmerProfiles, 
         confirmActions,
         cancelActions,
         editAction,
-    } = useAIChat({ session, trimmerProfiles, harvests, onSessionUpdate });
+    } = useAIChat({ session, trimmerProfiles, harvests, onSessionUpdate, screenContext });
 
-    // Auto-scroll to bottom
+    // Auto-scroll chat
     useEffect(() => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     }, [messages, pendingActions]);
+
+    // Auto-scroll transcript
+    useEffect(() => {
+        transcriptEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }, [transcriptEntries]);
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
         if (!inputText.trim() || isLoading) return;
         sendMessage(inputText.trim());
         setInputText('');
-        transcriptRef.current = '';
-        if (isListening) {
-            stopListening();
-            setMicActive(false);
+        actionTranscriptRef.current = '';
+        if (actionListening) {
+            actionStop();
+            setActionMicActive(false);
         }
     };
 
@@ -88,14 +258,8 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ session, trimmerProfiles, 
     };
 
     const handleFileUpload = (file: File) => {
-        if (!file.name.endsWith('.csv')) {
-            alert('Please upload a CSV file.');
-            return;
-        }
-        if (file.size > 1024 * 1024) {
-            alert('File is too large. Please upload a CSV under 1MB.');
-            return;
-        }
+        if (!file.name.endsWith('.csv')) return;
+        if (file.size > 1024 * 1024) return;
         const reader = new FileReader();
         reader.onload = (e) => {
             const text = e.target?.result as string;
@@ -104,9 +268,23 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ session, trimmerProfiles, 
         reader.readAsText(file);
     };
 
+    // Task list — sorted
+    const sortedTasks = [...tasks].sort((a, b) => {
+        const order: Record<string, number> = { pending: 0, in_progress: 1, completed: 2 };
+        const diff = (order[a.status] ?? 4) - (order[b.status] ?? 4);
+        if (diff !== 0) return diff;
+        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+    });
+    const visibleTasks = sortedTasks.slice(0, 30);
+
+    const showTranscriptTab = ambientActive || transcriptEntries.length > 0;
+
+    const formatTime = (d: Date) =>
+        d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+
     return (
         <>
-            {/* Floating Button — only show when panel is closed */}
+            {/* Floating open button */}
             {!isOpen && (
                 <button
                     onClick={() => setIsOpen(true)}
@@ -116,10 +294,14 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ session, trimmerProfiles, 
                     title="AI Assistant"
                 >
                     <img src={logo} alt="AI" className="w-6 h-6 object-contain brightness-0 invert" />
+                    {/* Ambient indicator on FAB */}
+                    {ambientActive && (
+                        <span className="chatpanel-fab-ambient-ring" />
+                    )}
                 </button>
             )}
 
-            {/* Panel Overlay */}
+            {/* Overlay */}
             {isOpen && (
                 <div
                     className="fixed inset-0 bg-black/20 z-40"
@@ -134,7 +316,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ session, trimmerProfiles, 
                            transition-transform duration-300 ease-in-out
                            ${isOpen ? 'translate-x-0' : 'translate-x-full'}`}
             >
-                {/* Panel Header */}
+                {/* Header */}
                 <div className="flex items-center gap-3 px-4 py-3 border-b border-gray-200 bg-gray-50">
                     <div className="w-8 h-8 rounded-lg bg-emerald-50 flex items-center justify-center overflow-hidden">
                         <img src={logo} alt="AI" className="w-5 h-5 object-contain" />
@@ -151,74 +333,238 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ session, trimmerProfiles, 
                     </button>
                 </div>
 
-                {/* Messages */}
-                <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3">
-                    {messages.length === 0 && (
-                        <div className="text-center py-8">
-                            <img src={logo} alt="" className="w-8 h-8 object-contain opacity-20 mx-auto mb-3" />
-                            <p className="text-sm text-gray-400">
-                                Tell me what you need — add batches, assign trimmers, or upload a CSV.
-                            </p>
-                            <div className="mt-4 space-y-2">
-                                {[
-                                    'Add 3 batches of Blue Dream',
-                                    'Assign Maria to the OG Kush batch at 8am',
-                                    'Add a new trimmer Carlos to the roster',
-                                ].map((suggestion) => (
-                                    <button
-                                        key={suggestion}
-                                        onClick={() => setInputText(suggestion)}
-                                        className="block w-full text-left text-xs text-gray-500 px-3 py-2
-                                                   rounded-lg border border-gray-100 hover:border-emerald-200
-                                                   hover:bg-emerald-50 transition-colors"
-                                    >
-                                        "{suggestion}"
-                                    </button>
-                                ))}
-                            </div>
-                        </div>
-                    )}
-
-                    {messages.map((msg) => (
-                        <div
-                            key={msg.id}
-                            className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
+                {/* Tab bar */}
+                <div className="chatpanel-tabs">
+                    <button
+                        className={`chatpanel-tab ${activeTab === 'chat' ? 'active' : ''}`}
+                        onClick={() => setActiveTab('chat')}
+                    >
+                        <MessageSquare size={14} />
+                        Chat
+                    </button>
+                    <button
+                        className={`chatpanel-tab ${activeTab === 'tasks' ? 'active' : ''}`}
+                        onClick={() => setActiveTab('tasks')}
+                    >
+                        <ListTodo size={14} />
+                        Tasks
+                        {taskPendingCount > 0 && (
+                            <span className="chatpanel-tab-badge">{taskPendingCount}</span>
+                        )}
+                    </button>
+                    {showTranscriptTab && (
+                        <button
+                            className={`chatpanel-tab ${activeTab === 'transcript' ? 'active' : ''}`}
+                            onClick={() => setActiveTab('transcript')}
                         >
-                            <div
-                                className={`chat-bubble max-w-[85%] rounded-2xl px-3 py-2 text-sm ${
-                                    msg.role === 'user'
-                                        ? 'bg-emerald-500 text-white'
-                                        : 'bg-gray-100 text-gray-800'
-                                }`}
-                            >
-                                <ReactMarkdown>{msg.content}</ReactMarkdown>
-                            </div>
-                        </div>
-                    ))}
-
-                    {isLoading && (
-                        <div className="flex justify-start">
-                            <div className="bg-gray-100 rounded-2xl px-4 py-2">
-                                <Loader2 size={16} className="animate-spin text-gray-400" />
-                            </div>
-                        </div>
+                            <FileText size={14} />
+                            Transcript
+                            {ambientActive && (
+                                <span className="chatpanel-tab-live" />
+                            )}
+                        </button>
                     )}
-
-                    {/* Inline Action Preview */}
-                    {pendingActions && pendingActions.length > 0 && (
-                        <ActionPreview
-                            actions={pendingActions}
-                            onConfirm={confirmActions}
-                            onCancel={cancelActions}
-                            onEditAction={editAction}
-                            isExecuting={isExecuting}
-                        />
-                    )}
-
-                    <div ref={messagesEndRef} />
                 </div>
 
-                {/* Input Bar */}
+                {/* Tab content */}
+                <div className="flex-1 overflow-y-auto">
+                    {/* === CHAT TAB === */}
+                    {activeTab === 'chat' && (
+                        <div className="px-4 py-3 space-y-3">
+                            {messages.length === 0 && (
+                                <div className="text-center py-8">
+                                    <img src={logo} alt="" className="w-8 h-8 object-contain opacity-20 mx-auto mb-3" />
+                                    <p className="text-sm text-gray-400">
+                                        Tell me what you need — add batches, assign trimmers, or upload a CSV.
+                                    </p>
+                                    <div className="mt-4 space-y-2">
+                                        {[
+                                            'Add 3 batches of Blue Dream',
+                                            'Assign Maria to the OG Kush batch at 8am',
+                                            'Add a new trimmer Carlos to the roster',
+                                        ].map((suggestion) => (
+                                            <button
+                                                key={suggestion}
+                                                onClick={() => setInputText(suggestion)}
+                                                className="block w-full text-left text-xs text-gray-500 px-3 py-2
+                                                           rounded-lg border border-gray-100 hover:border-emerald-200
+                                                           hover:bg-emerald-50 transition-colors"
+                                            >
+                                                "{suggestion}"
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+
+                            {messages.map((msg) => (
+                                <div
+                                    key={msg.id}
+                                    className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
+                                >
+                                    <div
+                                        className={`chat-bubble max-w-[85%] rounded-2xl px-3 py-2 text-sm ${
+                                            msg.role === 'user'
+                                                ? 'bg-emerald-500 text-white'
+                                                : 'bg-gray-100 text-gray-800'
+                                        }`}
+                                    >
+                                        <ReactMarkdown>{msg.content}</ReactMarkdown>
+                                    </div>
+                                </div>
+                            ))}
+
+                            {isLoading && (
+                                <div className="flex justify-start">
+                                    <div className="bg-gray-100 rounded-2xl px-4 py-2">
+                                        <Loader2 size={16} className="animate-spin text-gray-400" />
+                                    </div>
+                                </div>
+                            )}
+
+                            {pendingActions && pendingActions.length > 0 && (
+                                <ActionPreview
+                                    actions={pendingActions}
+                                    onConfirm={confirmActions}
+                                    onCancel={cancelActions}
+                                    onEditAction={editAction}
+                                    isExecuting={isExecuting}
+                                />
+                            )}
+
+                            <div ref={messagesEndRef} />
+                        </div>
+                    )}
+
+                    {/* === TASKS TAB === */}
+                    {activeTab === 'tasks' && (
+                        <div className="px-4 py-3">
+                            <div className="flex items-center justify-between mb-3">
+                                <div className="flex items-center gap-2">
+                                    <h3 className="text-sm font-semibold text-gray-700">Tasks</h3>
+                                    {taskPendingCount > 0 && (
+                                        <span className="text-xs bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded-full font-medium">
+                                            {taskPendingCount}
+                                        </span>
+                                    )}
+                                </div>
+                                {onViewAllTasks && (
+                                    <button
+                                        onClick={onViewAllTasks}
+                                        className="text-xs text-emerald-600 hover:text-emerald-700 transition-colors font-medium"
+                                    >
+                                        View all
+                                    </button>
+                                )}
+                            </div>
+
+                            {visibleTasks.length === 0 ? (
+                                <div className="flex flex-col items-center justify-center py-8 text-gray-400">
+                                    <ListTodo size={24} className="mb-2" />
+                                    <p className="text-xs">No tasks yet</p>
+                                    <p className="text-xs mt-0.5 text-gray-300">Ask the AI or use ambient mode to create tasks</p>
+                                </div>
+                            ) : (
+                                <div className="space-y-0.5">
+                                    {visibleTasks.map(task => (
+                                        <div
+                                            key={task.id}
+                                            className={`group flex items-start gap-2 px-2 py-2 rounded-md transition-colors hover:bg-gray-50 ${
+                                                task.status === 'completed' ? 'opacity-50' : ''
+                                            }`}
+                                        >
+                                            <button
+                                                onClick={() => onUpdateTaskStatus?.(task.id, nextStatus(task.status))}
+                                                className="flex-shrink-0 mt-0.5 hover:scale-110 transition-transform"
+                                                title={`Status: ${task.status} — click to advance`}
+                                            >
+                                                {STATUS_ICON[task.status]}
+                                            </button>
+                                            <div className="flex-1 min-w-0">
+                                                <p className={`text-sm leading-tight truncate ${
+                                                    task.status === 'completed' ? 'line-through text-gray-400' : 'text-gray-800'
+                                                }`}>
+                                                    {task.title}
+                                                </p>
+                                                <div className="flex items-center gap-1.5 mt-0.5">
+                                                    <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${PRIORITY_DOT[task.priority] || PRIORITY_DOT.medium}`} />
+                                                    <span className="text-xs text-gray-400 truncate">
+                                                        {task.category}{task.assignee ? ` · ${task.assignee}` : ''}
+                                                    </span>
+                                                </div>
+                                            </div>
+                                            <button
+                                                onClick={() => onDeleteTask?.(task.id)}
+                                                className="flex-shrink-0 opacity-0 group-hover:opacity-100 p-0.5 text-gray-300 hover:text-red-500 transition-all"
+                                                title="Delete task"
+                                            >
+                                                <Trash2 size={12} />
+                                            </button>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                    )}
+
+                    {/* === TRANSCRIPT TAB === */}
+                    {activeTab === 'transcript' && (
+                        <div className="px-4 py-3">
+                            {ambientActive && (
+                                <div className="flex items-center gap-2 mb-3 px-2 py-1.5 rounded-lg bg-emerald-50 border border-emerald-200">
+                                    <span className="chatpanel-ambient-dot" />
+                                    <span className="text-xs text-emerald-700 font-medium">Listening — tasks created automatically</span>
+                                </div>
+                            )}
+
+                            {transcriptEntries.length === 0 ? (
+                                <div className="flex flex-col items-center justify-center py-8 text-gray-400">
+                                    <FileText size={24} className="mb-2" />
+                                    <p className="text-xs">No transcript yet</p>
+                                    <p className="text-xs mt-0.5 text-gray-300">
+                                        {ambientActive ? 'Start speaking — utterances appear here' : 'Enable ambient mode to start transcribing'}
+                                    </p>
+                                </div>
+                            ) : (
+                                <div className="space-y-3">
+                                    {transcriptEntries.map(entry => (
+                                        <div key={entry.id} className="chatpanel-transcript-entry">
+                                            <div className="flex items-start gap-2">
+                                                <span className="text-xs text-gray-400 whitespace-nowrap mt-0.5">
+                                                    {formatTime(entry.timestamp)}
+                                                </span>
+                                                <p className="text-sm text-gray-700 flex-1">"{entry.text}"</p>
+                                            </div>
+                                            <div className="ml-12 mt-1">
+                                                {entry.status === 'processing' && (
+                                                    <span className="inline-flex items-center gap-1 text-xs text-amber-600">
+                                                        <Loader2 size={10} className="animate-spin" />
+                                                        Processing...
+                                                    </span>
+                                                )}
+                                                {entry.status === 'created' && (
+                                                    <span className="inline-flex items-center gap-1 text-xs text-emerald-600">
+                                                        <CheckCircle2 size={10} />
+                                                        Created task
+                                                    </span>
+                                                )}
+                                                {entry.status === 'no_action' && (
+                                                    <span className="text-xs text-gray-400">No action needed</span>
+                                                )}
+                                                {entry.status === 'error' && (
+                                                    <span className="text-xs text-red-400">Failed to process</span>
+                                                )}
+                                            </div>
+                                        </div>
+                                    ))}
+                                    <div ref={transcriptEndRef} />
+                                </div>
+                            )}
+                        </div>
+                    )}
+                </div>
+
+                {/* Input bar — always visible */}
                 <div className="border-t border-gray-200 px-3 py-3 bg-white">
                     <form onSubmit={handleSubmit} className="flex items-end gap-2">
                         <div className="flex-1 relative">
@@ -226,9 +572,13 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ session, trimmerProfiles, 
                                 value={inputText}
                                 onChange={(e) => setInputText(e.target.value)}
                                 onKeyDown={handleKeyDown}
-                                placeholder="Type a message..."
+                                placeholder={
+                                    actionMicActive ? 'Listening...' :
+                                    pendingActions && pendingActions.length > 0 ? 'Review actions above...' :
+                                    'Type a message...'
+                                }
                                 rows={1}
-                                disabled={isLoading || isExecuting}
+                                disabled={isLoading || isExecuting || !!(pendingActions && pendingActions.length > 0)}
                                 className="w-full px-3 py-2 border border-gray-200 rounded-xl resize-none
                                            text-sm text-gray-800 placeholder-gray-400
                                            focus:outline-none focus:ring-1 focus:ring-emerald-400 focus:border-emerald-400
@@ -264,19 +614,46 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ session, trimmerProfiles, 
                                 className="hidden"
                             />
 
-                            {/* Mic */}
-                            <button
-                                type="button"
-                                onClick={handleMicToggle}
-                                className={`p-2 rounded-lg transition-colors ${
-                                    micActive
-                                        ? 'bg-red-100 text-red-500'
-                                        : 'text-gray-400 hover:text-gray-600 hover:bg-gray-100'
-                                }`}
-                                title={micActive ? 'Stop' : 'Voice input'}
-                            >
-                                {micActive ? <MicOff size={16} /> : <Mic size={16} />}
-                            </button>
+                            {/* Action Mic */}
+                            <div className="relative group">
+                                <button
+                                    type="button"
+                                    onClick={handleActionMicToggle}
+                                    className={`p-2 rounded-lg transition-colors ${
+                                        actionMicActive
+                                            ? 'bg-red-100 text-red-500'
+                                            : 'text-gray-400 hover:text-gray-600 hover:bg-gray-100'
+                                    }`}
+                                    title={actionMicActive ? 'Stop dictation' : 'Voice command — speak, then send'}
+                                >
+                                    {actionMicActive ? <MicOff size={16} /> : <Mic size={16} />}
+                                </button>
+                                <div className="chatpanel-tooltip">
+                                    {actionMicActive ? 'Stop dictation' : 'Voice command — speak, then send'}
+                                </div>
+                            </div>
+
+                            {/* Ambient Toggle */}
+                            <div className="relative group">
+                                <button
+                                    type="button"
+                                    onClick={handleAmbientToggle}
+                                    className={`p-2 rounded-lg transition-colors relative ${
+                                        ambientActive
+                                            ? 'text-emerald-600'
+                                            : 'text-gray-400 hover:text-gray-600 hover:bg-gray-100'
+                                    }`}
+                                    title={ambientActive ? 'Stop ambient listening' : 'Ambient — transcribes speech in background'}
+                                >
+                                    <Radio size={16} />
+                                    {ambientActive && (
+                                        <span className="chatpanel-ambient-ring" />
+                                    )}
+                                </button>
+                                <div className="chatpanel-tooltip">
+                                    {ambientActive ? 'Stop ambient listening' : 'Ambient — transcribes speech in background'}
+                                </div>
+                            </div>
 
                             {/* Send */}
                             <button

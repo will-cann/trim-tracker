@@ -56,6 +56,15 @@ You understand the FULL range of cannabis cultivation, processing, and manufactu
 - If the user mentions a location/room, capture it in the location field
 - If the user mentions a deadline or timeframe, set an appropriate dueDate
 
+## Screen Context Awareness
+
+The user's current screen context will be provided in the application state. This tells you what module, page, or view the user is currently looking at. **Always use screen context to disambiguate user intent.** For example:
+- If the user is on the **Plant Map** and says "move the ice cream cake", they mean move the **plants** (not a harvest record).
+- If the user is on the **Trim Session** view and says "add OG Kush", they mean add a **batch** to the session.
+- If the user is on the **Harvest Tracker** and says "move ice cream cake to flower room 2", they mean move a **harvest** drying location.
+
+The screen context is your strongest signal for what the user intends. Prefer it over guessing. If the screen context conflicts with your interpretation, trust the screen context. If the user's request is still ambiguous even with screen context, ask a brief clarifying question rather than assuming.
+
 Be conversational in your text responses but always use tools to represent the structured data.`;
 
 const tools = [
@@ -403,6 +412,7 @@ interface AIParseRequest {
         existingEntries: Array<{ id: string; harvestName: string; strain: string; status: string }>;
         harvests?: Array<{ id: string; batchId: string; strain: string; status: string }>;
         humanTasks?: Array<{ id: string; title: string; status: string; priority: string; category: string; assignee?: string; location?: string }>;
+        screenContext?: string;
     };
 }
 
@@ -443,8 +453,13 @@ export const handler: Handler = async (event) => {
         // Add context about current state
         const contextInfo = [
             `\n\nCurrent application state:`,
-            `- Active session: ${request.context.hasActiveSession ? 'Yes (ID: ' + request.context.sessionId + ')' : 'No active session'}`,
         ];
+
+        if (request.context.screenContext) {
+            contextInfo.push(`- **User is currently viewing: ${request.context.screenContext}** (use this to interpret their intent)`);
+        }
+
+        contextInfo.push(`- Active session: ${request.context.hasActiveSession ? 'Yes (ID: ' + request.context.sessionId + ')' : 'No active session'}`);
 
         if (request.context.trimmerProfiles.length > 0) {
             contextInfo.push(`- Trimmer roster: ${request.context.trimmerProfiles.map(p => `${p.name} (ID: ${p.id})`).join(', ')}`);

@@ -20,6 +20,16 @@ import { PlantMapDashboard } from './components/PlantMap/PlantMapDashboard';
 
 type ViewType = 'ai' | 'dashboard' | 'reports' | 'harvests' | 'settings' | 'tasks' | 'plant-map';
 
+const VIEW_SCREEN_CONTEXT: Record<ViewType, string> = {
+  'ai': 'AI Assistant home — general conversation, no specific module focused',
+  'dashboard': 'Trim Session Dashboard — managing active trim sessions, batches, and trimmer assignments',
+  'reports': 'Reports & Analytics — viewing trimmer productivity and session reports',
+  'harvests': 'Harvest Tracker — managing harvest records, wet weights, drying locations, and allocations',
+  'settings': 'Settings — managing licenses, strains, and app configuration',
+  'tasks': 'Tasks Panel — viewing and managing human tasks and operational to-dos',
+  'plant-map': 'Plant Map — viewing rooms, plants by growth phase (veg, flower, dry, cure), and plant locations. Operations here involve moving plants between rooms, updating plant health, and managing room assignments',
+};
+
 function AppContent() {
   const { user, loading: authLoading } = useAuth();
   const [session, setSession] = useState<TrimSession | null>(null);
@@ -297,6 +307,7 @@ function AppContent() {
             humanTasks={humanTasks}
             injectedVoiceText={voiceInjectedText}
             onClearInjectedText={() => setVoiceInjectedText(null)}
+            screenContext={VIEW_SCREEN_CONTEXT[currentView]}
           />
         ) : currentView === 'tasks' ? (
           <TasksPanel
@@ -376,6 +387,13 @@ function AppContent() {
             trimmerProfiles={trimmerProfiles}
             harvests={harvests}
             onSessionUpdate={refreshAll}
+            screenContext={VIEW_SCREEN_CONTEXT[currentView]}
+            tasks={humanTasks}
+            onUpdateTaskStatus={updateTaskStatus}
+            onDeleteTask={deleteHumanTask}
+            onCreateHumanTasks={handleCreateHumanTasks}
+            taskPendingCount={taskPendingCount}
+            onViewAllTasks={() => setCurrentView('tasks')}
           />
         )}
 
@@ -391,8 +409,8 @@ function AppContent() {
           />
         )}
 
-        {/* Task panel + voice controls — right side, all views */}
-        {(
+        {/* Task panel edge controls — only on AI home and reports (where ChatPanel isn't shown) */}
+        {(currentView === 'ai' || currentView === 'reports') && (
           <TaskRightPanel
             tasks={humanTasks}
             isOpen={isTaskPanelOpen}

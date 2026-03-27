@@ -30,6 +30,7 @@ interface AIHomeProps {
     humanTasks?: HumanTask[];
     injectedVoiceText?: string | null;
     onClearInjectedText?: () => void;
+    screenContext?: string;
 }
 
 export const AIHome: React.FC<AIHomeProps> = ({
@@ -51,6 +52,7 @@ export const AIHome: React.FC<AIHomeProps> = ({
     humanTasks,
     injectedVoiceText,
     onClearInjectedText,
+    screenContext,
 }) => {
     const [inputText, setInputText] = useState('');
     const [isDragOver, setIsDragOver] = useState(false);
@@ -227,6 +229,7 @@ export const AIHome: React.FC<AIHomeProps> = ({
             assignee: t.assignee,
             location: t.location,
         })),
+        screenContext,
     });
 
     // Load conversation when conversationId changes

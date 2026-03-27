@@ -74,6 +74,7 @@ interface UseAIChatOptions {
     onUpdateHumanTask?: (id: string, updates: Record<string, any>) => Promise<void>;
     onDeleteHumanTask?: (id: string) => Promise<void>;
     humanTasks?: Array<{ id: string; title: string; status: string; priority: string; category: string; assignee?: string; location?: string }>;
+    screenContext?: string;
 }
 
 export const useAIChat = ({
@@ -88,6 +89,7 @@ export const useAIChat = ({
     onUpdateHumanTask,
     onDeleteHumanTask,
     humanTasks,
+    screenContext,
 }: UseAIChatOptions) => {
     const [messages, setMessages] = useState<ChatMessage[]>([]);
     const [isLoading, setIsLoading] = useState(false);
@@ -149,7 +151,8 @@ export const useAIChat = ({
             assignee: t.assignee,
             location: t.location,
         })),
-    }), [session, trimmerProfiles, harvests, activeLicense, humanTasks]);
+        screenContext: screenContext || undefined,
+    }), [session, trimmerProfiles, harvests, activeLicense, humanTasks, screenContext]);
 
     const addMessage = useCallback((role: 'user' | 'assistant', content: string, extra?: { actions?: ProposedAction[]; results?: ActionResultItem[] }) => {
         const msg: ChatMessage = {
