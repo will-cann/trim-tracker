@@ -156,7 +156,9 @@ export interface Strain {
 export type ProposedActionType =
   | 'create_session' | 'add_batch' | 'assign_trimmer' | 'add_trimmer_profile'
   | 'create_harvest' | 'record_wet_weight' | 'allocate_harvest' | 'record_harvest_waste'
-  | 'move_harvest' | 'convert_to_trim' | 'create_human_task' | 'update_human_task' | 'delete_human_task';
+  | 'move_harvest' | 'convert_to_trim' | 'create_human_task' | 'update_human_task' | 'delete_human_task'
+  | 'delete_harvest' | 'update_harvest' | 'delete_batch' | 'change_batch_status'
+  | 'submit_session' | 'remove_trimmer' | 'delete_trimmer_profile';
 
 export interface ProposedAction {
   type: ProposedActionType;
