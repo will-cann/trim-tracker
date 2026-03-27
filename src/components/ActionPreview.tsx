@@ -108,6 +108,57 @@ function summarizeAction(action: ProposedAction): string {
     }
 }
 
+/** Fields that should render as dropdowns with constrained options */
+const SELECT_OPTIONS: Record<string, Array<{ value: string; label: string }>> = {
+    priority: [
+        { value: 'low', label: 'Low' },
+        { value: 'medium', label: 'Medium' },
+        { value: 'high', label: 'High' },
+        { value: 'urgent', label: 'Urgent' },
+    ],
+    category: [
+        { value: 'drying_curing', label: 'Drying/Curing' },
+        { value: 'ipm', label: 'IPM' },
+        { value: 'compliance', label: 'Compliance' },
+        { value: 'equipment', label: 'Equipment' },
+        { value: 'environmental', label: 'Environmental' },
+        { value: 'packaging', label: 'Packaging' },
+        { value: 'qc_testing', label: 'QC/Testing' },
+        { value: 'inventory', label: 'Inventory' },
+        { value: 'transportation', label: 'Transportation' },
+        { value: 'sanitation', label: 'Sanitation' },
+        { value: 'training', label: 'Training' },
+        { value: 'trim', label: 'Trim' },
+        { value: 'harvest', label: 'Harvest' },
+        { value: 'other', label: 'Other' },
+    ],
+    status: [
+        { value: 'pending', label: 'Pending' },
+        { value: 'in_progress', label: 'In Progress' },
+        { value: 'completed', label: 'Completed' },
+    ],
+    tool: [
+        { value: 'scissors', label: 'Scissors' },
+        { value: 'machine', label: 'Machine' },
+    ],
+    allocation: [
+        { value: 'Flower', label: 'Flower (Dry Trim)' },
+        { value: 'Frozen', label: 'Fresh Frozen' },
+        { value: 'Both', label: 'Both' },
+    ],
+    wasteType: [
+        { value: 'powdery_mildew', label: 'Powdery Mildew' },
+        { value: 'bud_rot', label: 'Bud Rot' },
+        { value: 'insects', label: 'Insects' },
+        { value: 'stems', label: 'Stems' },
+        { value: 'leaves', label: 'Leaves' },
+        { value: 'plant_material', label: 'Plant Material' },
+        { value: 'fibrous', label: 'Fibrous' },
+        { value: 'root_ball', label: 'Root Ball' },
+        { value: 'other', label: 'Other' },
+    ],
+};
+
 function FieldRow({
     fieldKey,
     value,
@@ -121,6 +172,8 @@ function FieldRow({
     isReadonly: boolean;
     onChange: (newVal: any) => void;
 }) {
+    const options = SELECT_OPTIONS[fieldKey];
+
     return (
         <div className="flex items-center gap-2">
             <label className="text-xs text-gray-400 w-24 flex-shrink-0 text-right">
@@ -128,8 +181,23 @@ function FieldRow({
             </label>
             {isReadonly ? (
                 <span className="flex-1 text-sm text-gray-700 px-2 py-1">
-                    {typeof value === 'object' ? JSON.stringify(value) : String(value ?? '—')}
+                    {options
+                        ? options.find(o => o.value === value)?.label || String(value ?? '—')
+                        : typeof value === 'object' ? JSON.stringify(value) : String(value ?? '—')}
                 </span>
+            ) : options ? (
+                <select
+                    value={value ?? ''}
+                    onChange={(e) => onChange(e.target.value)}
+                    disabled={isExecuting}
+                    className="flex-1 text-sm px-2 py-1 border border-gray-200 rounded-md bg-white
+                               focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:border-emerald-400
+                               disabled:bg-gray-50 disabled:text-gray-400"
+                >
+                    {options.map(opt => (
+                        <option key={opt.value} value={opt.value}>{opt.label}</option>
+                    ))}
+                </select>
             ) : (
                 <input
                     type={typeof value === 'number' ? 'number' : 'text'}
