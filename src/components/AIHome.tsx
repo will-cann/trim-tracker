@@ -28,6 +28,8 @@ interface AIHomeProps {
     onUpdateHumanTask?: (id: string, updates: Partial<HumanTask>) => Promise<void>;
     onDeleteHumanTask?: (id: string) => Promise<void>;
     humanTasks?: HumanTask[];
+    injectedVoiceText?: string | null;
+    onClearInjectedText?: () => void;
 }
 
 export const AIHome: React.FC<AIHomeProps> = ({
@@ -47,6 +49,8 @@ export const AIHome: React.FC<AIHomeProps> = ({
     onUpdateHumanTask,
     onDeleteHumanTask,
     humanTasks,
+    injectedVoiceText,
+    onClearInjectedText,
 }) => {
     const [inputText, setInputText] = useState('');
     const [isDragOver, setIsDragOver] = useState(false);
@@ -254,6 +258,15 @@ export const AIHome: React.FC<AIHomeProps> = ({
     useEffect(() => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     }, [messages, pendingActions]);
+
+    // Handle injected voice text from sidebar action mode
+    useEffect(() => {
+        if (injectedVoiceText) {
+            setInputText(injectedVoiceText);
+            onClearInjectedText?.();
+            textareaRef.current?.focus();
+        }
+    }, [injectedVoiceText, onClearInjectedText]);
 
     const handleSend = useCallback((text: string) => {
         if (!text.trim() || isLoading) return;

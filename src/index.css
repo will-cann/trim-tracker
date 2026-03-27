@@ -3130,3 +3130,52 @@ body {
   flex-shrink: 0;
   margin-top: 2px;
 }
+
+/* Sidebar voice buttons — active states */
+.sidebar-rail-btn.voice-active-action {
+  background: var(--primary-color);
+  position: relative;
+}
+
+.sidebar-rail-btn.voice-active-ambient {
+  background: #6366f1;
+  position: relative;
+}
+
+.sidebar-voice-wave {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  height: 18px;
+}
+
+.sidebar-voice-wave span {
+  display: block;
+  width: 2.5px;
+  height: 4px;
+  border-radius: 1.5px;
+  background: white;
+  animation: voice-wave 0.6s ease-in-out infinite alternate;
+}
+
+.sidebar-voice-wave span:nth-child(2) { animation-delay: 150ms; }
+.sidebar-voice-wave span:nth-child(3) { animation-delay: 300ms; }
+
+.sidebar-ambient-dots {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  height: 18px;
+}
+
+.sidebar-ambient-dots span {
+  display: block;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: white;
+  animation: ambient-pulse 1.2s ease-in-out infinite;
+}
+
+.sidebar-ambient-dots span:nth-child(2) { animation-delay: 0.2s; }
+.sidebar-ambient-dots span:nth-child(3) { animation-delay: 0.4s; }

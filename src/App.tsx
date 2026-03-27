@@ -33,6 +33,7 @@ function AppContent() {
   const [isTaskPanelOpen, setIsTaskPanelOpen] = useState(false);
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
   const [myLicenses, setMyLicenses] = useState<License[]>([]);
+  const [voiceInjectedText, setVoiceInjectedText] = useState<string | null>(null);
   const [activeLicenseId, setActiveLicenseId] = useState<string | null>(null);
 
   const {
@@ -64,6 +65,43 @@ function AppContent() {
       location: t.location,
     })));
   }, [addHumanTasks]);
+
+  // Ambient voice: analyze transcript and auto-create tasks
+  const handleAmbientAnalyze = useCallback(async (text: string) => {
+    if (!text.trim()) return;
+    try {
+      const result = await apiService.aiParse({
+        transcriptChunks: [text],
+        context: {
+          hasActiveSession: !!session,
+          sessionId: session?.id,
+          trimmerProfiles: trimmerProfiles.map(p => ({ id: p.id, name: p.name })),
+          existingEntries: (session?.entries || []).map(e => ({
+            id: e.id, harvestName: e.harvestName, strain: e.strain, status: e.status,
+          })),
+          harvests: harvests.map(h => ({
+            id: h.id, batchId: h.batchId, strain: h.strain, status: h.status,
+          })),
+          humanTasks: humanTasks.map(t => ({
+            id: t.id, title: t.title, status: t.status, priority: t.priority,
+            category: t.category, assignee: t.assignee, location: t.location,
+          })),
+        },
+      });
+      const taskActions = result.actions.filter(a => a.type === 'create_human_task');
+      if (taskActions.length > 0) {
+        await handleCreateHumanTasks(taskActions.map(a => a.data as any));
+      }
+    } catch {
+      // Silent fail for ambient mode
+    }
+  }, [session, trimmerProfiles, harvests, humanTasks, handleCreateHumanTasks]);
+
+  // Action voice: inject text into AIHome input
+  const handleActionVoiceText = useCallback((text: string) => {
+    setVoiceInjectedText(text);
+    if (currentView !== 'ai') setCurrentView('ai');
+  }, [currentView]);
 
   const loadSession = useCallback(async () => {
     const data = await apiService.getSession();
@@ -230,6 +268,8 @@ function AppContent() {
         selectedSessionId={selectedSessionId}
         onSelectSession={setSelectedSessionId}
         taskCount={taskPendingCount}
+        onActionVoiceText={handleActionVoiceText}
+        onAmbientAnalyze={handleAmbientAnalyze}
       />
       <div className="main-content">
         <header className="app-header">
@@ -254,6 +294,8 @@ function AppContent() {
             onUpdateHumanTask={updateHumanTask}
             onDeleteHumanTask={deleteHumanTask}
             humanTasks={humanTasks}
+            injectedVoiceText={voiceInjectedText}
+            onClearInjectedText={() => setVoiceInjectedText(null)}
           />
         ) : currentView === 'tasks' ? (
           <TasksPanel

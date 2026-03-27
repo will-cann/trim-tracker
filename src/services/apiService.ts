@@ -205,6 +205,9 @@ export const aiParse = async (request: {
         sessionId?: string;
         trimmerProfiles: Array<{ id: string; name: string }>;
         existingEntries: Array<{ id: string; harvestName: string; strain: string; status: string }>;
+        harvests?: Array<{ id: string; batchId: string; strain: string; status: string }>;
+        humanTasks?: Array<{ id: string; title: string; status: string; priority: string; category: string; assignee?: string; location?: string }>;
+        activeLicenseNumber?: string;
     };
 }): Promise<{ actions: ProposedAction[]; message: string }> => {
     const response = await fetchWithAuth(`${API_BASE}/ai-parse`, {
@@ -443,6 +446,20 @@ export const deleteTask = async (taskId: string): Promise<void> => {
     if (!response.ok) throw new Error('Failed to delete task');
 };
 
+// ============================================================================
+// PLANT MAP
+// ============================================================================
+
+export const getPlantMap = async (phase: string): Promise<Record<string, any>> => {
+    try {
+        const response = await fetchWithAuth(`${API_BASE}/get-plant-map?phase=${phase}`);
+        if (!response.ok) return {};
+        return await response.json();
+    } catch {
+        return {};
+    }
+};
+
 export const apiService = {
     setAuthToken,
     getSession,
@@ -490,4 +507,6 @@ export const apiService = {
     createTasks,
     updateTask,
     deleteTask,
+    // Plant Map
+    getPlantMap,
 };
