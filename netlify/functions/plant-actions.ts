@@ -84,26 +84,52 @@ export const handler: Handler = async (event) => {
                     };
                 }
 
+                // Optionally move to a new room at the same time
+                const { targetRoomId } = payload;
+                if (targetRoomId) {
+                    const { rows: roomRows } = await sql`
+                        SELECT id FROM rooms WHERE id = ${targetRoomId} AND company_id = ${context.companyId}
+                    `;
+                    if (roomRows.length === 0) {
+                        return {
+                            statusCode: 404,
+                            body: JSON.stringify({ error: 'Target room not found.' }),
+                        };
+                    }
+                }
+
                 // Neon tagged template doesn't support dynamic column names,
                 // so we use separate queries per phase
                 if (targetPhase === 'vegetative') {
                     await sql`
-                        UPDATE plants SET growth_phase = 'vegetative', vegetative_date = NOW()
+                        UPDATE plants
+                        SET growth_phase = 'vegetative',
+                            vegetative_date = NOW(),
+                            room_id = COALESCE(${targetRoomId || null}::uuid, room_id)
                         WHERE id = ANY(${plantIds}::uuid[]) AND company_id = ${context.companyId}
                     `;
                 } else if (targetPhase === 'flowering') {
                     await sql`
-                        UPDATE plants SET growth_phase = 'flowering', flowering_date = NOW()
+                        UPDATE plants
+                        SET growth_phase = 'flowering',
+                            flowering_date = NOW(),
+                            room_id = COALESCE(${targetRoomId || null}::uuid, room_id)
                         WHERE id = ANY(${plantIds}::uuid[]) AND company_id = ${context.companyId}
                     `;
                 } else if (targetPhase === 'harvested') {
                     await sql`
-                        UPDATE plants SET growth_phase = 'harvested', harvested_date = NOW()
+                        UPDATE plants
+                        SET growth_phase = 'harvested',
+                            harvested_date = NOW(),
+                            room_id = COALESCE(${targetRoomId || null}::uuid, room_id)
                         WHERE id = ANY(${plantIds}::uuid[]) AND company_id = ${context.companyId}
                     `;
                 } else {
                     await sql`
-                        UPDATE plants SET growth_phase = 'destroyed', destroyed_date = NOW()
+                        UPDATE plants
+                        SET growth_phase = 'destroyed',
+                            destroyed_date = NOW(),
+                            room_id = COALESCE(${targetRoomId || null}::uuid, room_id)
                         WHERE id = ANY(${plantIds}::uuid[]) AND company_id = ${context.companyId}
                     `;
                 }

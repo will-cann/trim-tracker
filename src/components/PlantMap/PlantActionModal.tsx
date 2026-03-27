@@ -56,9 +56,9 @@ export const PlantActionModal: React.FC<PlantActionModalProps> = ({
     const plantIds = selectedGroups.flatMap(g => g.plants);
     const entityType = selectedGroups[0]?.type === 'plantbatches' ? 'plantbatches' as const : 'plants' as const;
 
-    // Fetch rooms for change-room action
+    // Fetch rooms for change-room and change-phase (optional room move)
     useEffect(() => {
-        if (action === 'change-room') {
+        if (action === 'change-room' || action === 'change-phase') {
             apiService.getRooms().then(setRooms);
         }
     }, [action]);
@@ -101,6 +101,7 @@ export const PlantActionModal: React.FC<PlantActionModalProps> = ({
                         plantIds,
                         entityType,
                         targetPhase,
+                        ...(targetRoomId ? { targetRoomId } : {}),
                     });
                     break;
 
@@ -217,6 +218,38 @@ export const PlantActionModal: React.FC<PlantActionModalProps> = ({
                                         </button>
                                     ))}
                                 </div>
+
+                            {/* Optional room move */}
+                            <div className="mt-4">
+                                <label className="block text-xs font-medium text-gray-700 mb-2">
+                                    Also move to room <span className="text-gray-400 font-normal">(optional)</span>
+                                </label>
+                                {rooms.length === 0 ? (
+                                    <div className="flex items-center gap-2 text-xs text-gray-400 py-2">
+                                        <Loader2 size={14} className="animate-spin" />
+                                        Loading rooms...
+                                    </div>
+                                ) : (
+                                    <div className="grid grid-cols-2 gap-2 max-h-32 overflow-auto">
+                                        {rooms
+                                            .filter(r => r.name !== roomName)
+                                            .map(r => (
+                                                <button
+                                                    key={r.id}
+                                                    onClick={() => setTargetRoomId(prev => prev === r.id ? '' : r.id)}
+                                                    className={`px-3 py-2 rounded-lg text-xs font-medium border transition-colors text-left ${
+                                                        targetRoomId === r.id
+                                                            ? 'border-emerald-500 bg-emerald-50 text-emerald-700'
+                                                            : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300'
+                                                    }`}
+                                                >
+                                                    <div>{r.name}</div>
+                                                    <div className="text-[10px] text-gray-400 capitalize">{r.room_type}</div>
+                                                </button>
+                                            ))}
+                                    </div>
+                                )}
+                            </div>
                         </div>
                     )}
 

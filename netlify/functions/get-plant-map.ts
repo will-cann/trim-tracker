@@ -41,7 +41,6 @@ export const handler: Handler = async (event) => {
             `;
             rows = result.rows;
         } else {
-            const roomType = phase === 'vegetative' ? 'veg' : 'flower';
             const result = await sql`
                 SELECT
                     r.id AS room_id,
@@ -55,10 +54,10 @@ export const handler: Handler = async (event) => {
                         ELSE p.flowering_date::text
                     END AS phase_date,
                     p.target_harvest_date::text AS harvest_date
-                FROM rooms r
-                JOIN plants p ON p.room_id = r.id AND p.company_id = r.company_id AND p.growth_phase = ${phase}
-                WHERE r.company_id = ${context.companyId}
-                    AND r.room_type = ${roomType}
+                FROM plants p
+                JOIN rooms r ON r.id = p.room_id AND r.company_id = p.company_id
+                WHERE p.company_id = ${context.companyId}
+                    AND p.growth_phase = ${phase}
                 ORDER BY r.name
             `;
             rows = result.rows;
