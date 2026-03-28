@@ -202,7 +202,18 @@ export const useAIChat = ({
                 setPendingActions(result.actions);
             }
         } catch (error) {
-            addMessage('assistant', 'I wasn\'t able to process that. Here are some things you can try:\n\n- **Start a session**: "Start a trim session with OG Kush 500g"\n- **Add batches**: "Add 3 batches of Blue Dream at 750g each"\n- **Create a harvest**: "New harvest for Gelato, 12 plants"\n- **Assign trimmers**: "Put Maria on the OG Kush batch at 8am"\n- **Create tasks**: "Remind me to check dry room humidity"');
+            const isNetworkError = error instanceof TypeError || (error instanceof Error && error.message.includes('fetch'));
+            const hint = isNetworkError
+                ? 'It looks like there was a connection issue. Check your network and try again.'
+                : 'I had trouble understanding that. Try rephrasing, or use one of these examples:';
+            addMessage('assistant', `${hint}\n\n` +
+                '- **Trim sessions** — "Start a session with OG Kush, 500g"\n' +
+                '- **Batches** — "Add 3 batches of Blue Dream at 750g each"\n' +
+                '- **Harvests** — "New harvest for Gelato, 12 plants"\n' +
+                '- **Trimmers** — "Assign Maria to the active batch at 8am"\n' +
+                '- **Tasks** — "Remind me to check dry room humidity tomorrow"\n' +
+                '- **Plant map** — "Update room A health to 85"\n' +
+                '- **Reports** — "How did the team do last week?"');
         } finally {
             setIsLoading(false);
         }
@@ -226,7 +237,11 @@ export const useAIChat = ({
                 setPendingActions(result.actions);
             }
         } catch (error) {
-            addMessage('assistant', 'I couldn\'t parse that CSV. Make sure it has columns for **harvest name**, **strain**, **license number**, and **start weight**. Column names don\'t need to match exactly — I\'ll figure out the mapping.');
+            addMessage('assistant', 'I couldn\'t parse that CSV. Here are a few tips:\n\n' +
+                '- Include columns for **harvest name**, **strain**, **license number**, and **start weight**\n' +
+                '- Column names don\'t need to match exactly — I\'ll figure out the mapping\n' +
+                '- Make sure the file is saved as `.csv` (not `.xlsx`)\n' +
+                '- Check for empty rows or special characters that might break the format');
         } finally {
             setIsLoading(false);
         }
@@ -337,7 +352,11 @@ export const useAIChat = ({
             addMessage('assistant', `${results.length} action${results.length !== 1 ? 's' : ''} applied.`, { results });
         } catch (error) {
             const errMsg = error instanceof Error ? error.message : 'Unknown error';
-            addMessage('assistant', `Some actions failed to apply: **${errMsg}**\n\nActions that completed before the error are already saved. You can try again or ask me to retry the remaining ones.`);
+            addMessage('assistant', `Some actions failed: **${errMsg}**\n\n` +
+                'Any actions that completed before the error are already saved. You can:\n' +
+                '- Say **"retry"** to attempt the remaining actions again\n' +
+                '- Rephrase what you need and I\'ll create fresh actions\n' +
+                '- Check the dashboard to see what was already applied');
         } finally {
             setIsExecuting(false);
         }

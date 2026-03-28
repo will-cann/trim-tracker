@@ -662,16 +662,16 @@ export const TasksPanel = ({
             <div className="flex-1 overflow-y-auto">
                 {filteredTasks.length === 0 ? (
                     <div className="flex flex-col items-center justify-center py-20 text-center">
-                        <div className="w-16 h-16 rounded-full bg-gray-50 flex items-center justify-center mb-4">
+                        <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center mb-4 shadow-sm">
                             <ClipboardList size={28} className="text-gray-300" />
                         </div>
-                        <h3 className="text-sm font-medium text-gray-500 mb-1">
+                        <h3 className="text-base font-semibold text-gray-600 mb-1">
                             {searchQuery ? 'No matching tasks' : 'No tasks yet'}
                         </h3>
-                        <p className="text-xs text-gray-400 max-w-xs">
+                        <p className="text-sm text-gray-400 max-w-xs">
                             {searchQuery
-                                ? 'Try adjusting your search or filters'
-                                : 'Tasks will appear here when you describe operational work to the AI assistant'}
+                                ? 'Try a different search term or reset your filters above.'
+                                : 'Tell the AI things like "remind me to check humidity" or "schedule a trim for Friday" to create tasks.'}
                         </p>
                     </div>
                 ) : (

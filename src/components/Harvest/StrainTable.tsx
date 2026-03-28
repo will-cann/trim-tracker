@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Plus, Trash2, Leaf } from 'lucide-react';
 import type { Strain } from '../../types/definitions';
 import { apiService } from '../../services/apiService';
+import { TableSkeleton } from '../Skeleton';
 
 export const StrainTable: React.FC = () => {
     const [strains, setStrains] = useState<Strain[]>([]);
@@ -41,7 +42,7 @@ export const StrainTable: React.FC = () => {
     };
 
     if (loading) {
-        return <div className="text-center p-12 text-gray-400">Loading strains...</div>;
+        return <TableSkeleton rows={4} cols={4} />;
     }
 
     return (

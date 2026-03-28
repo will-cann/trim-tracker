@@ -5,6 +5,7 @@ import { apiService } from '../../services/apiService';
 import { HarvestCard } from './HarvestCard';
 import { CreateHarvestModal } from './CreateHarvestModal';
 import { StrainTable } from './StrainTable';
+import { CardsSkeleton } from '../Skeleton';
 
 const TABS: { key: HarvestStatus | 'all' | 'strains'; label: string }[] = [
     { key: 'all', label: 'All' },
@@ -171,20 +172,29 @@ export const HarvestDashboard: React.FC = () => {
             {activeTab === 'strains' ? (
                 <StrainTable />
             ) : loading ? (
-                <div className="flex items-center justify-center py-16">
-                    <div className="animate-spin rounded-full h-8 w-8 border-2 border-gray-200 border-t-emerald-500"></div>
-                </div>
+                <CardsSkeleton count={3} />
             ) : filteredHarvests.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-16 text-center">
-                    <div className="w-14 h-14 rounded-full bg-emerald-50 flex items-center justify-center mb-4">
-                        <Sprout size={24} className="text-emerald-300" />
+                    <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-emerald-50 to-green-50 flex items-center justify-center mb-4 shadow-sm">
+                        <Sprout size={28} className="text-emerald-400" />
                     </div>
-                    <h3 className="text-sm font-medium text-gray-500 mb-1">
-                        No harvests{activeTab !== 'all' ? ` in ${activeTab}` : ''}
+                    <h3 className="text-base font-semibold text-gray-600 mb-1">
+                        {activeTab !== 'all' ? `No ${activeTab} harvests` : 'No harvests yet'}
                     </h3>
-                    <p className="text-xs text-gray-400 max-w-xs">
-                        Create a new harvest to start tracking plants through drying and allocation.
+                    <p className="text-sm text-gray-400 max-w-xs mb-4">
+                        {activeTab === 'all'
+                            ? 'Start tracking your plants from wet weight through drying and final allocation.'
+                            : `Harvests will move here once they reach the ${activeTab} stage.`}
                     </p>
+                    {activeTab === 'all' && (
+                        <button
+                            onClick={() => setShowCreateModal(true)}
+                            className="btn-new-batch px-4 py-2 text-sm"
+                        >
+                            <Plus size={16} />
+                            Create First Harvest
+                        </button>
+                    )}
                 </div>
             ) : (
                 <div className="entry-list">

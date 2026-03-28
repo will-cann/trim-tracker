@@ -109,10 +109,12 @@ export const RightPanel: React.FC<RightPanelProps> = ({
                         {/* Profile list */}
                         <div className="right-panel-list">
                             {trimmerProfiles.length === 0 ? (
-                                <div className="flex flex-col items-center py-6 text-center">
-                                    <Users size={20} className="text-gray-300 mb-2" />
-                                    <p className="text-xs text-gray-400">No trimmers yet</p>
-                                    <p className="text-xs text-gray-300 mt-0.5">Add your crew above</p>
+                                <div className="flex flex-col items-center py-8 text-center">
+                                    <div className="w-10 h-10 rounded-xl bg-gray-50 flex items-center justify-center mb-3">
+                                        <Users size={18} className="text-gray-300" />
+                                    </div>
+                                    <p className="text-xs font-medium text-gray-400">No trimmers on the roster</p>
+                                    <p className="text-xs text-gray-300 mt-1">Use the button above to add your crew, or ask the AI.</p>
                                 </div>
                             ) : (
                                 trimmerProfiles.map(profile => (

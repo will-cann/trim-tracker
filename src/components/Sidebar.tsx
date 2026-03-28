@@ -267,7 +267,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
                                     <div className="conversation-list">
                                         {sessionList.length === 0 ? (
-                                            <p className="text-sm text-gray-400 px-2 py-4 text-center">No sessions yet.</p>
+                                            <div className="flex flex-col items-center py-8 text-center px-2">
+                                                <Scissors size={20} className="text-gray-300 mb-2" />
+                                                <p className="text-sm font-medium text-gray-400">No sessions yet</p>
+                                                <p className="text-xs text-gray-300 mt-1">Start a trim session from the AI or dashboard.</p>
+                                            </div>
                                         ) : (
                                             sessionList.map((s) => {
                                                 const strains = [...new Set(s.entries.map(e => e.strain))].join(', ');

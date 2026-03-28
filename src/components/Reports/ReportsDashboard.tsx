@@ -6,7 +6,8 @@ import { MetricCard } from './MetricCard';
 import { ThroughputChart } from './ThroughputChart';
 import { CostMetricsRow } from './CostMetricsRow';
 import { getReportsData, shiftWeek, formatDateRange, type ReportsData, type DateRange } from '../../services/reportsData';
-import { ChevronLeft, ChevronRight, MoreVertical, ChevronUp } from 'lucide-react';
+import { ChevronLeft, ChevronRight, MoreVertical, ChevronUp, BarChart3 } from 'lucide-react';
+import { PageSkeleton } from '../Skeleton';
 
 export const ReportsDashboard: React.FC = () => {
     const [data, setData] = useState<ReportsData | null>(null);
@@ -40,9 +41,7 @@ export const ReportsDashboard: React.FC = () => {
     if (loading) {
         return (
             <div className="reports-dashboard p-8 max-w-7xl mx-auto">
-                <div className="flex items-center justify-center h-64">
-                    <div className="animate-spin rounded-full h-8 w-8 border-2 border-gray-200 border-t-emerald-500"></div>
-                </div>
+                <PageSkeleton />
             </div>
         );
     }
@@ -73,13 +72,14 @@ export const ReportsDashboard: React.FC = () => {
                     )}
                 </div>
                 <div className="bg-white p-12 rounded-xl border border-gray-100 shadow-sm text-center">
-                    <div className="text-gray-400 mb-4">
-                        <svg className="mx-auto h-12 w-12" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                        </svg>
+                    <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center mb-4 mx-auto">
+                        <BarChart3 size={28} className="text-gray-300" />
                     </div>
-                    <h3 className="text-lg font-semibold text-gray-900 mb-2">No Data for This Week</h3>
-                    <p className="text-gray-600">No completed sessions in this period. Use the arrows to navigate to another week.</p>
+                    <h3 className="text-lg font-semibold text-gray-700 mb-2">No data for this week</h3>
+                    <p className="text-sm text-gray-400 max-w-sm mx-auto">
+                        No completed trim sessions in this period. Use the arrows above to browse other weeks,
+                        or start a new session from the Trim Tracker.
+                    </p>
                 </div>
             </div>
         );

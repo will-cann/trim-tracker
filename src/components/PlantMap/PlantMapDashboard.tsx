@@ -1,11 +1,12 @@
 import React, { useState, useCallback } from 'react';
-import { Map } from 'lucide-react';
+import { Map, Leaf } from 'lucide-react';
 import type { PlantPhase } from '../../types/plantMap';
 import { PHASE_TABS } from '../../types/plantMap';
 import { usePlantMap } from '../../hooks/usePlantMap';
 import { PlantMapSummary } from './PlantMapSummary';
 import { RoomCard } from './RoomCard';
 import { ExpandedRoom } from './ExpandedRoom';
+import { RoomGridSkeleton } from '../Skeleton';
 
 export const PlantMapDashboard: React.FC = () => {
     const [activePhase, setActivePhase] = useState<PlantPhase>('flowering');
@@ -59,19 +60,18 @@ export const PlantMapDashboard: React.FC = () => {
 
             {/* Content */}
             {loading ? (
-                <div className="flex items-center justify-center py-16">
-                    <div className="animate-spin rounded-full h-8 w-8 border-2 border-gray-200 border-t-emerald-500" />
-                </div>
+                <RoomGridSkeleton count={3} />
             ) : rooms.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-16 text-center">
-                    <div className="w-14 h-14 rounded-full bg-emerald-50 flex items-center justify-center mb-4">
-                        <Map size={24} className="text-emerald-300" />
+                    <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-emerald-50 to-green-50 flex items-center justify-center mb-4 shadow-sm">
+                        <Leaf size={28} className="text-emerald-400" />
                     </div>
-                    <h3 className="text-sm font-medium text-gray-500 mb-1">
-                        No rooms in {currentTab.label}
+                    <h3 className="text-base font-semibold text-gray-600 mb-1">
+                        No {currentTab.label.toLowerCase()} plants
                     </h3>
-                    <p className="text-xs text-gray-400 max-w-xs">
-                        Rooms with {currentTab.label.toLowerCase()} plants will appear here.
+                    <p className="text-sm text-gray-400 max-w-xs">
+                        Rooms with {currentTab.label.toLowerCase()} plants will appear here automatically.
+                        Try adding plants via the AI assistant.
                     </p>
                 </div>
             ) : (
