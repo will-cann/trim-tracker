@@ -52,21 +52,6 @@ const STATUS_OPTIONS: { value: HumanTaskStatus | 'all'; label: string }[] = [
     { value: 'completed', label: 'Done' },
 ];
 
-function formatCreatedDate(iso: string): string {
-    const date = new Date(iso);
-    const now = new Date();
-    const diffMs = now.getTime() - date.getTime();
-    const diffMins = Math.floor(diffMs / (1000 * 60));
-    const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
-    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-
-    if (diffMins < 1) return 'just now';
-    if (diffMins < 60) return `${diffMins}m ago`;
-    if (diffHours < 24) return `about ${diffHours} hour${diffHours > 1 ? 's' : ''} ago`;
-    if (diffDays < 7) return `${diffDays} day${diffDays > 1 ? 's' : ''} ago`;
-    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-}
-
 function formatDueDate(iso: string): string {
     const date = new Date(iso);
     const now = new Date();
@@ -76,12 +61,133 @@ function formatDueDate(iso: string): string {
     if (diffDays < 0) return `${Math.abs(diffDays)}d overdue`;
     if (diffDays === 0) return 'Due today';
     if (diffDays === 1) return 'Due tomorrow';
-    return `Due in ${diffDays}d`;
+    if (diffDays <= 7) return `Due in ${diffDays}d`;
+    return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 }
 
 function isOverdue(iso: string): boolean {
     return new Date(iso) < new Date();
 }
+
+// ── Inline editing cells ────────────────────────────────────────────────────
+
+const InlineTextCell = ({
+    value,
+    placeholder,
+    onSave,
+    icon: Icon,
+}: {
+    value: string;
+    placeholder: string;
+    onSave: (val: string) => void;
+    icon?: typeof User;
+}) => {
+    const [editing, setEditing] = useState(false);
+    const [draft, setDraft] = useState(value);
+    const inputRef = useRef<HTMLInputElement>(null);
+
+    useEffect(() => { if (editing) inputRef.current?.focus(); }, [editing]);
+    useEffect(() => { setDraft(value); }, [value]);
+
+    const commit = () => {
+        setEditing(false);
+        const trimmed = draft.trim();
+        if (trimmed !== value) onSave(trimmed);
+    };
+
+    if (editing) {
+        return (
+            <div className="flex items-center gap-1.5">
+                {Icon && <Icon size={12} className="text-gray-400 shrink-0" />}
+                <input
+                    ref={inputRef}
+                    value={draft}
+                    onChange={(e) => setDraft(e.target.value)}
+                    onBlur={commit}
+                    onKeyDown={(e) => { if (e.key === 'Enter') commit(); if (e.key === 'Escape') { setDraft(value); setEditing(false); } }}
+                    className="text-sm text-gray-700 bg-white border border-teal-300 rounded px-1.5 py-0.5 w-full focus:outline-none focus:ring-2 focus:ring-teal-500/20"
+                    placeholder={placeholder}
+                />
+            </div>
+        );
+    }
+
+    return (
+        <button
+            onClick={() => setEditing(true)}
+            className="flex items-center gap-1.5 text-left w-full group/cell min-h-[28px]"
+        >
+            {Icon && <Icon size={12} className="text-gray-400 shrink-0" />}
+            {value ? (
+                <span className="text-sm text-gray-600 group-hover/cell:text-gray-900 transition-colors">{value}</span>
+            ) : (
+                <span className="text-sm text-gray-300 group-hover/cell:text-gray-400 transition-colors">{placeholder}</span>
+            )}
+        </button>
+    );
+};
+
+const InlineDateCell = ({
+    value,
+    isComplete,
+    onSave,
+}: {
+    value: string | undefined;
+    isComplete: boolean;
+    onSave: (val: string) => void;
+}) => {
+    const [editing, setEditing] = useState(false);
+    const dateStr = value ? value.slice(0, 10) : '';
+    const [draft, setDraft] = useState(dateStr);
+    const inputRef = useRef<HTMLInputElement>(null);
+
+    useEffect(() => {
+        if (editing) {
+            inputRef.current?.focus();
+            inputRef.current?.showPicker?.();
+        }
+    }, [editing]);
+    useEffect(() => { setDraft(value ? value.slice(0, 10) : ''); }, [value]);
+
+    const commit = () => {
+        setEditing(false);
+        if (draft !== dateStr) onSave(draft);
+    };
+
+    if (editing) {
+        return (
+            <input
+                ref={inputRef}
+                type="date"
+                value={draft}
+                onChange={(e) => { setDraft(e.target.value); }}
+                onBlur={commit}
+                onKeyDown={(e) => { if (e.key === 'Enter') commit(); if (e.key === 'Escape') { setDraft(dateStr); setEditing(false); } }}
+                className="text-sm text-gray-700 bg-white border border-teal-300 rounded px-1.5 py-0.5 focus:outline-none focus:ring-2 focus:ring-teal-500/20 w-[130px]"
+            />
+        );
+    }
+
+    return (
+        <button onClick={() => setEditing(true)} className="flex items-center gap-1 text-left w-full group/cell min-h-[28px]">
+            {value ? (
+                <span className={`text-[12px] inline-flex items-center gap-1 ${
+                    isOverdue(value) && !isComplete ? 'text-red-500 font-medium' : 'text-gray-500 group-hover/cell:text-gray-700'
+                } transition-colors`}>
+                    <CalendarClock size={11} />
+                    {formatDueDate(value)}
+                </span>
+            ) : (
+                <span className="text-sm text-gray-300 group-hover/cell:text-gray-400 transition-colors flex items-center gap-1">
+                    <CalendarClock size={11} />
+                    Set date
+                </span>
+            )}
+        </button>
+    );
+};
+
+// ── Picker dropdowns ────────────────────────────────────────────────────────
 
 const CategoryPicker = ({
     current,
@@ -146,6 +252,8 @@ const PriorityPicker = ({
     );
 };
 
+// ── Expanded edit form (description + all fields) ───────────────────────────
+
 const TaskEditForm = ({
     task,
     onUpdateTask,
@@ -169,9 +277,7 @@ const TaskEditForm = ({
     const [showPriorityPicker, setShowPriorityPicker] = useState(false);
     const titleRef = useRef<HTMLInputElement>(null);
 
-    useEffect(() => {
-        titleRef.current?.focus();
-    }, []);
+    useEffect(() => { titleRef.current?.focus(); }, []);
 
     const handleSave = async () => {
         if (!draft.title.trim()) return;
@@ -203,9 +309,8 @@ const TaskEditForm = ({
 
     return (
         <tr className="border-b border-gray-200 bg-gray-50/70">
-            <td colSpan={7} className="px-5 py-4 pl-14">
+            <td colSpan={9} className="px-5 py-4 pl-14">
                 <div className="space-y-3 max-w-2xl">
-                    {/* Title */}
                     <input
                         ref={titleRef}
                         value={draft.title}
@@ -214,8 +319,6 @@ const TaskEditForm = ({
                         className="w-full text-sm font-medium text-gray-900 bg-white border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-400"
                         onKeyDown={(e) => { if (e.key === 'Enter') handleSave(); if (e.key === 'Escape') onClose(); }}
                     />
-
-                    {/* Description */}
                     <textarea
                         value={draft.description}
                         onChange={(e) => setDraft(d => ({ ...d, description: e.target.value }))}
@@ -224,101 +327,59 @@ const TaskEditForm = ({
                         className="w-full text-sm text-gray-700 bg-white border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-400 resize-none"
                         onKeyDown={(e) => { if (e.key === 'Escape') onClose(); }}
                     />
-
-                    {/* Inline fields row */}
                     <div className="flex flex-wrap items-center gap-3">
-                        {/* Assignee */}
                         <div className="flex items-center gap-1.5 min-w-[140px]">
                             <User size={13} className="text-gray-400 shrink-0" />
-                            <input
-                                value={draft.assignee}
-                                onChange={(e) => setDraft(d => ({ ...d, assignee: e.target.value }))}
-                                placeholder="Assignee"
+                            <input value={draft.assignee} onChange={(e) => setDraft(d => ({ ...d, assignee: e.target.value }))} placeholder="Assignee"
                                 className="text-sm text-gray-700 bg-white border border-gray-200 rounded-md px-2 py-1.5 w-full focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-400"
-                                onKeyDown={(e) => { if (e.key === 'Enter') handleSave(); if (e.key === 'Escape') onClose(); }}
-                            />
+                                onKeyDown={(e) => { if (e.key === 'Enter') handleSave(); if (e.key === 'Escape') onClose(); }} />
                         </div>
-
-                        {/* Location */}
                         <div className="flex items-center gap-1.5 min-w-[140px]">
                             <MapPin size={13} className="text-gray-400 shrink-0" />
-                            <input
-                                value={draft.location}
-                                onChange={(e) => setDraft(d => ({ ...d, location: e.target.value }))}
-                                placeholder="Location"
+                            <input value={draft.location} onChange={(e) => setDraft(d => ({ ...d, location: e.target.value }))} placeholder="Location"
                                 className="text-sm text-gray-700 bg-white border border-gray-200 rounded-md px-2 py-1.5 w-full focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-400"
-                                onKeyDown={(e) => { if (e.key === 'Enter') handleSave(); if (e.key === 'Escape') onClose(); }}
-                            />
+                                onKeyDown={(e) => { if (e.key === 'Enter') handleSave(); if (e.key === 'Escape') onClose(); }} />
                         </div>
-
-                        {/* Due date */}
                         <div className="flex items-center gap-1.5">
                             <CalendarClock size={13} className="text-gray-400 shrink-0" />
-                            <input
-                                type="date"
-                                value={draft.dueDate}
-                                onChange={(e) => setDraft(d => ({ ...d, dueDate: e.target.value }))}
-                                className="text-sm text-gray-700 bg-white border border-gray-200 rounded-md px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-400"
-                            />
+                            <input type="date" value={draft.dueDate} onChange={(e) => setDraft(d => ({ ...d, dueDate: e.target.value }))}
+                                className="text-sm text-gray-700 bg-white border border-gray-200 rounded-md px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-400" />
                         </div>
-
-                        {/* Priority picker */}
                         <div className="relative">
-                            <button
-                                onClick={() => setShowPriorityPicker(!showPriorityPicker)}
-                                className={`inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1.5 rounded-md border border-gray-200 bg-white hover:ring-2 hover:ring-offset-1 hover:ring-gray-200 transition-all ${priCfg.color}`}
-                            >
+                            <button onClick={() => setShowPriorityPicker(!showPriorityPicker)}
+                                className={`inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1.5 rounded-md border border-gray-200 bg-white hover:ring-2 hover:ring-offset-1 hover:ring-gray-200 transition-all ${priCfg.color}`}>
                                 <span className={`w-2 h-2 rounded-full ${priCfg.dot}`} />
                                 {priCfg.label}
                             </button>
                             {showPriorityPicker && (
                                 <>
                                     <div className="fixed inset-0 z-20" onClick={() => setShowPriorityPicker(false)} />
-                                    <PriorityPicker
-                                        current={draft.priority}
-                                        onSelect={(pri) => setDraft(d => ({ ...d, priority: pri }))}
-                                        onClose={() => setShowPriorityPicker(false)}
-                                    />
+                                    <PriorityPicker current={draft.priority} onSelect={(pri) => setDraft(d => ({ ...d, priority: pri }))} onClose={() => setShowPriorityPicker(false)} />
                                 </>
                             )}
                         </div>
-
-                        {/* Category picker */}
                         <div className="relative">
-                            <button
-                                onClick={() => setShowCategoryPicker(!showCategoryPicker)}
-                                className={`inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1.5 rounded-full border hover:ring-2 hover:ring-offset-1 hover:ring-gray-200 transition-all ${catCfg.bg} ${catCfg.color}`}
-                            >
+                            <button onClick={() => setShowCategoryPicker(!showCategoryPicker)}
+                                className={`inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1.5 rounded-full border hover:ring-2 hover:ring-offset-1 hover:ring-gray-200 transition-all ${catCfg.bg} ${catCfg.color}`}>
                                 <CatIcon size={12} />
                                 {catCfg.label}
                             </button>
                             {showCategoryPicker && (
                                 <>
                                     <div className="fixed inset-0 z-20" onClick={() => setShowCategoryPicker(false)} />
-                                    <CategoryPicker
-                                        current={draft.category}
-                                        onSelect={(cat) => setDraft(d => ({ ...d, category: cat }))}
-                                        onClose={() => setShowCategoryPicker(false)}
-                                    />
+                                    <CategoryPicker current={draft.category} onSelect={(cat) => setDraft(d => ({ ...d, category: cat }))} onClose={() => setShowCategoryPicker(false)} />
                                 </>
                             )}
                         </div>
                     </div>
-
-                    {/* Action buttons */}
                     <div className="flex items-center gap-2 pt-1">
-                        <button
-                            onClick={handleSave}
-                            disabled={saving || !draft.title.trim()}
-                            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-white bg-teal-600 hover:bg-teal-700 disabled:opacity-50 rounded-md transition-colors"
-                        >
+                        <button onClick={handleSave} disabled={saving || !draft.title.trim()}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-white bg-teal-600 hover:bg-teal-700 disabled:opacity-50 rounded-md transition-colors">
                             <Check size={13} />
                             {saving ? 'Saving...' : 'Save'}
                         </button>
-                        <button
-                            onClick={onClose}
-                            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-md transition-colors"
-                        >
+                        <button onClick={onClose}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-md transition-colors">
                             <X size={13} />
                             Cancel
                         </button>
@@ -328,6 +389,8 @@ const TaskEditForm = ({
         </tr>
     );
 };
+
+// ── Task row ────────────────────────────────────────────────────────────────
 
 const TaskRow = ({
     task,
@@ -351,6 +414,7 @@ const TaskRow = ({
     onStopEdit: () => void;
 }) => {
     const [showCategoryPicker, setShowCategoryPicker] = useState(false);
+    const [showPriorityPicker, setShowPriorityPicker] = useState(false);
     const cat = CATEGORY_CONFIG[task.category] || CATEGORY_CONFIG.other;
     const pri = PRIORITY_CONFIG[task.priority];
     const CatIcon = cat.icon;
@@ -378,49 +442,45 @@ const TaskRow = ({
                     </button>
                 </td>
 
-                {/* Task title — double-click to edit */}
-                <td className="px-3 py-3" onDoubleClick={onStartEdit}>
-                    <div className="flex items-start gap-2">
-                        <div className="min-w-0">
-                            <p className={`text-sm leading-snug ${isComplete ? 'text-gray-400 line-through' : 'text-gray-900'}`}>
-                                {task.title}
-                            </p>
-                            {task.dueDate && (
-                                <span className={`text-[11px] mt-0.5 inline-flex items-center gap-1 ${
-                                    isOverdue(task.dueDate) && !isComplete ? 'text-red-500 font-medium' : 'text-gray-400'
-                                }`}>
-                                    <CalendarClock size={10} />
-                                    {formatDueDate(task.dueDate)}
-                                </span>
-                            )}
-                        </div>
-                    </div>
+                {/* Task title — click to inline edit */}
+                <td className="px-3 py-3">
+                    <InlineTextCell
+                        value={task.title}
+                        placeholder="Untitled task"
+                        onSave={(val) => onUpdateTask(task.id, { title: val })}
+                    />
                 </td>
 
-                {/* Assignee / Location */}
+                {/* Assignee */}
                 <td className="px-3 py-3 hidden md:table-cell">
-                    {(task.assignee || task.location) ? (
-                        <div className="flex items-center gap-1.5 text-sm text-gray-600">
-                            {task.assignee && (
-                                <span className="flex items-center gap-1">
-                                    <User size={12} className="text-gray-400" />
-                                    {task.assignee}
-                                </span>
-                            )}
-                            {task.assignee && task.location && <span className="text-gray-300">·</span>}
-                            {task.location && (
-                                <span className="flex items-center gap-1 text-gray-400">
-                                    <MapPin size={11} />
-                                    {task.location}
-                                </span>
-                            )}
-                        </div>
-                    ) : (
-                        <span className="text-sm text-gray-300">—</span>
-                    )}
+                    <InlineTextCell
+                        value={task.assignee || ''}
+                        placeholder="Assign"
+                        icon={User}
+                        onSave={(val) => onUpdateTask(task.id, { assignee: val || undefined })}
+                    />
                 </td>
 
-                {/* Category badge — click to edit */}
+                {/* Location */}
+                <td className="px-3 py-3 hidden md:table-cell">
+                    <InlineTextCell
+                        value={task.location || ''}
+                        placeholder="Location"
+                        icon={MapPin}
+                        onSave={(val) => onUpdateTask(task.id, { location: val || undefined })}
+                    />
+                </td>
+
+                {/* Due date */}
+                <td className="px-3 py-3 hidden sm:table-cell">
+                    <InlineDateCell
+                        value={task.dueDate}
+                        isComplete={isComplete}
+                        onSave={(val) => onUpdateTask(task.id, { dueDate: val || undefined })}
+                    />
+                </td>
+
+                {/* Category badge — click to change */}
                 <td className="px-3 py-3 hidden sm:table-cell">
                     <div className="relative">
                         <button
@@ -443,20 +503,30 @@ const TaskRow = ({
                     </div>
                 </td>
 
-                {/* Priority */}
+                {/* Priority — click to change */}
                 <td className="px-3 py-3 hidden lg:table-cell">
-                    <span className={`inline-flex items-center gap-1.5 text-xs font-medium ${pri.color}`}>
-                        <span className={`w-1.5 h-1.5 rounded-full ${pri.dot}`} />
-                        {pri.label}
-                    </span>
+                    <div className="relative">
+                        <button
+                            onClick={() => setShowPriorityPicker(!showPriorityPicker)}
+                            className={`inline-flex items-center gap-1.5 text-xs font-medium cursor-pointer hover:opacity-80 transition-opacity ${pri.color}`}
+                        >
+                            <span className={`w-1.5 h-1.5 rounded-full ${pri.dot}`} />
+                            {pri.label}
+                        </button>
+                        {showPriorityPicker && (
+                            <>
+                                <div className="fixed inset-0 z-20" onClick={() => setShowPriorityPicker(false)} />
+                                <PriorityPicker
+                                    current={task.priority}
+                                    onSelect={(newPri) => onUpdateTask(task.id, { priority: newPri })}
+                                    onClose={() => setShowPriorityPicker(false)}
+                                />
+                            </>
+                        )}
+                    </div>
                 </td>
 
-                {/* Created */}
-                <td className="px-3 py-3 hidden lg:table-cell">
-                    <span className="text-sm text-gray-400">{formatCreatedDate(task.createdAt)}</span>
-                </td>
-
-                {/* Actions */}
+                {/* Actions menu */}
                 <td className="pr-4 pl-2 py-3 w-10">
                     <div className="relative">
                         <button
@@ -474,7 +544,7 @@ const TaskRow = ({
                                         className="w-full flex items-center gap-2 px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50"
                                     >
                                         <Pencil size={14} />
-                                        Edit
+                                        Edit all fields
                                     </button>
                                     {task.status !== 'completed' && (
                                         <button
@@ -508,18 +578,14 @@ const TaskRow = ({
                     </div>
                 </td>
             </tr>
-            {/* Edit form row */}
+            {/* Full edit form row */}
             {editing && (
-                <TaskEditForm
-                    task={task}
-                    onUpdateTask={onUpdateTask}
-                    onClose={onStopEdit}
-                />
+                <TaskEditForm task={task} onUpdateTask={onUpdateTask} onClose={onStopEdit} />
             )}
-            {/* Description row (only when not editing) */}
+            {/* Description row */}
             {!editing && task.description && expanded && (
                 <tr className="border-b border-gray-100 bg-gray-50/40">
-                    <td colSpan={7} className="px-5 py-2.5 pl-14">
+                    <td colSpan={9} className="px-5 py-2.5 pl-14">
                         <p className="text-xs text-gray-500 leading-relaxed">{task.description}</p>
                     </td>
                 </tr>
@@ -527,6 +593,8 @@ const TaskRow = ({
         </>
     );
 };
+
+// ── Main panel ──────────────────────────────────────────────────────────────
 
 export const TasksPanel = ({
     tasks,
@@ -586,58 +654,41 @@ export const TasksPanel = ({
 
             {/* Search + Filters bar */}
             <div className="px-6 py-3 flex items-center gap-3 flex-wrap border-b border-gray-100">
-                {/* Search */}
                 <div className="relative flex-1 min-w-[180px] max-w-md">
                     <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-300" />
                     <input
                         type="text"
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
-                        placeholder="Search for a task or assignee"
+                        placeholder="Search for a task, assignee, or location"
                         className="w-full pl-9 pr-3 py-2 text-sm border border-gray-200 rounded-lg bg-white placeholder-gray-300 focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-400 transition-colors"
                     />
                 </div>
 
-                {/* Status filter */}
                 <div className="flex items-center gap-1.5 border border-gray-200 rounded-lg px-2.5 py-1.5">
                     <Clock size={14} className="text-gray-400" />
                     <span className="text-xs font-medium text-gray-500">Status</span>
-                    <select
-                        value={filters.status}
-                        onChange={(e) => onSetFilters({ status: e.target.value as HumanTaskStatus | 'all' })}
-                        className="text-xs font-semibold text-gray-800 bg-transparent border-none outline-none cursor-pointer pr-1"
-                    >
-                        {STATUS_OPTIONS.map(o => (
-                            <option key={o.value} value={o.value}>{o.label}</option>
-                        ))}
+                    <select value={filters.status} onChange={(e) => onSetFilters({ status: e.target.value as HumanTaskStatus | 'all' })}
+                        className="text-xs font-semibold text-gray-800 bg-transparent border-none outline-none cursor-pointer pr-1">
+                        {STATUS_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
                     </select>
                 </div>
 
-                {/* Category filter */}
                 <div className="flex items-center gap-1.5 border border-gray-200 rounded-lg px-2.5 py-1.5">
                     <ClipboardList size={14} className="text-gray-400" />
                     <span className="text-xs font-medium text-gray-500">Category</span>
-                    <select
-                        value={filters.category}
-                        onChange={(e) => onSetFilters({ category: e.target.value as HumanTaskCategory | 'all' })}
-                        className="text-xs font-semibold text-gray-800 bg-transparent border-none outline-none cursor-pointer pr-1"
-                    >
+                    <select value={filters.category} onChange={(e) => onSetFilters({ category: e.target.value as HumanTaskCategory | 'all' })}
+                        className="text-xs font-semibold text-gray-800 bg-transparent border-none outline-none cursor-pointer pr-1">
                         <option value="all">All</option>
-                        {activeCategories.map(key => (
-                            <option key={key} value={key}>{CATEGORY_CONFIG[key].label}</option>
-                        ))}
+                        {activeCategories.map(key => <option key={key} value={key}>{CATEGORY_CONFIG[key].label}</option>)}
                     </select>
                 </div>
 
-                {/* Priority filter */}
                 <div className="flex items-center gap-1.5 border border-gray-200 rounded-lg px-2.5 py-1.5">
                     <ChevronUp size={14} className="text-gray-400" />
                     <span className="text-xs font-medium text-gray-500">Priority</span>
-                    <select
-                        value={filters.priority}
-                        onChange={(e) => onSetFilters({ priority: e.target.value as HumanTaskPriority | 'all' })}
-                        className="text-xs font-semibold text-gray-800 bg-transparent border-none outline-none cursor-pointer pr-1"
-                    >
+                    <select value={filters.priority} onChange={(e) => onSetFilters({ priority: e.target.value as HumanTaskPriority | 'all' })}
+                        className="text-xs font-semibold text-gray-800 bg-transparent border-none outline-none cursor-pointer pr-1">
                         <option value="all">All</option>
                         <option value="urgent">Urgent</option>
                         <option value="high">High</option>
@@ -646,7 +697,6 @@ export const TasksPanel = ({
                     </select>
                 </div>
 
-                {/* Reset */}
                 {hasActiveFilters && (
                     <button
                         onClick={() => onSetFilters({ status: 'all', category: 'all', priority: 'all' })}
@@ -662,16 +712,16 @@ export const TasksPanel = ({
             <div className="flex-1 overflow-y-auto">
                 {filteredTasks.length === 0 ? (
                     <div className="flex flex-col items-center justify-center py-20 text-center">
-                        <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center mb-4 shadow-sm">
+                        <div className="w-16 h-16 rounded-full bg-gray-50 flex items-center justify-center mb-4">
                             <ClipboardList size={28} className="text-gray-300" />
                         </div>
-                        <h3 className="text-base font-semibold text-gray-600 mb-1">
+                        <h3 className="text-sm font-medium text-gray-500 mb-1">
                             {searchQuery ? 'No matching tasks' : 'No tasks yet'}
                         </h3>
-                        <p className="text-sm text-gray-400 max-w-xs">
+                        <p className="text-xs text-gray-400 max-w-xs">
                             {searchQuery
-                                ? 'Try a different search term or reset your filters above.'
-                                : 'Tell the AI things like "remind me to check humidity" or "schedule a trim for Friday" to create tasks.'}
+                                ? 'Try adjusting your search or filters'
+                                : 'Tasks will appear here when you describe operational work to the AI assistant'}
                         </p>
                     </div>
                 ) : (
@@ -679,11 +729,12 @@ export const TasksPanel = ({
                         <thead>
                             <tr className="border-b border-gray-100 text-left">
                                 <th className="pl-5 pr-2 py-3 w-10" />
-                                <th className="px-3 py-3 text-xs font-medium text-gray-400 uppercase tracking-wider">Task title</th>
+                                <th className="px-3 py-3 text-xs font-medium text-gray-400 uppercase tracking-wider">Task</th>
                                 <th className="px-3 py-3 text-xs font-medium text-gray-400 uppercase tracking-wider hidden md:table-cell">Assignee</th>
+                                <th className="px-3 py-3 text-xs font-medium text-gray-400 uppercase tracking-wider hidden md:table-cell">Location</th>
+                                <th className="px-3 py-3 text-xs font-medium text-gray-400 uppercase tracking-wider hidden sm:table-cell">Due</th>
                                 <th className="px-3 py-3 text-xs font-medium text-gray-400 uppercase tracking-wider hidden sm:table-cell">Category</th>
                                 <th className="px-3 py-3 text-xs font-medium text-gray-400 uppercase tracking-wider hidden lg:table-cell">Priority</th>
-                                <th className="px-3 py-3 text-xs font-medium text-gray-400 uppercase tracking-wider hidden lg:table-cell">Created</th>
                                 <th className="pr-4 pl-2 py-3 w-10" />
                             </tr>
                         </thead>
