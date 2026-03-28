@@ -1,10 +1,10 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import {
     ClipboardList, Thermometer, Bug, Shield, Wrench, CloudSun,
     Package, FlaskConical, Warehouse, Truck, SprayCan, GraduationCap,
     Scissors, Sprout, Leaf, Circle, Trash2, ChevronUp,
     CheckCircle2, Clock, PlayCircle, CalendarClock,
-    MapPin, User, Search, MoreHorizontal, RotateCcw,
+    MapPin, User, Search, MoreHorizontal, RotateCcw, Pencil, X, Check,
 } from 'lucide-react';
 import type { HumanTask, HumanTaskStatus, HumanTaskCategory, HumanTaskPriority } from '../types/definitions';
 
@@ -115,6 +115,220 @@ const CategoryPicker = ({
     );
 };
 
+const PriorityPicker = ({
+    current,
+    onSelect,
+    onClose,
+}: {
+    current: HumanTaskPriority;
+    onSelect: (pri: HumanTaskPriority) => void;
+    onClose: () => void;
+}) => {
+    const priorities = Object.entries(PRIORITY_CONFIG) as [HumanTaskPriority, typeof PRIORITY_CONFIG[HumanTaskPriority]][];
+    return (
+        <div className="absolute left-0 top-8 z-30 bg-white rounded-lg shadow-lg border border-gray-200 py-1 w-36">
+            {priorities.map(([key, cfg]) => {
+                const isActive = key === current;
+                return (
+                    <button
+                        key={key}
+                        onClick={() => { onSelect(key); onClose(); }}
+                        className={`w-full flex items-center gap-2 px-3 py-1.5 text-sm transition-colors ${
+                            isActive ? 'bg-gray-100 font-medium' : 'hover:bg-gray-50'
+                        } ${cfg.color}`}
+                    >
+                        <span className={`w-2 h-2 rounded-full ${cfg.dot}`} />
+                        {cfg.label}
+                    </button>
+                );
+            })}
+        </div>
+    );
+};
+
+const TaskEditForm = ({
+    task,
+    onUpdateTask,
+    onClose,
+}: {
+    task: HumanTask;
+    onUpdateTask: (id: string, updates: Partial<HumanTask>) => Promise<void>;
+    onClose: () => void;
+}) => {
+    const [draft, setDraft] = useState({
+        title: task.title,
+        description: task.description || '',
+        assignee: task.assignee || '',
+        location: task.location || '',
+        dueDate: task.dueDate ? task.dueDate.slice(0, 10) : '',
+        priority: task.priority,
+        category: task.category,
+    });
+    const [saving, setSaving] = useState(false);
+    const [showCategoryPicker, setShowCategoryPicker] = useState(false);
+    const [showPriorityPicker, setShowPriorityPicker] = useState(false);
+    const titleRef = useRef<HTMLInputElement>(null);
+
+    useEffect(() => {
+        titleRef.current?.focus();
+    }, []);
+
+    const handleSave = async () => {
+        if (!draft.title.trim()) return;
+        setSaving(true);
+        try {
+            const updates: Partial<HumanTask> = {};
+            if (draft.title !== task.title) updates.title = draft.title.trim();
+            if (draft.description !== (task.description || '')) updates.description = draft.description.trim() || undefined;
+            if (draft.assignee !== (task.assignee || '')) updates.assignee = draft.assignee.trim() || undefined;
+            if (draft.location !== (task.location || '')) updates.location = draft.location.trim() || undefined;
+            if (draft.dueDate !== (task.dueDate ? task.dueDate.slice(0, 10) : '')) updates.dueDate = draft.dueDate || undefined;
+            if (draft.priority !== task.priority) updates.priority = draft.priority;
+            if (draft.category !== task.category) updates.category = draft.category;
+
+            if (Object.keys(updates).length > 0) {
+                await onUpdateTask(task.id, updates);
+            }
+            onClose();
+        } catch {
+            // Allow retry — form stays open
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    const catCfg = CATEGORY_CONFIG[draft.category] || CATEGORY_CONFIG.other;
+    const priCfg = PRIORITY_CONFIG[draft.priority];
+    const CatIcon = catCfg.icon;
+
+    return (
+        <tr className="border-b border-gray-200 bg-gray-50/70">
+            <td colSpan={7} className="px-5 py-4 pl-14">
+                <div className="space-y-3 max-w-2xl">
+                    {/* Title */}
+                    <input
+                        ref={titleRef}
+                        value={draft.title}
+                        onChange={(e) => setDraft(d => ({ ...d, title: e.target.value }))}
+                        placeholder="Task title"
+                        className="w-full text-sm font-medium text-gray-900 bg-white border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-400"
+                        onKeyDown={(e) => { if (e.key === 'Enter') handleSave(); if (e.key === 'Escape') onClose(); }}
+                    />
+
+                    {/* Description */}
+                    <textarea
+                        value={draft.description}
+                        onChange={(e) => setDraft(d => ({ ...d, description: e.target.value }))}
+                        placeholder="Description (optional)"
+                        rows={2}
+                        className="w-full text-sm text-gray-700 bg-white border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-400 resize-none"
+                        onKeyDown={(e) => { if (e.key === 'Escape') onClose(); }}
+                    />
+
+                    {/* Inline fields row */}
+                    <div className="flex flex-wrap items-center gap-3">
+                        {/* Assignee */}
+                        <div className="flex items-center gap-1.5 min-w-[140px]">
+                            <User size={13} className="text-gray-400 shrink-0" />
+                            <input
+                                value={draft.assignee}
+                                onChange={(e) => setDraft(d => ({ ...d, assignee: e.target.value }))}
+                                placeholder="Assignee"
+                                className="text-sm text-gray-700 bg-white border border-gray-200 rounded-md px-2 py-1.5 w-full focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-400"
+                                onKeyDown={(e) => { if (e.key === 'Enter') handleSave(); if (e.key === 'Escape') onClose(); }}
+                            />
+                        </div>
+
+                        {/* Location */}
+                        <div className="flex items-center gap-1.5 min-w-[140px]">
+                            <MapPin size={13} className="text-gray-400 shrink-0" />
+                            <input
+                                value={draft.location}
+                                onChange={(e) => setDraft(d => ({ ...d, location: e.target.value }))}
+                                placeholder="Location"
+                                className="text-sm text-gray-700 bg-white border border-gray-200 rounded-md px-2 py-1.5 w-full focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-400"
+                                onKeyDown={(e) => { if (e.key === 'Enter') handleSave(); if (e.key === 'Escape') onClose(); }}
+                            />
+                        </div>
+
+                        {/* Due date */}
+                        <div className="flex items-center gap-1.5">
+                            <CalendarClock size={13} className="text-gray-400 shrink-0" />
+                            <input
+                                type="date"
+                                value={draft.dueDate}
+                                onChange={(e) => setDraft(d => ({ ...d, dueDate: e.target.value }))}
+                                className="text-sm text-gray-700 bg-white border border-gray-200 rounded-md px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-400"
+                            />
+                        </div>
+
+                        {/* Priority picker */}
+                        <div className="relative">
+                            <button
+                                onClick={() => setShowPriorityPicker(!showPriorityPicker)}
+                                className={`inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1.5 rounded-md border border-gray-200 bg-white hover:ring-2 hover:ring-offset-1 hover:ring-gray-200 transition-all ${priCfg.color}`}
+                            >
+                                <span className={`w-2 h-2 rounded-full ${priCfg.dot}`} />
+                                {priCfg.label}
+                            </button>
+                            {showPriorityPicker && (
+                                <>
+                                    <div className="fixed inset-0 z-20" onClick={() => setShowPriorityPicker(false)} />
+                                    <PriorityPicker
+                                        current={draft.priority}
+                                        onSelect={(pri) => setDraft(d => ({ ...d, priority: pri }))}
+                                        onClose={() => setShowPriorityPicker(false)}
+                                    />
+                                </>
+                            )}
+                        </div>
+
+                        {/* Category picker */}
+                        <div className="relative">
+                            <button
+                                onClick={() => setShowCategoryPicker(!showCategoryPicker)}
+                                className={`inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1.5 rounded-full border hover:ring-2 hover:ring-offset-1 hover:ring-gray-200 transition-all ${catCfg.bg} ${catCfg.color}`}
+                            >
+                                <CatIcon size={12} />
+                                {catCfg.label}
+                            </button>
+                            {showCategoryPicker && (
+                                <>
+                                    <div className="fixed inset-0 z-20" onClick={() => setShowCategoryPicker(false)} />
+                                    <CategoryPicker
+                                        current={draft.category}
+                                        onSelect={(cat) => setDraft(d => ({ ...d, category: cat }))}
+                                        onClose={() => setShowCategoryPicker(false)}
+                                    />
+                                </>
+                            )}
+                        </div>
+                    </div>
+
+                    {/* Action buttons */}
+                    <div className="flex items-center gap-2 pt-1">
+                        <button
+                            onClick={handleSave}
+                            disabled={saving || !draft.title.trim()}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-white bg-teal-600 hover:bg-teal-700 disabled:opacity-50 rounded-md transition-colors"
+                        >
+                            <Check size={13} />
+                            {saving ? 'Saving...' : 'Save'}
+                        </button>
+                        <button
+                            onClick={onClose}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-md transition-colors"
+                        >
+                            <X size={13} />
+                            Cancel
+                        </button>
+                    </div>
+                </div>
+            </td>
+        </tr>
+    );
+};
+
 const TaskRow = ({
     task,
     onUpdateStatus,
@@ -122,6 +336,9 @@ const TaskRow = ({
     onDeleteTask,
     expanded,
     onToggleExpand,
+    editing,
+    onStartEdit,
+    onStopEdit,
 }: {
     task: HumanTask;
     onUpdateStatus: (id: string, status: HumanTaskStatus) => Promise<void>;
@@ -129,6 +346,9 @@ const TaskRow = ({
     onDeleteTask: (id: string) => Promise<void>;
     expanded: boolean;
     onToggleExpand: () => void;
+    editing: boolean;
+    onStartEdit: () => void;
+    onStopEdit: () => void;
 }) => {
     const [showCategoryPicker, setShowCategoryPicker] = useState(false);
     const cat = CATEGORY_CONFIG[task.category] || CATEGORY_CONFIG.other;
@@ -158,8 +378,8 @@ const TaskRow = ({
                     </button>
                 </td>
 
-                {/* Task title */}
-                <td className="px-3 py-3">
+                {/* Task title — double-click to edit */}
+                <td className="px-3 py-3" onDoubleClick={onStartEdit}>
                     <div className="flex items-start gap-2">
                         <div className="min-w-0">
                             <p className={`text-sm leading-snug ${isComplete ? 'text-gray-400 line-through' : 'text-gray-900'}`}>
@@ -246,61 +466,58 @@ const TaskRow = ({
                             <MoreHorizontal size={16} />
                         </button>
                         {expanded && (
-                            <div className="absolute right-0 top-8 z-20 bg-white rounded-lg shadow-lg border border-gray-200 py-1 min-w-[140px]">
-                                {task.status !== 'completed' && (
+                            <>
+                                <div className="fixed inset-0 z-10" onClick={onToggleExpand} />
+                                <div className="absolute right-0 top-8 z-20 bg-white rounded-lg shadow-lg border border-gray-200 py-1 min-w-[140px]">
                                     <button
-                                        onClick={() => { onUpdateStatus(task.id, task.status === 'pending' ? 'in_progress' : 'completed'); onToggleExpand(); }}
+                                        onClick={() => { onStartEdit(); onToggleExpand(); }}
                                         className="w-full flex items-center gap-2 px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50"
                                     >
-                                        {task.status === 'pending' ? <PlayCircle size={14} /> : <CheckCircle2 size={14} />}
-                                        {task.status === 'pending' ? 'Start' : 'Complete'}
+                                        <Pencil size={14} />
+                                        Edit
                                     </button>
-                                )}
-                                {task.status === 'completed' && (
+                                    {task.status !== 'completed' && (
+                                        <button
+                                            onClick={() => { onUpdateStatus(task.id, task.status === 'pending' ? 'in_progress' : 'completed'); onToggleExpand(); }}
+                                            className="w-full flex items-center gap-2 px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50"
+                                        >
+                                            {task.status === 'pending' ? <PlayCircle size={14} /> : <CheckCircle2 size={14} />}
+                                            {task.status === 'pending' ? 'Start' : 'Complete'}
+                                        </button>
+                                    )}
+                                    {task.status === 'completed' && (
+                                        <button
+                                            onClick={() => { onUpdateStatus(task.id, 'pending'); onToggleExpand(); }}
+                                            className="w-full flex items-center gap-2 px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50"
+                                        >
+                                            <RotateCcw size={14} />
+                                            Reopen
+                                        </button>
+                                    )}
+                                    <hr className="my-1 border-gray-100" />
                                     <button
-                                        onClick={() => { onUpdateStatus(task.id, 'pending'); onToggleExpand(); }}
-                                        className="w-full flex items-center gap-2 px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50"
+                                        onClick={() => { onDeleteTask(task.id); onToggleExpand(); }}
+                                        className="w-full flex items-center gap-2 px-3 py-1.5 text-sm text-red-600 hover:bg-red-50"
                                     >
-                                        <RotateCcw size={14} />
-                                        Reopen
+                                        <Trash2 size={14} />
+                                        Delete
                                     </button>
-                                )}
-                                <label className="w-full flex items-center gap-2 px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50 cursor-pointer">
-                                    <CalendarClock size={14} />
-                                    <span>{task.dueDate ? 'Change due date' : 'Set due date'}</span>
-                                    <input
-                                        type="date"
-                                        className="absolute opacity-0 w-0 h-0"
-                                        value={task.dueDate ? task.dueDate.slice(0, 10) : ''}
-                                        onChange={(e) => {
-                                            onUpdateTask(task.id, { dueDate: e.target.value || undefined });
-                                            onToggleExpand();
-                                        }}
-                                    />
-                                </label>
-                                {task.dueDate && (
-                                    <button
-                                        onClick={() => { onUpdateTask(task.id, { dueDate: undefined }); onToggleExpand(); }}
-                                        className="w-full flex items-center gap-2 px-3 py-1.5 text-sm text-gray-500 hover:bg-gray-50"
-                                    >
-                                        <CalendarClock size={14} />
-                                        Clear due date
-                                    </button>
-                                )}
-                                <button
-                                    onClick={() => { onDeleteTask(task.id); onToggleExpand(); }}
-                                    className="w-full flex items-center gap-2 px-3 py-1.5 text-sm text-red-600 hover:bg-red-50"
-                                >
-                                    <Trash2 size={14} />
-                                    Delete
-                                </button>
-                            </div>
+                                </div>
+                            </>
                         )}
                     </div>
                 </td>
             </tr>
-            {/* Description row */}
-            {task.description && expanded && (
+            {/* Edit form row */}
+            {editing && (
+                <TaskEditForm
+                    task={task}
+                    onUpdateTask={onUpdateTask}
+                    onClose={onStopEdit}
+                />
+            )}
+            {/* Description row (only when not editing) */}
+            {!editing && task.description && expanded && (
                 <tr className="border-b border-gray-100 bg-gray-50/40">
                     <td colSpan={7} className="px-5 py-2.5 pl-14">
                         <p className="text-xs text-gray-500 leading-relaxed">{task.description}</p>
@@ -324,6 +541,7 @@ export const TasksPanel = ({
 }: TasksPanelProps) => {
     const [searchQuery, setSearchQuery] = useState('');
     const [expandedId, setExpandedId] = useState<string | null>(null);
+    const [editingId, setEditingId] = useState<string | null>(null);
     const activeCategories = [...new Set(tasks.map(t => t.category))];
     const hasActiveFilters = filters.status !== 'all' || filters.category !== 'all' || filters.priority !== 'all';
 
@@ -479,6 +697,9 @@ export const TasksPanel = ({
                                     onDeleteTask={onDeleteTask}
                                     expanded={expandedId === task.id}
                                     onToggleExpand={() => setExpandedId(expandedId === task.id ? null : task.id)}
+                                    editing={editingId === task.id}
+                                    onStartEdit={() => { setEditingId(task.id); setExpandedId(null); }}
+                                    onStopEdit={() => setEditingId(null)}
                                 />
                             ))}
                         </tbody>
