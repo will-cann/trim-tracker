@@ -106,19 +106,20 @@ export const HarvestLeftColumn: React.FC<HarvestLeftColumnProps> = ({ harvest, o
             {/* Allocation */}
             <div className="hd-section">
                 <h3 className="hd-section-title">Allocation</h3>
-                <div className="chip-group" style={{ marginBottom: 'var(--space-sm)' }}>
+                <div className="hd-alloc-chips">
                     {ALLOCATIONS.map(a => {
                         const Icon = a.icon;
                         const isActive = currentAllocation === a.value || (a.value === 'Both' && showBothSplit);
                         return (
                             <button
                                 key={a.value}
-                                className={`chip ${isActive ? 'chip-active' : ''}`}
+                                className={`hd-alloc-chip ${isActive ? 'hd-alloc-chip-active' : ''}`}
+                                data-type={a.value.toLowerCase()}
                                 onClick={() => handleAllocate(a.value)}
                                 disabled={harvest.totalWetWeight <= 0 || allocating}
                             >
-                                <Icon size={14} />
-                                {a.label}
+                                <Icon size={16} />
+                                <span>{a.label}</span>
                             </button>
                         );
                     })}
