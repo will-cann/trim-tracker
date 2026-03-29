@@ -22,6 +22,7 @@ const PACKAGE_TYPES: { value: PackageType; label: string }[] = [
     { value: 'flower', label: 'Flower' },
     { value: 'trim', label: 'Trim' },
     { value: 'shake', label: 'Shake' },
+    { value: 'fresh_frozen', label: 'Fresh Frozen' },
 ];
 
 export const CreatePackageModal: React.FC<CreatePackageModalProps> = ({ onClose, onSubmit, prefill }) => {

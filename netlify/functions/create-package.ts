@@ -29,7 +29,7 @@ export const handler: Handler = async (event) => {
                     body: JSON.stringify({ error: 'label, packageType, strain, licenseNumber, and quantity are required' }),
                 };
             }
-            if (!['flower', 'trim', 'shake'].includes(pkg.packageType)) {
+            if (!['flower', 'trim', 'shake', 'fresh_frozen'].includes(pkg.packageType)) {
                 return {
                     statusCode: 400,
                     body: JSON.stringify({ error: 'packageType must be flower, trim, or shake' }),

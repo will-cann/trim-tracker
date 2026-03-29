@@ -687,7 +687,7 @@ const tools = [
                         type: 'object',
                         properties: {
                             label: { type: 'string', description: 'Package label/identifier (e.g. PKG-001)' },
-                            packageType: { type: 'string', enum: ['flower', 'trim', 'shake'], description: 'Type of packaged product' },
+                            packageType: { type: 'string', enum: ['flower', 'trim', 'shake', 'fresh_frozen'], description: 'Type of packaged product. Use fresh_frozen for frozen harvest allocations.' },
                             strain: { type: 'string', description: 'Cannabis strain name' },
                             licenseNumber: { type: 'string', description: 'License number' },
                             quantity: { type: 'number', description: 'Package weight in grams' },

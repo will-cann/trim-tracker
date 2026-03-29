@@ -13,6 +13,7 @@ const TABS: { key: TabKey; label: string }[] = [
     { key: 'flower', label: 'Flower' },
     { key: 'trim', label: 'Trim' },
     { key: 'shake', label: 'Shake' },
+    { key: 'fresh_frozen', label: 'Fresh Frozen' },
     { key: 'on_hold', label: 'On Hold' },
     { key: 'finished', label: 'Finished' },
 ];
@@ -41,6 +42,7 @@ export const PackageDashboard: React.FC = () => {
             case 'flower':
             case 'trim':
             case 'shake':
+            case 'fresh_frozen':
                 return packages.filter(p => p.packageType === activeTab && p.status !== 'archived');
             case 'on_hold':
                 return packages.filter(p => p.status === 'on_hold');
@@ -81,6 +83,7 @@ export const PackageDashboard: React.FC = () => {
         flower: packages.filter(p => p.packageType === 'flower' && p.status !== 'archived').length,
         trim: packages.filter(p => p.packageType === 'trim' && p.status !== 'archived').length,
         shake: packages.filter(p => p.packageType === 'shake' && p.status !== 'archived').length,
+        fresh_frozen: packages.filter(p => p.packageType === 'fresh_frozen' && p.status !== 'archived').length,
         on_hold: onHoldCount,
         finished: finishedCount,
     };

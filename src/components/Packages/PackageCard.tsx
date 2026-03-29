@@ -27,6 +27,7 @@ const TYPE_CLASS: Record<string, string> = {
     flower: 'bg-amber-50 text-amber-700',
     trim: 'bg-emerald-50 text-emerald-700',
     shake: 'bg-blue-50 text-blue-700',
+    fresh_frozen: 'bg-cyan-50 text-cyan-700',
 };
 
 const LAB_LABEL: Record<string, string> = {
@@ -59,7 +60,7 @@ export const PackageCard: React.FC<PackageCardProps> = ({ pkg, onUpdate, onDelet
                                     {STATUS_LABEL[pkg.status] || pkg.status}
                                 </span>
                                 <span className={`status-badge ${TYPE_CLASS[pkg.packageType] || ''}`}>
-                                    {pkg.packageType.charAt(0).toUpperCase() + pkg.packageType.slice(1)}
+                                    {pkg.packageType === 'fresh_frozen' ? 'Fresh Frozen' : pkg.packageType.charAt(0).toUpperCase() + pkg.packageType.slice(1)}
                                 </span>
                             </div>
                             <div className="trim-card-subtitle">

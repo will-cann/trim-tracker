@@ -265,6 +265,7 @@ const SELECT_OPTIONS: Record<string, Array<{ value: string; label: string }>> = 
         { value: 'flower', label: 'Flower' },
         { value: 'trim', label: 'Trim' },
         { value: 'shake', label: 'Shake' },
+        { value: 'fresh_frozen', label: 'Fresh Frozen' },
     ],
     labTestingState: [
         { value: 'not_submitted', label: 'Not Submitted' },

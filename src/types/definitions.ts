@@ -193,7 +193,7 @@ export interface TagStats {
 // PACKAGE TYPES
 // ============================================================================
 
-export type PackageType = 'flower' | 'trim' | 'shake';
+export type PackageType = 'flower' | 'trim' | 'shake' | 'fresh_frozen';
 export type PackageStatus = 'active' | 'on_hold' | 'finished' | 'archived';
 export type LabTestingState = 'not_submitted' | 'submitted' | 'passed' | 'failed';
 
