@@ -1,5 +1,6 @@
 import React from 'react';
-import { AlertTriangle, X } from 'lucide-react';
+import { AlertTriangle } from 'lucide-react';
+import { Modal, Button } from './ui';
 
 interface DeleteConfirmationModalProps {
     title: string;
@@ -15,33 +16,23 @@ export const DeleteConfirmationModal: React.FC<DeleteConfirmationModalProps> = (
     onCancel
 }) => {
     return (
-        <div className="modal-overlay">
-            <div className="modal-content delete-modal">
-                <div className="modal-header">
-                    <div className="modal-title-container">
-                        <div className="warning-icon-wrapper">
-                            <AlertTriangle size={24} className="text-red-500" />
-                        </div>
-                        <h3>{title}</h3>
-                    </div>
-                    <button className="close-btn" onClick={onCancel}>
-                        <X size={20} />
-                    </button>
+        <Modal
+            title={title}
+            contentClassName="delete-modal"
+            titleIcon={
+                <div className="warning-icon-wrapper">
+                    <AlertTriangle size={24} className="text-red-500" />
                 </div>
-
-                <div className="modal-body">
-                    <p>{message}</p>
-                </div>
-
-                <div className="modal-footer">
-                    <button className="btn-cancel" onClick={onCancel}>
-                        Cancel
-                    </button>
-                    <button className="btn-delete-confirm" onClick={onConfirm}>
-                        Delete
-                    </button>
-                </div>
-            </div>
-        </div>
+            }
+            onClose={onCancel}
+            footer={
+                <>
+                    <Button variant="secondary" onClick={onCancel}>Cancel</Button>
+                    <Button variant="danger" onClick={onConfirm}>Delete</Button>
+                </>
+            }
+        >
+            <p>{message}</p>
+        </Modal>
     );
 };

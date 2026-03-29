@@ -5,6 +5,7 @@ import {
     Check, AlertCircle, Loader2, GripVertical, ClipboardList,
 } from 'lucide-react';
 import type { Task } from '../types/definitions';
+import { Badge } from './ui';
 
 interface TaskItemProps {
     task: Task;
@@ -95,9 +96,9 @@ export const TaskItem = ({ task, onExecute, onSkip, onRemove, onEditAction }: Ta
                         <span className="text-sm font-medium text-gray-800 truncate">
                             {config.label}
                         </span>
-                        <span className={`text-xs px-1.5 py-0.5 rounded-full ${statusStyle.bg} ${statusStyle.color}`}>
+                        <Badge variant="custom" bg={statusStyle.bg} color={statusStyle.color}>
                             {statusStyle.label}
-                        </span>
+                        </Badge>
                     </div>
                     <p className="text-xs text-gray-500 truncate mt-0.5">
                         {summarizeData(task.action.data)}

@@ -7,11 +7,11 @@ interface DonutChartProps {
 }
 
 const COLORS = {
-    flower: '#10B981', // Emerald 500
-    shake: '#F59E0B',  // Amber 500
-    trim: '#3B82F6',   // Blue 500
-    waste: '#EF4444',  // Red 500
-    remaining: '#E5E7EB', // Gray 200
+    flower: '#3BB570', // chameleon
+    shake: '#FA9E52',  // lion
+    trim: '#1C9EFF',   // macaw
+    waste: '#DF5B59',  // cardinal
+    remaining: '#E0E0E0',
     empty: '#E0E0E0'   // Grey for empty state
 };
 

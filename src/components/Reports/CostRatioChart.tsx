@@ -42,24 +42,24 @@ export const CostRatioChart: React.FC<CostRatioChartProps> = ({ data }) => {
                             dataKey="date"
                             scale="point"
                             padding={{ left: 30, right: 30 }}
-                            tick={{ fontSize: 12, fill: '#6B7280' }}
+                            tick={{ fontSize: 12, fill: '#959595' }}
                             axisLine={false}
                             tickLine={false}
                         />
                         <YAxis
                             yAxisId="left"
-                            tick={{ fontSize: 12, fill: '#6B7280' }}
+                            tick={{ fontSize: 12, fill: '#959595' }}
                             axisLine={false}
                             tickLine={false}
-                            label={{ value: 'Estimated Labor Cost Per LB (AVG)', angle: -90, position: 'insideLeft', style: { textAnchor: 'middle', fill: '#6B7280', fontSize: 12 } }}
+                            label={{ value: 'Estimated Labor Cost Per LB (AVG)', angle: -90, position: 'insideLeft', style: { textAnchor: 'middle', fill: '#959595', fontSize: 12 } }}
                         />
                         <YAxis
                             yAxisId="right"
                             orientation="right"
-                            tick={{ fontSize: 12, fill: '#6B7280' }}
+                            tick={{ fontSize: 12, fill: '#959595' }}
                             axisLine={false}
                             tickLine={false}
-                            label={{ value: 'Flower Ratio x100 (AVG)', angle: 90, position: 'insideRight', style: { textAnchor: 'middle', fill: '#6B7280', fontSize: 12 } }}
+                            label={{ value: 'Flower Ratio x100 (AVG)', angle: 90, position: 'insideRight', style: { textAnchor: 'middle', fill: '#959595', fontSize: 12 } }}
                         />
                         <Tooltip
                             contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)' }}

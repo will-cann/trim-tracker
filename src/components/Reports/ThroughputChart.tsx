@@ -35,20 +35,20 @@ export const ThroughputChart: React.FC<ThroughputChartProps> = ({ data }) => {
                         dataKey="date"
                         scale="point"
                         padding={{ left: 30, right: 30 }}
-                        tick={{ fontSize: 12, fill: '#6B7280' }}
+                        tick={{ fontSize: 12, fill: '#959595' }}
                         axisLine={false}
                         tickLine={false}
                     />
                     <YAxis
                         yAxisId="left"
-                        tick={{ fontSize: 12, fill: '#6B7280' }}
+                        tick={{ fontSize: 12, fill: '#959595' }}
                         axisLine={false}
                         tickLine={false}
                     />
                     <YAxis
                         yAxisId="right"
                         orientation="right"
-                        tick={{ fontSize: 12, fill: '#6B7280' }}
+                        tick={{ fontSize: 12, fill: '#959595' }}
                         axisLine={false}
                         tickLine={false}
                     />
@@ -58,7 +58,7 @@ export const ThroughputChart: React.FC<ThroughputChartProps> = ({ data }) => {
                     <Legend iconType="circle" />
                     <Bar yAxisId="left" dataKey="flowerLbs" name="Flower (LBs)" stackId="a" fill="#FDE047" radius={[0, 0, 4, 4]} barSize={40} />
                     <Bar yAxisId="left" dataKey="trimLbs" name="Trim (LBs)" stackId="a" fill="#6366F1" radius={[4, 4, 0, 0]} barSize={40} />
-                    <Line yAxisId="right" type="monotone" dataKey="laborHours" name="Labor Hours" stroke="#EF4444" strokeWidth={2} dot={false} strokeDasharray="5 5" />
+                    <Line yAxisId="right" type="monotone" dataKey="laborHours" name="Labor Hours" stroke="#DF5B59" strokeWidth={2} dot={false} strokeDasharray="5 5" />
                 </ComposedChart>
             </ResponsiveContainer>
         </div>

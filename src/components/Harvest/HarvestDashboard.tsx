@@ -106,7 +106,7 @@ export const HarvestDashboard: React.FC = () => {
             <div className="dashboard-top-section">
                 <div className="stats-grid">
                     <div className="stat-item">
-                        <div className="stat-icon" style={{ backgroundColor: '#ecfdf5', color: '#10b981' }}>
+                        <div className="stat-icon" style={{ backgroundColor: 'rgba(59, 181, 112, 0.1)', color: '#3BB570' }}>
                             <Sprout size={24} />
                         </div>
                         <div className="stat-content">

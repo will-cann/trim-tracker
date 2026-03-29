@@ -98,15 +98,15 @@ export const TrimmerPerformanceChart: React.FC<TrimmerPerformanceChartProps> = (
                                 dataKey="date"
                                 scale="point"
                                 padding={{ left: 30, right: 30 }}
-                                tick={{ fontSize: 12, fill: '#6B7280' }}
+                                tick={{ fontSize: 12, fill: '#959595' }}
                                 axisLine={false}
                                 tickLine={false}
                             />
                             <YAxis
-                                tick={{ fontSize: 12, fill: '#6B7280' }}
+                                tick={{ fontSize: 12, fill: '#959595' }}
                                 axisLine={false}
                                 tickLine={false}
-                                label={{ value: 'Grams Per Hour (AVG)', angle: -90, position: 'insideLeft', style: { textAnchor: 'middle', fill: '#6B7280', fontSize: 12 } }}
+                                label={{ value: 'Grams Per Hour (AVG)', angle: -90, position: 'insideLeft', style: { textAnchor: 'middle', fill: '#959595', fontSize: 12 } }}
                             />
                             <Tooltip
                                 contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)' }}

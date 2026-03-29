@@ -5,6 +5,7 @@ import { Cannabis, Trash2, Scale, Plus, Package, Hourglass, Users } from 'lucide
 import { DashboardDonutChart } from './DashboardDonutChart';
 import { EntryList } from './EntryList';
 import { AddBatchModal } from './AddBatchModal';
+import { StatCard } from './ui';
 
 interface DashboardProps {
     session: TrimSession;
@@ -65,72 +66,14 @@ export const Dashboard: React.FC<DashboardProps> = ({
             <div className="dashboard-top-section">
                 <div className="stats-grid">
                     {/* Row 1 */}
-                    <div className="stat-item">
-                        <div className="stat-icon start-icon">
-                            <Package size={18} />
-                        </div>
-                        <div className="stat-content">
-                            <label>Total Start</label>
-                            <p className="stat-value">{totalStartWeight.toFixed(0)}g</p>
-                        </div>
-                    </div>
-                    <div className="stat-item">
-                        <div className="stat-icon output-icon">
-                            <Scale size={18} />
-                        </div>
-                        <div className="stat-content">
-                            <label>Total Output</label>
-                            <p className="stat-value">{totalOutput.toFixed(0)}g</p>
-                        </div>
-                    </div>
-                    <div className="stat-item">
-                        <div className="stat-icon remaining-icon">
-                            <Hourglass size={18} />
-                        </div>
-                        <div className="stat-content">
-                            <label>Remaining</label>
-                            <p className="stat-value">{remainingWeight.toFixed(0)}g</p>
-                        </div>
-                    </div>
-
-                    <div className="stat-item">
-                        <div className="stat-icon" style={{ backgroundColor: '#ede9fe', color: '#7c3aed' }}>
-                            <Users size={18} />
-                        </div>
-                        <div className="stat-content">
-                            <label>Trimmers</label>
-                            <p className="stat-value">{activeTrimmerCount}</p>
-                        </div>
-                    </div>
-
+                    <StatCard icon={<Package size={18} />} iconClassName="start-icon" label="Total Start" value={`${totalStartWeight.toFixed(0)}g`} />
+                    <StatCard icon={<Scale size={18} />} iconClassName="output-icon" label="Total Output" value={`${totalOutput.toFixed(0)}g`} />
+                    <StatCard icon={<Hourglass size={18} />} iconClassName="remaining-icon" label="Remaining" value={`${remainingWeight.toFixed(0)}g`} />
+                    <StatCard icon={<Users size={18} />} iconStyle={{ backgroundColor: '#ede9fe', color: '#7c3aed' }} label="Trimmers" value={activeTrimmerCount} />
                     {/* Row 2 */}
-                    <div className="stat-item">
-                        <div className="stat-icon flower-icon">
-                            <Cannabis size={18} />
-                        </div>
-                        <div className="stat-content">
-                            <label>Total Flower</label>
-                            <p className="stat-value">{session.totalFlower.toFixed(0)}g</p>
-                        </div>
-                    </div>
-                    <div className="stat-item">
-                        <div className="stat-icon shake-icon">
-                            <Cannabis size={18} />
-                        </div>
-                        <div className="stat-content">
-                            <label>Total Shake</label>
-                            <p className="stat-value">{session.totalShake.toFixed(0)}g</p>
-                        </div>
-                    </div>
-                    <div className="stat-item">
-                        <div className="stat-icon waste-icon">
-                            <Trash2 size={18} />
-                        </div>
-                        <div className="stat-content">
-                            <label>Total Waste</label>
-                            <p className="stat-value">{session.totalWaste.toFixed(0)}g</p>
-                        </div>
-                    </div>
+                    <StatCard icon={<Cannabis size={18} />} iconClassName="flower-icon" label="Total Flower" value={`${session.totalFlower.toFixed(0)}g`} />
+                    <StatCard icon={<Cannabis size={18} />} iconClassName="shake-icon" label="Total Shake" value={`${session.totalShake.toFixed(0)}g`} />
+                    <StatCard icon={<Trash2 size={18} />} iconClassName="waste-icon" label="Total Waste" value={`${session.totalWaste.toFixed(0)}g`} />
                 </div>
 
                 <div className="dashboard-chart-wrapper">

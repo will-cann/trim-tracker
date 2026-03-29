@@ -1,15 +1,23 @@
-import React, { useState } from 'react';
-import { X } from 'lucide-react';
-import type { AllocationChoice, CreateHarvestDTO } from '../../types/definitions';
+import React, { useState, useEffect } from 'react';
+import { Flower2, Snowflake, ArrowRightLeft, Loader2 } from 'lucide-react';
+import type { AllocationChoice, CreateHarvestDTO, Strain, License } from '../../types/definitions';
+import { apiService } from '../../services/apiService';
+import { Modal, Button } from '../ui';
 
 interface CreateHarvestModalProps {
     onClose: () => void;
     onSubmit: (data: CreateHarvestDTO) => void;
 }
 
+const ALLOCATIONS: { value: AllocationChoice; label: string; sub: string; icon: typeof Flower2 }[] = [
+    { value: 'Flower', label: 'Flower', sub: 'Dry Trim', icon: Flower2 },
+    { value: 'Frozen', label: 'Fresh Frozen', sub: 'Extraction', icon: Snowflake },
+    { value: 'Both', label: 'Both', sub: 'Split batch', icon: ArrowRightLeft },
+];
+
 export const CreateHarvestModal: React.FC<CreateHarvestModalProps> = ({ onClose, onSubmit }) => {
-    const [strain, setStrain] = useState('');
-    const [licenseNumber, setLicenseNumber] = useState('');
+    const [strainId, setStrainId] = useState('');
+    const [licenseId, setLicenseId] = useState('');
     const [name, setName] = useState('');
     const [plantCount, setPlantCount] = useState('');
     const [dryingLocation, setDryingLocation] = useState('');
@@ -17,15 +25,27 @@ export const CreateHarvestModal: React.FC<CreateHarvestModalProps> = ({ onClose,
     const [targetWeight, setTargetWeight] = useState('');
     const [manicureLocation, setManicureLocation] = useState('');
 
+    const [strains, setStrains] = useState<Strain[]>([]);
+    const [licenses, setLicenses] = useState<License[]>([]);
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        Promise.all([
+            apiService.getStrains().then(setStrains),
+            apiService.getMyLicenses().then(setLicenses),
+        ]).finally(() => setLoading(false));
+    }, []);
+
+    const selectedStrain = strains.find(s => s.id === strainId);
+    const selectedLicense = licenses.find(l => l.id === licenseId);
+    const canSubmit = strainId && licenseId && (allocation !== 'Both' || targetWeight);
+
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        if (!strain) return;
-
-        if (allocation === 'Both' && !targetWeight) return;
-
+        if (!canSubmit || !selectedStrain || !selectedLicense) return;
         onSubmit({
-            strain,
-            licenseNumber: licenseNumber || '',
+            strain: selectedStrain.name,
+            licenseNumber: selectedLicense.licenseNumber,
             allocation,
             name: name || undefined,
             plantCount: plantCount ? Number(plantCount) : undefined,
@@ -36,108 +56,162 @@ export const CreateHarvestModal: React.FC<CreateHarvestModalProps> = ({ onClose,
     };
 
     return (
-        <div className="modal-overlay">
-            <div className="modal-content max-w-lg">
-                <div className="modal-header">
-                    <h3>New Harvest</h3>
-                    <button className="close-btn" onClick={onClose}>
-                        <X size={24} />
-                    </button>
+        <Modal title="New Harvest" contentClassName="creation-modal" onClose={onClose} footer={
+            <>
+                <Button variant="secondary" type="button" onClick={onClose}>Cancel</Button>
+                <Button variant="primary" type="submit" form="create-harvest-form" disabled={!canSubmit}>
+                    Create Harvest
+                </Button>
+            </>
+        }>
+            {loading ? (
+                <div className="flex items-center justify-center gap-2 py-8 text-sm text-gray-400">
+                    <Loader2 size={16} className="animate-spin" /> Loading...
                 </div>
-                <form onSubmit={handleSubmit} className="add-batch-form">
-                    <div className="form-group">
-                        <label>Strain *</label>
-                        <input
-                            type="text"
-                            value={strain}
-                            onChange={e => setStrain(e.target.value)}
-                            placeholder="e.g. Blue Dream"
-                            required
-                        />
-                    </div>
-                    <div className="form-group">
-                        <label>License Number</label>
-                        <input
-                            type="text"
-                            value={licenseNumber}
-                            onChange={e => setLicenseNumber(e.target.value)}
-                            placeholder="Optional"
-                        />
-                    </div>
-                    <div className="form-group">
-                        <label>Batch ID (auto-generated if blank)</label>
-                        <input
-                            type="text"
-                            value={name}
-                            onChange={e => setName(e.target.value)}
-                            placeholder="Leave blank to auto-generate"
-                        />
-                    </div>
-                    <div className="form-group">
-                        <label>Plant Count</label>
-                        <input
-                            type="number"
-                            value={plantCount}
-                            onChange={e => setPlantCount(e.target.value)}
-                            placeholder="0"
-                            min="0"
-                        />
-                    </div>
-                    <div className="form-group">
-                        <label>Drying Location</label>
-                        <input
-                            type="text"
-                            value={dryingLocation}
-                            onChange={e => setDryingLocation(e.target.value)}
-                            placeholder="e.g. Drying Room 1"
-                        />
-                    </div>
-                    <div className="form-group">
-                        <label>Allocation *</label>
-                        <select
-                            value={allocation}
-                            onChange={e => setAllocation(e.target.value as AllocationChoice)}
-                            className="w-full px-3 py-2 rounded-md border border-gray-300 text-sm bg-white
-                                       focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:border-emerald-400"
-                        >
-                            <option value="Flower">Flower (Dry Trim)</option>
-                            <option value="Frozen">Fresh Frozen</option>
-                            <option value="Both">Both</option>
-                        </select>
+            ) : (
+                <form id="create-harvest-form" onSubmit={handleSubmit}>
+                    {/* Core info */}
+                    <div className="field-row">
+                        <div className="field">
+                            <label className="field-label">
+                                Strain <span className="required">*</span>
+                            </label>
+                            <select
+                                className="field-input"
+                                value={strainId}
+                                onChange={e => setStrainId(e.target.value)}
+                                required
+                            >
+                                <option value="">Select strain</option>
+                                {strains.map(s => (
+                                    <option key={s.id} value={s.id}>{s.name}</option>
+                                ))}
+                            </select>
+                        </div>
+                        <div className="field">
+                            <label className="field-label">Batch ID</label>
+                            <input
+                                type="text"
+                                className="field-input"
+                                value={name}
+                                onChange={e => setName(e.target.value)}
+                                placeholder="Auto-generated"
+                            />
+                        </div>
                     </div>
 
-                    {allocation === 'Both' && (
-                        <>
-                            <div className="form-group">
-                                <label>Fresh Frozen Target Weight (g) *</label>
-                                <input
-                                    type="number"
-                                    value={targetWeight}
-                                    onChange={e => setTargetWeight(e.target.value)}
-                                    placeholder="Weight to allocate to fresh frozen"
-                                    min="1"
-                                    required
-                                />
+                    {/* License chips */}
+                    <div className="field">
+                        <label className="field-label">
+                            License <span className="required">*</span>
+                        </label>
+                        {licenses.length === 0 ? (
+                            <p className="field-hint" style={{ marginTop: 0 }}>No licenses found</p>
+                        ) : (
+                            <div className="chip-group">
+                                {licenses.map(lic => (
+                                    <button
+                                        key={lic.id}
+                                        type="button"
+                                        onClick={() => setLicenseId(lic.id)}
+                                        className={`ai-license-pill ${lic.id === licenseId ? 'active' : ''}`}
+                                    >
+                                        {lic.label || lic.licenseNumber}
+                                    </button>
+                                ))}
                             </div>
-                            <div className="form-group">
-                                <label>Manicure Location *</label>
+                        )}
+                    </div>
+
+                    <div className="field-row">
+                        <div className="field">
+                            <label className="field-label">Plant Count</label>
+                            <input
+                                type="number"
+                                className="field-input"
+                                value={plantCount}
+                                onChange={e => setPlantCount(e.target.value)}
+                                placeholder="0"
+                                min="0"
+                            />
+                        </div>
+                        <div className="field">
+                            <label className="field-label">Drying Location</label>
+                            <input
+                                type="text"
+                                className="field-input"
+                                value={dryingLocation}
+                                onChange={e => setDryingLocation(e.target.value)}
+                                placeholder="Drying Room 1"
+                            />
+                        </div>
+                    </div>
+
+                    <div className="field-divider" />
+
+                    {/* Allocation picker */}
+                    <div className="field">
+                        <label className="field-label">
+                            Allocation <span className="required">*</span>
+                        </label>
+                        <div className="chip-group">
+                            {ALLOCATIONS.map(a => {
+                                const Icon = a.icon;
+                                return (
+                                    <button
+                                        key={a.value}
+                                        type="button"
+                                        onClick={() => setAllocation(a.value)}
+                                        className={`chip chip-flex ${allocation === a.value ? 'chip-active' : ''}`}
+                                    >
+                                        <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                            <Icon size={14} />
+                                            {a.label}
+                                        </span>
+                                        <span className="chip-sub">{a.sub}</span>
+                                    </button>
+                                );
+                            })}
+                        </div>
+                    </div>
+
+                    {/* Conditional fields for Both */}
+                    {allocation === 'Both' && (
+                        <div className="field-row">
+                            <div className="field">
+                                <label className="field-label">
+                                    Frozen Target Weight <span className="required">*</span>
+                                </label>
+                                <div className="field-input-wrap">
+                                    <input
+                                        type="number"
+                                        className="field-input"
+                                        value={targetWeight}
+                                        onChange={e => setTargetWeight(e.target.value)}
+                                        placeholder="0"
+                                        min="1"
+                                        required
+                                    />
+                                    <span className="field-input-unit">g</span>
+                                </div>
+                            </div>
+                            <div className="field">
+                                <label className="field-label">
+                                    Manicure Location <span className="required">*</span>
+                                </label>
                                 <input
                                     type="text"
+                                    className="field-input"
                                     value={manicureLocation}
                                     onChange={e => setManicureLocation(e.target.value)}
-                                    placeholder="Fresh frozen storage room"
+                                    placeholder="Storage room"
                                     required
                                 />
                             </div>
-                        </>
+                        </div>
                     )}
-
-                    <div className="modal-actions">
-                        <button type="button" className="btn-cancel" onClick={onClose}>Cancel</button>
-                        <button type="submit" className="btn-primary">Create Harvest</button>
-                    </div>
                 </form>
-            </div>
-        </div>
+            )}
+        </Modal>
     );
 };

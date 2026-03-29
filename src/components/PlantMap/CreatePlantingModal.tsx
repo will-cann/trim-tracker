@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { X, Loader2, Plus, Minus } from 'lucide-react';
+import { Loader2, Plus, Minus, AlertCircle } from 'lucide-react';
 import type { PlantPhase, Room } from '../../types/plantMap';
 import type { Strain } from '../../types/definitions';
 import { apiService } from '../../services/apiService';
+import { Modal, Button } from '../ui';
 
 interface CreatePlantingModalProps {
     activePhase: PlantPhase;
@@ -47,13 +48,12 @@ export const CreatePlantingModal: React.FC<CreatePlantingModalProps> = ({
         activePhase === 'flowering' ? 'flowering' : 'vegetative'
     );
 
-    // Fetch strains and rooms
     useEffect(() => {
         apiService.getStrains().then(setStrains);
         apiService.getRooms().then(r => setRooms(r as Room[]));
     }, []);
 
-    // Auto-generate batch name when strain or type changes
+    // Auto-generate batch name
     useEffect(() => {
         if (mode === 'batch' && strainId) {
             const strain = strains.find(s => s.id === strainId);
@@ -64,7 +64,7 @@ export const CreatePlantingModal: React.FC<CreatePlantingModalProps> = ({
         }
     }, [strainId, batchType, plantedDate, mode, strains]);
 
-    // Auto-set label prefix from strain
+    // Auto-set label prefix
     useEffect(() => {
         if (mode === 'plant' && strainId) {
             const strain = strains.find(s => s.id === strainId);
@@ -78,7 +78,6 @@ export const CreatePlantingModal: React.FC<CreatePlantingModalProps> = ({
 
     const selectedStrain = strains.find(s => s.id === strainId);
 
-    // Filter rooms by type based on mode
     const filteredRooms = rooms.filter(r => {
         if (mode === 'batch') return r.roomType === 'nursery' || r.roomType === 'general';
         if (growthPhase === 'vegetative') return r.roomType === 'veg' || r.roomType === 'general';
@@ -86,7 +85,8 @@ export const CreatePlantingModal: React.FC<CreatePlantingModalProps> = ({
         return true;
     });
 
-    // Generate plant labels
+    const displayRooms = filteredRooms.length > 0 ? filteredRooms : rooms;
+
     const plantLabels = Array.from({ length: plantCount }, (_, i) =>
         `${labelPrefix}-${String(i + 1).padStart(3, '0')}`
     );
@@ -102,7 +102,6 @@ export const CreatePlantingModal: React.FC<CreatePlantingModalProps> = ({
         if (!canSubmit() || !selectedStrain) return;
         setSubmitting(true);
         setError(null);
-
         try {
             if (mode === 'batch') {
                 await apiService.createPlanting({
@@ -136,280 +135,244 @@ export const CreatePlantingModal: React.FC<CreatePlantingModalProps> = ({
         }
     };
 
-    return (
-        <div className="modal-overlay" onClick={onClose}>
-            <div className="modal-content" onClick={e => e.stopPropagation()}>
-                {/* Header */}
-                <div className="modal-header">
-                    <h3 className="text-base font-semibold text-gray-900">New Planting</h3>
-                    <button onClick={onClose} className="close-btn">
-                        <X size={20} />
-                    </button>
-                </div>
+    const submitLabel = submitting
+        ? 'Creating...'
+        : mode === 'batch'
+            ? `Create Batch (${batchCount})`
+            : `Create ${plantCount} Plant${plantCount !== 1 ? 's' : ''}`;
 
-                {/* Mode toggle */}
-                <div className="flex gap-2 mb-4">
+    return (
+        <Modal title="New Planting" contentClassName="creation-modal" onClose={onClose} footer={
+            <>
+                <Button variant="secondary" onClick={onClose}>Cancel</Button>
+                <Button variant="primary" onClick={handleSubmit} disabled={submitting || !canSubmit()}>
+                    {submitting ? <Loader2 size={14} className="animate-spin" /> : submitLabel}
+                </Button>
+            </>
+        }>
+            {/* Mode toggle */}
+            <div className="field">
+                <div className="toggle-group">
                     <button
+                        type="button"
                         onClick={() => setMode('batch')}
-                        className={`flex-1 px-3 py-2 rounded-lg text-xs font-medium border transition-colors ${
-                            mode === 'batch'
-                                ? 'border-emerald-500 bg-emerald-50 text-emerald-700'
-                                : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300'
-                        }`}
+                        className={`toggle-option ${mode === 'batch' ? 'toggle-active' : ''}`}
                     >
                         Plant Batch
-                        <div className="text-[10px] mt-0.5 opacity-70">Nursery / immature</div>
                     </button>
                     <button
+                        type="button"
                         onClick={() => setMode('plant')}
-                        className={`flex-1 px-3 py-2 rounded-lg text-xs font-medium border transition-colors ${
-                            mode === 'plant'
-                                ? 'border-emerald-500 bg-emerald-50 text-emerald-700'
-                                : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300'
-                        }`}
+                        className={`toggle-option ${mode === 'plant' ? 'toggle-active' : ''}`}
                     >
                         Individual Plants
-                        <div className="text-[10px] mt-0.5 opacity-70">Vegetative / flowering</div>
                     </button>
                 </div>
+                <p className="field-hint">
+                    {mode === 'batch'
+                        ? 'Untracked group for nursery and immature plants'
+                        : 'Individually labeled plants for veg or flower rooms'}
+                </p>
+            </div>
 
-                <div className="modal-body space-y-4">
-                    {/* Strain selector */}
-                    <div>
-                        <label className="block text-xs font-medium text-gray-700 mb-1.5">Strain</label>
-                        {strains.length === 0 ? (
-                            <div className="flex items-center gap-2 text-xs text-gray-400 py-2">
-                                <Loader2 size={14} className="animate-spin" />
-                                Loading strains...
-                            </div>
-                        ) : (
-                            <select
-                                value={strainId}
-                                onChange={e => setStrainId(e.target.value)}
-                                className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-400"
-                            >
-                                <option value="">Select a strain</option>
-                                {strains.map(s => (
-                                    <option key={s.id} value={s.id}>{s.name}</option>
-                                ))}
-                            </select>
-                        )}
+            {/* Strain */}
+            <div className="field">
+                <label className="field-label">
+                    Strain <span className="required">*</span>
+                </label>
+                {strains.length === 0 ? (
+                    <div className="flex items-center gap-2 text-xs text-gray-400 py-2">
+                        <Loader2 size={14} className="animate-spin" /> Loading...
                     </div>
+                ) : (
+                    <select
+                        className="field-input"
+                        value={strainId}
+                        onChange={e => setStrainId(e.target.value)}
+                    >
+                        <option value="">Select a strain</option>
+                        {strains.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                    </select>
+                )}
+            </div>
 
-                    {/* Room selector */}
-                    <div>
-                        <label className="block text-xs font-medium text-gray-700 mb-1.5">Room</label>
-                        {rooms.length === 0 ? (
-                            <div className="flex items-center gap-2 text-xs text-gray-400 py-2">
-                                <Loader2 size={14} className="animate-spin" />
-                                Loading rooms...
-                            </div>
-                        ) : filteredRooms.length === 0 ? (
-                            <p className="text-xs text-gray-400 py-2">No matching rooms. Showing all:</p>
-                        ) : null}
-                        <div className="grid grid-cols-2 gap-2 max-h-36 overflow-auto">
-                            {(filteredRooms.length > 0 ? filteredRooms : rooms).map(r => (
+            {/* Room */}
+            <div className="field">
+                <label className="field-label">
+                    Room <span className="required">*</span>
+                </label>
+                {rooms.length === 0 ? (
+                    <div className="flex items-center gap-2 text-xs text-gray-400 py-2">
+                        <Loader2 size={14} className="animate-spin" /> Loading...
+                    </div>
+                ) : (
+                    <>
+                        {filteredRooms.length === 0 && rooms.length > 0 && (
+                            <p className="field-hint" style={{ marginBottom: 6, marginTop: 0 }}>
+                                No matching rooms for this phase. Showing all:
+                            </p>
+                        )}
+                        <div className="room-grid">
+                            {displayRooms.map(r => (
                                 <button
                                     key={r.id}
+                                    type="button"
                                     onClick={() => setRoomId(r.id)}
-                                    className={`px-3 py-2 rounded-lg text-xs font-medium border transition-colors text-left ${
-                                        roomId === r.id
-                                            ? 'border-emerald-500 bg-emerald-50 text-emerald-700'
-                                            : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300'
-                                    }`}
+                                    className={`chip ${roomId === r.id ? 'chip-active' : ''}`}
                                 >
-                                    <div>{r.name}</div>
-                                    <div className="text-[10px] text-gray-400 capitalize">{r.roomType}</div>
+                                    {r.name}
+                                    <span className="chip-sub">{r.roomType}</span>
+                                </button>
+                            ))}
+                        </div>
+                    </>
+                )}
+            </div>
+
+            {/* Date */}
+            <div className="field">
+                <label className="field-label">Planted Date</label>
+                <input
+                    type="date"
+                    className="field-input"
+                    value={plantedDate}
+                    onChange={e => setPlantedDate(e.target.value)}
+                />
+            </div>
+
+            <div className="field-divider" />
+
+            {/* ── Batch fields ── */}
+            {mode === 'batch' && (
+                <>
+                    <div className="field">
+                        <label className="field-label">Batch Type</label>
+                        <div className="chip-group">
+                            {BATCH_TYPES.map(bt => (
+                                <button
+                                    key={bt.value}
+                                    type="button"
+                                    onClick={() => setBatchType(bt.value)}
+                                    className={`chip chip-flex ${batchType === bt.value ? 'chip-active' : ''}`}
+                                >
+                                    {bt.label}
                                 </button>
                             ))}
                         </div>
                     </div>
 
-                    {/* Planted date */}
-                    <div>
-                        <label className="block text-xs font-medium text-gray-700 mb-1.5">Planted Date</label>
+                    <div className="field">
+                        <label className="field-label">Batch Name</label>
                         <input
-                            type="date"
-                            value={plantedDate}
-                            onChange={e => setPlantedDate(e.target.value)}
-                            className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-400"
+                            type="text"
+                            className="field-input"
+                            value={batchName}
+                            onChange={e => setBatchName(e.target.value)}
+                            placeholder="Auto-generated from strain"
                         />
                     </div>
 
-                    {/* ── Batch-specific fields ── */}
-                    {mode === 'batch' && (
-                        <>
-                            <div>
-                                <label className="block text-xs font-medium text-gray-700 mb-1.5">Batch Type</label>
-                                <div className="flex gap-2">
-                                    {BATCH_TYPES.map(bt => (
-                                        <button
-                                            key={bt.value}
-                                            onClick={() => setBatchType(bt.value)}
-                                            className={`flex-1 px-3 py-2 rounded-lg text-xs font-medium border transition-colors ${
-                                                batchType === bt.value
-                                                    ? 'border-emerald-500 bg-emerald-50 text-emerald-700'
-                                                    : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300'
-                                            }`}
-                                        >
-                                            {bt.label}
-                                        </button>
-                                    ))}
-                                </div>
-                            </div>
+                    <div className="field">
+                        <label className="field-label">Plant Count</label>
+                        <div className="stepper">
+                            <button type="button" className="stepper-btn" onClick={() => setBatchCount(c => Math.max(1, c - 10))}>
+                                <Minus size={14} />
+                            </button>
+                            <input
+                                type="number"
+                                className="stepper-input"
+                                min={1}
+                                value={batchCount}
+                                onChange={e => setBatchCount(Math.max(1, parseInt(e.target.value) || 1))}
+                            />
+                            <button type="button" className="stepper-btn" onClick={() => setBatchCount(c => c + 10)}>
+                                <Plus size={14} />
+                            </button>
+                        </div>
+                    </div>
+                </>
+            )}
 
-                            <div>
-                                <label className="block text-xs font-medium text-gray-700 mb-1.5">Batch Name</label>
+            {/* ── Plant fields ── */}
+            {mode === 'plant' && (
+                <>
+                    <div className="field">
+                        <label className="field-label">Growth Phase</label>
+                        <div className="toggle-group" style={{ maxWidth: 260 }}>
+                            {(['vegetative', 'flowering'] as const).map(p => (
+                                <button
+                                    key={p}
+                                    type="button"
+                                    onClick={() => setGrowthPhase(p)}
+                                    className={`toggle-option ${growthPhase === p ? 'toggle-active' : ''}`}
+                                    style={{ textTransform: 'capitalize' }}
+                                >
+                                    {p}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+
+                    <div className="field-row">
+                        <div className="field">
+                            <label className="field-label">Label Prefix</label>
+                            <input
+                                type="text"
+                                className="field-input"
+                                value={labelPrefix}
+                                onChange={e => setLabelPrefix(e.target.value)}
+                                placeholder="GG4-V"
+                            />
+                        </div>
+                        <div className="field">
+                            <label className="field-label">Count</label>
+                            <div className="stepper">
+                                <button type="button" className="stepper-btn" onClick={() => setPlantCount(c => Math.max(1, c - 1))}>
+                                    <Minus size={14} />
+                                </button>
                                 <input
-                                    type="text"
-                                    value={batchName}
-                                    onChange={e => setBatchName(e.target.value)}
-                                    className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-400"
-                                    placeholder="e.g., GG4-Clone-2026-03-28"
+                                    type="number"
+                                    className="stepper-input"
+                                    min={1}
+                                    max={500}
+                                    value={plantCount}
+                                    onChange={e => setPlantCount(Math.max(1, Math.min(500, parseInt(e.target.value) || 1)))}
                                 />
+                                <button type="button" className="stepper-btn" onClick={() => setPlantCount(c => Math.min(500, c + 1))}>
+                                    <Plus size={14} />
+                                </button>
                             </div>
+                        </div>
+                    </div>
 
-                            <div>
-                                <label className="block text-xs font-medium text-gray-700 mb-1.5">Plant Count</label>
-                                <div className="flex items-center gap-3">
-                                    <button
-                                        onClick={() => setBatchCount(c => Math.max(1, c - 10))}
-                                        className="p-1.5 rounded-md border border-gray-200 hover:bg-gray-50 text-gray-500"
-                                    >
-                                        <Minus size={14} />
-                                    </button>
-                                    <input
-                                        type="number"
-                                        min={1}
-                                        value={batchCount}
-                                        onChange={e => setBatchCount(Math.max(1, parseInt(e.target.value) || 1))}
-                                        className="w-20 text-center px-3 py-2 rounded-lg border border-gray-200 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-400"
-                                    />
-                                    <button
-                                        onClick={() => setBatchCount(c => c + 10)}
-                                        className="p-1.5 rounded-md border border-gray-200 hover:bg-gray-50 text-gray-500"
-                                    >
-                                        <Plus size={14} />
-                                    </button>
-                                </div>
+                    {/* Label preview */}
+                    {labelPrefix && plantCount > 0 && (
+                        <div className="field">
+                            <label className="field-label">
+                                Labels ({plantCount})
+                            </label>
+                            <div className="label-tags">
+                                {plantLabels.slice(0, 20).map(label => (
+                                    <span key={label} className="label-tag">{label}</span>
+                                ))}
+                                {plantCount > 20 && (
+                                    <span className="label-tag" style={{ background: 'none', border: 'none', color: '#9CA3AF' }}>
+                                        +{plantCount - 20} more
+                                    </span>
+                                )}
                             </div>
-                        </>
+                        </div>
                     )}
+                </>
+            )}
 
-                    {/* ── Plant-specific fields ── */}
-                    {mode === 'plant' && (
-                        <>
-                            <div>
-                                <label className="block text-xs font-medium text-gray-700 mb-1.5">Growth Phase</label>
-                                <div className="flex gap-2">
-                                    {(['vegetative', 'flowering'] as const).map(p => (
-                                        <button
-                                            key={p}
-                                            onClick={() => setGrowthPhase(p)}
-                                            className={`flex-1 px-3 py-2 rounded-lg text-xs font-medium border transition-colors capitalize ${
-                                                growthPhase === p
-                                                    ? 'border-emerald-500 bg-emerald-50 text-emerald-700'
-                                                    : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300'
-                                            }`}
-                                        >
-                                            {p}
-                                        </button>
-                                    ))}
-                                </div>
-                            </div>
-
-                            <div>
-                                <label className="block text-xs font-medium text-gray-700 mb-1.5">Label Prefix</label>
-                                <input
-                                    type="text"
-                                    value={labelPrefix}
-                                    onChange={e => setLabelPrefix(e.target.value)}
-                                    className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-400"
-                                    placeholder="e.g., GG4-V"
-                                />
-                                <p className="text-[10px] text-gray-400 mt-1">
-                                    Labels will be: {labelPrefix || '???'}-001, {labelPrefix || '???'}-002, ...
-                                </p>
-                            </div>
-
-                            <div>
-                                <label className="block text-xs font-medium text-gray-700 mb-1.5">Number of Plants</label>
-                                <div className="flex items-center gap-3">
-                                    <button
-                                        onClick={() => setPlantCount(c => Math.max(1, c - 1))}
-                                        className="p-1.5 rounded-md border border-gray-200 hover:bg-gray-50 text-gray-500"
-                                    >
-                                        <Minus size={14} />
-                                    </button>
-                                    <input
-                                        type="number"
-                                        min={1}
-                                        max={500}
-                                        value={plantCount}
-                                        onChange={e => setPlantCount(Math.max(1, Math.min(500, parseInt(e.target.value) || 1)))}
-                                        className="w-20 text-center px-3 py-2 rounded-lg border border-gray-200 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-400"
-                                    />
-                                    <button
-                                        onClick={() => setPlantCount(c => Math.min(500, c + 1))}
-                                        className="p-1.5 rounded-md border border-gray-200 hover:bg-gray-50 text-gray-500"
-                                    >
-                                        <Plus size={14} />
-                                    </button>
-                                </div>
-                            </div>
-
-                            {/* Preview labels */}
-                            {labelPrefix && plantCount > 0 && (
-                                <div>
-                                    <label className="block text-xs font-medium text-gray-700 mb-1.5">
-                                        Label Preview ({plantCount} plant{plantCount !== 1 ? 's' : ''})
-                                    </label>
-                                    <div className="flex flex-wrap gap-1 max-h-24 overflow-auto">
-                                        {plantLabels.slice(0, 20).map(label => (
-                                            <span
-                                                key={label}
-                                                className="px-2 py-0.5 rounded-md bg-gray-50 border border-gray-200 text-[11px] text-gray-600 font-mono"
-                                            >
-                                                {label}
-                                            </span>
-                                        ))}
-                                        {plantCount > 20 && (
-                                            <span className="px-2 py-0.5 text-[11px] text-gray-400">
-                                                +{plantCount - 20} more
-                                            </span>
-                                        )}
-                                    </div>
-                                </div>
-                            )}
-                        </>
-                    )}
+            {/* Error */}
+            {error && (
+                <div className="modal-error">
+                    <AlertCircle size={14} />
+                    {error}
                 </div>
-
-                {/* Error */}
-                {error && (
-                    <p className="text-xs text-red-500 mt-3">{error}</p>
-                )}
-
-                {/* Actions */}
-                <div className="modal-actions">
-                    <button onClick={onClose} className="btn-cancel">
-                        Cancel
-                    </button>
-                    <button
-                        onClick={handleSubmit}
-                        disabled={submitting || !canSubmit()}
-                        className="btn-primary"
-                    >
-                        {submitting ? (
-                            <Loader2 size={14} className="animate-spin" />
-                        ) : mode === 'batch' ? (
-                            `Create Batch (${batchCount} plants)`
-                        ) : (
-                            `Create ${plantCount} Plant${plantCount !== 1 ? 's' : ''}`
-                        )}
-                    </button>
-                </div>
-            </div>
-        </div>
+            )}
+        </Modal>
     );
 };

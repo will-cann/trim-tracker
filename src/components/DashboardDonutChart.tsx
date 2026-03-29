@@ -44,11 +44,11 @@ export const DashboardDonutChart: React.FC<DashboardDonutChartProps> = ({ sessio
     // Order: Flower, Shake, Waste, Trim, Remaining
     // Colors matching the app theme
     const colors = {
-        flower: '#10B981', // Emerald 500
-        shake: '#F59E0B',  // Amber 500
-        waste: '#EF4444',  // Red 500
-        trim: '#8B5CF6',   // Violet 500
-        remaining: '#E5E7EB' // Gray 200
+        flower: '#3BB570', // chameleon
+        shake: '#FA9E52',  // lion
+        waste: '#DF5B59',  // cardinal
+        trim: '#8B5CF6',   // violet
+        remaining: '#E0E0E0'
     };
 
     let currentOffset = 25; // Start at top (12 o'clock is -90deg, but with dashoffset 25 it works for 100 circ)
@@ -72,7 +72,7 @@ export const DashboardDonutChart: React.FC<DashboardDonutChartProps> = ({ sessio
         <div className="donut-chart-container dashboard-chart">
             <div className="chart-inner">
                 <svg viewBox="0 0 40 40" className="donut-chart">
-                    <circle className="donut-ring" cx="20" cy="20" r="15.9155" fill="transparent" stroke="#F3F4F6" strokeWidth="4" />
+                    <circle className="donut-ring" cx="20" cy="20" r="15.9155" fill="transparent" stroke="#E0E0E0" strokeWidth="4" />
 
                     {/* Remaining (Background for the rest) */}
                     <circle className="donut-segment" cx="20" cy="20" r="15.9155" fill="transparent" strokeWidth="4"

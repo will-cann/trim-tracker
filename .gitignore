@@ -29,6 +29,11 @@ dist-ssr
 
 # Claude Code
 .claude/
+.agents/
+skills-lock.json
+
+# Design assets (local)
+Sticker Sheet.png
 
 # Module briefs (generated)
 *_MODULE_BRIEF.md
