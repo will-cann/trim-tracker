@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Package, Plus, UserPlus, User, Loader2, Check, X, Sprout, Scale, ArrowRightLeft, Trash2, MapPin, CheckCircle2, XCircle, ChevronDown, Scissors, ClipboardList, Send, UserMinus, RefreshCw, Pencil, Leaf, MoveRight, TrendingUp, Skull, KeyRound } from 'lucide-react';
+import { Package, Plus, UserPlus, User, Loader2, Check, X, Sprout, Scale, ArrowRightLeft, Trash2, MapPin, CheckCircle2, XCircle, ChevronDown, Scissors, ClipboardList, Send, UserMinus, RefreshCw, Pencil, Leaf, MoveRight, TrendingUp, Skull, KeyRound, Tag, Upload } from 'lucide-react';
 import type { ProposedAction } from '../types/definitions';
 
 interface ActionPreviewProps {
@@ -44,6 +44,10 @@ const ACTION_CONFIG: Record<string, { icon: typeof Package; label: string; color
     delete_strain: { icon: Trash2, label: 'Delete Strain', color: 'text-red-600', bgColor: 'bg-red-50' },
     create_license: { icon: KeyRound, label: 'Add License', color: 'text-blue-600', bgColor: 'bg-blue-50' },
     delete_license: { icon: Trash2, label: 'Delete License', color: 'text-red-600', bgColor: 'bg-red-50' },
+    // Tags
+    import_tags: { icon: Upload, label: 'Import Tags', color: 'text-blue-600', bgColor: 'bg-blue-50' },
+    assign_tag: { icon: Tag, label: 'Assign Tag', color: 'text-purple-600', bgColor: 'bg-purple-50' },
+    auto_assign_tags: { icon: Tag, label: 'Auto-assign Tags', color: 'text-emerald-600', bgColor: 'bg-emerald-50' },
 };
 
 const FIELD_LABELS: Record<string, string> = {
@@ -93,6 +97,10 @@ const FIELD_LABELS: Record<string, string> = {
     // License
     licenseId: 'License ID',
     strainId: 'Strain ID',
+    tagNumber: 'Tag Number',
+    tagNumbers: 'Tag Numbers',
+    tagType: 'Tag Type',
+    plantIdentifier: 'Plant',
 };
 
 const HIDDEN_FIELDS = new Set(['entryId', 'profileId', 'harvestId', 'taskId', 'onCompleteAction']);
@@ -128,6 +136,9 @@ const KEY_FIELDS: Record<string, string[]> = {
     delete_strain: ['strainName'],
     create_license: ['licenseNumber'],
     delete_license: ['licenseNumber'],
+    import_tags: ['tagNumbers'],
+    assign_tag: ['tagNumber', 'plantIdentifier'],
+    auto_assign_tags: ['strain', 'roomName'],
 };
 
 /** Build a human-readable one-liner from action data */

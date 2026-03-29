@@ -41,6 +41,7 @@ export const handler: Handler = async (event) => {
                     pb.plant_health,
                     pb.contaminants,
                     pb.planted_date::text AS planted_date,
+                    pb.tag,
                     'plantbatches' AS entity_type
                 FROM plant_batches pb
                 JOIN rooms r ON r.id = pb.room_id AND r.company_id = pb.company_id
@@ -65,6 +66,7 @@ export const handler: Handler = async (event) => {
                         ELSE p.flowering_date::text
                     END AS phase_date,
                     p.target_harvest_date::text AS target_harvest_date,
+                    p.tag,
                     'plants' AS entity_type
                 FROM plants p
                 JOIN rooms r ON r.id = p.room_id AND r.company_id = p.company_id
@@ -87,6 +89,7 @@ export const handler: Handler = async (event) => {
             harvestDate: string | null;
             strain: string;
             type: string;
+            tags: string[];
         }>();
 
         for (const row of rows) {
@@ -103,6 +106,7 @@ export const handler: Handler = async (event) => {
                     harvestDate: row.target_harvest_date || null,
                     strain: row.strain_name,
                     type: row.entity_type,
+                    tags: [],
                 };
                 groupMap.set(key, group);
             }
@@ -110,6 +114,7 @@ export const handler: Handler = async (event) => {
             group.totalPlants += row.plant_count;
             group.healthSum += row.plant_health * row.plant_count;
             group.plants.push(row.id);
+            if (row.tag) group.tags.push(row.tag);
             // Use earliest harvest date in group
             if (row.target_harvest_date && (!group.harvestDate || row.target_harvest_date < group.harvestDate)) {
                 group.harvestDate = row.target_harvest_date;
@@ -132,6 +137,7 @@ export const handler: Handler = async (event) => {
                 harvestDate: group.harvestDate,
                 strain: group.strain,
                 type: group.type,
+                tags: group.tags,
             };
         }
 

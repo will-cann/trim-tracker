@@ -591,6 +591,45 @@ const tools = [
             required: [],
         },
     },
+    // ── Tag Management ──
+    {
+        name: 'import_tags',
+        description: 'Bulk import pre-issued tag numbers into the system pool.',
+        input_schema: {
+            type: 'object' as const,
+            properties: {
+                tagNumbers: { type: 'array', items: { type: 'string' }, description: 'Array of tag number strings' },
+                tagType: { type: 'string', enum: ['plant', 'batch'], description: 'Tag type. Default plant.' },
+            },
+            required: ['tagNumbers'],
+        },
+    },
+    {
+        name: 'assign_tag',
+        description: 'Assign a specific tag to a plant or batch.',
+        input_schema: {
+            type: 'object' as const,
+            properties: {
+                tagNumber: { type: 'string', description: 'The tag number to assign' },
+                plantIdentifier: { type: 'string', description: 'Plant label or strain to identify the target' },
+                roomName: { type: 'string', description: 'Room to narrow down the target plant' },
+            },
+            required: ['tagNumber'],
+        },
+    },
+    {
+        name: 'auto_assign_tags',
+        description: 'Auto-assign tags from the available pool to untagged plants in a room/strain group.',
+        input_schema: {
+            type: 'object' as const,
+            properties: {
+                strain: { type: 'string', description: 'Strain name to filter by' },
+                roomName: { type: 'string', description: 'Room to filter by' },
+                count: { type: 'number', description: 'Number of tags to assign (defaults to all untagged in group)' },
+            },
+            required: [],
+        },
+    },
 ];
 
 interface AIParseRequest {
@@ -1097,6 +1136,35 @@ export const handler: Handler = async (event) => {
                             data: {
                                 licenseId: input.licenseId,
                                 licenseNumber: input.licenseNumber,
+                            },
+                        });
+                        break;
+                    case 'import_tags':
+                        actions.push({
+                            type: 'import_tags',
+                            data: {
+                                tagNumbers: input.tagNumbers || [],
+                                tagType: input.tagType || 'plant',
+                            },
+                        });
+                        break;
+                    case 'assign_tag':
+                        actions.push({
+                            type: 'assign_tag',
+                            data: {
+                                tagNumber: input.tagNumber,
+                                plantIdentifier: input.plantIdentifier,
+                                roomName: input.roomName,
+                            },
+                        });
+                        break;
+                    case 'auto_assign_tags':
+                        actions.push({
+                            type: 'auto_assign_tags',
+                            data: {
+                                strain: input.strain,
+                                roomName: input.roomName,
+                                count: input.count,
                             },
                         });
                         break;

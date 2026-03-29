@@ -100,8 +100,7 @@ export const handler: Handler = async (event) => {
                     }
                 }
 
-                // Neon tagged template doesn't support dynamic column names,
-                // so we use separate queries per phase
+                // Phase change queries
                 if (targetPhase === 'vegetative') {
                     await sql`
                         UPDATE plants
@@ -137,6 +136,96 @@ export const handler: Handler = async (event) => {
                     `;
                 }
                 affectedCount = plantIds.length;
+
+                // ── Automatic tag assignment ──
+                // Check if this transition should assign tags
+                const { rows: settingsRows } = await sql`
+                    SELECT * FROM tag_settings WHERE company_id = ${context.companyId}
+                `;
+                const tagSettings = settingsRows[0];
+
+                if (tagSettings?.use_tags) {
+                    const shouldTag =
+                        (tagSettings.tag_on_phase === 'nursery_to_veg' && targetPhase === 'vegetative') ||
+                        (tagSettings.tag_on_phase === 'veg_to_flower' && targetPhase === 'flowering');
+
+                    if (shouldTag) {
+                        // Only tag plants that don't already have a tag
+                        const { rows: untagged } = await sql`
+                            SELECT id FROM plants
+                            WHERE id = ANY(${plantIds}::uuid[])
+                                AND company_id = ${context.companyId}
+                                AND tag IS NULL
+                        `;
+                        const untaggedIds = untagged.map(r => r.id);
+
+                        if (untaggedIds.length > 0) {
+                            const assignedTags: string[] = [];
+
+                            if (tagSettings.tag_source === 'auto') {
+                                // Auto-generate sequential tags
+                                let counter = tagSettings.auto_tag_counter || 0;
+                                const prefix = tagSettings.auto_tag_prefix || 'PLT';
+
+                                for (const pid of untaggedIds) {
+                                    counter++;
+                                    const tagNumber = `${prefix}-${String(counter).padStart(6, '0')}`;
+                                    // Create tag record
+                                    await sql`
+                                        INSERT INTO tags (company_id, tag_number, tag_type, status, assigned_to_plant_id, assigned_at)
+                                        VALUES (${context.companyId}, ${tagNumber}, 'plant', 'assigned', ${pid}::uuid, NOW())
+                                    `;
+                                    // Update plant
+                                    await sql`UPDATE plants SET tag = ${tagNumber} WHERE id = ${pid}::uuid`;
+                                    assignedTags.push(tagNumber);
+                                }
+
+                                // Update counter
+                                await sql`
+                                    UPDATE tag_settings SET auto_tag_counter = ${counter}
+                                    WHERE company_id = ${context.companyId}
+                                `;
+                            } else {
+                                // Upload mode: pull from available pool
+                                const { rows: available } = await sql`
+                                    SELECT id, tag_number FROM tags
+                                    WHERE company_id = ${context.companyId}
+                                        AND status = 'available'
+                                        AND tag_type = 'plant'
+                                    ORDER BY created_at ASC
+                                    LIMIT ${untaggedIds.length}
+                                `;
+
+                                for (let i = 0; i < Math.min(available.length, untaggedIds.length); i++) {
+                                    const tag = available[i];
+                                    const pid = untaggedIds[i];
+                                    await sql`
+                                        UPDATE tags SET status = 'assigned', assigned_to_plant_id = ${pid}::uuid, assigned_at = NOW()
+                                        WHERE id = ${tag.id}::uuid
+                                    `;
+                                    await sql`UPDATE plants SET tag = ${tag.tag_number} WHERE id = ${pid}::uuid`;
+                                    assignedTags.push(tag.tag_number);
+                                }
+
+                                if (available.length < untaggedIds.length) {
+                                    // Not enough tags — partial assignment, note in response
+                                    return {
+                                        statusCode: 200,
+                                        headers: { 'Content-Type': 'application/json' },
+                                        body: JSON.stringify({
+                                            success: true,
+                                            action,
+                                            affected: affectedCount,
+                                            tagsAssigned: assignedTags.length,
+                                            tagsNeeded: untaggedIds.length,
+                                            warning: `Only ${available.length} tags available in pool. ${untaggedIds.length - available.length} plants were not tagged.`,
+                                        }),
+                                    };
+                                }
+                            }
+                        }
+                    }
+                }
                 break;
             }
 

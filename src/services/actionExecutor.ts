@@ -308,6 +308,40 @@ export async function executeAction(action: ProposedAction): Promise<void> {
             if (licenseId) await apiService.deleteLicense(licenseId);
             break;
         }
+        case 'import_tags':
+            await apiService.importTags(action.data.tagNumbers, action.data.tagType || 'plant');
+            break;
+        case 'assign_tag': {
+            // Find tag by number, then find plant to assign to
+            const allTags = await apiService.getTags({ status: 'available' });
+            const tag = allTags.find(t => t.tagNumber === action.data.tagNumber);
+            if (tag && action.data.plantIdentifier) {
+                const resolved = await resolvePlantIds(action.data.plantIdentifier, action.data.roomName);
+                if (resolved && resolved.plantIds.length > 0) {
+                    if (resolved.entityType === 'plants') {
+                        await apiService.assignTag(tag.id, resolved.plantIds[0]);
+                    } else {
+                        await apiService.assignTag(tag.id, undefined, resolved.plantIds[0]);
+                    }
+                }
+            }
+            break;
+        }
+        case 'auto_assign_tags': {
+            const resolved = await resolvePlantIds(action.data.strain, action.data.roomName);
+            if (resolved) {
+                const availTags = await apiService.getTags({ status: 'available', type: resolved.entityType === 'plants' ? 'plant' : 'batch' });
+                const count = action.data.count || resolved.plantIds.length;
+                for (let i = 0; i < Math.min(count, availTags.length, resolved.plantIds.length); i++) {
+                    if (resolved.entityType === 'plants') {
+                        await apiService.assignTag(availTags[i].id, resolved.plantIds[i]);
+                    } else {
+                        await apiService.assignTag(availTags[i].id, undefined, resolved.plantIds[i]);
+                    }
+                }
+            }
+            break;
+        }
         case 'create_human_task':
             // Human tasks are handled separately via useHumanTasks hook — no-op here
             break;
