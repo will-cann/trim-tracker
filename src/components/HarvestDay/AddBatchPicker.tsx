@@ -29,12 +29,15 @@ export const AddBatchPicker: React.FC<AddBatchPickerProps> = ({ onClose, onSubmi
         ]).finally(() => setLoading(false));
     }, []);
 
+    const getGroupKey = (group: FloweringBatchGroup) => `${group.strainName}::${group.roomId}`;
+
     const handleExpandBatch = (group: FloweringBatchGroup) => {
-        if (expandedBatchId === group.batchId) {
+        const key = getGroupKey(group);
+        if (expandedBatchId === key) {
             setExpandedBatchId(null);
             return;
         }
-        setExpandedBatchId(group.batchId);
+        setExpandedBatchId(key);
         // Auto-select all plants in this batch
         const ids = new Set(group.plants.map(p => p.id));
         setSelectedPlantIds(ids);
@@ -146,12 +149,12 @@ export const AddBatchPicker: React.FC<AddBatchPickerProps> = ({ onClose, onSubmi
                     {/* Batch list */}
                     <div className="hd-picker-list">
                         {groups.map(group => {
-                            const expanded = expandedBatchId === group.batchId;
+                            const expanded = expandedBatchId === getGroupKey(group);
                             const ready = isReady(group);
                             const allSelected = expanded && group.plants.every(p => selectedPlantIds.has(p.id));
 
                             return (
-                                <div key={group.batchId || group.roomId} className="hd-picker-batch">
+                                <div key={getGroupKey(group)} className="hd-picker-batch">
                                     <div
                                         className={`hd-picker-batch-header ${expanded ? 'hd-picker-expanded' : ''}`}
                                         onClick={() => handleExpandBatch(group)}
