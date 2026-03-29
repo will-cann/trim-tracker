@@ -68,14 +68,9 @@ export const handler: Handler = async (event) => {
                 insertedAllocations.push(inserted);
             }
 
-            // Update harvest status if it has flower allocation
-            const hasFlower = allocations.some((a: any) => a.type === 'flower');
-            if (hasFlower && harvest.status === 'active') {
-                await client.query(
-                    `UPDATE harvests SET status = 'drying' WHERE id = $1`,
-                    [harvestId]
-                );
-            }
+            // Note: status transitions are now handled by submit-harvest-batch
+            // and approve-harvest-day, not by allocation. The harvest stays in
+            // its current status (planning/active) until explicitly submitted.
 
             await client.query('COMMIT');
 
