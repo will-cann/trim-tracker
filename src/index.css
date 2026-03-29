@@ -495,7 +495,7 @@ body {
   display: flex;
   flex-direction: column;
   overflow-x: hidden;
-  margin-left: 60px;
+  margin-left: 68px;
   /* Space for icon rail */
   transition: margin-left 0.25s ease;
 }
@@ -503,13 +503,13 @@ body {
 /* left panel is now an overlay — no margin push */
 
 /* ============================================================================
-   SIDEBAR — Icon Rail (always visible, 60px)
+   SIDEBAR — Icon Rail (always visible, 68px)
    ============================================================================ */
 .sidebar-rail {
   position: fixed;
   top: 0;
   left: 0;
-  width: 60px;
+  width: 68px;
   height: 100vh;
   background: #fafafa;
   border-right: 1px solid var(--border-color);
@@ -547,16 +547,34 @@ body {
 }
 
 .sidebar-rail-btn {
-  width: 40px;
-  height: 40px;
+  width: 52px;
+  height: 44px;
   border-radius: 0.5rem;
   border: none;
   background: transparent;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
+  gap: 2px;
   cursor: pointer;
   transition: background-color 0.15s;
+}
+
+.sidebar-rail-btn .sidebar-label {
+  font-size: 9px;
+  font-weight: 500;
+  color: #9ca3af;
+  letter-spacing: 0.01em;
+  line-height: 1;
+}
+
+.sidebar-rail-btn.active .sidebar-label {
+  color: var(--primary-color);
+}
+
+.sidebar-rail-btn:hover .sidebar-label {
+  color: #6b7280;
 }
 
 .sidebar-rail-btn:hover {
@@ -571,9 +589,9 @@ body {
 .sidebar-rail-btn.active::before {
   content: '';
   position: absolute;
-  left: -10px;
-  top: 8px;
-  bottom: 8px;
+  left: -8px;
+  top: 10px;
+  bottom: 10px;
   width: 3px;
   border-radius: 0 2px 2px 0;
   background: var(--primary-color);
@@ -610,7 +628,7 @@ body {
 .sidebar-panel {
   position: fixed;
   top: 0;
-  left: 60px;
+  left: 68px;
   width: 240px;
   height: 100vh;
   background: white;
@@ -629,7 +647,7 @@ body {
 .sidebar-panel-overlay {
   position: fixed;
   top: 0;
-  left: 300px; /* 60px rail + 240px panel */
+  left: 308px; /* 68px rail + 240px panel */
   right: 0;
   bottom: 0;
   z-index: 115;
@@ -659,7 +677,7 @@ body {
 /* Expand tab — sits on rail edge when panel is collapsed */
 .sidebar-expand-tab {
   position: fixed;
-  left: 54px;
+  left: 62px;
   top: 50%;
   transform: translateY(-50%);
   width: 16px;

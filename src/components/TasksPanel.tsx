@@ -2,9 +2,9 @@ import { useState, useRef, useEffect } from 'react';
 import {
     ClipboardList, Thermometer, Bug, Shield, Wrench, CloudSun,
     Package, FlaskConical, Warehouse, Truck, SprayCan, GraduationCap,
-    Scissors, Sprout, Leaf, Circle, Trash2, ChevronUp,
-    CheckCircle2, Clock, PlayCircle, CalendarClock,
-    MapPin, User, Search, MoreHorizontal, RotateCcw, Pencil, X, Check,
+    Scissors, Sprout, Leaf, Circle, Trash2,
+    CheckCircle2, PlayCircle, CalendarClock,
+    MapPin, User, Search, MoreHorizontal, RotateCcw, Pencil, X, Check, SlidersHorizontal,
 } from 'lucide-react';
 import type { HumanTask, HumanTaskStatus, HumanTaskCategory, HumanTaskPriority } from '../types/definitions';
 
@@ -690,6 +690,7 @@ export const TasksPanel = ({
     const [searchQuery, setSearchQuery] = useState('');
     const [expandedId, setExpandedId] = useState<string | null>(null);
     const [editingId, setEditingId] = useState<string | null>(null);
+    const [showFilters, setShowFilters] = useState(false);
     const activeCategories = [...new Set(tasks.map(t => t.category))];
     const hasActiveFilters = filters.status !== 'all' || filters.category !== 'all' || filters.priority !== 'all';
 
@@ -732,60 +733,85 @@ export const TasksPanel = ({
                 </div>
             )}
 
-            {/* Search + Filters bar */}
-            <div className="px-6 py-3 flex items-center gap-3 flex-wrap border-b border-gray-100">
+            {/* Search + Filter toggle */}
+            <div className="px-6 py-3 flex items-center gap-2 border-b border-gray-100">
                 <div className="relative flex-1 min-w-[180px] max-w-md">
                     <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-300" />
                     <input
                         type="text"
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
-                        placeholder="Search for a task, assignee, or location"
+                        placeholder="Search tasks..."
                         className="w-full pl-9 pr-3 py-2 text-sm border border-gray-200 rounded-lg bg-white placeholder-gray-300 focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-400 transition-colors"
                     />
                 </div>
 
-                <div className="flex items-center gap-1.5 border border-gray-200 rounded-lg px-2.5 py-1.5">
-                    <Clock size={14} className="text-gray-400" />
-                    <span className="text-xs font-medium text-gray-500">Status</span>
-                    <select value={filters.status} onChange={(e) => onSetFilters({ status: e.target.value as HumanTaskStatus | 'all' })}
-                        className="text-xs font-semibold text-gray-800 bg-transparent border-none outline-none cursor-pointer pr-1">
-                        {STATUS_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-                    </select>
-                </div>
-
-                <div className="flex items-center gap-1.5 border border-gray-200 rounded-lg px-2.5 py-1.5">
-                    <ClipboardList size={14} className="text-gray-400" />
-                    <span className="text-xs font-medium text-gray-500">Category</span>
-                    <select value={filters.category} onChange={(e) => onSetFilters({ category: e.target.value as HumanTaskCategory | 'all' })}
-                        className="text-xs font-semibold text-gray-800 bg-transparent border-none outline-none cursor-pointer pr-1">
-                        <option value="all">All</option>
-                        {activeCategories.map(key => <option key={key} value={key}>{CATEGORY_CONFIG[key].label}</option>)}
-                    </select>
-                </div>
-
-                <div className="flex items-center gap-1.5 border border-gray-200 rounded-lg px-2.5 py-1.5">
-                    <ChevronUp size={14} className="text-gray-400" />
-                    <span className="text-xs font-medium text-gray-500">Priority</span>
-                    <select value={filters.priority} onChange={(e) => onSetFilters({ priority: e.target.value as HumanTaskPriority | 'all' })}
-                        className="text-xs font-semibold text-gray-800 bg-transparent border-none outline-none cursor-pointer pr-1">
-                        <option value="all">All</option>
-                        <option value="urgent">Urgent</option>
-                        <option value="high">High</option>
-                        <option value="medium">Medium</option>
-                        <option value="low">Low</option>
-                    </select>
-                </div>
-
-                {hasActiveFilters && (
+                <div className="relative">
                     <button
-                        onClick={() => onSetFilters({ status: 'all', category: 'all', priority: 'all' })}
-                        className="flex items-center gap-1.5 text-xs text-gray-400 hover:text-gray-600 transition-colors px-2 py-1.5"
+                        onClick={() => setShowFilters(!showFilters)}
+                        className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium border transition-colors ${
+                            hasActiveFilters
+                                ? 'border-teal-300 bg-teal-50 text-teal-700'
+                                : 'border-gray-200 text-gray-500 hover:border-gray-300'
+                        }`}
                     >
-                        <RotateCcw size={12} />
-                        Reset filters
+                        <SlidersHorizontal size={14} />
+                        Filter
+                        {hasActiveFilters && (
+                            <span className="ml-0.5 w-4 h-4 rounded-full bg-teal-500 text-white text-[10px] flex items-center justify-center font-bold">
+                                {(filters.status !== 'all' ? 1 : 0) + (filters.category !== 'all' ? 1 : 0) + (filters.priority !== 'all' ? 1 : 0)}
+                            </span>
+                        )}
                     </button>
-                )}
+
+                    {showFilters && (
+                        <>
+                            <div className="fixed inset-0 z-20" onClick={() => setShowFilters(false)} />
+                            <div className="absolute right-0 top-10 z-30 bg-white rounded-lg shadow-lg border border-gray-200 p-4 w-64 space-y-3">
+                                <div className="flex items-center justify-between">
+                                    <span className="text-xs font-semibold text-gray-700 uppercase tracking-wider">Filters</span>
+                                    {hasActiveFilters && (
+                                        <button
+                                            onClick={() => { onSetFilters({ status: 'all', category: 'all', priority: 'all' }); setShowFilters(false); }}
+                                            className="text-[11px] text-teal-600 hover:text-teal-700 font-medium"
+                                        >
+                                            Clear all
+                                        </button>
+                                    )}
+                                </div>
+
+                                <div>
+                                    <label className="block text-[11px] font-medium text-gray-500 mb-1">Status</label>
+                                    <select value={filters.status} onChange={(e) => onSetFilters({ status: e.target.value as HumanTaskStatus | 'all' })}
+                                        className="w-full text-sm border border-gray-200 rounded-md px-2.5 py-1.5 bg-white focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-400">
+                                        {STATUS_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                                    </select>
+                                </div>
+
+                                <div>
+                                    <label className="block text-[11px] font-medium text-gray-500 mb-1">Category</label>
+                                    <select value={filters.category} onChange={(e) => onSetFilters({ category: e.target.value as HumanTaskCategory | 'all' })}
+                                        className="w-full text-sm border border-gray-200 rounded-md px-2.5 py-1.5 bg-white focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-400">
+                                        <option value="all">All Categories</option>
+                                        {activeCategories.map(key => <option key={key} value={key}>{CATEGORY_CONFIG[key].label}</option>)}
+                                    </select>
+                                </div>
+
+                                <div>
+                                    <label className="block text-[11px] font-medium text-gray-500 mb-1">Priority</label>
+                                    <select value={filters.priority} onChange={(e) => onSetFilters({ priority: e.target.value as HumanTaskPriority | 'all' })}
+                                        className="w-full text-sm border border-gray-200 rounded-md px-2.5 py-1.5 bg-white focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-400">
+                                        <option value="all">All Priorities</option>
+                                        <option value="urgent">Urgent</option>
+                                        <option value="high">High</option>
+                                        <option value="medium">Medium</option>
+                                        <option value="low">Low</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </>
+                    )}
+                </div>
             </div>
 
             {/* Table */}

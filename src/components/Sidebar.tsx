@@ -38,11 +38,11 @@ const formatRelativeTime = (dateStr: string) => {
 };
 
 const navItems: { view: ViewType; icon: (color: string) => React.ReactNode; label: string }[] = [
-    { view: 'plant-map', icon: (color) => <Map size={20} color={color} />, label: 'Plant Map' },
-    { view: 'harvests', icon: (color) => <Sprout size={20} color={color} />, label: 'Harvest Day' },
-    { view: 'dashboard', icon: (color) => <Scissors size={20} color={color} />, label: 'Trim Tracker' },
-    { view: 'tasks', icon: (color) => <ClipboardList size={20} color={color} />, label: 'Tasks' },
-    { view: 'reports', icon: (color) => <BarChart3 size={20} color={color} />, label: 'Reports' },
+    { view: 'plant-map', icon: (color) => <Map size={18} color={color} />, label: 'Plants' },
+    { view: 'harvests', icon: (color) => <Sprout size={18} color={color} />, label: 'Harvest' },
+    { view: 'dashboard', icon: (color) => <Scissors size={18} color={color} />, label: 'Trim' },
+    { view: 'tasks', icon: (color) => <ClipboardList size={18} color={color} />, label: 'Tasks' },
+    { view: 'reports', icon: (color) => <BarChart3 size={18} color={color} />, label: 'Reports' },
 ];
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -131,6 +131,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                         </span>
                                     )}
                                 </span>
+                                <span className="sidebar-label">{label}</span>
                             </button>
                         );
                     })}
@@ -143,7 +144,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         onClick={() => onViewChange('settings')}
                         title="Settings"
                     >
-                        <Settings size={18} color={currentView === 'settings' ? '#10b981' : '#6b7280'} />
+                        <Settings size={16} color={currentView === 'settings' ? '#10b981' : '#6b7280'} />
+                        <span className="sidebar-label">Settings</span>
                     </button>
                     {user && (
                         <div
