@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
-import { Plus, BarChart3, Sprout, LogOut, User as UserIcon, Trash2, MessageSquare, GripVertical, Scissors, Settings, ClipboardList, Map } from 'lucide-react';
+import { Plus, BarChart3, Sprout, LogOut, User as UserIcon, Trash2, MessageSquare, GripVertical, Scissors, Settings, ClipboardList, Map, Package } from 'lucide-react';
 import { useAuth } from '../contexts/authContext';
 import type { ConversationSummary, TrimSession } from '../types/definitions';
 import logo from '../assets/logo.png';
 
-type ViewType = 'ai' | 'dashboard' | 'reports' | 'harvests' | 'settings' | 'tasks' | 'plant-map';
+type ViewType = 'ai' | 'dashboard' | 'reports' | 'harvests' | 'settings' | 'tasks' | 'plant-map' | 'packages';
 
 interface SidebarProps {
     currentView: ViewType;
@@ -41,6 +41,7 @@ const navItems: { view: ViewType; icon: (color: string) => React.ReactNode; labe
     { view: 'plant-map', icon: (color) => <Map size={18} color={color} />, label: 'Plants' },
     { view: 'harvests', icon: (color) => <Sprout size={18} color={color} />, label: 'Harvest' },
     { view: 'dashboard', icon: (color) => <Scissors size={18} color={color} />, label: 'Trim' },
+    { view: 'packages', icon: (color) => <Package size={18} color={color} />, label: 'Packages' },
     { view: 'tasks', icon: (color) => <ClipboardList size={18} color={color} />, label: 'Tasks' },
     { view: 'reports', icon: (color) => <BarChart3 size={18} color={color} />, label: 'Reports' },
 ];

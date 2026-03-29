@@ -17,9 +17,10 @@ import { Login } from './components/Login';
 import { useConversationHistory } from './hooks/useConversationHistory';
 import { useHumanTasks } from './hooks/useHumanTasks';
 import { PlantMapDashboard } from './components/PlantMap/PlantMapDashboard';
+import { PackageDashboard } from './components/Packages/PackageDashboard';
 import { usePlantMapSummary } from './hooks/usePlantMapSummary';
 
-type ViewType = 'ai' | 'dashboard' | 'reports' | 'harvests' | 'settings' | 'tasks' | 'plant-map';
+type ViewType = 'ai' | 'dashboard' | 'reports' | 'harvests' | 'settings' | 'tasks' | 'plant-map' | 'packages';
 
 const VIEW_SCREEN_CONTEXT: Record<ViewType, string> = {
   'ai': 'AI Assistant home — general conversation, no specific module focused',
@@ -29,6 +30,7 @@ const VIEW_SCREEN_CONTEXT: Record<ViewType, string> = {
   'settings': 'Settings — managing licenses, strains, and app configuration',
   'tasks': 'Tasks Panel — viewing and managing human tasks and operational to-dos',
   'plant-map': 'Plant Map — viewing rooms, plants by growth phase (veg, flower, dry, cure), and plant locations. Operations here involve moving plants between rooms, updating plant health, and managing room assignments',
+  'packages': 'Package Inventory — managing packaged product (flower, trim, shake) with weights, lab testing status, and compliance tracking',
 };
 
 function AppContent() {
@@ -333,6 +335,8 @@ function AppContent() {
           <HarvestDashboard />
         ) : currentView === 'plant-map' ? (
           <PlantMapDashboard />
+        ) : currentView === 'packages' ? (
+          <PackageDashboard />
         ) : currentView === 'reports' ? (
           <ReportsDashboard />
         ) : !session && !selectedSessionId ? (

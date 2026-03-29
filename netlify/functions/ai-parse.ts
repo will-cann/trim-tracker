@@ -21,6 +21,7 @@ The application can automate these operations:
 - **Convert to Trim**: Convert a flower harvest allocation into a trim entry for processing.
 - **Strains**: Create new strains or remove existing ones from the system.
 - **Licenses**: Add, rename, or remove facility license numbers.
+- **Packages**: Final saleable units created from trim processing. Each package has a label, type (flower/trim/shake), strain, license, quantity (grams), optional waste weight, location, and lab testing state. Packages can be put on hold, finished, or deleted.
 
 ## Full Cannabis Operations Knowledge
 
@@ -673,6 +674,71 @@ const tools = [
             required: [],
         },
     },
+    // ── Package Inventory ──
+    {
+        name: 'create_packages',
+        description: 'Create one or more packages from processed trim. Packages are the final saleable units (flower, trim, shake).',
+        input_schema: {
+            type: 'object' as const,
+            properties: {
+                packages: {
+                    type: 'array',
+                    items: {
+                        type: 'object',
+                        properties: {
+                            label: { type: 'string', description: 'Package label/identifier (e.g. PKG-001)' },
+                            packageType: { type: 'string', enum: ['flower', 'trim', 'shake'], description: 'Type of packaged product' },
+                            strain: { type: 'string', description: 'Cannabis strain name' },
+                            licenseNumber: { type: 'string', description: 'License number' },
+                            quantity: { type: 'number', description: 'Package weight in grams' },
+                            wasteWeight: { type: 'number', description: 'Waste weight in grams during packaging' },
+                            location: { type: 'string', description: 'Storage location' },
+                            notes: { type: 'string', description: 'Optional notes' },
+                        },
+                        required: ['label', 'packageType', 'strain', 'licenseNumber', 'quantity'],
+                    },
+                },
+            },
+            required: ['packages'],
+        },
+    },
+    {
+        name: 'update_package',
+        description: 'Update a package status, location, lab testing state, or other fields.',
+        input_schema: {
+            type: 'object' as const,
+            properties: {
+                packageIdentifier: { type: 'string', description: 'Package label to identify which package to update' },
+                status: { type: 'string', enum: ['active', 'on_hold', 'finished'], description: 'New status' },
+                location: { type: 'string', description: 'New location' },
+                labTestingState: { type: 'string', enum: ['not_submitted', 'submitted', 'passed', 'failed'], description: 'Lab testing status' },
+                notes: { type: 'string', description: 'Updated notes' },
+            },
+            required: ['packageIdentifier'],
+        },
+    },
+    {
+        name: 'finish_package',
+        description: 'Mark a package as finished (fully processed and ready for sale).',
+        input_schema: {
+            type: 'object' as const,
+            properties: {
+                packageIdentifier: { type: 'string', description: 'Package label to finish' },
+            },
+            required: ['packageIdentifier'],
+        },
+    },
+    {
+        name: 'delete_package',
+        description: 'Delete a package from inventory.',
+        input_schema: {
+            type: 'object' as const,
+            properties: {
+                packageIdentifier: { type: 'string', description: 'Package label to delete' },
+            },
+            required: ['packageIdentifier'],
+        },
+    },
 ];
 
 interface AIParseRequest {
@@ -782,6 +848,20 @@ export const handler: Handler = async (event) => {
         if ((request.context as any).activeLicenseNumber) {
             contextInfo.push(`- Active license number: ${(request.context as any).activeLicenseNumber} (use this automatically for any new batches or harvests unless the user specifies a different one)`);
         }
+
+        // Add packages context
+        try {
+            const { rows: pkgRows } = await sql`
+                SELECT id, label, package_type, strain, license_number, quantity, status, lab_testing_state, location
+                FROM packages WHERE company_id = ${authContext.companyId} AND status != 'archived'
+                ORDER BY packaged_date DESC LIMIT 50
+            `;
+            if (pkgRows.length > 0) {
+                contextInfo.push(`- Packages: ${pkgRows.map((p: any) => `${p.label} [${p.package_type}] ${p.strain} ${parseFloat(p.quantity)}g status=${p.status} lab=${p.lab_testing_state}${p.location ? ' @' + p.location : ''} (ID: ${p.id})`).join('; ')}`);
+            } else {
+                contextInfo.push(`- Packages: None`);
+            }
+        } catch { /* proceed without package context */ }
 
         // Add strains, licenses, and rooms for resolution
         try {
@@ -1242,6 +1322,82 @@ export const handler: Handler = async (event) => {
                             },
                         });
                         break;
+                    case 'create_packages':
+                        for (const pkg of (input.packages || [])) {
+                            actions.push({
+                                type: 'create_package',
+                                data: {
+                                    label: pkg.label,
+                                    packageType: pkg.packageType,
+                                    strain: pkg.strain,
+                                    licenseNumber: pkg.licenseNumber,
+                                    quantity: pkg.quantity,
+                                    wasteWeight: pkg.wasteWeight || 0,
+                                    location: pkg.location,
+                                    notes: pkg.notes,
+                                },
+                            });
+                        }
+                        break;
+                    case 'update_package': {
+                        // Resolve package by label
+                        const { rows: matchPkgs } = await sql`
+                            SELECT id, label FROM packages
+                            WHERE company_id = ${authContext.companyId}
+                              AND LOWER(label) = LOWER(${input.packageIdentifier || ''})
+                              AND status != 'archived'
+                            LIMIT 1
+                        `;
+                        const matchPkg = matchPkgs[0];
+                        actions.push({
+                            type: 'update_package',
+                            data: {
+                                label: matchPkg?.label || input.packageIdentifier,
+                                packageId: matchPkg?.id || input.packageIdentifier,
+                                status: input.status,
+                                location: input.location,
+                                labTestingState: input.labTestingState,
+                                notes: input.notes,
+                            },
+                        });
+                        break;
+                    }
+                    case 'finish_package': {
+                        const { rows: finishPkgs } = await sql`
+                            SELECT id, label FROM packages
+                            WHERE company_id = ${authContext.companyId}
+                              AND LOWER(label) = LOWER(${input.packageIdentifier || ''})
+                              AND status != 'archived'
+                            LIMIT 1
+                        `;
+                        const finishPkg = finishPkgs[0];
+                        actions.push({
+                            type: 'finish_package',
+                            data: {
+                                label: finishPkg?.label || input.packageIdentifier,
+                                packageId: finishPkg?.id || input.packageIdentifier,
+                            },
+                        });
+                        break;
+                    }
+                    case 'delete_package': {
+                        const { rows: delPkgs } = await sql`
+                            SELECT id, label FROM packages
+                            WHERE company_id = ${authContext.companyId}
+                              AND LOWER(label) = LOWER(${input.packageIdentifier || ''})
+                              AND status != 'archived'
+                            LIMIT 1
+                        `;
+                        const delPkg = delPkgs[0];
+                        actions.push({
+                            type: 'delete_package',
+                            data: {
+                                label: delPkg?.label || input.packageIdentifier,
+                                packageId: delPkg?.id || input.packageIdentifier,
+                            },
+                        });
+                        break;
+                    }
                     case 'create_human_tasks':
                         for (const task of (input.tasks || [])) {
                             const taskData: Record<string, any> = {
