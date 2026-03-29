@@ -67,7 +67,7 @@ const FIELD_LABELS: Record<string, string> = {
     profileName: 'Name',
 };
 
-const HIDDEN_FIELDS = new Set(['entryId', 'profileId', 'harvestId', 'taskId']);
+const HIDDEN_FIELDS = new Set(['entryId', 'profileId', 'harvestId', 'taskId', 'onCompleteAction']);
 
 /** Key fields shown inline per action type — everything else is behind expand */
 const KEY_FIELDS: Record<string, string[]> = {
@@ -345,6 +345,20 @@ function ActionItem({
                                     onChange={(newVal) => onEditAction?.(index, { [key]: newVal })}
                                 />
                             ))}
+                            {action.data.onCompleteAction && (
+                                <div className="flex items-start gap-2 mt-1 pt-1.5 border-t border-gray-100">
+                                    <span className="text-xs text-gray-500 w-28 flex-shrink-0 text-right">On Complete</span>
+                                    <span className="text-xs px-2 py-1 rounded-md" style={{ background: 'var(--primary-light)', color: 'var(--primary-dark)' }}>
+                                        {(action.data.onCompleteAction as any).type?.replace(/_/g, ' ')}
+                                        {' — '}
+                                        {Object.entries((action.data.onCompleteAction as any).data || {})
+                                            .filter(([, v]) => v && typeof v !== 'object')
+                                            .slice(0, 3)
+                                            .map(([, v]) => String(v))
+                                            .join(', ')}
+                                    </span>
+                                </div>
+                            )}
                         </div>
                     )}
                 </>

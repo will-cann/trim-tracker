@@ -3,7 +3,7 @@ import {
     ClipboardList, Thermometer, Bug, Shield, Wrench, CloudSun,
     Package, FlaskConical, Warehouse, Truck, SprayCan, GraduationCap,
     Scissors, Sprout, Leaf, Circle, Trash2,
-    CheckCircle2, PlayCircle, CalendarClock,
+    CheckCircle2, PlayCircle, CalendarClock, Zap, ArrowRight,
     MapPin, User, Search, MoreHorizontal, RotateCcw, Pencil, X, Check, SlidersHorizontal,
 } from 'lucide-react';
 import type { HumanTask, HumanTaskStatus, HumanTaskCategory, HumanTaskPriority } from '../types/definitions';
@@ -904,44 +904,94 @@ export const TasksPanel = ({
             </div>
 
             {/* Completion action confirmation modal */}
-            {pendingComplete && pendingComplete.onCompleteAction && (
-                <Modal
-                    title="Complete Task"
-                    contentClassName="creation-modal"
-                    onClose={() => setPendingComplete(null)}
-                    footer={
-                        <>
-                            <Button variant="secondary" onClick={completeWithoutAction} disabled={executingAction}>
-                                Complete Only
-                            </Button>
-                            <Button variant="primary" onClick={confirmCompleteWithAction} disabled={executingAction}>
-                                {executingAction ? 'Executing...' : 'Complete & Execute'}
-                            </Button>
-                        </>
-                    }
-                >
-                    <div className="space-y-4">
-                        <p className="text-sm" style={{ color: 'var(--text-color)' }}>
-                            <strong>{pendingComplete.title}</strong> has a linked system action:
-                        </p>
-                        <div className="chip chip-active" style={{ display: 'block' }}>
-                            <span className="text-sm font-medium">
-                                {pendingComplete.onCompleteAction.type.replace(/_/g, ' ')}
-                            </span>
-                            <span className="chip-sub">
-                                {Object.entries(pendingComplete.onCompleteAction.data)
-                                    .filter(([, v]) => v && typeof v !== 'object')
-                                    .map(([k, v]) => `${k}: ${v}`)
-                                    .join(' · ')}
-                            </span>
+            {pendingComplete && pendingComplete.onCompleteAction && (() => {
+                const act = pendingComplete.onCompleteAction!;
+                const actionLabel = act.type.replace(/_/g, ' ');
+                const details = Object.entries(act.data)
+                    .filter(([, v]) => v && typeof v !== 'object')
+                    .slice(0, 5);
+                return (
+                    <Modal
+                        title="Mark Complete"
+                        contentClassName="creation-modal"
+                        onClose={() => setPendingComplete(null)}
+                        footer={
+                            <>
+                                <Button variant="secondary" onClick={completeWithoutAction} disabled={executingAction}>
+                                    Skip Action
+                                </Button>
+                                <Button variant="primary" onClick={confirmCompleteWithAction} disabled={executingAction}>
+                                    {executingAction ? 'Running...' : 'Complete & Record'}
+                                </Button>
+                            </>
+                        }
+                    >
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-lg)' }}>
+                            {/* Task being completed */}
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                                <div style={{
+                                    width: 36, height: 36, borderRadius: '50%',
+                                    background: 'var(--primary-light)',
+                                    display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+                                }}>
+                                    <Check size={18} style={{ color: 'var(--primary-color)' }} />
+                                </div>
+                                <div>
+                                    <p className="text-sm font-medium" style={{ color: 'var(--text-color)' }}>
+                                        {pendingComplete.title}
+                                    </p>
+                                    {pendingComplete.location && (
+                                        <p className="text-xs" style={{ color: 'var(--text-secondary)', marginTop: 2 }}>
+                                            {pendingComplete.location}
+                                        </p>
+                                    )}
+                                </div>
+                            </div>
+
+                            {/* Arrow connector */}
+                            <div style={{ display: 'flex', justifyContent: 'center' }}>
+                                <ArrowRight size={16} style={{ color: 'var(--border-color)', transform: 'rotate(90deg)' }} />
+                            </div>
+
+                            {/* Linked system action */}
+                            <div style={{
+                                border: '1px solid var(--border-color)',
+                                borderRadius: 10,
+                                overflow: 'hidden',
+                            }}>
+                                <div style={{
+                                    display: 'flex', alignItems: 'center', gap: 8,
+                                    padding: '10px 14px',
+                                    background: 'var(--primary-light)',
+                                }}>
+                                    <Zap size={14} style={{ color: 'var(--primary-color)' }} />
+                                    <span className="text-sm font-medium" style={{ color: 'var(--primary-dark)', textTransform: 'capitalize' }}>
+                                        {actionLabel}
+                                    </span>
+                                </div>
+                                {details.length > 0 && (
+                                    <div style={{ padding: '10px 14px', display: 'flex', flexDirection: 'column', gap: 6 }}>
+                                        {details.map(([k, v]) => (
+                                            <div key={k} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                <span className="text-xs" style={{ color: 'var(--text-secondary)', textTransform: 'capitalize' }}>
+                                                    {k.replace(/([A-Z])/g, ' $1').trim()}
+                                                </span>
+                                                <span className="text-xs font-medium" style={{ color: 'var(--text-color)' }}>
+                                                    {String(v)}
+                                                </span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+
+                            <p className="field-hint" style={{ textAlign: 'center' }}>
+                                This will record the action in your system when you mark the task done.
+                            </p>
                         </div>
-                        <p className="field-hint">
-                            "Complete & Execute" will mark the task done and run the system action.
-                            "Complete Only" will mark it done without updating the system.
-                        </p>
-                    </div>
-                </Modal>
-            )}
+                    </Modal>
+                );
+            })()}
         </div>
     );
 };
