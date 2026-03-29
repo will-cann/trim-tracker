@@ -90,6 +90,18 @@ export async function executeAction(action: ProposedAction): Promise<void> {
                 await apiService.recordHarvestWaste(action.data.harvestId, action.data.wasteType, action.data.weight);
             }
             break;
+        case 'record_plant_weight':
+            if (action.data.harvestId && action.data.weights) {
+                for (const w of action.data.weights) {
+                    await apiService.recordPlantWeight(action.data.harvestId, w.plantNumber, w.weight);
+                }
+            }
+            break;
+        case 'flag_contamination':
+            if (action.data.harvestId && action.data.contaminants) {
+                await apiService.updateHarvest(action.data.harvestId, { contaminants: action.data.contaminants });
+            }
+            break;
         case 'move_harvest':
             if (action.data.harvestId) {
                 await apiService.updateHarvest(action.data.harvestId, { dryingLocation: action.data.dryingLocation });

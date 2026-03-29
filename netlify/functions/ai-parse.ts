@@ -49,6 +49,17 @@ You understand the FULL range of cannabis cultivation, processing, and manufactu
 - "Harvest the Gelato" → human task + onCompleteAction: change_plant_phase (harvested)
 - "Weigh the harvest" → human task + onCompleteAction: record_wet_weight
 
+## Harvest Day Voice Workflow
+
+When the user is on the Harvest Day cockpit (screenContext mentions "Harvest Day"), they are weighing plants at the scale and speaking weights aloud. Parse their speech into plant weight entries:
+
+- "Plant one 342, two 298, three 415" → record_plant_weight with weights array [{plantNumber:1, weight:342}, {plantNumber:2, weight:298}, {plantNumber:3, weight:415}]
+- "342... 298... 415" (just numbers) → record_plant_weight with weights array (omit plantNumber, auto-assigned)
+- "Next one is 1200 grams" → record_plant_weight with one weight entry
+- If they mention contamination alongside weights ("three had some PM, 415 grams" or "that one had mold"), ALSO call flag_contamination in addition to record_plant_weight. Both tools in one response.
+- "PM" = powdery_mildew, "mold" or "bud rot" = bud_rot, "bugs" or "insects" = insects
+- When only one harvest is active in the cockpit, you can use its strain or batchId as the harvestIdentifier without the user naming it explicitly.
+
 ## Rules for Automated Actions
 - Match trimmer names to existing trimmer profiles when possible (fuzzy match is fine — "Maria" matches "Maria Garcia").
 - Match batch references (by harvest name or strain) to existing entries when assigning trimmers.
@@ -234,6 +245,45 @@ const tools = [
                 weight: { type: 'number', description: 'Waste weight in grams' },
             },
             required: ['harvestIdentifier', 'wasteType', 'weight'],
+        },
+    },
+    {
+        name: 'record_plant_weight',
+        description: 'Record individual plant weights during harvest. Each weight is for one plant. Use this when the user calls out weights plant by plant, e.g. "plant one 342, two 298, three 415". Auto-numbers if plantNumber not specified.',
+        input_schema: {
+            type: 'object' as const,
+            properties: {
+                harvestIdentifier: { type: 'string', description: 'Batch ID or strain to identify the harvest' },
+                weights: {
+                    type: 'array',
+                    items: {
+                        type: 'object',
+                        properties: {
+                            plantNumber: { type: 'number', description: 'Plant number (1-indexed). Omit to auto-assign next sequential number.' },
+                            weight: { type: 'number', description: 'Weight in grams' },
+                        },
+                        required: ['weight'],
+                    },
+                    description: 'Array of individual plant weights',
+                },
+            },
+            required: ['harvestIdentifier', 'weights'],
+        },
+    },
+    {
+        name: 'flag_contamination',
+        description: 'Flag a harvest batch as having contamination observed. This is metadata about processing restrictions, NOT waste weight. Use when user mentions seeing PM, powdery mildew, bud rot, mold, insects, or other contamination on the batch. Can be combined with record_plant_weight in the same response.',
+        input_schema: {
+            type: 'object' as const,
+            properties: {
+                harvestIdentifier: { type: 'string', description: 'Batch ID or strain to identify the harvest' },
+                contaminants: {
+                    type: 'array',
+                    items: { type: 'string', enum: ['powdery_mildew', 'bud_rot', 'insects', 'other'] },
+                    description: 'Types of contamination observed',
+                },
+            },
+            required: ['harvestIdentifier', 'contaminants'],
         },
     },
     {
@@ -1014,6 +1064,36 @@ export const handler: Handler = async (event) => {
                                 harvestName: matchedHW?.batchId || input.harvestIdentifier,
                                 wasteType: input.wasteType,
                                 weight: input.weight,
+                            },
+                        });
+                        break;
+                    }
+                    case 'record_plant_weight': {
+                        const matchedHP = (request.context.harvests || []).find(
+                            h => h.batchId.toLowerCase().includes(input.harvestIdentifier.toLowerCase()) ||
+                                h.strain.toLowerCase().includes(input.harvestIdentifier.toLowerCase())
+                        );
+                        actions.push({
+                            type: 'record_plant_weight',
+                            data: {
+                                harvestId: matchedHP?.id || null,
+                                harvestName: matchedHP?.batchId || input.harvestIdentifier,
+                                weights: input.weights,
+                            },
+                        });
+                        break;
+                    }
+                    case 'flag_contamination': {
+                        const matchedHC = (request.context.harvests || []).find(
+                            h => h.batchId.toLowerCase().includes(input.harvestIdentifier.toLowerCase()) ||
+                                h.strain.toLowerCase().includes(input.harvestIdentifier.toLowerCase())
+                        );
+                        actions.push({
+                            type: 'flag_contamination',
+                            data: {
+                                harvestId: matchedHC?.id || null,
+                                harvestName: matchedHC?.batchId || input.harvestIdentifier,
+                                contaminants: input.contaminants,
                             },
                         });
                         break;
