@@ -13,7 +13,6 @@ export const handler: Handler = async (event) => {
             return { statusCode: 401, body: JSON.stringify({ error: 'Unauthorized' }) };
         }
 
-        // Get all flowering plants that haven't been harvested yet, grouped by batch
         const { rows } = await pool.query(`
             SELECT
                 p.id,
@@ -34,18 +33,18 @@ export const handler: Handler = async (event) => {
             WHERE p.company_id = $1
                 AND p.growth_phase = 'flowering'
                 AND p.harvest_id IS NULL
-            ORDER BY r.name, pb.name, p.label
+            ORDER BY r.name, p.strain_name, p.label
         `, [context.companyId]);
 
-        // Group by batch
+        // Group by strain + room (the natural harvest batch identity)
         const batchMap = new Map<string, any>();
 
         for (const row of rows) {
-            const batchKey = row.plant_batch_id || `unbatched-${row.room_id}`;
-            if (!batchMap.has(batchKey)) {
-                batchMap.set(batchKey, {
+            const groupKey = `${row.strain_name}::${row.room_id}`;
+            if (!batchMap.has(groupKey)) {
+                batchMap.set(groupKey, {
                     batchId: row.plant_batch_id || null,
-                    batchName: row.batch_name || 'Unbatched Plants',
+                    batchName: row.batch_name || row.strain_name,
                     strainName: row.strain_name,
                     roomId: row.room_id,
                     roomName: row.room_name,
@@ -55,14 +54,21 @@ export const handler: Handler = async (event) => {
                 });
             }
 
-            const batch = batchMap.get(batchKey);
+            const batch = batchMap.get(groupKey);
+
+            // Use the plant_batch_id if most plants share one
+            if (row.plant_batch_id && !batch.batchId) {
+                batch.batchId = row.plant_batch_id;
+                if (row.batch_name) batch.batchName = row.batch_name;
+            }
+
             batch.plants.push({
                 id: row.id,
                 label: row.label,
                 strainName: row.strain_name,
                 roomName: row.room_name,
                 plantBatchId: row.plant_batch_id,
-                plantBatchName: row.batch_name || 'Unbatched',
+                plantBatchName: row.batch_name || row.strain_name,
                 floweringDate: row.flowering_date,
                 targetHarvestDate: row.target_harvest_date,
                 plantHealth: row.plant_health,
