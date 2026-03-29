@@ -143,6 +143,7 @@ export interface License {
 export interface Strain {
   id: string;
   name: string;
+  defaultVegDays: number | null;
   defaultFloweringDays: number | null;
   harvestCount: number;
   sessionCount: number;

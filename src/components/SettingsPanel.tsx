@@ -4,6 +4,64 @@ import type { License, Strain, TrimmerProfile } from '../types/definitions';
 import { apiService } from '../services/apiService';
 import { TeamSection } from './TeamSection';
 
+/** Inline-editable row for a single strain */
+const StrainRow = ({ strain, onUpdate, onDelete }: {
+    strain: Strain;
+    onUpdate: (updates: { defaultVegDays?: number | null; defaultFloweringDays?: number | null }) => Promise<void>;
+    onDelete: () => void;
+}) => {
+    const saveDays = async (field: 'defaultVegDays' | 'defaultFloweringDays', raw: string) => {
+        const val = parseInt(raw);
+        const days = (!raw || isNaN(val) || val <= 0) ? null : Math.min(val, 120);
+        await onUpdate({ [field]: days });
+    };
+
+    const usage = [
+        strain.harvestCount > 0 ? `${strain.harvestCount}H` : '',
+        strain.sessionCount > 0 ? `${strain.sessionCount}S` : '',
+    ].filter(Boolean).join('/') || '—';
+
+    return (
+        <tr className="border-b border-gray-100 strain-table-row">
+            <td className="px-5 py-3 font-medium text-gray-900">{strain.name}</td>
+            <td className="px-3 py-2 text-center">
+                <input
+                    type="number"
+                    defaultValue={strain.defaultVegDays ?? ''}
+                    placeholder="—"
+                    min={1}
+                    max={120}
+                    onBlur={e => saveDays('defaultVegDays', e.target.value)}
+                    onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
+                    className="w-16 text-center text-sm px-2 py-1 border border-transparent rounded
+                               hover:border-gray-200 focus:border-emerald-400 focus:outline-none focus:ring-1 focus:ring-emerald-400
+                               bg-transparent tabular-nums"
+                />
+            </td>
+            <td className="px-3 py-2 text-center">
+                <input
+                    type="number"
+                    defaultValue={strain.defaultFloweringDays ?? ''}
+                    placeholder="—"
+                    min={1}
+                    max={120}
+                    onBlur={e => saveDays('defaultFloweringDays', e.target.value)}
+                    onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
+                    className="w-16 text-center text-sm px-2 py-1 border border-transparent rounded
+                               hover:border-gray-200 focus:border-emerald-400 focus:outline-none focus:ring-1 focus:ring-emerald-400
+                               bg-transparent tabular-nums"
+                />
+            </td>
+            <td className="px-3 py-3 text-center text-xs text-gray-400">{usage}</td>
+            <td className="px-2 py-3">
+                <button onClick={onDelete} className="strain-delete-btn" title="Delete strain">
+                    <Trash2 size={14} />
+                </button>
+            </td>
+        </tr>
+    );
+};
+
 export const SettingsPanel: React.FC = () => {
     const [licenses, setLicenses] = useState<License[]>([]);
     const [strains, setStrains] = useState<Strain[]>([]);
@@ -272,30 +330,33 @@ export const SettingsPanel: React.FC = () => {
                         <p className="text-sm mt-1">Add strains to use them in sessions, harvests, and plantings.</p>
                     </div>
                 ) : (
-                    <div className="divide-y divide-gray-100">
-                        {strains.map(s => (
-                            <div key={s.id} className="flex items-center justify-between px-5 py-3 hover:bg-gray-50 transition-colors">
-                                <div>
-                                    <span className="text-sm font-medium text-gray-900">{s.name}</span>
-                                    {(s.harvestCount > 0 || s.sessionCount > 0) && (
-                                        <span className="text-xs text-gray-400 ml-2">
-                                            {[
-                                                s.harvestCount > 0 ? `${s.harvestCount} harvest${s.harvestCount !== 1 ? 's' : ''}` : '',
-                                                s.sessionCount > 0 ? `${s.sessionCount} session${s.sessionCount !== 1 ? 's' : ''}` : '',
-                                            ].filter(Boolean).join(', ')}
-                                        </span>
-                                    )}
-                                </div>
-                                <button
-                                    onClick={() => handleDeleteStrain(s.id)}
-                                    className="strain-delete-btn"
-                                    title="Delete strain"
-                                >
-                                    <Trash2 size={14} />
-                                </button>
-                            </div>
-                        ))}
-                    </div>
+                    <table className="w-full text-sm border-collapse">
+                        <thead>
+                            <tr className="border-b border-gray-200 bg-gray-50">
+                                <th className="text-left px-5 py-2.5 font-semibold text-gray-500 text-xs uppercase tracking-wider">
+                                    Strain
+                                </th>
+                                <th className="text-center px-3 py-2.5 font-semibold text-gray-500 text-xs uppercase tracking-wider w-24">
+                                    Veg Days
+                                </th>
+                                <th className="text-center px-3 py-2.5 font-semibold text-gray-500 text-xs uppercase tracking-wider w-24">
+                                    Flower Days
+                                </th>
+                                <th className="text-center px-3 py-2.5 font-semibold text-gray-500 text-xs uppercase tracking-wider w-20">
+                                    Usage
+                                </th>
+                                <th className="w-10"></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {strains.map(s => (
+                                <StrainRow key={s.id} strain={s} onUpdate={async (updates) => {
+                                    await apiService.upsertStrain(s.name, updates);
+                                    await loadStrains();
+                                }} onDelete={() => handleDeleteStrain(s.id)} />
+                            ))}
+                        </tbody>
+                    </table>
                 )}
             </div>
 

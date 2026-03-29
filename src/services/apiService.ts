@@ -375,11 +375,11 @@ export const getStrains = async (): Promise<Strain[]> => {
     return await response.json();
 };
 
-export const upsertStrain = async (name: string): Promise<Strain> => {
+export const upsertStrain = async (name: string, opts?: { defaultVegDays?: number | null; defaultFloweringDays?: number | null }): Promise<Strain> => {
     const response = await fetchWithAuth(`${API_BASE}/upsert-strain`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name }),
+        body: JSON.stringify({ name, ...opts }),
     });
     if (!response.ok) throw new Error('Failed to create strain');
     return await response.json();
