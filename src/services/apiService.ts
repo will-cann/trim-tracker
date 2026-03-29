@@ -375,7 +375,7 @@ export const getStrains = async (): Promise<Strain[]> => {
     return await response.json();
 };
 
-export const upsertStrain = async (name: string, opts?: { defaultVegDays?: number | null; defaultFloweringDays?: number | null }): Promise<Strain> => {
+export const upsertStrain = async (name: string, opts?: { defaultVegDays?: number | null; defaultFloweringDays?: number | null; notes?: string | null }): Promise<Strain> => {
     const response = await fetchWithAuth(`${API_BASE}/upsert-strain`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

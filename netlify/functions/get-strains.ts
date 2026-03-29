@@ -19,6 +19,7 @@ export const handler: Handler = async (event) => {
                 s.name,
                 s.default_veg_days,
                 s.default_flowering_days,
+                s.notes,
                 s.created_at,
                 s.updated_at,
                 (
@@ -40,6 +41,7 @@ export const handler: Handler = async (event) => {
             name: r.name,
             defaultVegDays: r.default_veg_days || null,
             defaultFloweringDays: r.default_flowering_days || null,
+            notes: r.notes || null,
             harvestCount: r.harvest_count || 0,
             sessionCount: r.session_count || 0,
             createdAt: r.created_at,

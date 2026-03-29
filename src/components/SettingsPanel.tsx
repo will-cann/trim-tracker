@@ -7,7 +7,7 @@ import { TeamSection } from './TeamSection';
 /** Inline-editable row for a single strain */
 const StrainRow = ({ strain, onUpdate, onDelete }: {
     strain: Strain;
-    onUpdate: (updates: { defaultVegDays?: number | null; defaultFloweringDays?: number | null }) => Promise<void>;
+    onUpdate: (updates: { defaultVegDays?: number | null; defaultFloweringDays?: number | null; notes?: string | null }) => Promise<void>;
     onDelete: () => void;
 }) => {
     const saveDays = async (field: 'defaultVegDays' | 'defaultFloweringDays', raw: string) => {
@@ -16,44 +16,41 @@ const StrainRow = ({ strain, onUpdate, onDelete }: {
         await onUpdate({ [field]: days });
     };
 
-    const usage = [
-        strain.harvestCount > 0 ? `${strain.harvestCount}H` : '',
-        strain.sessionCount > 0 ? `${strain.sessionCount}S` : '',
-    ].filter(Boolean).join('/') || '—';
+    const saveNotes = async (raw: string) => {
+        await onUpdate({ notes: raw.trim() || null });
+    };
+
+    const daysInput = (field: 'defaultVegDays' | 'defaultFloweringDays', value: number | null) => (
+        <input
+            type="number"
+            defaultValue={value ?? ''}
+            placeholder="—"
+            min={1}
+            max={120}
+            onBlur={e => saveDays(field, e.target.value)}
+            onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
+            className="strain-days-input"
+        />
+    );
 
     return (
-        <tr className="border-b border-gray-100 strain-table-row">
-            <td className="px-5 py-3 font-medium text-gray-900">{strain.name}</td>
-            <td className="px-3 py-2 text-center">
+        <tr className="strain-row">
+            <td className="strain-cell-name">
+                <span className="strain-name-text">{strain.name}</span>
+            </td>
+            <td className="strain-cell-days">{daysInput('defaultVegDays', strain.defaultVegDays)}</td>
+            <td className="strain-cell-days">{daysInput('defaultFloweringDays', strain.defaultFloweringDays)}</td>
+            <td className="strain-cell-notes">
                 <input
-                    type="number"
-                    defaultValue={strain.defaultVegDays ?? ''}
-                    placeholder="—"
-                    min={1}
-                    max={120}
-                    onBlur={e => saveDays('defaultVegDays', e.target.value)}
+                    type="text"
+                    defaultValue={strain.notes ?? ''}
+                    placeholder="Add notes..."
+                    onBlur={e => saveNotes(e.target.value)}
                     onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
-                    className="w-16 text-center text-sm px-2 py-1 border border-transparent rounded
-                               hover:border-gray-200 focus:border-emerald-400 focus:outline-none focus:ring-1 focus:ring-emerald-400
-                               bg-transparent tabular-nums"
+                    className="strain-notes-input"
                 />
             </td>
-            <td className="px-3 py-2 text-center">
-                <input
-                    type="number"
-                    defaultValue={strain.defaultFloweringDays ?? ''}
-                    placeholder="—"
-                    min={1}
-                    max={120}
-                    onBlur={e => saveDays('defaultFloweringDays', e.target.value)}
-                    onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
-                    className="w-16 text-center text-sm px-2 py-1 border border-transparent rounded
-                               hover:border-gray-200 focus:border-emerald-400 focus:outline-none focus:ring-1 focus:ring-emerald-400
-                               bg-transparent tabular-nums"
-                />
-            </td>
-            <td className="px-3 py-3 text-center text-xs text-gray-400">{usage}</td>
-            <td className="px-2 py-3">
+            <td className="strain-cell-action">
                 <button onClick={onDelete} className="strain-delete-btn" title="Delete strain">
                     <Trash2 size={14} />
                 </button>
@@ -330,22 +327,14 @@ export const SettingsPanel: React.FC = () => {
                         <p className="text-sm mt-1">Add strains to use them in sessions, harvests, and plantings.</p>
                     </div>
                 ) : (
-                    <table className="w-full text-sm border-collapse">
+                    <table className="strain-table">
                         <thead>
-                            <tr className="border-b border-gray-200 bg-gray-50">
-                                <th className="text-left px-5 py-2.5 font-semibold text-gray-500 text-xs uppercase tracking-wider">
-                                    Strain
-                                </th>
-                                <th className="text-center px-3 py-2.5 font-semibold text-gray-500 text-xs uppercase tracking-wider w-24">
-                                    Veg Days
-                                </th>
-                                <th className="text-center px-3 py-2.5 font-semibold text-gray-500 text-xs uppercase tracking-wider w-24">
-                                    Flower Days
-                                </th>
-                                <th className="text-center px-3 py-2.5 font-semibold text-gray-500 text-xs uppercase tracking-wider w-20">
-                                    Usage
-                                </th>
-                                <th className="w-10"></th>
+                            <tr>
+                                <th className="strain-th strain-th-name">Strain</th>
+                                <th className="strain-th strain-th-days">Veg</th>
+                                <th className="strain-th strain-th-days">Flower</th>
+                                <th className="strain-th strain-th-notes">Notes</th>
+                                <th className="strain-th" style={{ width: 40 }}></th>
                             </tr>
                         </thead>
                         <tbody>

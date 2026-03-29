@@ -145,6 +145,7 @@ export interface Strain {
   name: string;
   defaultVegDays: number | null;
   defaultFloweringDays: number | null;
+  notes: string | null;
   harvestCount: number;
   sessionCount: number;
   createdAt: string;
