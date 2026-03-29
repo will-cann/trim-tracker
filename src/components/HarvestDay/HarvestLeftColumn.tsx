@@ -26,7 +26,7 @@ export const HarvestLeftColumn: React.FC<HarvestLeftColumnProps> = ({ harvest, o
     const flowerAlloc = harvest.allocations.find(a => a.allocationType === 'flower');
     const frozenAlloc = harvest.allocations.find(a => a.allocationType === 'frozen');
 
-    const currentAllocation: AllocationChoice | null = harvest.allocations.length === 0
+    const dbAllocation: AllocationChoice | null = harvest.allocations.length === 0
         ? null
         : harvest.allocations.length === 2
             ? 'Both'
@@ -34,13 +34,21 @@ export const HarvestLeftColumn: React.FC<HarvestLeftColumnProps> = ({ harvest, o
 
     const available = harvest.totalWetWeight - harvest.totalWasteWeight;
 
-    const [showBothSplit, setShowBothSplit] = useState(currentAllocation === 'Both');
+    const [optimisticChoice, setOptimisticChoice] = useState<AllocationChoice | null>(dbAllocation);
+    const [showBothSplit, setShowBothSplit] = useState(dbAllocation === 'Both');
     const [frozenTarget, setFrozenTarget] = useState(
         frozenAlloc ? String(frozenAlloc.targetWeight) : ''
     );
+    const [allocating, setAllocating] = useState(false);
+
+    // Sync optimistic state when harvest data updates from server
+    const currentAllocation = dbAllocation || optimisticChoice;
 
     const handleAllocate = async (choice: AllocationChoice) => {
-        if (available <= 0) return;
+        if (available <= 0 || allocating) return;
+
+        // Optimistic update — highlight immediately
+        setOptimisticChoice(choice);
 
         if (choice === 'Both') {
             setShowBothSplit(true);
@@ -48,24 +56,35 @@ export const HarvestLeftColumn: React.FC<HarvestLeftColumnProps> = ({ harvest, o
         }
 
         setShowBothSplit(false);
-        const allocations: Array<{ type: 'flower' | 'frozen'; targetWeight: number }> = [];
-        if (choice === 'Flower') {
-            allocations.push({ type: 'flower', targetWeight: available });
-        } else {
-            allocations.push({ type: 'frozen', targetWeight: available });
+        setAllocating(true);
+        try {
+            const allocations: Array<{ type: 'flower' | 'frozen'; targetWeight: number }> = [];
+            if (choice === 'Flower') {
+                allocations.push({ type: 'flower', targetWeight: available });
+            } else {
+                allocations.push({ type: 'frozen', targetWeight: available });
+            }
+            await apiService.allocateHarvest(harvest.id, allocations);
+            await onUpdate();
+        } finally {
+            setAllocating(false);
         }
-        await apiService.allocateHarvest(harvest.id, allocations);
-        await onUpdate();
     };
 
     const handleBothAllocate = async () => {
         const frozen = Number(frozenTarget);
-        if (!frozen || frozen <= 0 || frozen >= available) return;
-        await apiService.allocateHarvest(harvest.id, [
-            { type: 'flower', targetWeight: available - frozen },
-            { type: 'frozen', targetWeight: frozen },
-        ]);
-        await onUpdate();
+        if (!frozen || frozen <= 0 || frozen >= available || allocating) return;
+        setAllocating(true);
+        try {
+            await apiService.allocateHarvest(harvest.id, [
+                { type: 'flower', targetWeight: available - frozen },
+                { type: 'frozen', targetWeight: frozen },
+            ]);
+            setShowBothSplit(false);
+            await onUpdate();
+        } finally {
+            setAllocating(false);
+        }
     };
 
     const handleWaste = async (wasteType: HarvestWasteType, weight: number) => {
@@ -90,13 +109,13 @@ export const HarvestLeftColumn: React.FC<HarvestLeftColumnProps> = ({ harvest, o
                 <div className="chip-group" style={{ marginBottom: 'var(--space-sm)' }}>
                     {ALLOCATIONS.map(a => {
                         const Icon = a.icon;
-                        const isActive = currentAllocation === a.value || (a.value === 'Both' && showBothSplit && !currentAllocation);
+                        const isActive = currentAllocation === a.value || (a.value === 'Both' && showBothSplit);
                         return (
                             <button
                                 key={a.value}
                                 className={`chip ${isActive ? 'chip-active' : ''}`}
                                 onClick={() => handleAllocate(a.value)}
-                                disabled={harvest.totalWetWeight <= 0}
+                                disabled={harvest.totalWetWeight <= 0 || allocating}
                             >
                                 <Icon size={14} />
                                 {a.label}
@@ -106,7 +125,7 @@ export const HarvestLeftColumn: React.FC<HarvestLeftColumnProps> = ({ harvest, o
                 </div>
 
                 {/* Both mode: editable split */}
-                {showBothSplit && currentAllocation !== 'Flower' && currentAllocation !== 'Frozen' && harvest.totalWetWeight > 0 && (
+                {showBothSplit && harvest.totalWetWeight > 0 && (
                     <div className="hd-alloc-split">
                         <p style={{ fontSize: '0.8125rem', color: 'var(--text-secondary)', margin: 0 }}>
                             Set frozen target — remainder goes to flower.

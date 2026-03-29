@@ -24,7 +24,8 @@ export const HarvestDayCockpit: React.FC<HarvestDayCockpitProps> = ({ onExit }) 
     const [submitting, setSubmitting] = useState(false);
     const [loading, setLoading] = useState(true);
 
-    const loadData = useCallback(async () => {
+    // Full load — only on mount and after structural changes (create, delete, submit)
+    const loadAll = useCallback(async () => {
         const [allHarvests, allRooms] = await Promise.all([
             apiService.getHarvests(),
             apiService.getRooms(),
@@ -49,12 +50,22 @@ export const HarvestDayCockpit: React.FC<HarvestDayCockpitProps> = ({ onExit }) 
     }, [activeTabId]);
 
     useEffect(() => {
-        loadData();
+        loadAll();
     }, []);
 
+    // Lightweight refresh — only reloads the active harvest + its weights
     const refreshHarvest = useCallback(async () => {
-        await loadData();
-    }, [loadData]);
+        if (!activeTabId) return;
+        const [allHarvests, weights] = await Promise.all([
+            apiService.getHarvests(),
+            apiService.getPlantWeights(activeTabId),
+        ]);
+        const todayHarvests = allHarvests.filter(h =>
+            h.status === 'planning' || h.status === 'active' || h.status === 'submitted'
+        );
+        setHarvests(todayHarvests);
+        setPlantWeights(prev => ({ ...prev, [activeTabId]: weights }));
+    }, [activeTabId]);
 
     const activeHarvest = harvests.find(h => h.id === activeTabId);
     const hasFrozen = activeHarvest?.allocations.some(a => a.allocationType === 'frozen');
@@ -68,7 +79,7 @@ export const HarvestDayCockpit: React.FC<HarvestDayCockpitProps> = ({ onExit }) 
     const handleCreate = async (data: CreateHarvestDTO) => {
         const newHarvest = await apiService.createHarvest(data);
         setShowCreateModal(false);
-        await loadData();
+        await loadAll();
         setActiveTabId(newHarvest.id);
     };
 
@@ -78,7 +89,7 @@ export const HarvestDayCockpit: React.FC<HarvestDayCockpitProps> = ({ onExit }) 
         try {
             await apiService.submitHarvestBatch(activeHarvest.id);
             setShowSubmitConfirm(false);
-            await loadData();
+            await loadAll();
             const next = harvests.find(h => h.id !== activeHarvest.id && h.status !== 'submitted');
             if (next) setActiveTabId(next.id);
         } finally {
@@ -94,7 +105,7 @@ export const HarvestDayCockpit: React.FC<HarvestDayCockpitProps> = ({ onExit }) 
             const remaining = harvests.filter(hv => hv.id !== harvestId);
             setActiveTabId(remaining.length > 0 ? remaining[0].id : null);
         }
-        await loadData();
+        await loadAll();
     };
 
     if (phase === 'summary') {
