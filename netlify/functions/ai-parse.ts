@@ -16,6 +16,11 @@ The application can automate these operations:
 - **Trimmer Updates**: Update an existing trimmer's start time, end time, tool (scissors/machine), and weights (flower, shake, trim, waste) on an active batch.
 - **Harvests**: Pre-trim records tracking plant harvest through drying. Each has a batch ID, strain, license number, wet weight, waste, and allocations (flower for dry trim, frozen for fresh frozen, or both).
 - **Plant Health**: Update plant health scores (0-100) and contaminant flags for plants or plant batches. Plants/batches are identified by strain and room.
+- **Plantings**: Create new plant batches (clones/seeds in nursery) or individual plants (veg/flower). Requires strain, room, and count.
+- **Plant Actions**: Move plants between rooms, change growth phase (vegetative→flowering→harvested), or destroy plants. Works on both individual plants and batches.
+- **Convert to Trim**: Convert a flower harvest allocation into a trim entry for processing.
+- **Strains**: Create new strains or remove existing ones from the system.
+- **Licenses**: Add, rename, or remove facility license numbers.
 
 ## Full Cannabis Operations Knowledge
 
@@ -440,6 +445,131 @@ const tools = [
             required: ['deletions'],
         },
     },
+    // ── Plant Management ──
+    {
+        name: 'create_planting',
+        description: 'Create new plants or plant batches. Use "batch" for nursery clones/seeds (untracked group). Use "plant" for individually tracked plants in veg or flower rooms.',
+        input_schema: {
+            type: 'object' as const,
+            properties: {
+                type: { type: 'string', enum: ['batch', 'plant'], description: 'Whether to create a batch or individual plants' },
+                strainName: { type: 'string', description: 'Strain name (must match an existing strain)' },
+                roomName: { type: 'string', description: 'Room name to place the plants in' },
+                count: { type: 'number', description: 'Number of plants or batch size' },
+                batchType: { type: 'string', enum: ['clone', 'seed', 'tissue_culture'], description: 'For batches: the propagation type. Default clone.' },
+                batchName: { type: 'string', description: 'For batches: a name for the batch. Auto-generated if omitted.' },
+                growthPhase: { type: 'string', enum: ['vegetative', 'flowering'], description: 'For individual plants: growth phase. Default vegetative.' },
+                labelPrefix: { type: 'string', description: 'For individual plants: prefix for auto-generated labels (e.g. "GG4-V")' },
+            },
+            required: ['type', 'strainName', 'roomName', 'count'],
+        },
+    },
+    {
+        name: 'move_plants',
+        description: 'Move plants or plant batches to a different room.',
+        input_schema: {
+            type: 'object' as const,
+            properties: {
+                plantIds: { type: 'array', items: { type: 'string' }, description: 'Plant or batch IDs to move' },
+                entityType: { type: 'string', enum: ['plants', 'plantbatches'], description: 'Whether these are individual plants or batches' },
+                targetRoomName: { type: 'string', description: 'Name of the destination room' },
+                strain: { type: 'string', description: 'If no plantIds known, identify by strain name' },
+                sourceRoomName: { type: 'string', description: 'If no plantIds known, identify by source room' },
+            },
+            required: ['targetRoomName'],
+        },
+    },
+    {
+        name: 'change_plant_phase',
+        description: 'Change the growth phase of individual plants (e.g. vegetative to flowering, or mark as harvested/destroyed). Only works on individual plants, not batches.',
+        input_schema: {
+            type: 'object' as const,
+            properties: {
+                plantIds: { type: 'array', items: { type: 'string' }, description: 'Plant IDs to update' },
+                targetPhase: { type: 'string', enum: ['vegetative', 'flowering', 'harvested', 'destroyed'], description: 'The new growth phase' },
+                targetRoomName: { type: 'string', description: 'Optionally move to a new room at the same time' },
+                strain: { type: 'string', description: 'If no plantIds known, identify by strain' },
+                sourceRoomName: { type: 'string', description: 'If no plantIds known, identify by current room' },
+            },
+            required: ['targetPhase'],
+        },
+    },
+    {
+        name: 'destroy_plants',
+        description: 'Destroy/remove plants or plant batches from the system.',
+        input_schema: {
+            type: 'object' as const,
+            properties: {
+                plantIds: { type: 'array', items: { type: 'string' }, description: 'Plant or batch IDs to destroy' },
+                entityType: { type: 'string', enum: ['plants', 'plantbatches'], description: 'Whether these are plants or batches' },
+                strain: { type: 'string', description: 'If no plantIds known, identify by strain' },
+                roomName: { type: 'string', description: 'If no plantIds known, identify by room' },
+            },
+            required: [],
+        },
+    },
+    // ── Convert to Trim ──
+    {
+        name: 'convert_to_trim',
+        description: 'Convert a flower harvest allocation into a trim entry. The allocation must be of type "flower" and not already converted.',
+        input_schema: {
+            type: 'object' as const,
+            properties: {
+                allocationId: { type: 'string', description: 'The harvest allocation ID to convert' },
+                harvestIdentifier: { type: 'string', description: 'Harvest batch ID or strain to identify the allocation' },
+            },
+            required: [],
+        },
+    },
+    // ── Strain Management ──
+    {
+        name: 'create_strain',
+        description: 'Create a new strain in the system.',
+        input_schema: {
+            type: 'object' as const,
+            properties: {
+                name: { type: 'string', description: 'Strain name' },
+            },
+            required: ['name'],
+        },
+    },
+    {
+        name: 'delete_strain',
+        description: 'Remove a strain from the system. Match by name from context.',
+        input_schema: {
+            type: 'object' as const,
+            properties: {
+                strainId: { type: 'string', description: 'Strain ID to delete' },
+                strainName: { type: 'string', description: 'Strain name to match if ID not known' },
+            },
+            required: [],
+        },
+    },
+    // ── License Management ──
+    {
+        name: 'create_license',
+        description: 'Add a new facility license number.',
+        input_schema: {
+            type: 'object' as const,
+            properties: {
+                licenseNumber: { type: 'string', description: 'The license number' },
+                label: { type: 'string', description: 'Optional friendly label (e.g. "Facility A")' },
+            },
+            required: ['licenseNumber'],
+        },
+    },
+    {
+        name: 'delete_license',
+        description: 'Remove a license from the system.',
+        input_schema: {
+            type: 'object' as const,
+            properties: {
+                licenseId: { type: 'string', description: 'License ID to delete' },
+                licenseNumber: { type: 'string', description: 'License number to match if ID not known' },
+            },
+            required: [],
+        },
+    },
 ];
 
 interface AIParseRequest {
@@ -549,6 +679,22 @@ export const handler: Handler = async (event) => {
         if ((request.context as any).activeLicenseNumber) {
             contextInfo.push(`- Active license number: ${(request.context as any).activeLicenseNumber} (use this automatically for any new batches or harvests unless the user specifies a different one)`);
         }
+
+        // Add strains, licenses, and rooms for resolution
+        try {
+            const { rows: strainRows } = await sql`SELECT id, name FROM strains WHERE company_id = ${authContext.companyId} ORDER BY name`;
+            if (strainRows.length > 0) {
+                contextInfo.push(`- Available strains: ${strainRows.map(s => `${s.name} (ID: ${s.id})`).join(', ')}`);
+            }
+            const { rows: licenseRows } = await sql`SELECT id, license_number, label FROM licenses WHERE company_id = ${authContext.companyId} ORDER BY license_number`;
+            if (licenseRows.length > 0) {
+                contextInfo.push(`- Available licenses: ${licenseRows.map(l => `${l.license_number}${l.label ? ' "' + l.label + '"' : ''} (ID: ${l.id})`).join(', ')}`);
+            }
+            const { rows: roomRows } = await sql`SELECT id, name, room_type FROM rooms WHERE company_id = ${authContext.companyId} ORDER BY name`;
+            if (roomRows.length > 0) {
+                contextInfo.push(`- Available rooms: ${roomRows.map(r => `${r.name} [${r.room_type}] (ID: ${r.id})`).join(', ')}`);
+            }
+        } catch { /* proceed without extra context */ }
 
         userMessage += contextInfo.join('\n');
 
@@ -839,6 +985,100 @@ export const handler: Handler = async (event) => {
                         });
                         break;
                     }
+                    case 'create_planting':
+                        actions.push({
+                            type: 'create_planting',
+                            data: {
+                                plantingType: input.type,
+                                strainName: input.strainName,
+                                roomName: input.roomName,
+                                count: input.count,
+                                batchType: input.batchType || 'clone',
+                                batchName: input.batchName || '',
+                                growthPhase: input.growthPhase || 'vegetative',
+                                labelPrefix: input.labelPrefix || '',
+                            },
+                        });
+                        break;
+                    case 'move_plants':
+                        actions.push({
+                            type: 'move_plants',
+                            data: {
+                                plantIds: input.plantIds || [],
+                                entityType: input.entityType || 'plants',
+                                targetRoomName: input.targetRoomName,
+                                strain: input.strain,
+                                sourceRoomName: input.sourceRoomName,
+                            },
+                        });
+                        break;
+                    case 'change_plant_phase':
+                        actions.push({
+                            type: 'change_plant_phase',
+                            data: {
+                                plantIds: input.plantIds || [],
+                                targetPhase: input.targetPhase,
+                                targetRoomName: input.targetRoomName,
+                                strain: input.strain,
+                                sourceRoomName: input.sourceRoomName,
+                            },
+                        });
+                        break;
+                    case 'destroy_plants':
+                        actions.push({
+                            type: 'destroy_plants',
+                            data: {
+                                plantIds: input.plantIds || [],
+                                entityType: input.entityType || 'plants',
+                                strain: input.strain,
+                                roomName: input.roomName,
+                            },
+                        });
+                        break;
+                    case 'convert_to_trim':
+                        actions.push({
+                            type: 'convert_to_trim',
+                            data: {
+                                allocationId: input.allocationId,
+                                harvestIdentifier: input.harvestIdentifier,
+                            },
+                        });
+                        break;
+                    case 'create_strain':
+                        actions.push({
+                            type: 'create_strain',
+                            data: { name: input.name },
+                        });
+                        break;
+                    case 'delete_strain': {
+                        // Resolve strain name to ID if needed (via strains in context)
+                        actions.push({
+                            type: 'delete_strain',
+                            data: {
+                                strainId: input.strainId,
+                                strainName: input.strainName,
+                            },
+                        });
+                        break;
+                    }
+                    case 'create_license':
+                        actions.push({
+                            type: 'create_license',
+                            data: {
+                                licenseNumber: input.licenseNumber,
+                                label: input.label,
+                            },
+                        });
+                        break;
+                    case 'delete_license':
+                        actions.push({
+                            type: 'delete_license',
+                            data: {
+                                licenseId: input.licenseId,
+                                licenseNumber: input.licenseNumber,
+                            },
+                        });
+                        break;
                     case 'create_human_tasks':
                         for (const task of (input.tasks || [])) {
                             actions.push({
