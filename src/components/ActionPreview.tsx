@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Package, Plus, UserPlus, User, Loader2, Check, X, Sprout, Scale, ArrowRightLeft, Trash2, MapPin, CheckCircle2, XCircle, ChevronDown, Scissors, ClipboardList, Send, UserMinus, RefreshCw, Pencil } from 'lucide-react';
+import { Package, Plus, UserPlus, User, Loader2, Check, X, Sprout, Scale, ArrowRightLeft, Trash2, MapPin, CheckCircle2, XCircle, ChevronDown, Scissors, ClipboardList, Send, UserMinus, RefreshCw, Pencil, Leaf, MoveRight, TrendingUp, Skull, KeyRound } from 'lucide-react';
 import type { ProposedAction } from '../types/definitions';
 
 interface ActionPreviewProps {
@@ -33,6 +33,17 @@ const ACTION_CONFIG: Record<string, { icon: typeof Package; label: string; color
     create_human_task: { icon: ClipboardList, label: 'Create Task', color: 'text-teal-600', bgColor: 'bg-teal-50' },
     update_human_task: { icon: ClipboardList, label: 'Update Task', color: 'text-blue-600', bgColor: 'bg-blue-50' },
     delete_human_task: { icon: Trash2, label: 'Delete Task', color: 'text-red-600', bgColor: 'bg-red-50' },
+    // Plant management
+    create_planting: { icon: Leaf, label: 'Create Planting', color: 'text-emerald-600', bgColor: 'bg-emerald-50' },
+    move_plants: { icon: MoveRight, label: 'Move Plants', color: 'text-purple-600', bgColor: 'bg-purple-50' },
+    change_plant_phase: { icon: TrendingUp, label: 'Change Phase', color: 'text-blue-600', bgColor: 'bg-blue-50' },
+    destroy_plants: { icon: Skull, label: 'Destroy Plants', color: 'text-red-600', bgColor: 'bg-red-50' },
+    update_plant_health: { icon: Sprout, label: 'Update Health', color: 'text-emerald-600', bgColor: 'bg-emerald-50' },
+    // Strain & license
+    create_strain: { icon: Leaf, label: 'Add Strain', color: 'text-emerald-600', bgColor: 'bg-emerald-50' },
+    delete_strain: { icon: Trash2, label: 'Delete Strain', color: 'text-red-600', bgColor: 'bg-red-50' },
+    create_license: { icon: KeyRound, label: 'Add License', color: 'text-blue-600', bgColor: 'bg-blue-50' },
+    delete_license: { icon: Trash2, label: 'Delete License', color: 'text-red-600', bgColor: 'bg-red-50' },
 };
 
 const FIELD_LABELS: Record<string, string> = {
@@ -65,6 +76,23 @@ const FIELD_LABELS: Record<string, string> = {
     newStatus: 'New Status',
     trimmerName: 'Trimmer',
     profileName: 'Name',
+    // Plant fields
+    plantingType: 'Type',
+    strainName: 'Strain',
+    roomName: 'Room',
+    count: 'Count',
+    batchType: 'Batch Type',
+    batchName: 'Batch Name',
+    growthPhase: 'Growth Phase',
+    labelPrefix: 'Label Prefix',
+    targetRoomName: 'Destination',
+    sourceRoomName: 'From Room',
+    entityType: 'Entity Type',
+    plantIds: 'Plant IDs',
+    targetPhase: 'Target Phase',
+    // License
+    licenseId: 'License ID',
+    strainId: 'Strain ID',
 };
 
 const HIDDEN_FIELDS = new Set(['entryId', 'profileId', 'harvestId', 'taskId', 'onCompleteAction']);
@@ -91,6 +119,15 @@ const KEY_FIELDS: Record<string, string[]> = {
     create_human_task: ['title', 'priority', 'category'],
     update_human_task: ['taskTitle', 'status', 'priority', 'assignee'],
     delete_human_task: ['taskTitle'],
+    create_planting: ['strainName', 'roomName', 'count'],
+    move_plants: ['strain', 'targetRoomName', 'sourceRoomName'],
+    change_plant_phase: ['strain', 'targetPhase', 'targetRoomName'],
+    destroy_plants: ['strain', 'roomName'],
+    update_plant_health: ['strain', 'roomName'],
+    create_strain: ['name'],
+    delete_strain: ['strainName'],
+    create_license: ['licenseNumber'],
+    delete_license: ['licenseNumber'],
 };
 
 /** Build a human-readable one-liner from action data */
