@@ -39,7 +39,7 @@ const FIELD_LABELS: Record<string, string> = {
     category: 'Category', dueDate: 'Due Date', assignee: 'Assignee', location: 'Location',
 };
 
-const HIDDEN_FIELDS = ['entryId', 'profileId', 'harvestId'];
+const HIDDEN_FIELDS = ['entryId', 'profileId', 'harvestId', 'onCompleteAction'];
 
 const STATUS_STYLES: Record<string, { label: string; color: string; bg: string }> = {
     pending: { label: 'Pending', color: 'text-gray-600', bg: 'bg-gray-100' },
@@ -179,6 +179,20 @@ export const TaskItem = ({ task, onExecute, onSkip, onRemove, onEditAction }: Ta
                                 )}
                             </div>
                         ))}
+                    {task.action.data.onCompleteAction && (
+                        <div className="flex items-start gap-2 mt-1 pt-1.5 border-t border-gray-100">
+                            <label className="text-xs text-gray-500 w-28 flex-shrink-0">On Complete</label>
+                            <span className="text-xs px-2 py-1 rounded-md" style={{ background: 'var(--primary-light)', color: 'var(--primary-dark)' }}>
+                                {(task.action.data.onCompleteAction as any).type?.replace(/_/g, ' ')}
+                                {' — '}
+                                {Object.entries((task.action.data.onCompleteAction as any).data || {})
+                                    .filter(([, v]) => v && typeof v !== 'object')
+                                    .slice(0, 3)
+                                    .map(([, v]) => String(v))
+                                    .join(', ')}
+                            </span>
+                        </div>
+                    )}
                 </div>
             )}
         </div>
