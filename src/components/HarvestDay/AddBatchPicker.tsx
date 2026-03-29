@@ -22,7 +22,10 @@ export const AddBatchPicker: React.FC<AddBatchPickerProps> = ({ onClose, onSubmi
     useEffect(() => {
         Promise.all([
             apiService.getFloweringPlants().then(setGroups),
-            apiService.getMyLicenses().then(setLicenses),
+            apiService.getAllLicenses().then(lics => {
+                setLicenses(lics);
+                if (lics.length === 1) setLicenseId(lics[0].id);
+            }),
         ]).finally(() => setLoading(false));
     }, []);
 
@@ -82,7 +85,7 @@ export const AddBatchPicker: React.FC<AddBatchPickerProps> = ({ onClose, onSubmi
         return new Date(group.targetHarvestDate) <= new Date();
     };
 
-    const canSubmit = selectedBatch && selectedPlantIds.size > 0 && licenseId;
+    const canSubmit = selectedBatch && selectedPlantIds.size > 0;
 
     return (
         <Modal
