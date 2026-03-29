@@ -153,6 +153,43 @@ export interface Strain {
 }
 
 // ============================================================================
+// TAG TYPES
+// ============================================================================
+
+export type TagStatus = 'available' | 'assigned' | 'voided';
+export type TagType = 'plant' | 'batch';
+export type TagSource = 'auto' | 'upload';
+export type TagOnPhase = 'nursery_to_veg' | 'veg_to_flower';
+
+export interface Tag {
+  id: string;
+  tagNumber: string;
+  tagType: TagType;
+  status: TagStatus;
+  assignedToPlantId?: string;
+  assignedToBatchId?: string;
+  assignedTo?: string;
+  assignedAt?: string;
+  createdAt: string;
+}
+
+export interface TagSettings {
+  useTags: boolean;
+  tagSource: TagSource;
+  tagOnPhase: TagOnPhase;
+  requireBatchTag: boolean;
+  autoTagPrefix: string;
+  autoTagCounter: number;
+}
+
+export interface TagStats {
+  total: number;
+  available: number;
+  assigned: number;
+  voided: number;
+}
+
+// ============================================================================
 // AI / CHAT TYPES
 // ============================================================================
 
@@ -164,7 +201,8 @@ export type ProposedActionType =
   | 'submit_session' | 'remove_trimmer' | 'delete_trimmer_profile'
   | 'update_trimmer' | 'update_plant_health'
   | 'create_planting' | 'move_plants' | 'change_plant_phase' | 'destroy_plants'
-  | 'create_strain' | 'delete_strain' | 'create_license' | 'delete_license';
+  | 'create_strain' | 'delete_strain' | 'create_license' | 'delete_license'
+  | 'import_tags' | 'assign_tag' | 'auto_assign_tags';
 
 export interface ProposedAction {
   type: ProposedActionType;

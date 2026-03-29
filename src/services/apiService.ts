@@ -1,4 +1,4 @@
-import type { TrimSession, CreateTrimSessionDTO, Trimmer, TrimmerProfile, ProposedAction, Harvest, CreateHarvestDTO, HarvestWasteType, HarvestAllocation, Strain, License, SpeechMode, HumanTask, TeamRole } from '../types/definitions';
+import type { TrimSession, CreateTrimSessionDTO, Trimmer, TrimmerProfile, ProposedAction, Harvest, CreateHarvestDTO, HarvestWasteType, HarvestAllocation, Strain, License, SpeechMode, HumanTask, TeamRole, Tag, TagType, TagStats, TagSettings } from '../types/definitions';
 
 const API_BASE = '/.netlify/functions';
 
@@ -543,6 +543,79 @@ export const createPlanting = async (payload: {
     return await response.json();
 };
 
+// ============================================================================
+// TAGS
+// ============================================================================
+
+export const getTags = async (params?: { status?: string; type?: string; limit?: number }): Promise<Tag[]> => {
+    const qs = new URLSearchParams();
+    if (params?.status) qs.set('status', params.status);
+    if (params?.type) qs.set('type', params.type);
+    if (params?.limit) qs.set('limit', String(params.limit));
+    const response = await fetchWithAuth(`${API_BASE}/manage-tags?${qs}`);
+    if (!response.ok) return [];
+    return await response.json();
+};
+
+export const importTags = async (tagNumbers: string[], tagType: TagType = 'plant'): Promise<{ imported: number; skipped: number }> => {
+    const response = await fetchWithAuth(`${API_BASE}/manage-tags`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'import', tagNumbers, tagType }),
+    });
+    if (!response.ok) throw new Error('Failed to import tags');
+    return await response.json();
+};
+
+export const assignTag = async (tagId: string, plantId?: string, batchId?: string): Promise<void> => {
+    const response = await fetchWithAuth(`${API_BASE}/manage-tags`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'assign', tagId, plantId, batchId }),
+    });
+    if (!response.ok) throw new Error('Failed to assign tag');
+};
+
+export const unassignTag = async (tagId: string): Promise<void> => {
+    const response = await fetchWithAuth(`${API_BASE}/manage-tags`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'unassign', tagId }),
+    });
+    if (!response.ok) throw new Error('Failed to unassign tag');
+};
+
+export const voidTag = async (tagId: string): Promise<void> => {
+    const response = await fetchWithAuth(`${API_BASE}/manage-tags`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'void', tagId }),
+    });
+    if (!response.ok) throw new Error('Failed to void tag');
+};
+
+export const getTagStats = async (): Promise<TagStats> => {
+    const response = await fetchWithAuth(`${API_BASE}/manage-tags?action=stats`);
+    if (!response.ok) return { total: 0, available: 0, assigned: 0, voided: 0 };
+    return await response.json();
+};
+
+export const getTagSettings = async (): Promise<TagSettings> => {
+    const response = await fetchWithAuth(`${API_BASE}/get-tag-settings`);
+    if (!response.ok) return { useTags: false, tagSource: 'auto', tagOnPhase: 'nursery_to_veg', requireBatchTag: false, autoTagPrefix: 'PLT', autoTagCounter: 0 };
+    return await response.json();
+};
+
+export const updateTagSettings = async (settings: Partial<TagSettings>): Promise<TagSettings> => {
+    const response = await fetchWithAuth(`${API_BASE}/update-tag-settings`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(settings),
+    });
+    if (!response.ok) throw new Error('Failed to update tag settings');
+    return await response.json();
+};
+
 export const apiService = {
     setAuthToken,
     getSession,
@@ -596,4 +669,13 @@ export const apiService = {
     getRooms,
     executePlantAction,
     createPlanting,
+    // Tags
+    getTags,
+    importTags,
+    assignTag,
+    unassignTag,
+    voidTag,
+    getTagStats,
+    getTagSettings,
+    updateTagSettings,
 };
