@@ -324,6 +324,7 @@ function AppContent() {
             pendingCount={taskPendingCount}
             loadError={taskLoadError}
             onRetry={retryLoadTasks}
+            teamMembers={trimmerProfiles.filter(p => p.status === 'active').map(p => ({ id: p.id, name: p.name, userId: p.userId }))}
           />
         ) : currentView === 'settings' ? (
           <SettingsPanel />

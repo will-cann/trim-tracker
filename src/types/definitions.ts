@@ -205,6 +205,7 @@ export interface HumanTask {
   status: HumanTaskStatus;
   dueDate?: string;
   assignee?: string;
+  assignedToUserId?: string;
   location?: string;
   sourceConversationId?: string;
   createdAt: string;

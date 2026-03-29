@@ -8,6 +8,12 @@ import {
 } from 'lucide-react';
 import type { HumanTask, HumanTaskStatus, HumanTaskCategory, HumanTaskPriority } from '../types/definitions';
 
+export interface TeamMember {
+    id: string;
+    name: string;
+    userId?: string;
+}
+
 interface TasksPanelProps {
     tasks: HumanTask[];
     filters: { status: HumanTaskStatus | 'all'; category: HumanTaskCategory | 'all'; priority: HumanTaskPriority | 'all' };
@@ -18,6 +24,7 @@ interface TasksPanelProps {
     pendingCount: number;
     loadError?: string | null;
     onRetry?: () => void;
+    teamMembers: TeamMember[];
 }
 
 const CATEGORY_CONFIG: Record<HumanTaskCategory, { icon: typeof ClipboardList; label: string; color: string; bg: string; dot: string }> = {
@@ -187,6 +194,64 @@ const InlineDateCell = ({
     );
 };
 
+const InlineAssigneeCell = ({
+    value,
+    teamMembers,
+    onSave,
+}: {
+    value: string;
+    teamMembers: TeamMember[];
+    onSave: (name: string, userId?: string) => void;
+}) => {
+    const [open, setOpen] = useState(false);
+
+    return (
+        <div className="relative">
+            <button
+                onClick={() => setOpen(!open)}
+                className="flex items-center gap-1.5 text-left w-full group/cell min-h-[28px]"
+            >
+                <User size={12} className="text-gray-400 shrink-0" />
+                {value ? (
+                    <span className="text-sm text-gray-600 group-hover/cell:text-gray-900 transition-colors">{value}</span>
+                ) : (
+                    <span className="text-sm text-gray-300 group-hover/cell:text-gray-400 transition-colors">Assign</span>
+                )}
+            </button>
+            {open && (
+                <>
+                    <div className="fixed inset-0 z-20" onClick={() => setOpen(false)} />
+                    <div className="absolute left-0 top-8 z-30 bg-white rounded-lg shadow-lg border border-gray-200 py-1 w-48 max-h-60 overflow-y-auto">
+                        {value && (
+                            <button
+                                onClick={() => { onSave('', undefined); setOpen(false); }}
+                                className="w-full flex items-center gap-2 px-3 py-1.5 text-sm text-gray-400 hover:bg-gray-50 italic"
+                            >
+                                Unassign
+                            </button>
+                        )}
+                        {teamMembers.filter(m => m.name !== value).map(m => (
+                            <button
+                                key={m.id}
+                                onClick={() => { onSave(m.name, m.userId); setOpen(false); }}
+                                className="w-full flex items-center gap-2 px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50"
+                            >
+                                <div className="w-5 h-5 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center text-[10px] font-semibold shrink-0">
+                                    {m.name.charAt(0).toUpperCase()}
+                                </div>
+                                {m.name}
+                            </button>
+                        ))}
+                        {teamMembers.length === 0 && (
+                            <div className="px-3 py-2 text-xs text-gray-400">No team members</div>
+                        )}
+                    </div>
+                </>
+            )}
+        </div>
+    );
+};
+
 // ── Picker dropdowns ────────────────────────────────────────────────────────
 
 const CategoryPicker = ({
@@ -258,10 +323,12 @@ const TaskEditForm = ({
     task,
     onUpdateTask,
     onClose,
+    teamMembers,
 }: {
     task: HumanTask;
     onUpdateTask: (id: string, updates: Partial<HumanTask>) => Promise<void>;
     onClose: () => void;
+    teamMembers: TeamMember[];
 }) => {
     const [draft, setDraft] = useState({
         title: task.title,
@@ -286,7 +353,11 @@ const TaskEditForm = ({
             const updates: Partial<HumanTask> = {};
             if (draft.title !== task.title) updates.title = draft.title.trim();
             if (draft.description !== (task.description || '')) updates.description = draft.description.trim() || undefined;
-            if (draft.assignee !== (task.assignee || '')) updates.assignee = draft.assignee.trim() || undefined;
+            if (draft.assignee !== (task.assignee || '')) {
+                updates.assignee = draft.assignee.trim() || undefined;
+                const member = teamMembers.find(m => m.name === draft.assignee);
+                updates.assignedToUserId = member?.userId || undefined;
+            }
             if (draft.location !== (task.location || '')) updates.location = draft.location.trim() || undefined;
             if (draft.dueDate !== (task.dueDate ? task.dueDate.slice(0, 10) : '')) updates.dueDate = draft.dueDate || undefined;
             if (draft.priority !== task.priority) updates.priority = draft.priority;
@@ -328,11 +399,18 @@ const TaskEditForm = ({
                         onKeyDown={(e) => { if (e.key === 'Escape') onClose(); }}
                     />
                     <div className="flex flex-wrap items-center gap-3">
-                        <div className="flex items-center gap-1.5 min-w-[140px]">
+                        <div className="flex items-center gap-1.5 min-w-[160px]">
                             <User size={13} className="text-gray-400 shrink-0" />
-                            <input value={draft.assignee} onChange={(e) => setDraft(d => ({ ...d, assignee: e.target.value }))} placeholder="Assignee"
+                            <select
+                                value={draft.assignee}
+                                onChange={(e) => setDraft(d => ({ ...d, assignee: e.target.value }))}
                                 className="text-sm text-gray-700 bg-white border border-gray-200 rounded-md px-2 py-1.5 w-full focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-400"
-                                onKeyDown={(e) => { if (e.key === 'Enter') handleSave(); if (e.key === 'Escape') onClose(); }} />
+                            >
+                                <option value="">Unassigned</option>
+                                {teamMembers.map(m => (
+                                    <option key={m.id} value={m.name}>{m.name}</option>
+                                ))}
+                            </select>
                         </div>
                         <div className="flex items-center gap-1.5 min-w-[140px]">
                             <MapPin size={13} className="text-gray-400 shrink-0" />
@@ -402,6 +480,7 @@ const TaskRow = ({
     editing,
     onStartEdit,
     onStopEdit,
+    teamMembers,
 }: {
     task: HumanTask;
     onUpdateStatus: (id: string, status: HumanTaskStatus) => Promise<void>;
@@ -412,6 +491,7 @@ const TaskRow = ({
     editing: boolean;
     onStartEdit: () => void;
     onStopEdit: () => void;
+    teamMembers: TeamMember[];
 }) => {
     const [showCategoryPicker, setShowCategoryPicker] = useState(false);
     const [showPriorityPicker, setShowPriorityPicker] = useState(false);
@@ -453,11 +533,10 @@ const TaskRow = ({
 
                 {/* Assignee */}
                 <td className="px-3 py-3 hidden md:table-cell">
-                    <InlineTextCell
+                    <InlineAssigneeCell
                         value={task.assignee || ''}
-                        placeholder="Assign"
-                        icon={User}
-                        onSave={(val) => onUpdateTask(task.id, { assignee: val || undefined })}
+                        teamMembers={teamMembers}
+                        onSave={(name, userId) => onUpdateTask(task.id, { assignee: name || undefined, assignedToUserId: userId })}
                     />
                 </td>
 
@@ -580,7 +659,7 @@ const TaskRow = ({
             </tr>
             {/* Full edit form row */}
             {editing && (
-                <TaskEditForm task={task} onUpdateTask={onUpdateTask} onClose={onStopEdit} />
+                <TaskEditForm task={task} onUpdateTask={onUpdateTask} onClose={onStopEdit} teamMembers={teamMembers} />
             )}
             {/* Description row */}
             {!editing && task.description && expanded && (
@@ -606,6 +685,7 @@ export const TasksPanel = ({
     pendingCount,
     loadError,
     onRetry,
+    teamMembers,
 }: TasksPanelProps) => {
     const [searchQuery, setSearchQuery] = useState('');
     const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -751,6 +831,7 @@ export const TasksPanel = ({
                                     editing={editingId === task.id}
                                     onStartEdit={() => { setEditingId(task.id); setExpandedId(null); }}
                                     onStopEdit={() => setEditingId(null)}
+                                    teamMembers={teamMembers}
                                 />
                             ))}
                         </tbody>
