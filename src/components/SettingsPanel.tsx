@@ -1,11 +1,12 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Plus, Trash2, Shield, KeyRound } from 'lucide-react';
-import type { License, TrimmerProfile } from '../types/definitions';
+import { Plus, Trash2, Shield, KeyRound, Leaf } from 'lucide-react';
+import type { License, Strain, TrimmerProfile } from '../types/definitions';
 import { apiService } from '../services/apiService';
 import { TeamSection } from './TeamSection';
 
 export const SettingsPanel: React.FC = () => {
     const [licenses, setLicenses] = useState<License[]>([]);
+    const [strains, setStrains] = useState<Strain[]>([]);
     const [profiles, setProfiles] = useState<TrimmerProfile[]>([]);
     const [loading, setLoading] = useState(true);
     const [isAdding, setIsAdding] = useState(false);
@@ -13,10 +14,17 @@ export const SettingsPanel: React.FC = () => {
     const [newLabel, setNewLabel] = useState('');
     const [editingId, setEditingId] = useState<string | null>(null);
     const [editLabel, setEditLabel] = useState('');
+    const [isAddingStrain, setIsAddingStrain] = useState(false);
+    const [newStrainName, setNewStrainName] = useState('');
 
     const loadLicenses = useCallback(async () => {
         const data = await apiService.getAllLicenses();
         setLicenses(data);
+    }, []);
+
+    const loadStrains = useCallback(async () => {
+        const data = await apiService.getStrains();
+        setStrains(data);
     }, []);
 
     const loadProfiles = useCallback(async () => {
@@ -25,8 +33,23 @@ export const SettingsPanel: React.FC = () => {
     }, []);
 
     useEffect(() => {
-        Promise.all([loadLicenses(), loadProfiles()]).finally(() => setLoading(false));
-    }, [loadLicenses, loadProfiles]);
+        Promise.all([loadLicenses(), loadStrains(), loadProfiles()]).finally(() => setLoading(false));
+    }, [loadLicenses, loadStrains, loadProfiles]);
+
+    const handleAddStrain = async () => {
+        const name = newStrainName.trim();
+        if (!name) { setIsAddingStrain(false); return; }
+        await apiService.upsertStrain(name);
+        setNewStrainName('');
+        setIsAddingStrain(false);
+        await loadStrains();
+    };
+
+    const handleDeleteStrain = async (id: string) => {
+        if (!confirm('Delete this strain? This cannot be undone.')) return;
+        await apiService.deleteStrain(id);
+        await loadStrains();
+    };
 
     const handleAdd = async () => {
         const num = newNumber.trim();
@@ -198,6 +221,81 @@ export const SettingsPanel: React.FC = () => {
                             ))}
                         </tbody>
                     </table>
+                )}
+            </div>
+
+            {/* Strain Management */}
+            <div className="trim-card !p-0 overflow-hidden mt-6">
+                <div className="px-5 py-4 border-b border-gray-200 flex justify-between items-center">
+                    <div className="flex items-center gap-2">
+                        <Leaf size={16} style={{ color: 'var(--color-flower)' }} />
+                        <h3 className="text-sm font-semibold text-gray-700">Strains</h3>
+                        <span className="text-xs text-gray-400">({strains.length})</span>
+                    </div>
+                    {!isAddingStrain && (
+                        <button
+                            onClick={() => setIsAddingStrain(true)}
+                            className="btn-new-batch text-sm px-3 py-1.5"
+                        >
+                            <Plus size={14} />
+                            Add Strain
+                        </button>
+                    )}
+                </div>
+
+                {isAddingStrain && (
+                    <div className="px-5 py-4 border-b border-gray-200 bg-gray-50">
+                        <div className="flex gap-2">
+                            <input
+                                type="text"
+                                value={newStrainName}
+                                onChange={e => setNewStrainName(e.target.value)}
+                                placeholder="Strain name (e.g. Blue Dream)"
+                                autoFocus
+                                onKeyDown={e => { if (e.key === 'Enter') handleAddStrain(); if (e.key === 'Escape') setIsAddingStrain(false); }}
+                                className="field-input flex-1"
+                            />
+                            <button onClick={handleAddStrain} className="btn-primary text-sm px-3 py-1.5">Save</button>
+                            <button onClick={() => { setIsAddingStrain(false); setNewStrainName(''); }} className="btn-cancel text-sm px-3 py-1.5">Cancel</button>
+                        </div>
+                    </div>
+                )}
+
+                {loading ? (
+                    <div className="flex items-center justify-center py-12">
+                        <div className="animate-spin rounded-full h-6 w-6 border-2 border-gray-200" style={{ borderTopColor: 'var(--primary-color)' }}></div>
+                    </div>
+                ) : strains.length === 0 ? (
+                    <div className="p-8 text-center text-gray-400">
+                        <Leaf size={32} className="text-gray-300 mx-auto mb-3" />
+                        <p className="text-sm font-medium">No strains yet</p>
+                        <p className="text-sm mt-1">Add strains to use them in sessions, harvests, and plantings.</p>
+                    </div>
+                ) : (
+                    <div className="divide-y divide-gray-100">
+                        {strains.map(s => (
+                            <div key={s.id} className="flex items-center justify-between px-5 py-3 hover:bg-gray-50 transition-colors">
+                                <div>
+                                    <span className="text-sm font-medium text-gray-900">{s.name}</span>
+                                    {(s.harvestCount > 0 || s.sessionCount > 0) && (
+                                        <span className="text-xs text-gray-400 ml-2">
+                                            {[
+                                                s.harvestCount > 0 ? `${s.harvestCount} harvest${s.harvestCount !== 1 ? 's' : ''}` : '',
+                                                s.sessionCount > 0 ? `${s.sessionCount} session${s.sessionCount !== 1 ? 's' : ''}` : '',
+                                            ].filter(Boolean).join(', ')}
+                                        </span>
+                                    )}
+                                </div>
+                                <button
+                                    onClick={() => handleDeleteStrain(s.id)}
+                                    className="strain-delete-btn"
+                                    title="Delete strain"
+                                >
+                                    <Trash2 size={14} />
+                                </button>
+                            </div>
+                        ))}
+                    </div>
                 )}
             </div>
 
