@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import type { TrimEntry, Trimmer, TrimmerProfile } from '../types/definitions';
-import { DonutChart } from './DonutChart';
 import { TrimmerList } from './TrimmerList';
+import { StackedProgressBar, buildSegments } from './StackedProgressBar';
 import { ChevronDown, Pencil, Check, X, Trash2, CheckCircle, Clock, Undo2 } from 'lucide-react';
 import { DeleteConfirmationModal } from './DeleteConfirmationModal';
 import { calculateDuration, formatDuration } from '../utils/timeUtils';
@@ -60,7 +60,6 @@ export const TrimCard: React.FC<TrimCardProps> = ({
     };
 
     const totalWeight = entry.flowerWeight + entry.shakeWeight + entry.trimWeight + entry.wasteWeight;
-    const progress = entry.startWeight > 0 ? (totalWeight / entry.startWeight) * 100 : 0;
 
     // Calculate total labor time
     const totalMinutes = (entry.trimmers || []).reduce((acc, trimmer) => {
@@ -252,12 +251,6 @@ export const TrimCard: React.FC<TrimCardProps> = ({
                         </div>
                     )}
 
-                    {entry.status !== 'upcoming' && (
-                        <div className="progress-bar-container">
-                            <div className="progress-bar" style={{ width: `${Math.min(progress, 100)}%` }}></div>
-                        </div>
-                    )}
-
                     {!isExpanded && (
                         <div className="trim-card-summary">
                             {entry.status === 'upcoming' ? (
@@ -293,46 +286,48 @@ export const TrimCard: React.FC<TrimCardProps> = ({
 
                 {isExpanded && (
                     <div className="trim-card-body">
-                        <div className="expanded-summary-container">
-                            <div className="chart-stats-column">
-                                <div className="main-stats-row">
-                                    <div className="summary-item">
-                                        <span className="label">Start</span>
-                                        <span className="value">{Math.round(entry.startWeight)}g</span>
-                                    </div>
-                                    <div className="summary-item">
-                                        <span className="label">Completed</span>
-                                        <span className="value">{totalWeight.toFixed(0)}g</span>
-                                    </div>
-                                    <div className="summary-item">
-                                        <span className="label">Remaining</span>
-                                        <span className="value">{(entry.startWeight - totalWeight).toFixed(0)}g</span>
-                                    </div>
+                        <div className="expanded-summary-container expanded-summary--flat">
+                            <div className="expanded-weights-row">
+                                <div className="weight-stat">
+                                    <span className="label">Start</span>
+                                    <span className="value">{Math.round(entry.startWeight)}g</span>
                                 </div>
-                                <div className="expanded-chart-wrapper">
-                                    <DonutChart entry={entry} showLegend={false} height={140} />
-                                </div>
-                            </div>
-
-                            <div className="breakdown-grid-container">
-                                <div className="batch-summary-item">
-                                    <span className="label">Flower</span>
+                                <div className="weight-stat">
+                                    <span className="label text-flower">Flower</span>
                                     <span className="value text-flower">{Math.round(entry.flowerWeight)}g</span>
                                 </div>
-                                <div className="batch-summary-item">
-                                    <span className="label">Shake</span>
+                                <div className="weight-stat">
+                                    <span className="label text-shake">Shake</span>
                                     <span className="value text-shake">{Math.round(entry.shakeWeight)}g</span>
                                 </div>
-                                <div className="batch-summary-item">
-                                    <span className="label">Trim</span>
+                                <div className="weight-stat">
+                                    <span className="label text-trim">Trim</span>
                                     <span className="value text-trim">{Math.round(entry.trimWeight)}g</span>
                                 </div>
-                                <div className="batch-summary-item">
-                                    <span className="label">Waste</span>
+                                <div className="weight-stat">
+                                    <span className="label text-waste">Waste</span>
                                     <span className="value text-waste">{Math.round(entry.wasteWeight)}g</span>
                                 </div>
+                                <div className="weight-stat">
+                                    <span className="label">Remaining</span>
+                                    <span className="value">{Math.max(0, entry.startWeight - totalWeight).toFixed(0)}g</span>
+                                </div>
                             </div>
-
+                            <StackedProgressBar
+                                segments={buildSegments(
+                                    {
+                                        flower: entry.flowerWeight,
+                                        shake: entry.shakeWeight,
+                                        trim: entry.trimWeight,
+                                        waste: entry.wasteWeight,
+                                    },
+                                    entry.startWeight
+                                )}
+                                total={entry.startWeight}
+                                height={10}
+                                showPercentage
+                                className="expanded-stacked-bar"
+                            />
                             <div className="compact-trimmers-section">
                                 <TrimmerList
                                     trimmers={entry.trimmers || []}
