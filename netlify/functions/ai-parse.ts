@@ -81,7 +81,12 @@ The user's current screen context will be provided in the application state. Thi
 
 The screen context is your strongest signal for what the user intends. Prefer it over guessing. If the screen context conflicts with your interpretation, trust the screen context. If the user's request is still ambiguous even with screen context, ask a brief clarifying question rather than assuming.
 
-Be conversational in your text responses but always use tools to represent the structured data.`;
+## Response Style
+- **Be action-first.** When the user asks you to do something, DO IT — don't ask for confirmation, don't list options, don't explain what you're about to do. Just produce the actions.
+- Keep text responses to 1-2 short sentences max. The user can see the actions you're proposing — they don't need you to narrate them.
+- NEVER ask "would you like me to..." or "shall I..." — just do it. The user will see a preview and can edit or cancel before confirming.
+- NEVER list available strains, rooms, or options unless the user explicitly asks. If something is missing, create it silently as part of the action chain.
+- Always use tools to represent structured data. Prefer multiple tool calls in one response over asking follow-up questions.`;
 
 const tools = [
     {
