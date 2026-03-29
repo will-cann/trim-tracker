@@ -65,7 +65,8 @@ export interface CreateTrimSessionDTO {
 // HARVEST TYPES
 // ============================================================================
 
-export type HarvestStatus = 'planning' | 'active' | 'drying' | 'ready' | 'completed';
+export type HarvestStatus = 'planning' | 'active' | 'submitted' | 'drying' | 'ready' | 'completed';
+export type ContaminantFlag = 'powdery_mildew' | 'bud_rot' | 'insects' | 'other';
 export type AllocationType = 'flower' | 'frozen';
 export type AllocationStatus = 'pending' | 'in_progress' | 'completed';
 export type AllocationChoice = 'Flower' | 'Frozen' | 'Both';
@@ -107,10 +108,22 @@ export interface Harvest {
   manicureLocation?: string;
   status: HarvestStatus;
   isOnHold: boolean;
+  contaminants: ContaminantFlag[];
+  dryWeight?: number;
   harvestStartDate?: string;
   harvestEndDate?: string;
+  submittedAt?: string;
+  approvedAt?: string;
   allocations: HarvestAllocation[];
   waste: HarvestWasteEntry[];
+  createdAt: string;
+}
+
+export interface HarvestPlantWeight {
+  id: string;
+  harvestId: string;
+  plantNumber: number;
+  weight: number;
   createdAt: string;
 }
 
@@ -214,6 +227,7 @@ export interface Package {
   location?: string;
   notes?: string;
   status: PackageStatus;
+  contaminants?: string[];
   labTestingState: LabTestingState;
   packagedDate: string;
   finishedDate?: string;
@@ -250,7 +264,8 @@ export type ProposedActionType =
   | 'create_strain' | 'delete_strain' | 'create_license' | 'delete_license'
   | 'import_tags' | 'assign_tag' | 'auto_assign_tags'
   | 'create_package' | 'update_package' | 'finish_package' | 'delete_package'
-  | 'create_room' | 'update_room' | 'delete_room';
+  | 'create_room' | 'update_room' | 'delete_room'
+  | 'record_plant_weight' | 'flag_contamination' | 'submit_harvest_batch' | 'approve_harvest_day';
 
 export interface ProposedAction {
   type: ProposedActionType;

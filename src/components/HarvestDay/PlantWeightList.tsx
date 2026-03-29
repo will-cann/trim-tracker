@@ -1,0 +1,53 @@
+import React, { useRef, useEffect } from 'react';
+import { Trash2 } from 'lucide-react';
+import type { HarvestPlantWeight } from '../../types/definitions';
+
+interface PlantWeightListProps {
+    weights: HarvestPlantWeight[];
+    onDelete: (id: string) => void;
+    newestId?: string;
+}
+
+export const PlantWeightList: React.FC<PlantWeightListProps> = ({ weights, onDelete, newestId }) => {
+    const bottomRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        if (newestId) {
+            bottomRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
+    }, [newestId]);
+
+    if (weights.length === 0) return null;
+
+    const total = weights.reduce((sum, w) => sum + w.weight, 0);
+    const avg = total / weights.length;
+
+    return (
+        <div className="plant-weight-list">
+            <div className="plant-weight-rows">
+                {weights.map(w => (
+                    <div
+                        key={w.id}
+                        className={`plant-weight-row ${w.id === newestId ? 'plant-weight-row-new' : ''}`}
+                    >
+                        <span className="plant-weight-num">#{w.plantNumber}</span>
+                        <span className="plant-weight-val">{w.weight.toFixed(0)}g</span>
+                        <button
+                            className="plant-weight-del"
+                            onClick={() => onDelete(w.id)}
+                            title="Remove"
+                        >
+                            <Trash2 size={13} />
+                        </button>
+                    </div>
+                ))}
+                <div ref={bottomRef} />
+            </div>
+            <div className="plant-weight-footer">
+                <span>{weights.length} plant{weights.length !== 1 ? 's' : ''}</span>
+                <span style={{ color: 'var(--text-secondary)' }}>avg {avg.toFixed(0)}g</span>
+                <span className="plant-weight-total">{total.toFixed(0)}g</span>
+            </div>
+        </div>
+    );
+};

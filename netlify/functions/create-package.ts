@@ -44,12 +44,24 @@ export const handler: Handler = async (event) => {
             const created = [];
 
             for (const pkg of packages) {
+                // Inherit contaminants from harvest for fresh_frozen packages
+                let contaminants = pkg.contaminants || [];
+                if (pkg.packageType === 'fresh_frozen' && pkg.harvestId && contaminants.length === 0) {
+                    const { rows: [harvest] } = await client.query(
+                        `SELECT contaminants FROM harvests WHERE id = $1`,
+                        [pkg.harvestId]
+                    );
+                    if (harvest?.contaminants?.length > 0) {
+                        contaminants = harvest.contaminants;
+                    }
+                }
+
                 const { rows: [row] } = await client.query(`
                     INSERT INTO packages (
                         company_id, created_by, harvest_id, trim_entry_id, tag_id,
                         label, package_type, item_name, strain, license_number,
-                        quantity, waste_weight, location, notes
-                    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+                        quantity, waste_weight, location, notes, contaminants
+                    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
                     RETURNING *
                 `, [
                     context.companyId,
@@ -66,6 +78,7 @@ export const handler: Handler = async (event) => {
                     pkg.wasteWeight || 0,
                     pkg.location || null,
                     pkg.notes || null,
+                    contaminants,
                 ]);
 
                 // If a tag was specified, mark it as assigned
@@ -117,6 +130,7 @@ function formatPackage(row: any) {
         wasteWeight: parseFloat(row.waste_weight) || 0,
         location: row.location,
         notes: row.notes,
+        contaminants: row.contaminants || [],
         status: row.status,
         labTestingState: row.lab_testing_state,
         packagedDate: row.packaged_date,

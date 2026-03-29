@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X } from 'lucide-react';
+import { Modal, Button } from '../ui';
 
 interface RecordWeightModalProps {
     onClose: () => void;
@@ -24,35 +24,29 @@ export const RecordWeightModal: React.FC<RecordWeightModalProps> = ({
     };
 
     return (
-        <div className="modal-overlay">
-            <div className="modal-content max-w-sm">
-                <div className="modal-header">
-                    <h3>{title}</h3>
-                    <button className="close-btn" onClick={onClose}>
-                        <X size={24} />
-                    </button>
+        <Modal title={title} contentClassName="max-w-sm" onClose={onClose} footer={
+            <>
+                <Button variant="secondary" type="button" onClick={onClose}>Cancel</Button>
+                <Button variant="primary" type="submit" form="record-weight-form">Save</Button>
+            </>
+        }>
+            <form id="record-weight-form" onSubmit={handleSubmit}>
+                <div className="field">
+                    <label className="field-label">Weight (grams)</label>
+                    <input
+                        type="number"
+                        className="field-input"
+                        value={weight}
+                        onChange={e => setWeight(e.target.value)}
+                        placeholder="0"
+                        min="1"
+                        step="0.01"
+                        required
+                        autoFocus
+                        style={{ fontSize: '1.25rem', padding: '0.75rem 0.75rem' }}
+                    />
                 </div>
-                <form onSubmit={handleSubmit} className="add-batch-form">
-                    <div className="form-group">
-                        <label>Weight (grams)</label>
-                        <input
-                            type="number"
-                            value={weight}
-                            onChange={e => setWeight(e.target.value)}
-                            placeholder="0"
-                            min="1"
-                            step="0.01"
-                            required
-                            autoFocus
-                            className="text-xl py-3"
-                        />
-                    </div>
-                    <div className="modal-actions">
-                        <button type="button" className="btn-cancel" onClick={onClose}>Cancel</button>
-                        <button type="submit" className="btn-primary">Save</button>
-                    </div>
-                </form>
-            </div>
-        </div>
+            </form>
+        </Modal>
     );
 };

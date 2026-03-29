@@ -3,12 +3,14 @@ import { Plus, Trash2, Leaf } from 'lucide-react';
 import type { Strain } from '../../types/definitions';
 import { apiService } from '../../services/apiService';
 import { TableSkeleton } from '../Skeleton';
+import { DeleteConfirmationModal } from '../DeleteConfirmationModal';
 
 export const StrainTable: React.FC = () => {
     const [strains, setStrains] = useState<Strain[]>([]);
     const [loading, setLoading] = useState(true);
     const [isAdding, setIsAdding] = useState(false);
     const [newName, setNewName] = useState('');
+    const [deleteTarget, setDeleteTarget] = useState<Strain | null>(null);
 
     const loadStrains = useCallback(async () => {
         setLoading(true);
@@ -31,8 +33,8 @@ export const StrainTable: React.FC = () => {
     };
 
     const handleDelete = async (id: string) => {
-        if (!confirm('Remove this strain from the registry?')) return;
         await apiService.deleteStrain(id);
+        setDeleteTarget(null);
         await loadStrains();
     };
 
@@ -50,10 +52,10 @@ export const StrainTable: React.FC = () => {
             {/* Header */}
             <div className="flex justify-between items-center mb-4">
                 <div>
-                    <h3 className="text-base font-semibold text-gray-700">
+                    <h3 className="text-base font-semibold" style={{ color: 'var(--text-color)' }}>
                         Strain Registry
                     </h3>
-                    <p className="text-sm text-gray-400 mt-1">
+                    <p className="text-sm mt-1" style={{ color: 'var(--text-secondary)' }}>
                         {strains.length} strain{strains.length !== 1 ? 's' : ''} tracked
                     </p>
                 </div>
@@ -79,16 +81,15 @@ export const StrainTable: React.FC = () => {
                         onBlur={handleAdd}
                         placeholder="Strain name..."
                         autoFocus
-                        className="w-full text-sm px-3 py-2 border border-emerald-300 rounded-lg
-                                   focus:outline-none focus:ring-2 focus:ring-emerald-400"
+                        className="field-input"
                     />
                 </div>
             )}
 
             {/* Table */}
             {strains.length === 0 ? (
-                <div className="trim-card text-center p-12 text-gray-400">
-                    <Leaf size={48} className="text-gray-300 mx-auto mb-4" />
+                <div className="trim-card text-center p-12" style={{ color: 'var(--text-secondary)' }}>
+                    <Leaf size={48} className="mx-auto mb-4" style={{ color: 'var(--color-dolphin)' }} />
                     <p className="text-base font-medium">No strains registered</p>
                     <p className="text-sm mt-1">
                         Strains are auto-captured from harvests and trim sessions, or add one manually.
@@ -98,17 +99,17 @@ export const StrainTable: React.FC = () => {
                 <div className="trim-card !p-0 overflow-hidden">
                     <table className="w-full border-collapse text-sm">
                         <thead>
-                            <tr className="border-b border-gray-200 bg-gray-50">
-                                <th className="text-left px-4 py-3 font-semibold text-gray-500 text-xs uppercase tracking-wider">
+                            <tr style={{ borderBottom: '1px solid var(--border-color)', backgroundColor: 'var(--background-color)' }}>
+                                <th className="text-left px-4 py-3 font-semibold text-xs uppercase tracking-wider" style={{ color: 'var(--text-secondary)' }}>
                                     Strain
                                 </th>
-                                <th className="text-center px-4 py-3 font-semibold text-gray-500 text-xs uppercase tracking-wider">
+                                <th className="text-center px-4 py-3 font-semibold text-xs uppercase tracking-wider" style={{ color: 'var(--text-secondary)' }}>
                                     Harvests
                                 </th>
-                                <th className="text-center px-4 py-3 font-semibold text-gray-500 text-xs uppercase tracking-wider">
+                                <th className="text-center px-4 py-3 font-semibold text-xs uppercase tracking-wider" style={{ color: 'var(--text-secondary)' }}>
                                     Sessions
                                 </th>
-                                <th className="text-left px-4 py-3 font-semibold text-gray-500 text-xs uppercase tracking-wider">
+                                <th className="text-left px-4 py-3 font-semibold text-xs uppercase tracking-wider" style={{ color: 'var(--text-secondary)' }}>
                                     First Seen
                                 </th>
                                 <th className="w-10"></th>
@@ -118,23 +119,24 @@ export const StrainTable: React.FC = () => {
                             {strains.map((strain) => (
                                 <tr
                                     key={strain.id}
-                                    className="border-b border-gray-100 strain-table-row"
+                                    className="strain-table-row"
+                                    style={{ borderBottom: '1px solid var(--background-color)' }}
                                 >
-                                    <td className="px-4 py-3 font-medium text-gray-900">
+                                    <td className="px-4 py-3 font-medium" style={{ color: 'var(--text-color)' }}>
                                         {strain.name}
                                     </td>
-                                    <td className="px-4 py-3 text-center text-gray-500">
+                                    <td className="px-4 py-3 text-center" style={{ color: 'var(--text-secondary)' }}>
                                         {strain.harvestCount}
                                     </td>
-                                    <td className="px-4 py-3 text-center text-gray-500">
+                                    <td className="px-4 py-3 text-center" style={{ color: 'var(--text-secondary)' }}>
                                         {strain.sessionCount}
                                     </td>
-                                    <td className="px-4 py-3 text-gray-400 text-sm">
+                                    <td className="px-4 py-3 text-sm" style={{ color: 'var(--color-dolphin)' }}>
                                         {new Date(strain.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
                                     </td>
                                     <td className="px-2 py-3">
                                         <button
-                                            onClick={() => handleDelete(strain.id)}
+                                            onClick={() => setDeleteTarget(strain)}
                                             className="strain-delete-btn"
                                             title="Remove strain"
                                         >
@@ -146,6 +148,14 @@ export const StrainTable: React.FC = () => {
                         </tbody>
                     </table>
                 </div>
+            )}
+            {deleteTarget && (
+                <DeleteConfirmationModal
+                    title="Remove Strain"
+                    message={`Remove "${deleteTarget.name}" from the registry? This won't affect existing harvests or sessions that use it.`}
+                    onConfirm={() => handleDelete(deleteTarget.id)}
+                    onCancel={() => setDeleteTarget(null)}
+                />
             )}
         </div>
     );

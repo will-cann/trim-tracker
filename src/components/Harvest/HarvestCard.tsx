@@ -1,9 +1,10 @@
-import React, { useState, useEffect } from 'react';
-import { ChevronDown, Trash2, Snowflake, Flower2, ArrowRightLeft, Scissors, Clock } from 'lucide-react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { ChevronDown, Trash2, Snowflake, Flower2, ArrowRightLeft, Scissors, Clock, Plus, Scale } from 'lucide-react';
 import type { Harvest, HarvestWasteType } from '../../types/definitions';
 import { WasteEntryForm } from './WasteEntryForm';
 import { RecordWeightModal } from './RecordWeightModal';
 import { AllocateModal } from './AllocateModal';
+import { DeleteConfirmationModal } from '../DeleteConfirmationModal';
 
 interface HarvestCardProps {
     harvest: Harvest;
@@ -18,7 +19,8 @@ interface HarvestCardProps {
 const STATUS_CLASS: Record<string, string> = {
     planning: 'status-upcoming',
     active: 'status-active',
-    drying: 'status-active',
+    submitted: 'status-active',
+    drying: 'status-drying',
     ready: 'status-complete',
     completed: 'status-complete',
 };
@@ -26,6 +28,7 @@ const STATUS_CLASS: Record<string, string> = {
 const STATUS_LABEL: Record<string, string> = {
     planning: 'Planning',
     active: 'Active',
+    submitted: 'Submitted',
     drying: 'Drying',
     ready: 'Ready',
     completed: 'Completed',
@@ -43,9 +46,21 @@ export const HarvestCard: React.FC<HarvestCardProps> = ({
     const [isExpanded, setIsExpanded] = useState(false);
     const [showWeightModal, setShowWeightModal] = useState(false);
     const [showAllocateModal, setShowAllocateModal] = useState(false);
+    const [showDeleteModal, setShowDeleteModal] = useState(false);
     const [, setTick] = useState(0);
+    const cardRef = useRef<HTMLDivElement>(null);
 
     const available = harvest.totalWetWeight - harvest.totalWasteWeight;
+
+    const toggleExpand = useCallback(() => {
+        const next = !isExpanded;
+        setIsExpanded(next);
+        if (next) {
+            requestAnimationFrame(() => {
+                cardRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            });
+        }
+    }, [isExpanded]);
 
     // Tick every minute to keep drying time live
     useEffect(() => {
@@ -71,8 +86,8 @@ export const HarvestCard: React.FC<HarvestCardProps> = ({
 
     return (
         <>
-            <div className={`trim-card ${isExpanded ? 'expanded' : ''}`}>
-                <div className="trim-card-header" onClick={() => setIsExpanded(!isExpanded)}>
+            <div ref={cardRef} className={`trim-card ${isExpanded ? 'expanded' : ''}`}>
+                <div className="trim-card-header" onClick={toggleExpand}>
                     <div className="trim-card-top">
                         <div className="trim-card-title">
                             <div className="title-with-badge">
@@ -81,7 +96,7 @@ export const HarvestCard: React.FC<HarvestCardProps> = ({
                                     {STATUS_LABEL[harvest.status] || harvest.status}
                                 </span>
                                 {harvest.isOnHold && (
-                                    <span className="status-badge bg-red-50 text-red-500">Hold</span>
+                                    <span className="status-badge" style={{ backgroundColor: 'rgba(223, 91, 89, 0.12)', color: 'var(--danger-color)' }}>Hold</span>
                                 )}
                             </div>
                             <div className="trim-card-subtitle">
@@ -109,7 +124,7 @@ export const HarvestCard: React.FC<HarvestCardProps> = ({
                                         <span className="separator">&bull;</span>
                                         <span>{dryingInfo.harvestDate}</span>
                                         <span className="separator">&bull;</span>
-                                        <span className="inline-flex items-center gap-0.5 text-amber-500">
+                                        <span className="inline-flex items-center gap-0.5" style={{ color: 'var(--warning-color)' }}>
                                             <Clock size={11} />
                                             {dryingInfo.duration}
                                         </span>
@@ -121,7 +136,7 @@ export const HarvestCard: React.FC<HarvestCardProps> = ({
                             {harvest.status === 'planning' && (
                                 <button
                                     className="icon-btn delete-batch-btn"
-                                    onClick={e => { e.stopPropagation(); if (confirm('Delete this harvest?')) onDelete(harvest.id); }}
+                                    onClick={e => { e.stopPropagation(); setShowDeleteModal(true); }}
                                     title="Delete Harvest"
                                 >
                                     <Trash2 size={20} />
@@ -147,13 +162,13 @@ export const HarvestCard: React.FC<HarvestCardProps> = ({
                                         {harvest.totalWetWeight.toFixed(0)}g
                                     </span>
                                 ) : (
-                                    <span
-                                        className="value cursor-pointer text-emerald-500"
+                                    <button
+                                        className="ghost-action"
                                         onClick={(e) => { e.stopPropagation(); setShowWeightModal(true); }}
-                                        title="Record wet weight"
                                     >
-                                        —
-                                    </span>
+                                        <Scale size={12} />
+                                        Add
+                                    </button>
                                 )}
                             </div>
                             {harvest.allocations.length > 0 ? (
@@ -166,13 +181,13 @@ export const HarvestCard: React.FC<HarvestCardProps> = ({
                             ) : (
                                 <div className="summary-item">
                                     <span className="label">Allocation</span>
-                                    <span
-                                        className="value cursor-pointer text-emerald-500"
+                                    <button
+                                        className="ghost-action"
                                         onClick={(e) => { e.stopPropagation(); setShowAllocateModal(true); }}
-                                        title="Set allocation"
                                     >
-                                        —
-                                    </span>
+                                        <Plus size={12} />
+                                        Set
+                                    </button>
                                 </div>
                             )}
                         </div>
@@ -183,33 +198,43 @@ export const HarvestCard: React.FC<HarvestCardProps> = ({
                 {isExpanded && (
                     <div className="trim-card-body" onClick={e => e.stopPropagation()}>
                         {/* Weight grid */}
-                        <div className="trim-card-summary border-b border-gray-200 pb-3 mb-3">
+                        <div className="trim-card-summary" style={{ borderBottom: '1px solid var(--border-color)', paddingBottom: '0.75rem', marginBottom: '0.75rem' }}>
                             <div className="summary-item">
                                 <span className="label">Wet Weight</span>
-                                <span
-                                    className="value text-lg cursor-pointer"
-                                    onClick={() => setShowWeightModal(true)}
-                                    title={harvest.totalWetWeight > 0 ? 'Update weight' : 'Record wet weight'}
-                                >
-                                    {harvest.totalWetWeight > 0 ? `${harvest.totalWetWeight.toFixed(0)}g` : <span className="text-emerald-500">—</span>}
-                                </span>
+                                {harvest.totalWetWeight > 0 ? (
+                                    <span
+                                        className="value text-lg cursor-pointer"
+                                        onClick={() => setShowWeightModal(true)}
+                                        title="Update weight"
+                                    >
+                                        {harvest.totalWetWeight.toFixed(0)}g
+                                    </span>
+                                ) : (
+                                    <button
+                                        className="ghost-action"
+                                        onClick={() => setShowWeightModal(true)}
+                                    >
+                                        <Scale size={12} />
+                                        Record weight
+                                    </button>
+                                )}
                             </div>
                             <div className="summary-item">
                                 <span className="label">Waste</span>
-                                <span className="value text-lg text-red-500">
+                                <span className="value text-lg" style={{ color: 'var(--danger-color)' }}>
                                     {harvest.totalWasteWeight.toFixed(0)}g
                                 </span>
                             </div>
                             <div className="summary-item">
                                 <span className="label">Available</span>
-                                <span className="value text-lg text-emerald-500">
-                                    {available > 0 ? `${available.toFixed(0)}g` : '—'}
+                                <span className="value text-lg" style={{ color: 'var(--primary-color)' }}>
+                                    {available > 0 ? `${available.toFixed(0)}g` : '0g'}
                                 </span>
                             </div>
                         </div>
 
                         {harvest.plantCount > 0 && (
-                            <p className="text-sm text-gray-500 mb-3">
+                            <p className="text-sm mb-3" style={{ color: 'var(--text-secondary)' }}>
                                 {harvest.plantCount} plant{harvest.plantCount > 1 ? 's' : ''}
                             </p>
                         )}
@@ -217,20 +242,17 @@ export const HarvestCard: React.FC<HarvestCardProps> = ({
                         {/* Allocations */}
                         {harvest.allocations.length > 0 && (
                             <div className="mb-4">
-                                <h4 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">
-                                    Allocations
-                                </h4>
+                                <h4 className="card-section-heading">Allocations</h4>
                                 {harvest.allocations.map(alloc => (
                                     <div
                                         key={alloc.id}
-                                        className={`flex justify-between items-center px-3 py-2 rounded-lg mb-1.5 text-sm ${
-                                            alloc.allocationType === 'flower' ? 'bg-amber-50' : 'bg-blue-50'
-                                        }`}
+                                        className="flex justify-between items-center px-3 py-2 rounded-lg mb-1.5 text-sm"
+                                        style={{ backgroundColor: alloc.allocationType === 'flower' ? 'rgba(250, 158, 82, 0.08)' : 'rgba(28, 158, 255, 0.08)' }}
                                     >
                                         <div className="flex items-center gap-2">
                                             {alloc.allocationType === 'flower'
-                                                ? <Flower2 size={16} className="text-amber-600" />
-                                                : <Snowflake size={16} className="text-blue-500" />
+                                                ? <Flower2 size={16} style={{ color: 'var(--warning-color)' }} />
+                                                : <Snowflake size={16} style={{ color: 'var(--secondary-color)' }} />
                                             }
                                             <span className="font-medium">
                                                 {alloc.allocationType === 'flower' ? 'Flower (Dry Trim)' : 'Fresh Frozen'}
@@ -256,9 +278,7 @@ export const HarvestCard: React.FC<HarvestCardProps> = ({
                         {/* Waste section */}
                         {harvest.status !== 'completed' && (
                             <div className="mb-4">
-                                <h4 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">
-                                    Waste
-                                </h4>
+                                <h4 className="card-section-heading">Waste</h4>
                                 <WasteEntryForm
                                     wasteEntries={harvest.waste}
                                     totalWasteWeight={harvest.totalWasteWeight}
@@ -267,23 +287,26 @@ export const HarvestCard: React.FC<HarvestCardProps> = ({
                             </div>
                         )}
 
-                        {/* Action buttons */}
-                        <div className="flex gap-2 flex-wrap pt-3 border-t border-gray-200">
-                            {(harvest.status === 'planning' || harvest.status === 'active') && harvest.allocations.length === 0 && (
-                                <button className="btn-start-batch" onClick={() => setShowAllocateModal(true)}>
-                                    <ArrowRightLeft size={14} className="mr-1" />
-                                    Allocate
-                                </button>
-                            )}
-                            {harvest.status === 'drying' && (
-                                <button
-                                    className="btn-start-batch"
-                                    onClick={() => onUpdate(harvest.id, { status: 'ready' })}
-                                >
-                                    Mark Ready
-                                </button>
-                            )}
-                        </div>
+                        {/* Action buttons — only render when there are actions */}
+                        {(((harvest.status === 'planning' || harvest.status === 'active') && harvest.allocations.length === 0)
+                            || harvest.status === 'drying') && (
+                            <div className="flex gap-2 flex-wrap pt-3" style={{ borderTop: '1px solid var(--border-color)' }}>
+                                {(harvest.status === 'planning' || harvest.status === 'active') && harvest.allocations.length === 0 && (
+                                    <button className="btn-start-batch" onClick={() => setShowAllocateModal(true)}>
+                                        <ArrowRightLeft size={14} className="mr-1" />
+                                        Set Allocation
+                                    </button>
+                                )}
+                                {harvest.status === 'drying' && (
+                                    <button
+                                        className="btn-start-batch"
+                                        onClick={() => onUpdate(harvest.id, { status: 'ready' })}
+                                    >
+                                        Mark as Ready to Trim
+                                    </button>
+                                )}
+                            </div>
+                        )}
                     </div>
                 )}
             </div>
@@ -306,6 +329,17 @@ export const HarvestCard: React.FC<HarvestCardProps> = ({
                         onAllocate(harvest.id, allocations);
                         setShowAllocateModal(false);
                     }}
+                />
+            )}
+            {showDeleteModal && (
+                <DeleteConfirmationModal
+                    title="Delete Harvest"
+                    message={`This will permanently remove "${harvest.batchId}" and all its weight and waste records.`}
+                    onConfirm={() => {
+                        onDelete(harvest.id);
+                        setShowDeleteModal(false);
+                    }}
+                    onCancel={() => setShowDeleteModal(false)}
                 />
             )}
         </>

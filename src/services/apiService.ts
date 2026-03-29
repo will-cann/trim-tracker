@@ -1,4 +1,4 @@
-import type { TrimSession, CreateTrimSessionDTO, Trimmer, TrimmerProfile, ProposedAction, Harvest, CreateHarvestDTO, HarvestWasteType, HarvestAllocation, Strain, License, SpeechMode, HumanTask, TeamRole, Tag, TagType, TagStats, TagSettings, Package, CreatePackageDTO } from '../types/definitions';
+import type { TrimSession, CreateTrimSessionDTO, Trimmer, TrimmerProfile, ProposedAction, Harvest, CreateHarvestDTO, HarvestWasteType, HarvestAllocation, HarvestPlantWeight, Strain, License, SpeechMode, HumanTask, TeamRole, Tag, TagType, TagStats, TagSettings, Package, CreatePackageDTO } from '../types/definitions';
 
 const API_BASE = '/.netlify/functions';
 
@@ -320,6 +320,53 @@ export const deleteHarvest = async (id: string): Promise<void> => {
         method: 'DELETE',
     });
     if (!response.ok) throw new Error('Failed to delete harvest');
+};
+
+// ── Plant Weights ──
+
+export const recordPlantWeight = async (
+    harvestId: string, plantNumber: number | undefined, weight: number
+): Promise<any> => {
+    const response = await fetchWithAuth(`${API_BASE}/record-plant-weight`, {
+        method: 'POST',
+        body: JSON.stringify({ harvestId, plantNumber, weight }),
+    });
+    if (!response.ok) throw new Error('Failed to record plant weight');
+    return await response.json();
+};
+
+export const getPlantWeights = async (harvestId: string): Promise<HarvestPlantWeight[]> => {
+    const response = await fetchWithAuth(`${API_BASE}/get-plant-weights?harvestId=${harvestId}`);
+    if (!response.ok) return [];
+    return await response.json();
+};
+
+export const deletePlantWeight = async (id: string): Promise<any> => {
+    const response = await fetchWithAuth(`${API_BASE}/delete-plant-weight?id=${id}`, {
+        method: 'DELETE',
+    });
+    if (!response.ok) throw new Error('Failed to delete plant weight');
+    return await response.json();
+};
+
+// ── Harvest Day Submit / Approve ──
+
+export const submitHarvestBatch = async (harvestId: string): Promise<any> => {
+    const response = await fetchWithAuth(`${API_BASE}/submit-harvest-batch`, {
+        method: 'POST',
+        body: JSON.stringify({ harvestId }),
+    });
+    if (!response.ok) throw new Error('Failed to submit harvest batch');
+    return await response.json();
+};
+
+export const approveHarvestDay = async (harvestIds: string[]): Promise<any> => {
+    const response = await fetchWithAuth(`${API_BASE}/approve-harvest-day`, {
+        method: 'POST',
+        body: JSON.stringify({ harvestIds }),
+    });
+    if (!response.ok) throw new Error('Failed to approve harvests');
+    return await response.json();
 };
 
 // ============================================================================
@@ -764,6 +811,11 @@ export const apiService = {
     recordHarvestWaste,
     convertToTrim,
     deleteHarvest,
+    recordPlantWeight,
+    getPlantWeights,
+    deletePlantWeight,
+    submitHarvestBatch,
+    approveHarvestDay,
     // Licenses
     getMyLicenses,
     getAllLicenses,

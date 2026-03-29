@@ -67,8 +67,12 @@ export const handler: Handler = async (event) => {
             manicureLocation: h.manicure_location,
             status: h.status,
             isOnHold: h.is_on_hold,
+            contaminants: h.contaminants || [],
+            dryWeight: h.dry_weight ? parseFloat(h.dry_weight) : undefined,
             harvestStartDate: h.harvest_start_date,
             harvestEndDate: h.harvest_end_date,
+            submittedAt: h.submitted_at,
+            approvedAt: h.approved_at,
             createdAt: h.created_at,
             allocations: allAllocations
                 .filter((a: any) => a.harvest_id === h.id)

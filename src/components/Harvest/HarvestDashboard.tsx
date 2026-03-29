@@ -1,26 +1,28 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Plus, Sprout, Package, Snowflake, Flower2 } from 'lucide-react';
-import type { Harvest, HarvestStatus, HarvestWasteType, CreateHarvestDTO } from '../../types/definitions';
+import { Plus, Sprout, Scissors } from 'lucide-react';
+import type { Harvest, HarvestWasteType, CreateHarvestDTO } from '../../types/definitions';
 import { apiService } from '../../services/apiService';
 import { HarvestCard } from './HarvestCard';
 import { CreateHarvestModal } from './CreateHarvestModal';
 import { StrainTable } from './StrainTable';
 import { CardsSkeleton } from '../Skeleton';
 
-const TABS: { key: HarvestStatus | 'all' | 'strains'; label: string }[] = [
-    { key: 'all', label: 'All' },
-    { key: 'planning', label: 'Planning' },
-    { key: 'active', label: 'Active' },
-    { key: 'drying', label: 'Drying' },
-    { key: 'ready', label: 'Ready' },
+type ViewTab = 'active' | 'completed' | 'strains';
+
+const TABS: { key: ViewTab; label: string }[] = [
+    { key: 'active', label: 'In Progress' },
     { key: 'completed', label: 'Completed' },
     { key: 'strains', label: 'Strains' },
 ];
 
-export const HarvestDashboard: React.FC = () => {
+interface HarvestDashboardProps {
+    onStartHarvestDay?: () => void;
+}
+
+export const HarvestDashboard: React.FC<HarvestDashboardProps> = ({ onStartHarvestDay }) => {
     const [harvests, setHarvests] = useState<Harvest[]>([]);
     const [loading, setLoading] = useState(true);
-    const [activeTab, setActiveTab] = useState<HarvestStatus | 'all' | 'strains'>('all');
+    const [activeTab, setActiveTab] = useState<ViewTab>('active');
     const [showCreateModal, setShowCreateModal] = useState(false);
 
     const loadHarvests = useCallback(async () => {
@@ -34,11 +36,11 @@ export const HarvestDashboard: React.FC = () => {
         loadHarvests();
     }, [loadHarvests]);
 
-    const filteredHarvests = activeTab === 'all'
+    const filteredHarvests = activeTab === 'active'
         ? harvests.filter(h => h.status !== 'completed')
-        : activeTab === 'strains'
-            ? []
-            : harvests.filter(h => h.status === activeTab);
+        : activeTab === 'completed'
+            ? harvests.filter(h => h.status === 'completed')
+            : [];
 
     const handleCreate = async (data: CreateHarvestDTO) => {
         await apiService.createHarvest(data);
@@ -76,73 +78,61 @@ export const HarvestDashboard: React.FC = () => {
         await loadHarvests();
     };
 
-    // Stats
+    // Summary stats (only for non-completed)
+    const activeHarvests = harvests.filter(h => h.status !== 'completed');
+    const activeCount = activeHarvests.length;
+
+    const totalWetWeight = activeHarvests.reduce((sum, h) => sum + h.totalWetWeight, 0);
+
+    const flowerWeight = activeHarvests
+        .flatMap(h => h.allocations)
+        .filter(a => a.allocationType === 'flower')
+        .reduce((sum, a) => sum + a.targetWeight, 0);
+
+    const frozenWeight = activeHarvests
+        .flatMap(h => h.allocations)
+        .filter(a => a.allocationType === 'frozen')
+        .reduce((sum, a) => sum + a.targetWeight, 0);
+
     const statusCounts = harvests.reduce((acc, h) => {
         acc[h.status] = (acc[h.status] || 0) + 1;
         return acc;
     }, {} as Record<string, number>);
 
-    const activeCount = (statusCounts.planning || 0) + (statusCounts.active || 0) + (statusCounts.drying || 0) + (statusCounts.ready || 0);
-
-    const totalWetWeight = harvests
-        .filter(h => h.status !== 'completed')
-        .reduce((sum, h) => sum + h.totalWetWeight, 0);
-
-    const flowerWeight = harvests
-        .filter(h => h.status !== 'completed')
-        .flatMap(h => h.allocations)
-        .filter(a => a.allocationType === 'flower')
-        .reduce((sum, a) => sum + a.targetWeight, 0);
-
-    const frozenWeight = harvests
-        .filter(h => h.status !== 'completed')
-        .flatMap(h => h.allocations)
-        .filter(a => a.allocationType === 'frozen')
-        .reduce((sum, a) => sum + a.targetWeight, 0);
-
     return (
         <div className="dashboard">
-            {/* Stats */}
-            <div className="dashboard-top-section">
-                <div className="stats-grid">
-                    <div className="stat-item">
-                        <div className="stat-icon" style={{ backgroundColor: 'rgba(59, 181, 112, 0.1)', color: '#3BB570' }}>
-                            <Sprout size={24} />
-                        </div>
-                        <div className="stat-content">
-                            <label>Active Harvests</label>
-                            <p className="stat-value">{activeCount}</p>
-                        </div>
+            {/* Compact summary bar */}
+            {activeCount > 0 && (
+                <div className="harvest-summary-bar">
+                    <div className="harvest-summary-stat">
+                        <span className="stat-number">{activeCount}</span>
+                        <span className="stat-label">active</span>
                     </div>
-                    <div className="stat-item">
-                        <div className="stat-icon start-icon">
-                            <Package size={24} />
-                        </div>
-                        <div className="stat-content">
-                            <label>Total Wet Weight</label>
-                            <p className="stat-value">{totalWetWeight.toFixed(0)}g</p>
-                        </div>
+                    <div className="harvest-summary-divider" />
+                    <div className="harvest-summary-stat">
+                        <span className="stat-number">{totalWetWeight.toFixed(0)}</span>
+                        <span className="stat-label">g wet</span>
                     </div>
-                    <div className="stat-item">
-                        <div className="stat-icon flower-icon">
-                            <Flower2 size={24} />
-                        </div>
-                        <div className="stat-content">
-                            <label>Flower Allocated</label>
-                            <p className="stat-value">{flowerWeight.toFixed(0)}g</p>
-                        </div>
-                    </div>
-                    <div className="stat-item">
-                        <div className="stat-icon" style={{ backgroundColor: '#dbeafe', color: '#3b82f6' }}>
-                            <Snowflake size={24} />
-                        </div>
-                        <div className="stat-content">
-                            <label>Frozen Allocated</label>
-                            <p className="stat-value">{frozenWeight.toFixed(0)}g</p>
-                        </div>
-                    </div>
+                    {flowerWeight > 0 && (
+                        <>
+                            <div className="harvest-summary-divider" />
+                            <div className="harvest-summary-stat">
+                                <span className="stat-number" style={{ color: 'var(--warning-color)' }}>{flowerWeight.toFixed(0)}</span>
+                                <span className="stat-label">g flower</span>
+                            </div>
+                        </>
+                    )}
+                    {frozenWeight > 0 && (
+                        <>
+                            <div className="harvest-summary-divider" />
+                            <div className="harvest-summary-stat">
+                                <span className="stat-number" style={{ color: 'var(--secondary-color)' }}>{frozenWeight.toFixed(0)}</span>
+                                <span className="stat-label">g frozen</span>
+                            </div>
+                        </>
+                    )}
                 </div>
-            </div>
+            )}
 
             {/* Tabs + New Harvest button */}
             <div className="actions-row">
@@ -154,18 +144,31 @@ export const HarvestDashboard: React.FC = () => {
                             onClick={() => setActiveTab(tab.key)}
                         >
                             {tab.label}
-                            {tab.key !== 'all' && statusCounts[tab.key] ? ` (${statusCounts[tab.key]})` : ''}
+                            {tab.key === 'active' && activeCount > 0 ? ` (${activeCount})` : ''}
+                            {tab.key === 'completed' && statusCounts.completed ? ` (${statusCounts.completed})` : ''}
                         </button>
                     ))}
                 </div>
-                <button
-                    type="button"
-                    className="btn-new-batch"
-                    onClick={() => setShowCreateModal(true)}
-                >
-                    <Plus size={20} />
-                    New Harvest
-                </button>
+                <div className="flex items-center gap-2">
+                    {onStartHarvestDay && (
+                        <button
+                            type="button"
+                            className="btn-start-batch"
+                            onClick={onStartHarvestDay}
+                        >
+                            <Scissors size={16} />
+                            Harvest Day
+                        </button>
+                    )}
+                    <button
+                        type="button"
+                        className="btn-new-batch"
+                        onClick={() => setShowCreateModal(true)}
+                    >
+                        <Plus size={20} />
+                        New Harvest
+                    </button>
+                </div>
             </div>
 
             {/* Content */}
@@ -175,18 +178,18 @@ export const HarvestDashboard: React.FC = () => {
                 <CardsSkeleton count={3} />
             ) : filteredHarvests.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-16 text-center">
-                    <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-emerald-50 to-green-50 flex items-center justify-center mb-4 shadow-sm">
-                        <Sprout size={28} className="text-emerald-400" />
+                    <div className="w-16 h-16 rounded-2xl flex items-center justify-center mb-4" style={{ backgroundColor: 'rgba(59, 181, 112, 0.08)' }}>
+                        <Sprout size={28} style={{ color: 'var(--primary-color)' }} />
                     </div>
-                    <h3 className="text-base font-semibold text-gray-600 mb-1">
-                        {activeTab !== 'all' ? `No ${activeTab} harvests` : 'No harvests yet'}
+                    <h3 className="text-base font-semibold mb-1" style={{ color: 'var(--text-secondary)' }}>
+                        {activeTab === 'completed' ? 'No completed harvests' : 'No harvests yet'}
                     </h3>
-                    <p className="text-sm text-gray-400 max-w-xs mb-4">
-                        {activeTab === 'all'
+                    <p className="text-sm max-w-xs mb-4" style={{ color: 'var(--color-dolphin)' }}>
+                        {activeTab === 'active'
                             ? 'Start tracking your plants from wet weight through drying and final allocation.'
-                            : `Harvests will move here once they reach the ${activeTab} stage.`}
+                            : 'Harvests will appear here once they are marked complete.'}
                     </p>
-                    {activeTab === 'all' && (
+                    {activeTab === 'active' && (
                         <button
                             onClick={() => setShowCreateModal(true)}
                             className="btn-new-batch px-4 py-2 text-sm"
@@ -197,7 +200,7 @@ export const HarvestDashboard: React.FC = () => {
                     )}
                 </div>
             ) : (
-                <div className="entry-list">
+                <div className="harvest-grid">
                     {filteredHarvests.map(harvest => (
                         <HarvestCard
                             key={harvest.id}

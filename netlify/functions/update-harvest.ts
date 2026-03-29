@@ -28,6 +28,8 @@ export const handler: Handler = async (event) => {
             plantCount: 'plant_count',
             isOnHold: 'is_on_hold',
             status: 'status',
+            contaminants: 'contaminants',
+            dryWeight: 'dry_weight',
         };
 
         const setClauses: string[] = [];
@@ -77,7 +79,11 @@ export const handler: Handler = async (event) => {
                 manicureLocation: h.manicure_location,
                 status: h.status,
                 isOnHold: h.is_on_hold,
+                contaminants: h.contaminants || [],
+                dryWeight: h.dry_weight ? parseFloat(h.dry_weight) : undefined,
                 harvestStartDate: h.harvest_start_date,
+                submittedAt: h.submitted_at,
+                approvedAt: h.approved_at,
             }),
         };
     } catch (error) {

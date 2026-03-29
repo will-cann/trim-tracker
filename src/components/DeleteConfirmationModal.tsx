@@ -21,7 +21,7 @@ export const DeleteConfirmationModal: React.FC<DeleteConfirmationModalProps> = (
             contentClassName="delete-modal"
             titleIcon={
                 <div className="warning-icon-wrapper">
-                    <AlertTriangle size={24} className="text-red-500" />
+                    <AlertTriangle size={24} style={{ color: 'var(--danger-color)' }} />
                 </div>
             }
             onClose={onCancel}

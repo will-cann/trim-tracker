@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { X } from 'lucide-react';
 import type { Harvest } from '../../types/definitions';
+import { Modal, Button } from '../ui';
 
 interface AllocateModalProps {
     harvest: Harvest;
@@ -36,61 +36,55 @@ export const AllocateModal: React.FC<AllocateModalProps> = ({ harvest, onClose, 
     };
 
     return (
-        <div className="modal-overlay">
-            <div className="modal-content max-w-md">
-                <div className="modal-header">
-                    <h3>Allocate Harvest</h3>
-                    <button className="close-btn" onClick={onClose}>
-                        <X size={24} />
-                    </button>
-                </div>
-                <div className="px-6 mb-3">
-                    <p className="text-sm text-gray-500">
-                        Available: <strong>{available.toFixed(0)}g</strong>
-                        <span className="ml-2 text-xs">
-                            (Wet {harvest.totalWetWeight.toFixed(0)}g - Waste {harvest.totalWasteWeight.toFixed(0)}g)
-                        </span>
-                    </p>
-                </div>
-                <form onSubmit={handleSubmit} className="add-batch-form">
-                    <div className="form-group">
-                        <label>Allocation Type</label>
-                        <div className="flex gap-2">
-                            {(['flower', 'frozen', 'both'] as const).map(m => (
-                                <button
-                                    key={m}
-                                    type="button"
-                                    onClick={() => setMode(m)}
-                                    className={`flex-1 py-2 rounded-md text-sm capitalize cursor-pointer transition-colors ${
-                                        mode === m
-                                            ? 'border-2 border-emerald-500 bg-emerald-50 text-emerald-800 font-semibold'
-                                            : 'border border-gray-300 bg-white text-gray-700'
-                                    }`}
-                                >
-                                    {m === 'flower' ? 'Flower' : m === 'frozen' ? 'Fresh Frozen' : 'Both'}
-                                </button>
-                            ))}
-                        </div>
+        <Modal title="Allocate Harvest" contentClassName="max-w-md" onClose={onClose} footer={
+            <>
+                <Button variant="secondary" type="button" onClick={onClose}>Cancel</Button>
+                <Button variant="primary" type="submit" form="allocate-form">Allocate</Button>
+            </>
+        }>
+            <p className="text-sm mb-4" style={{ color: 'var(--text-secondary)' }}>
+                Available: <strong style={{ color: 'var(--text-color)' }}>{available.toFixed(0)}g</strong>
+                <span className="ml-2 text-xs">
+                    (Wet {harvest.totalWetWeight.toFixed(0)}g - Waste {harvest.totalWasteWeight.toFixed(0)}g)
+                </span>
+            </p>
+            <form id="allocate-form" onSubmit={handleSubmit}>
+                <div className="field">
+                    <label className="field-label">Allocation Type</label>
+                    <div className="chip-group">
+                        {(['flower', 'frozen', 'both'] as const).map(m => (
+                            <button
+                                key={m}
+                                type="button"
+                                onClick={() => setMode(m)}
+                                className={`chip ${mode === m ? 'chip-active' : ''}`}
+                            >
+                                {m === 'flower' ? 'Flower' : m === 'frozen' ? 'Fresh Frozen' : 'Both'}
+                            </button>
+                        ))}
                     </div>
+                </div>
 
-                    {mode === 'flower' && (
-                        <p className="text-sm text-gray-500 px-1">
-                            All {available.toFixed(0)}g will be allocated to flower (dry trim).
-                        </p>
-                    )}
+                {mode === 'flower' && (
+                    <p className="text-sm px-1" style={{ color: 'var(--text-secondary)' }}>
+                        All {available.toFixed(0)}g will be allocated to flower (dry trim).
+                    </p>
+                )}
 
-                    {mode === 'frozen' && (
-                        <p className="text-sm text-gray-500 px-1">
-                            All {available.toFixed(0)}g will be allocated to fresh frozen.
-                        </p>
-                    )}
+                {mode === 'frozen' && (
+                    <p className="text-sm px-1" style={{ color: 'var(--text-secondary)' }}>
+                        All {available.toFixed(0)}g will be allocated to fresh frozen.
+                    </p>
+                )}
 
-                    {mode === 'both' && (
-                        <>
-                            <div className="form-group">
-                                <label>Flower Weight (g)</label>
+                {mode === 'both' && (
+                    <>
+                        <div className="field-row">
+                            <div className="field">
+                                <label className="field-label">Flower Weight (g)</label>
                                 <input
                                     type="number"
+                                    className="field-input"
                                     value={flowerWeight}
                                     onChange={e => {
                                         setFlowerWeight(e.target.value);
@@ -102,10 +96,11 @@ export const AllocateModal: React.FC<AllocateModalProps> = ({ harvest, onClose, 
                                     required
                                 />
                             </div>
-                            <div className="form-group">
-                                <label>Fresh Frozen Weight (g)</label>
+                            <div className="field">
+                                <label className="field-label">Fresh Frozen Weight (g)</label>
                                 <input
                                     type="number"
+                                    className="field-input"
                                     value={frozenWeight}
                                     onChange={e => {
                                         setFrozenWeight(e.target.value);
@@ -117,20 +112,15 @@ export const AllocateModal: React.FC<AllocateModalProps> = ({ harvest, onClose, 
                                     required
                                 />
                             </div>
-                            {Number(flowerWeight) + Number(frozenWeight) > available && (
-                                <p className="text-red-500 text-xs">
-                                    Total exceeds available weight
-                                </p>
-                            )}
-                        </>
-                    )}
-
-                    <div className="modal-actions">
-                        <button type="button" className="btn-cancel" onClick={onClose}>Cancel</button>
-                        <button type="submit" className="btn-primary">Allocate</button>
-                    </div>
-                </form>
-            </div>
-        </div>
+                        </div>
+                        {Number(flowerWeight) + Number(frozenWeight) > available && (
+                            <p className="text-xs" style={{ color: 'var(--danger-color)' }}>
+                                Total exceeds available weight
+                            </p>
+                        )}
+                    </>
+                )}
+            </form>
+        </Modal>
     );
 };

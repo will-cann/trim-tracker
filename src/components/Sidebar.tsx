@@ -4,7 +4,7 @@ import { useAuth } from '../contexts/authContext';
 import type { ConversationSummary, TrimSession } from '../types/definitions';
 import logo from '../assets/logo.png';
 
-type ViewType = 'ai' | 'dashboard' | 'reports' | 'harvests' | 'settings' | 'tasks' | 'plant-map' | 'packages';
+type ViewType = 'ai' | 'dashboard' | 'reports' | 'harvests' | 'harvest-day' | 'settings' | 'tasks' | 'plant-map' | 'packages';
 
 interface SidebarProps {
     currentView: ViewType;
