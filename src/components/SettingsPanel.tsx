@@ -3,6 +3,7 @@ import { Plus, Trash2, Shield, KeyRound, Leaf } from 'lucide-react';
 import type { License, Strain, TrimmerProfile } from '../types/definitions';
 import { apiService } from '../services/apiService';
 import { TeamSection } from './TeamSection';
+import { DeleteConfirmationModal } from './DeleteConfirmationModal';
 
 /** Inline-editable row for a single strain */
 const StrainRow = ({ strain, onUpdate, onDelete }: {
@@ -100,10 +101,28 @@ export const SettingsPanel: React.FC = () => {
         await loadStrains();
     };
 
-    const handleDeleteStrain = async (id: string) => {
-        if (!confirm('Delete this strain? This cannot be undone.')) return;
-        await apiService.deleteStrain(id);
-        await loadStrains();
+    const [deleteTarget, setDeleteTarget] = useState<{ type: 'strain' | 'license'; id: string; name: string } | null>(null);
+
+    const confirmDelete = async () => {
+        if (!deleteTarget) return;
+        if (deleteTarget.type === 'strain') {
+            await apiService.deleteStrain(deleteTarget.id);
+            await loadStrains();
+        } else {
+            await apiService.deleteLicense(deleteTarget.id);
+            await loadLicenses();
+        }
+        setDeleteTarget(null);
+    };
+
+    const handleDeleteStrain = (id: string) => {
+        const s = strains.find(s => s.id === id);
+        setDeleteTarget({ type: 'strain', id, name: s?.name || 'this strain' });
+    };
+
+    const handleDeleteLicense = (id: string) => {
+        const l = licenses.find(l => l.id === id);
+        setDeleteTarget({ type: 'license', id, name: l?.label || l?.licenseNumber || 'this license' });
     };
 
     const handleAdd = async () => {
@@ -122,13 +141,16 @@ export const SettingsPanel: React.FC = () => {
         await loadLicenses();
     };
 
-    const handleDelete = async (id: string) => {
-        if (!confirm('Delete this license? This cannot be undone.')) return;
-        await apiService.deleteLicense(id);
-        await loadLicenses();
-    };
-
     return (
+        <>
+        {deleteTarget && (
+            <DeleteConfirmationModal
+                title={`Delete ${deleteTarget.type === 'strain' ? 'Strain' : 'License'}`}
+                message={`Are you sure you want to delete "${deleteTarget.name}"? This cannot be undone.`}
+                onConfirm={confirmDelete}
+                onCancel={() => setDeleteTarget(null)}
+            />
+        )}
         <div className="dashboard max-w-3xl mx-auto">
             {/* Header */}
             <div className="mb-8">
@@ -265,7 +287,7 @@ export const SettingsPanel: React.FC = () => {
                                     </td>
                                     <td className="px-2 py-3">
                                         <button
-                                            onClick={() => handleDelete(lic.id)}
+                                            onClick={() => handleDeleteLicense(lic.id)}
                                             className="strain-delete-btn"
                                             title="Delete license"
                                         >
@@ -354,5 +376,6 @@ export const SettingsPanel: React.FC = () => {
                 <TeamSection profiles={profiles} onReload={loadProfiles} />
             </div>
         </div>
+        </>
     );
 };
