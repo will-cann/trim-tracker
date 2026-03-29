@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Package, Plus, UserPlus, User, Loader2, Check, X, Sprout, Scale, ArrowRightLeft, Trash2, MapPin, CheckCircle2, XCircle, ChevronDown, Scissors, ClipboardList, Send, UserMinus, RefreshCw, Pencil, Leaf, MoveRight, TrendingUp, Skull, KeyRound, Tag, Upload } from 'lucide-react';
+import { Package, Plus, UserPlus, User, Loader2, Check, X, Sprout, Scale, ArrowRightLeft, Trash2, MapPin, CheckCircle2, XCircle, ChevronDown, Scissors, ClipboardList, Send, UserMinus, RefreshCw, Pencil, Leaf, MoveRight, TrendingUp, Skull, KeyRound, Tag, Upload, LayoutGrid } from 'lucide-react';
 import type { ProposedAction } from '../types/definitions';
 
 interface ActionPreviewProps {
@@ -48,6 +48,15 @@ const ACTION_CONFIG: Record<string, { icon: typeof Package; label: string; color
     import_tags: { icon: Upload, label: 'Import Tags', color: 'text-blue-600', bgColor: 'bg-blue-50' },
     assign_tag: { icon: Tag, label: 'Assign Tag', color: 'text-purple-600', bgColor: 'bg-purple-50' },
     auto_assign_tags: { icon: Tag, label: 'Auto-assign Tags', color: 'text-emerald-600', bgColor: 'bg-emerald-50' },
+    // Rooms
+    create_room: { icon: LayoutGrid, label: 'Create Room', color: 'text-emerald-600', bgColor: 'bg-emerald-50' },
+    update_room: { icon: LayoutGrid, label: 'Update Room', color: 'text-blue-600', bgColor: 'bg-blue-50' },
+    delete_room: { icon: Trash2, label: 'Delete Room', color: 'text-red-600', bgColor: 'bg-red-50' },
+    // Packages
+    create_package: { icon: Package, label: 'Create Package', color: 'text-emerald-600', bgColor: 'bg-emerald-50' },
+    update_package: { icon: Package, label: 'Update Package', color: 'text-blue-600', bgColor: 'bg-blue-50' },
+    finish_package: { icon: Package, label: 'Finish Package', color: 'text-emerald-600', bgColor: 'bg-emerald-50' },
+    delete_package: { icon: Trash2, label: 'Delete Package', color: 'text-red-600', bgColor: 'bg-red-50' },
 };
 
 const FIELD_LABELS: Record<string, string> = {
@@ -84,6 +93,9 @@ const FIELD_LABELS: Record<string, string> = {
     plantingType: 'Type',
     strainName: 'Strain',
     roomName: 'Room',
+    roomType: 'Room Type',
+    capacity: 'Capacity',
+    squareFootage: 'Sq Ft',
     count: 'Count',
     batchType: 'Batch Type',
     batchName: 'Batch Name',
@@ -101,6 +113,14 @@ const FIELD_LABELS: Record<string, string> = {
     tagNumbers: 'Tag Numbers',
     tagType: 'Tag Type',
     plantIdentifier: 'Plant',
+    // Package fields
+    packageType: 'Type',
+    label: 'Label',
+    quantity: 'Quantity (g)',
+    wasteWeight: 'Waste (g)',
+    itemName: 'Item Name',
+    packageId: 'Package ID',
+    labTestingState: 'Lab Testing',
 };
 
 const HIDDEN_FIELDS = new Set(['entryId', 'profileId', 'harvestId', 'taskId', 'onCompleteAction']);
@@ -139,6 +159,11 @@ const KEY_FIELDS: Record<string, string[]> = {
     import_tags: ['tagNumbers'],
     assign_tag: ['tagNumber', 'plantIdentifier'],
     auto_assign_tags: ['strain', 'roomName'],
+    // Packages
+    create_package: ['label', 'packageType', 'strain', 'quantity'],
+    update_package: ['label', 'status', 'labTestingState'],
+    finish_package: ['label'],
+    delete_package: ['label'],
 };
 
 /** Build a human-readable one-liner from action data */
@@ -182,6 +207,12 @@ function summarizeAction(action: ProposedAction): string {
             return [d.taskTitle, d.status, d.assignee].filter(Boolean).join(' · ');
         case 'delete_human_task':
             return d.taskTitle || '';
+        case 'create_package':
+            return [d.label, d.packageType, d.strain, d.quantity && `${d.quantity}g`].filter(Boolean).join(' · ');
+        case 'update_package':
+        case 'finish_package':
+        case 'delete_package':
+            return d.label || '';
         default:
             return Object.values(d).filter(v => v && !HIDDEN_FIELDS.has(String(v))).slice(0, 3).join(' · ');
     }
@@ -229,6 +260,17 @@ const SELECT_OPTIONS: Record<string, Array<{ value: string; label: string }>> = 
         { value: 'upcoming', label: 'Upcoming' },
         { value: 'active', label: 'Active' },
         { value: 'submitted', label: 'Submitted' },
+    ],
+    packageType: [
+        { value: 'flower', label: 'Flower' },
+        { value: 'trim', label: 'Trim' },
+        { value: 'shake', label: 'Shake' },
+    ],
+    labTestingState: [
+        { value: 'not_submitted', label: 'Not Submitted' },
+        { value: 'submitted', label: 'Submitted' },
+        { value: 'passed', label: 'Passed' },
+        { value: 'failed', label: 'Failed' },
     ],
     wasteType: [
         { value: 'powdery_mildew', label: 'Powdery Mildew' },

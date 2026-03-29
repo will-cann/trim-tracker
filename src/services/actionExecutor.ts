@@ -342,6 +342,49 @@ export async function executeAction(action: ProposedAction): Promise<void> {
             }
             break;
         }
+        case 'create_package':
+            await apiService.createPackage(action.data as any);
+            break;
+        case 'update_package':
+            if (action.data.packageId) {
+                const { packageId, ...updates } = action.data;
+                await apiService.updatePackage(packageId, updates);
+            }
+            break;
+        case 'finish_package':
+            if (action.data.packageId) {
+                await apiService.updatePackage(action.data.packageId, { status: 'finished' } as any);
+            }
+            break;
+        case 'delete_package':
+            if (action.data.packageId) {
+                await apiService.deletePackage(action.data.packageId);
+            }
+            break;
+        case 'create_room':
+            await apiService.createRoom({
+                name: action.data.name,
+                roomType: action.data.roomType,
+                capacity: action.data.capacity,
+                squareFootage: action.data.squareFootage,
+                notes: action.data.notes,
+            });
+            break;
+        case 'update_room': {
+            const allRooms = await apiService.getRooms();
+            const room = allRooms.find(r => r.name.toLowerCase() === action.data.roomName?.toLowerCase());
+            if (room) {
+                const { roomName: _rn, ...updates } = action.data;
+                await apiService.updateRoom(room.id, updates);
+            }
+            break;
+        }
+        case 'delete_room': {
+            const allRooms = await apiService.getRooms();
+            const room = allRooms.find(r => r.name.toLowerCase() === action.data.roomName?.toLowerCase());
+            if (room) await apiService.deleteRoom(room.id);
+            break;
+        }
         case 'create_human_task':
             // Human tasks are handled separately via useHumanTasks hook — no-op here
             break;

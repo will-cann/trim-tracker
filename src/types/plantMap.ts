@@ -119,11 +119,24 @@ export const buildWeekRatioString = (startDate: string, endDate: string): string
 // ROOM ENTITY
 // ============================================================================
 
+export type EquipmentType = 'light' | 'hvac' | 'dehumidifier' | 'fan' | 'co2_generator' | 'other';
+
+export type RoomEquipment = {
+  id: string;
+  equipmentType: EquipmentType;
+  name: string;
+  quantity: number;
+  specs: Record<string, any>;
+};
+
 export type Room = {
   id: string;
   name: string;
   roomType?: string;
   capacity?: number;
+  squareFootage?: number;
+  notes?: string;
+  equipment?: RoomEquipment[];
 };
 
 // ============================================================================

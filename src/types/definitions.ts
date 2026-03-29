@@ -190,6 +190,52 @@ export interface TagStats {
 }
 
 // ============================================================================
+// PACKAGE TYPES
+// ============================================================================
+
+export type PackageType = 'flower' | 'trim' | 'shake';
+export type PackageStatus = 'active' | 'on_hold' | 'finished' | 'archived';
+export type LabTestingState = 'not_submitted' | 'submitted' | 'passed' | 'failed';
+
+export interface Package {
+  id: string;
+  harvestId?: string;
+  trimEntryId?: string;
+  tagId?: string;
+  tagNumber?: string;
+  label: string;
+  packageType: PackageType;
+  itemName?: string;
+  strain: string;
+  licenseNumber: string;
+  quantity: number;
+  unit: string;
+  wasteWeight: number;
+  location?: string;
+  notes?: string;
+  status: PackageStatus;
+  labTestingState: LabTestingState;
+  packagedDate: string;
+  finishedDate?: string;
+  createdAt: string;
+}
+
+export interface CreatePackageDTO {
+  harvestId?: string;
+  trimEntryId?: string;
+  tagId?: string;
+  label: string;
+  packageType: PackageType;
+  itemName?: string;
+  strain: string;
+  licenseNumber: string;
+  quantity: number;
+  wasteWeight?: number;
+  location?: string;
+  notes?: string;
+}
+
+// ============================================================================
 // AI / CHAT TYPES
 // ============================================================================
 
@@ -202,7 +248,9 @@ export type ProposedActionType =
   | 'update_trimmer' | 'update_plant_health'
   | 'create_planting' | 'move_plants' | 'change_plant_phase' | 'destroy_plants'
   | 'create_strain' | 'delete_strain' | 'create_license' | 'delete_license'
-  | 'import_tags' | 'assign_tag' | 'auto_assign_tags';
+  | 'import_tags' | 'assign_tag' | 'auto_assign_tags'
+  | 'create_package' | 'update_package' | 'finish_package' | 'delete_package'
+  | 'create_room' | 'update_room' | 'delete_room';
 
 export interface ProposedAction {
   type: ProposedActionType;
@@ -269,7 +317,7 @@ export interface ActionResultItem {
   type: string;
   label: string;
   summary: string;
-  navigateTo?: 'dashboard' | 'harvests' | 'reports' | 'tasks' | 'plant-map';
+  navigateTo?: 'dashboard' | 'harvests' | 'reports' | 'tasks' | 'plant-map' | 'packages';
 }
 
 export interface ChatMessage {

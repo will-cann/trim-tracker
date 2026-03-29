@@ -591,6 +591,49 @@ const tools = [
             required: [],
         },
     },
+    // ── Room Management ──
+    {
+        name: 'create_room',
+        description: 'Create a new facility room.',
+        input_schema: {
+            type: 'object' as const,
+            properties: {
+                name: { type: 'string', description: 'Room name' },
+                roomType: { type: 'string', enum: ['nursery', 'veg', 'flower', 'dry', 'general'], description: 'Room type' },
+                capacity: { type: 'number', description: 'Plant capacity' },
+                squareFootage: { type: 'number', description: 'Square footage of the room' },
+                notes: { type: 'string', description: 'Optional notes about the room' },
+            },
+            required: ['name'],
+        },
+    },
+    {
+        name: 'update_room',
+        description: 'Update an existing room. Identify by current room name.',
+        input_schema: {
+            type: 'object' as const,
+            properties: {
+                roomName: { type: 'string', description: 'Current room name to identify' },
+                name: { type: 'string', description: 'New name for the room (if renaming)' },
+                roomType: { type: 'string', enum: ['nursery', 'veg', 'flower', 'dry', 'general'], description: 'New room type' },
+                capacity: { type: 'number', description: 'New plant capacity' },
+                squareFootage: { type: 'number', description: 'New square footage' },
+                notes: { type: 'string', description: 'New notes' },
+            },
+            required: ['roomName'],
+        },
+    },
+    {
+        name: 'delete_room',
+        description: 'Delete a room. Plants in the room will become unassigned.',
+        input_schema: {
+            type: 'object' as const,
+            properties: {
+                roomName: { type: 'string', description: 'Room name to delete' },
+            },
+            required: ['roomName'],
+        },
+    },
     // ── Tag Management ──
     {
         name: 'import_tags',
@@ -1137,6 +1180,37 @@ export const handler: Handler = async (event) => {
                                 licenseId: input.licenseId,
                                 licenseNumber: input.licenseNumber,
                             },
+                        });
+                        break;
+                    case 'create_room':
+                        actions.push({
+                            type: 'create_room',
+                            data: {
+                                name: input.name,
+                                roomType: input.roomType,
+                                capacity: input.capacity,
+                                squareFootage: input.squareFootage,
+                                notes: input.notes,
+                            },
+                        });
+                        break;
+                    case 'update_room':
+                        actions.push({
+                            type: 'update_room',
+                            data: {
+                                roomName: input.roomName,
+                                name: input.name,
+                                roomType: input.roomType,
+                                capacity: input.capacity,
+                                squareFootage: input.squareFootage,
+                                notes: input.notes,
+                            },
+                        });
+                        break;
+                    case 'delete_room':
+                        actions.push({
+                            type: 'delete_room',
+                            data: { roomName: input.roomName },
                         });
                         break;
                     case 'import_tags':

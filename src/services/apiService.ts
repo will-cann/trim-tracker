@@ -1,4 +1,4 @@
-import type { TrimSession, CreateTrimSessionDTO, Trimmer, TrimmerProfile, ProposedAction, Harvest, CreateHarvestDTO, HarvestWasteType, HarvestAllocation, Strain, License, SpeechMode, HumanTask, TeamRole, Tag, TagType, TagStats, TagSettings } from '../types/definitions';
+import type { TrimSession, CreateTrimSessionDTO, Trimmer, TrimmerProfile, ProposedAction, Harvest, CreateHarvestDTO, HarvestWasteType, HarvestAllocation, Strain, License, SpeechMode, HumanTask, TeamRole, Tag, TagType, TagStats, TagSettings, Package, CreatePackageDTO } from '../types/definitions';
 
 const API_BASE = '/.netlify/functions';
 
@@ -491,17 +491,76 @@ export const getRoomMap = async (phase: string, room: string): Promise<Record<st
     }
 };
 
-export const getRooms = async (roomType?: string): Promise<Array<{ id: string; name: string; room_type: string; capacity: number }>> => {
+export const getRooms = async (roomType?: string, detail?: boolean): Promise<Array<{ id: string; name: string; room_type: string; capacity: number; square_footage?: number; notes?: string; equipment?: any[] }>> => {
     try {
-        const url = roomType
-            ? `${API_BASE}/get-rooms?type=${encodeURIComponent(roomType)}`
-            : `${API_BASE}/get-rooms`;
+        const params = new URLSearchParams();
+        if (roomType) params.set('type', roomType);
+        if (detail) params.set('detail', 'true');
+        const qs = params.toString();
+        const url = qs ? `${API_BASE}/get-rooms?${qs}` : `${API_BASE}/get-rooms`;
         const response = await fetchWithAuth(url);
         if (!response.ok) return [];
         return await response.json();
     } catch {
         return [];
     }
+};
+
+export const createRoom = async (data: { name: string; roomType?: string; capacity?: number; squareFootage?: number; notes?: string }): Promise<any> => {
+    const response = await fetchWithAuth(`${API_BASE}/manage-room`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+    });
+    if (!response.ok) {
+        const err = await response.json().catch(() => ({}));
+        throw new Error(err.error || 'Failed to create room');
+    }
+    return response.json();
+};
+
+export const updateRoom = async (id: string, updates: { name?: string; roomType?: string; capacity?: number | null; squareFootage?: number | null; notes?: string | null }): Promise<any> => {
+    const response = await fetchWithAuth(`${API_BASE}/manage-room`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, ...updates }),
+    });
+    if (!response.ok) {
+        const err = await response.json().catch(() => ({}));
+        throw new Error(err.error || 'Failed to update room');
+    }
+    return response.json();
+};
+
+export const deleteRoom = async (id: string): Promise<{ success: boolean; affectedPlants: number }> => {
+    const response = await fetchWithAuth(`${API_BASE}/manage-room?id=${id}`, { method: 'DELETE' });
+    if (!response.ok) throw new Error('Failed to delete room');
+    return response.json();
+};
+
+export const addRoomEquipment = async (data: { roomId: string; equipmentType: string; name: string; quantity?: number; specs?: Record<string, any> }): Promise<any> => {
+    const response = await fetchWithAuth(`${API_BASE}/manage-room-equipment`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+    });
+    if (!response.ok) throw new Error('Failed to add equipment');
+    return response.json();
+};
+
+export const updateRoomEquipment = async (id: string, updates: { equipmentType?: string; name?: string; quantity?: number; specs?: Record<string, any> }): Promise<any> => {
+    const response = await fetchWithAuth(`${API_BASE}/manage-room-equipment`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, ...updates }),
+    });
+    if (!response.ok) throw new Error('Failed to update equipment');
+    return response.json();
+};
+
+export const deleteRoomEquipment = async (id: string): Promise<void> => {
+    const response = await fetchWithAuth(`${API_BASE}/manage-room-equipment?id=${id}`, { method: 'DELETE' });
+    if (!response.ok) throw new Error('Failed to delete equipment');
 };
 
 export const executePlantAction = async (payload: {
@@ -616,6 +675,64 @@ export const updateTagSettings = async (settings: Partial<TagSettings>): Promise
     return await response.json();
 };
 
+// ============================================================================
+// PACKAGES
+// ============================================================================
+
+export const getPackages = async (filters?: { status?: string; type?: string }): Promise<Package[]> => {
+    const params = new URLSearchParams();
+    if (filters?.status) params.set('status', filters.status);
+    if (filters?.type) params.set('type', filters.type);
+    const qs = params.toString();
+    const url = `${API_BASE}/get-packages${qs ? `?${qs}` : ''}`;
+    const response = await fetchWithAuth(url);
+    if (!response.ok) return [];
+    return await response.json();
+};
+
+export const createPackage = async (data: CreatePackageDTO): Promise<Package> => {
+    const response = await fetchWithAuth(`${API_BASE}/create-package`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+    });
+    if (!response.ok) {
+        const err = await response.json().catch(() => ({ error: 'Failed to create package' }));
+        throw new Error(err.error);
+    }
+    return await response.json();
+};
+
+export const createPackages = async (packages: CreatePackageDTO[]): Promise<Package[]> => {
+    const response = await fetchWithAuth(`${API_BASE}/create-package`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ packages }),
+    });
+    if (!response.ok) {
+        const err = await response.json().catch(() => ({ error: 'Failed to create packages' }));
+        throw new Error(err.error);
+    }
+    return await response.json();
+};
+
+export const updatePackage = async (packageId: string, updates: Partial<Package>): Promise<Package> => {
+    const response = await fetchWithAuth(`${API_BASE}/update-package`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ packageId, ...updates }),
+    });
+    if (!response.ok) throw new Error('Failed to update package');
+    return await response.json();
+};
+
+export const deletePackage = async (id: string): Promise<void> => {
+    const response = await fetchWithAuth(`${API_BASE}/delete-package?id=${id}`, {
+        method: 'DELETE',
+    });
+    if (!response.ok) throw new Error('Failed to delete package');
+};
+
 export const apiService = {
     setAuthToken,
     getSession,
@@ -667,6 +784,12 @@ export const apiService = {
     getPlantMap,
     getRoomMap,
     getRooms,
+    createRoom,
+    updateRoom,
+    deleteRoom,
+    addRoomEquipment,
+    updateRoomEquipment,
+    deleteRoomEquipment,
     executePlantAction,
     createPlanting,
     // Tags
@@ -678,4 +801,10 @@ export const apiService = {
     getTagStats,
     getTagSettings,
     updateTagSettings,
+    // Packages
+    getPackages,
+    createPackage,
+    createPackages,
+    updatePackage,
+    deletePackage,
 };
