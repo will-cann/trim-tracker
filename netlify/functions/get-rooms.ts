@@ -17,9 +17,7 @@ export const handler: Handler = async (event) => {
         const detail = event.queryStringParameters?.detail === 'true';
 
         let result;
-        if (detail) {
-            // Full room data with equipment
-            const typeFilter = roomType ? sql`AND r.room_type = ${roomType}` : sql``;
+        if (detail && roomType) {
             result = await sql`
                 SELECT r.id, r.name, r.room_type, r.capacity, r.square_footage, r.notes,
                     COALESCE(json_agg(
@@ -33,7 +31,25 @@ export const handler: Handler = async (event) => {
                     ) FILTER (WHERE e.id IS NOT NULL), '[]') AS equipment
                 FROM rooms r
                 LEFT JOIN room_equipment e ON e.room_id = r.id
-                WHERE r.company_id = ${context.companyId} ${typeFilter}
+                WHERE r.company_id = ${context.companyId} AND r.room_type = ${roomType}
+                GROUP BY r.id
+                ORDER BY r.name
+            `;
+        } else if (detail) {
+            result = await sql`
+                SELECT r.id, r.name, r.room_type, r.capacity, r.square_footage, r.notes,
+                    COALESCE(json_agg(
+                        json_build_object(
+                            'id', e.id,
+                            'equipmentType', e.equipment_type,
+                            'name', e.name,
+                            'quantity', e.quantity,
+                            'specs', e.specs
+                        )
+                    ) FILTER (WHERE e.id IS NOT NULL), '[]') AS equipment
+                FROM rooms r
+                LEFT JOIN room_equipment e ON e.room_id = r.id
+                WHERE r.company_id = ${context.companyId}
                 GROUP BY r.id
                 ORDER BY r.name
             `;
