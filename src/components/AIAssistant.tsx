@@ -1,8 +1,7 @@
 import React from 'react';
-import { ArrowRight } from 'lucide-react';
+import { ArrowRight, Scissors } from 'lucide-react';
 import { StartSession } from './StartSession';
 import type { CreateTrimSessionDTO } from '../types/definitions';
-import logo from '../assets/logo.png';
 
 interface AIAssistantProps {
     onStart: (dto: CreateTrimSessionDTO) => void;
@@ -13,33 +12,49 @@ interface AIAssistantProps {
 
 export const AIAssistant: React.FC<AIAssistantProps> = ({ onStart, onNavigateToAI }) => {
     return (
-        <div className="card" style={{ maxWidth: 480, margin: '2rem auto', textAlign: 'center' }}>
-            <div className="flex flex-col items-center gap-4 py-4">
-                <div className="w-14 h-14 rounded-2xl bg-emerald-50 flex items-center justify-center">
-                    <img src={logo} alt="Neurocann" className="w-10 h-10 object-contain" />
-                </div>
-                <div>
-                    <h2 className="text-lg font-bold text-gray-800 mb-1">No Active Session</h2>
-                    <p className="text-sm text-gray-500">
-                        Start a new trim session using the AI assistant or the manual form below.
+        <div className="flex flex-col items-center justify-center flex-1 min-h-0 py-12 px-4">
+            <div className="w-full max-w-md">
+                {/* Empty state header */}
+                <div className="text-center mb-8">
+                    <div className="w-11 h-11 rounded-xl bg-gray-100 flex items-center justify-center mx-auto mb-4">
+                        <Scissors size={20} className="text-gray-400" />
+                    </div>
+                    <h2 className="text-base font-semibold text-gray-800 mb-1">No Active Session</h2>
+                    <p className="text-sm text-gray-400">
+                        Start a trim session to begin tracking batches and trimmer output.
                     </p>
                 </div>
 
+                {/* AI shortcut */}
                 {onNavigateToAI && (
                     <button
                         onClick={onNavigateToAI}
-                        className="flex items-center gap-2 px-5 py-2.5 bg-emerald-500 text-white rounded-xl
-                                   hover:bg-emerald-600 transition-colors font-medium text-sm"
+                        className="w-full flex items-center justify-between px-4 py-3 mb-6
+                                   rounded-lg border border-gray-200 bg-white
+                                   hover:border-emerald-300 hover:bg-emerald-50/40
+                                   transition-colors group"
                     >
-                        Start with AI
-                        <ArrowRight size={16} />
+                        <div className="text-left">
+                            <span className="text-sm font-medium text-gray-700 group-hover:text-emerald-700">
+                                Start with AI
+                            </span>
+                            <span className="block text-xs text-gray-400 mt-0.5">
+                                Describe your session and let AI set it up
+                            </span>
+                        </div>
+                        <ArrowRight size={16} className="text-gray-300 group-hover:text-emerald-500 transition-colors" />
                     </button>
                 )}
 
-                <div className="w-full border-t border-gray-200 pt-4 mt-2">
-                    <p className="text-xs text-gray-400 mb-3">Or use the manual form</p>
-                    <StartSession onStart={onStart} />
+                {/* Divider */}
+                <div className="flex items-center gap-3 mb-6">
+                    <div className="flex-1 h-px bg-gray-200" />
+                    <span className="text-xs text-gray-400 font-medium">or manually</span>
+                    <div className="flex-1 h-px bg-gray-200" />
                 </div>
+
+                {/* Form */}
+                <StartSession onStart={onStart} />
             </div>
         </div>
     );

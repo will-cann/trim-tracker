@@ -38,10 +38,18 @@
 
   --transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 
-  /* Spacing */
-  --space-between-trimmers: 16px;
-  --space-within-card: 12px;
-  --space-between-sections: 24px;
+  /* Spacing scale */
+  --space-xs: 0.25rem;   /* 4px */
+  --space-sm: 0.5rem;    /* 8px */
+  --space-md: 1rem;      /* 16px */
+  --space-lg: 1.5rem;    /* 24px */
+  --space-xl: 2.5rem;    /* 40px */
+  --space-2xl: 4rem;     /* 64px */
+
+  /* Legacy spacing aliases */
+  --space-between-trimmers: var(--space-md);
+  --space-within-card: 0.75rem;
+  --space-between-sections: var(--space-lg);
 }
 
 body {
@@ -55,26 +63,26 @@ body {
 }
 
 .app-header {
-  text-align: center;
-  margin-bottom: 60px;
+  display: none;
 }
 
 /* Dashboard */
 .dashboard {
-  margin-bottom: 40px;
+  padding: var(--space-lg) clamp(var(--space-lg), 3vw, var(--space-xl));
+  margin-bottom: 0;
 }
 
 .dashboard-top-section {
   display: grid;
-  grid-template-columns: 2fr 1fr;
-  gap: 1.5rem;
-  margin-bottom: 2rem;
+  grid-template-columns: 1fr 280px;
+  gap: var(--space-lg);
+  margin-bottom: var(--space-xl);
 }
 
 .stats-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  gap: 1rem;
+  gap: var(--space-sm);
 }
 
 .start-icon {
@@ -130,7 +138,6 @@ body {
 }
 
 .stat-item.highlight {
-  background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
   border-color: var(--primary-color);
 }
 
@@ -138,8 +145,9 @@ body {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  gap: 16px;
+  gap: var(--space-md);
   flex-wrap: nowrap;
+  margin-bottom: var(--space-lg);
 }
 
 /* AI chat markdown prose */
@@ -169,8 +177,7 @@ body {
 
 .btn-new-batch:hover {
   background-color: #ECFDF5;
-  transform: translateY(-2px);
-  box-shadow: 0 4px 6px rgba(16, 185, 129, 0.1);
+  border-color: var(--primary-dark);
 }
 
 .btn-submit {
@@ -195,19 +202,17 @@ body {
 
 .btn-submit:hover {
   background-color: var(--primary-dark);
-  transform: translateY(-2px);
-  box-shadow: 0 6px 8px rgba(16, 185, 129, 0.3);
 }
 
 /* Entry Grid */
 .entry-list-container h2 {
-  margin-bottom: 32px;
-  font-size: 1.5rem;
+  margin-bottom: var(--space-md);
+  font-size: 1.25rem;
   font-weight: 700;
   color: var(--text-color);
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
 }
 
 .entry-list-container h2::before {
@@ -222,30 +227,26 @@ body {
 .entry-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
-  gap: 32px;
+  gap: var(--space-lg);
 }
 
 /* Trim Card */
 .trim-card {
   background: var(--card-bg);
   border-radius: var(--border-radius);
-  box-shadow: var(--shadow);
+  box-shadow: var(--shadow-sm);
   overflow: hidden;
-  transition: var(--transition);
-  border: 1px solid rgba(0, 0, 0, 0.05);
+  transition: box-shadow 0.2s ease, border-color 0.2s ease;
+  border: 1px solid var(--border-color);
   position: relative;
-  margin-top: 24px;
-  /* space above card */
-  margin-bottom: 24px;
-  /* space below card */
 }
 
 
 
 
 .trim-card:hover {
-  transform: translateY(-4px);
-  box-shadow: var(--shadow-lg);
+  box-shadow: var(--shadow-md);
+  border-color: rgba(0, 0, 0, 0.08);
 }
 
 .trim-card.expanded {
@@ -254,11 +255,11 @@ body {
 }
 
 .trim-card-header {
-  padding: 24px;
+  padding: 1rem 1.25rem;
   cursor: pointer;
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 0.75rem;
 }
 
 .trim-card-top {
@@ -439,13 +440,13 @@ body {
 }
 
 .trim-card-content {
-  padding: 32px;
+  padding: 1.25rem;
   background: #FAFAFA;
   border-top: 1px solid #F3F4F6;
   display: grid;
-  grid-template-columns: 1fr 300px;
-  gap: 40px;
-  animation: slideDown 0.3s ease-out;
+  grid-template-columns: 1fr 280px;
+  gap: var(--space-xl);
+  animation: slideDown 0.25s ease-out;
 }
 
 @media (max-width: 768px) {
@@ -856,14 +857,14 @@ body {
 /* Dashboard Chart */
 .dashboard-chart-wrapper {
   background: var(--card-bg);
-  border-radius: 24px;
+  border-radius: 10px;
   border: 1px solid var(--border-color);
   padding: 1rem;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  box-shadow: var(--shadow);
+  box-shadow: var(--shadow-sm);
   overflow: hidden;
   min-width: 0;
 }
@@ -1553,23 +1554,22 @@ body {
   display: inline-block;
 }
 
-/* Premium Card Styling */
+/* Stat Cards */
 .stat-item {
   background: var(--card-bg);
-  padding: 1.5rem;
-  border-radius: 20px;
+  padding: 0.875rem 1rem;
+  border-radius: 10px;
   border: 1px solid var(--border-color);
   display: flex;
   align-items: center;
-  gap: 1.25rem;
-  transition: all 0.2s ease;
+  gap: 0.75rem;
+  transition: box-shadow 0.2s ease, border-color 0.2s ease;
   box-shadow: var(--shadow-sm);
 }
 
 .stat-item:hover {
-  transform: translateY(-4px);
-  box-shadow: var(--shadow-md);
-  border-color: rgba(0, 0, 0, 0.1);
+  box-shadow: var(--shadow);
+  border-color: rgba(0, 0, 0, 0.08);
 }
 
 .stat-content label {
@@ -1583,20 +1583,20 @@ body {
 }
 
 .stat-content .stat-value {
-  font-size: 1.5rem;
+  font-size: 1.25rem;
   font-weight: 700;
   color: var(--text-primary);
   line-height: 1.2;
 }
 
 .stat-icon {
-  width: 56px;
-  height: 56px;
-  border-radius: 16px;
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 1.5rem;
+  font-size: 1.25rem;
   flex-shrink: 0;
 }
 
@@ -1607,6 +1607,7 @@ body {
 
   .stats-grid {
     grid-template-columns: repeat(2, 1fr);
+    gap: var(--space-sm);
   }
 }
 
@@ -1746,8 +1747,8 @@ body {
 
 .modal-content {
   background: white;
-  padding: 32px;
-  border-radius: 16px;
+  padding: var(--space-lg);
+  border-radius: 12px;
   width: 100%;
   max-width: 480px;
   box-shadow: var(--shadow-lg);
@@ -2000,7 +2001,7 @@ body {
 }
 
 .trim-card-body {
-  padding: 0 24px 24px 24px;
+  padding: 0 1.25rem 1.25rem 1.25rem;
 }
 
 /* Dictation Styles */
@@ -2114,7 +2115,7 @@ body {
 .tabs-container {
   display: flex;
   gap: 0;
-  border-bottom: 2px solid #E5E7EB;
+  border-bottom: 1px solid #E5E7EB;
   flex: 1;
   align-items: flex-end;
 }
@@ -2122,13 +2123,13 @@ body {
 .tab-button {
   background: transparent;
   border: none;
-  padding: 12px 24px;
-  font-size: 1rem;
-  font-weight: 400;
+  padding: 0.625rem 1.25rem;
+  font-size: 0.875rem;
+  font-weight: 500;
   color: #6B7280;
   cursor: pointer;
-  transition: all 0.2s;
-  border-bottom: 3px solid transparent;
+  transition: color 0.15s, border-color 0.15s;
+  border-bottom: 2px solid transparent;
   margin-bottom: -2px;
   position: relative;
 }

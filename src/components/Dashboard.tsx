@@ -67,7 +67,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                     {/* Row 1 */}
                     <div className="stat-item">
                         <div className="stat-icon start-icon">
-                            <Package size={24} />
+                            <Package size={18} />
                         </div>
                         <div className="stat-content">
                             <label>Total Start</label>
@@ -76,7 +76,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                     </div>
                     <div className="stat-item">
                         <div className="stat-icon output-icon">
-                            <Scale size={24} />
+                            <Scale size={18} />
                         </div>
                         <div className="stat-content">
                             <label>Total Output</label>
@@ -85,7 +85,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                     </div>
                     <div className="stat-item">
                         <div className="stat-icon remaining-icon">
-                            <Hourglass size={24} />
+                            <Hourglass size={18} />
                         </div>
                         <div className="stat-content">
                             <label>Remaining</label>
@@ -95,7 +95,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
                     <div className="stat-item">
                         <div className="stat-icon" style={{ backgroundColor: '#ede9fe', color: '#7c3aed' }}>
-                            <Users size={24} />
+                            <Users size={18} />
                         </div>
                         <div className="stat-content">
                             <label>Trimmers</label>
@@ -106,7 +106,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                     {/* Row 2 */}
                     <div className="stat-item">
                         <div className="stat-icon flower-icon">
-                            <Cannabis size={24} />
+                            <Cannabis size={18} />
                         </div>
                         <div className="stat-content">
                             <label>Total Flower</label>
@@ -115,7 +115,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                     </div>
                     <div className="stat-item">
                         <div className="stat-icon shake-icon">
-                            <Cannabis size={20} />
+                            <Cannabis size={18} />
                         </div>
                         <div className="stat-content">
                             <label>Total Shake</label>
@@ -124,7 +124,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                     </div>
                     <div className="stat-item">
                         <div className="stat-icon waste-icon">
-                            <Trash2 size={24} />
+                            <Trash2 size={18} />
                         </div>
                         <div className="stat-content">
                             <label>Total Waste</label>

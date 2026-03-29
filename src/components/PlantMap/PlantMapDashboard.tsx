@@ -1,5 +1,5 @@
 import React, { useState, useCallback } from 'react';
-import { Map, Leaf, Plus } from 'lucide-react';
+import { Leaf, Plus } from 'lucide-react';
 import type { PlantPhase } from '../../types/plantMap';
 import { PHASE_TABS } from '../../types/plantMap';
 import { usePlantMap } from '../../hooks/usePlantMap';
@@ -30,21 +30,18 @@ export const PlantMapDashboard: React.FC = () => {
     return (
         <div className="dashboard">
             {/* Header */}
-            <div className="dashboard-top-section">
+            <div className="flex items-center justify-between mb-6">
                 <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-xl bg-emerald-50 flex items-center justify-center">
-                        <Map size={20} className="text-emerald-600" />
-                    </div>
                     <div>
                         <h1 className="text-lg font-semibold text-gray-900">Plant Map</h1>
-                        <p className="text-xs text-gray-400">Spatial overview of facility rooms and plant health</p>
+                        <p className="text-xs text-gray-400">Rooms and plant health by growth phase</p>
                     </div>
                 </div>
                 <button
                     onClick={() => setShowCreateModal(true)}
-                    className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-emerald-600 text-white text-xs font-medium hover:bg-emerald-700 transition-colors"
+                    className="btn-new-batch"
                 >
-                    <Plus size={14} />
+                    <Plus size={16} />
                     New Planting
                 </button>
             </div>
@@ -71,19 +68,19 @@ export const PlantMapDashboard: React.FC = () => {
             {loading ? (
                 <RoomGridSkeleton count={3} />
             ) : rooms.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-16 text-center">
-                    <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-emerald-50 to-green-50 flex items-center justify-center mb-4 shadow-sm">
-                        <Leaf size={28} className="text-emerald-400" />
+                <div className="flex flex-col items-center justify-center py-20 text-center">
+                    <div className="w-12 h-12 rounded-xl bg-gray-100 flex items-center justify-center mb-3">
+                        <Leaf size={22} className="text-gray-400" />
                     </div>
-                    <h3 className="text-base font-semibold text-gray-600 mb-1">
+                    <h3 className="text-sm font-semibold text-gray-700 mb-1">
                         No {currentTab.label.toLowerCase()} plants
                     </h3>
-                    <p className="text-sm text-gray-400 max-w-xs mb-4">
-                        Rooms with {currentTab.label.toLowerCase()} plants will appear here automatically.
+                    <p className="text-xs text-gray-400 max-w-[240px] mb-5">
+                        Rooms with {currentTab.label.toLowerCase()} plants will appear here once added.
                     </p>
                     <button
                         onClick={() => setShowCreateModal(true)}
-                        className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700 transition-colors"
+                        className="btn-new-batch"
                     >
                         <Plus size={16} />
                         Add Plants
