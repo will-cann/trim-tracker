@@ -125,3 +125,28 @@ export type Room = {
   roomType?: string;
   capacity?: number;
 };
+
+// ============================================================================
+// CREATE PLANTING PAYLOADS
+// ============================================================================
+
+export type CreateBatchPayload = {
+  type: 'batch';
+  name: string;
+  batchType: 'clone' | 'seed' | 'tissue_culture';
+  strainId: string;
+  strainName: string;
+  roomId: string;
+  untrackedCount: number;
+  plantedDate?: string;
+};
+
+export type CreatePlantsPayload = {
+  type: 'plant';
+  plants: Array<{ label: string; strainId: string; strainName: string; roomId: string }>;
+  growthPhase?: 'vegetative' | 'flowering';
+  plantedDate?: string;
+  plantBatchId?: string;
+};
+
+export type CreatePlantingPayload = CreateBatchPayload | CreatePlantsPayload;

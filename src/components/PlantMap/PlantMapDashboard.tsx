@@ -1,5 +1,5 @@
 import React, { useState, useCallback } from 'react';
-import { Map, Leaf } from 'lucide-react';
+import { Map, Leaf, Plus } from 'lucide-react';
 import type { PlantPhase } from '../../types/plantMap';
 import { PHASE_TABS } from '../../types/plantMap';
 import { usePlantMap } from '../../hooks/usePlantMap';
@@ -7,10 +7,12 @@ import { PlantMapSummary } from './PlantMapSummary';
 import { RoomCard } from './RoomCard';
 import { ExpandedRoom } from './ExpandedRoom';
 import { RoomGridSkeleton } from '../Skeleton';
+import { CreatePlantingModal } from './CreatePlantingModal';
 
 export const PlantMapDashboard: React.FC = () => {
     const [activePhase, setActivePhase] = useState<PlantPhase>('flowering');
     const [expandedRoom, setExpandedRoom] = useState<string | null>(null);
+    const [showCreateModal, setShowCreateModal] = useState(false);
     const { data, loading, refetch } = usePlantMap(activePhase);
 
     const currentTab = PHASE_TABS.find(t => t.key === activePhase)!;
@@ -38,6 +40,13 @@ export const PlantMapDashboard: React.FC = () => {
                         <p className="text-xs text-gray-400">Spatial overview of facility rooms and plant health</p>
                     </div>
                 </div>
+                <button
+                    onClick={() => setShowCreateModal(true)}
+                    className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-emerald-600 text-white text-xs font-medium hover:bg-emerald-700 transition-colors"
+                >
+                    <Plus size={14} />
+                    New Planting
+                </button>
             </div>
 
             {/* Phase tabs */}
@@ -69,10 +78,16 @@ export const PlantMapDashboard: React.FC = () => {
                     <h3 className="text-base font-semibold text-gray-600 mb-1">
                         No {currentTab.label.toLowerCase()} plants
                     </h3>
-                    <p className="text-sm text-gray-400 max-w-xs">
+                    <p className="text-sm text-gray-400 max-w-xs mb-4">
                         Rooms with {currentTab.label.toLowerCase()} plants will appear here automatically.
-                        Try adding plants via the AI assistant.
                     </p>
+                    <button
+                        onClick={() => setShowCreateModal(true)}
+                        className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700 transition-colors"
+                    >
+                        <Plus size={16} />
+                        Add Plants
+                    </button>
                 </div>
             ) : (
                 <div className="plant-map-grid">
@@ -99,6 +114,13 @@ export const PlantMapDashboard: React.FC = () => {
                         )
                     ))}
                 </div>
+            )}
+            {showCreateModal && (
+                <CreatePlantingModal
+                    activePhase={activePhase}
+                    onClose={() => setShowCreateModal(false)}
+                    onSuccess={() => { setShowCreateModal(false); refetch(); }}
+                />
             )}
         </div>
     );

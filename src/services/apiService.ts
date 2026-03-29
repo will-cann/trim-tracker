@@ -527,6 +527,22 @@ export const executePlantAction = async (payload: {
     return await response.json();
 };
 
+export const createPlanting = async (payload: {
+    type: 'batch' | 'plant';
+    [key: string]: any;
+}): Promise<{ success: boolean; created: any }> => {
+    const response = await fetchWithAuth(`${API_BASE}/create-planting`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+    });
+    if (!response.ok) {
+        const err = await response.json().catch(() => ({ error: 'Failed to create planting' }));
+        throw new Error(err.error);
+    }
+    return await response.json();
+};
+
 export const apiService = {
     setAuthToken,
     getSession,
@@ -579,4 +595,5 @@ export const apiService = {
     getRoomMap,
     getRooms,
     executePlantAction,
+    createPlanting,
 };
