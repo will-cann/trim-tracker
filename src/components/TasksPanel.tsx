@@ -7,6 +7,8 @@ import {
     MapPin, User, Search, MoreHorizontal, RotateCcw, Pencil, X, Check, SlidersHorizontal,
 } from 'lucide-react';
 import type { HumanTask, HumanTaskStatus, HumanTaskCategory, HumanTaskPriority } from '../types/definitions';
+import { executeAction } from '../services/actionExecutor';
+import { Modal, Button } from './ui';
 
 export interface TeamMember {
     id: string;
@@ -691,8 +693,44 @@ export const TasksPanel = ({
     const [expandedId, setExpandedId] = useState<string | null>(null);
     const [editingId, setEditingId] = useState<string | null>(null);
     const [showFilters, setShowFilters] = useState(false);
+    const [pendingComplete, setPendingComplete] = useState<HumanTask | null>(null);
+    const [executingAction, setExecutingAction] = useState(false);
     const activeCategories = [...new Set(tasks.map(t => t.category))];
     const hasActiveFilters = filters.status !== 'all' || filters.category !== 'all' || filters.priority !== 'all';
+
+    // Intercept status updates to check for completion actions
+    const handleUpdateStatus = async (id: string, status: HumanTaskStatus) => {
+        if (status === 'completed') {
+            const task = tasks.find(t => t.id === id);
+            if (task?.onCompleteAction) {
+                setPendingComplete(task);
+                return;
+            }
+        }
+        await onUpdateStatus(id, status);
+    };
+
+    const confirmCompleteWithAction = async () => {
+        if (!pendingComplete) return;
+        setExecutingAction(true);
+        try {
+            // Complete the task first
+            await onUpdateStatus(pendingComplete.id, 'completed');
+            // Then execute the linked action
+            if (pendingComplete.onCompleteAction) {
+                await executeAction(pendingComplete.onCompleteAction);
+            }
+        } finally {
+            setExecutingAction(false);
+            setPendingComplete(null);
+        }
+    };
+
+    const completeWithoutAction = async () => {
+        if (!pendingComplete) return;
+        await onUpdateStatus(pendingComplete.id, 'completed');
+        setPendingComplete(null);
+    };
 
     const filteredTasks = tasks.filter(t => {
         if (searchQuery) {
@@ -849,7 +887,7 @@ export const TasksPanel = ({
                                 <TaskRow
                                     key={task.id}
                                     task={task}
-                                    onUpdateStatus={onUpdateStatus}
+                                    onUpdateStatus={handleUpdateStatus}
                                     onUpdateTask={onUpdateTask}
                                     onDeleteTask={onDeleteTask}
                                     expanded={expandedId === task.id}
@@ -864,6 +902,46 @@ export const TasksPanel = ({
                     </table>
                 )}
             </div>
+
+            {/* Completion action confirmation modal */}
+            {pendingComplete && pendingComplete.onCompleteAction && (
+                <Modal
+                    title="Complete Task"
+                    contentClassName="creation-modal"
+                    onClose={() => setPendingComplete(null)}
+                    footer={
+                        <>
+                            <Button variant="secondary" onClick={completeWithoutAction} disabled={executingAction}>
+                                Complete Only
+                            </Button>
+                            <Button variant="primary" onClick={confirmCompleteWithAction} disabled={executingAction}>
+                                {executingAction ? 'Executing...' : 'Complete & Execute'}
+                            </Button>
+                        </>
+                    }
+                >
+                    <div className="space-y-4">
+                        <p className="text-sm" style={{ color: 'var(--text-color)' }}>
+                            <strong>{pendingComplete.title}</strong> has a linked system action:
+                        </p>
+                        <div className="chip chip-active" style={{ display: 'block' }}>
+                            <span className="text-sm font-medium">
+                                {pendingComplete.onCompleteAction.type.replace(/_/g, ' ')}
+                            </span>
+                            <span className="chip-sub">
+                                {Object.entries(pendingComplete.onCompleteAction.data)
+                                    .filter(([, v]) => v && typeof v !== 'object')
+                                    .map(([k, v]) => `${k}: ${v}`)
+                                    .join(' · ')}
+                            </span>
+                        </div>
+                        <p className="field-hint">
+                            "Complete & Execute" will mark the task done and run the system action.
+                            "Complete Only" will mark it done without updating the system.
+                        </p>
+                    </div>
+                </Modal>
+            )}
         </div>
     );
 };

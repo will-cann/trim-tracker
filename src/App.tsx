@@ -70,7 +70,7 @@ function AppContent() {
 
   const plantMapSummary = usePlantMapSummary();
 
-  const handleCreateHumanTasks = useCallback(async (tasks: Array<{ title: string; description?: string; priority: string; category: string; dueDate?: string; assignee?: string; location?: string }>) => {
+  const handleCreateHumanTasks = useCallback(async (tasks: Array<{ title: string; description?: string; priority: string; category: string; dueDate?: string; assignee?: string; location?: string; onCompleteAction?: { type: string; data: Record<string, any> } }>) => {
     await addHumanTasks(tasks.map(t => ({
       title: t.title,
       description: t.description,
@@ -79,6 +79,7 @@ function AppContent() {
       dueDate: t.dueDate,
       assignee: t.assignee,
       location: t.location,
+      onCompleteAction: t.onCompleteAction as any,
     })));
   }, [addHumanTasks]);
 

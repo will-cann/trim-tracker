@@ -12,6 +12,7 @@ interface CreateTaskInput {
     location?: string;
     dueDate?: string;
     sourceConversationId?: string;
+    onCompleteAction?: { type: string; data: Record<string, any> };
 }
 
 export const handler: Handler = async (event) => {
@@ -39,7 +40,7 @@ export const handler: Handler = async (event) => {
                 INSERT INTO human_tasks (
                     company_id, title, description, priority, category,
                     assignee, assigned_to_user_id, created_by_user_id,
-                    location, due_date, source_conversation_id
+                    location, due_date, source_conversation_id, on_complete_action
                 ) VALUES (
                     ${context.companyId},
                     ${input.title},
@@ -51,7 +52,8 @@ export const handler: Handler = async (event) => {
                     ${context.userId},
                     ${input.location || null},
                     ${input.dueDate || null},
-                    ${input.sourceConversationId || null}
+                    ${input.sourceConversationId || null},
+                    ${input.onCompleteAction ? JSON.stringify(input.onCompleteAction) : null}::jsonb
                 )
                 RETURNING *
             `;
@@ -73,6 +75,7 @@ export const handler: Handler = async (event) => {
                 createdAt: row.created_at,
                 updatedAt: row.updated_at,
                 completedAt: row.completed_at || undefined,
+                onCompleteAction: row.on_complete_action || undefined,
             });
         }
 

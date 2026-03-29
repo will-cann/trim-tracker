@@ -6,6 +6,7 @@ async function resolvePlantIds(
     strain?: string,
     roomName?: string,
 ): Promise<{ plantIds: string[]; entityType: 'plants' | 'plantbatches' } | null> {
+    if (!roomName) return null;
     for (const phase of ['vegetative', 'flowering', 'nursery'] as const) {
         const roomData = await apiService.getRoomMap(phase, roomName);
         for (const [, group] of Object.entries(roomData)) {

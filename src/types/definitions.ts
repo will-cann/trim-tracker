@@ -160,7 +160,9 @@ export type ProposedActionType =
   | 'move_harvest' | 'convert_to_trim' | 'create_human_task' | 'update_human_task' | 'delete_human_task'
   | 'delete_harvest' | 'update_harvest' | 'delete_batch' | 'change_batch_status'
   | 'submit_session' | 'remove_trimmer' | 'delete_trimmer_profile'
-  | 'update_trimmer' | 'update_plant_health';
+  | 'update_trimmer' | 'update_plant_health'
+  | 'create_planting' | 'move_plants' | 'change_plant_phase' | 'destroy_plants'
+  | 'create_strain' | 'delete_strain' | 'create_license' | 'delete_license';
 
 export interface ProposedAction {
   type: ProposedActionType;
@@ -211,6 +213,8 @@ export interface HumanTask {
   createdAt: string;
   updatedAt: string;
   completedAt?: string;
+  /** Action to execute when this task is marked completed (e.g. create_planting) */
+  onCompleteAction?: ProposedAction;
 }
 
 export interface TranscriptChunk {

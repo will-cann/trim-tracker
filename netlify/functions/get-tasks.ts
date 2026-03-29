@@ -20,6 +20,7 @@ function toClient(row: any) {
         createdAt: row.created_at,
         updatedAt: row.updated_at,
         completedAt: row.completed_at || undefined,
+        onCompleteAction: row.on_complete_action || undefined,
     };
 }
 

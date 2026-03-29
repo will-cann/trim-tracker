@@ -42,6 +42,12 @@ You understand the FULL range of cannabis cultivation, processing, and manufactu
 
 **IMPORTANT**: When the user describes any task that CANNOT be automated through the existing application tools, ALWAYS create a human task using the \`create_human_tasks\` tool. Don't just acknowledge it in text — capture it as a trackable task. Even brief mentions like "check room 2 humidity" or "remind me to calibrate the scale" should become human tasks.
 
+**HYBRID TASKS**: Many operations involve both physical work AND a system write. For example, "cut 50 clones of Wedding Cake" requires a human to physically cut the clones, but then the system needs a \`create_planting\` action to track them. For these, create a human task AND include an \`onCompleteAction\` — a system action that will execute when the person marks the task as completed. The \`onCompleteAction\` should be a JSON object with \`type\` and \`data\` matching the corresponding automated action tool schema. Examples of hybrid tasks:
+- "Cut 50 clones" → human task + onCompleteAction: create_planting (batch, 50 clones)
+- "Move plants to flower room" → human task + onCompleteAction: move_plants
+- "Harvest the Gelato" → human task + onCompleteAction: change_plant_phase (harvested)
+- "Weigh the harvest" → human task + onCompleteAction: record_wet_weight
+
 ## Rules for Automated Actions
 - Match trimmer names to existing trimmer profiles when possible (fuzzy match is fine — "Maria" matches "Maria Garcia").
 - Match batch references (by harvest name or strain) to existing entries when assigning trimmers.
@@ -379,6 +385,15 @@ const tools = [
                             dueDate: { type: 'string', description: 'Optional ISO date string for when the task is due' },
                             assignee: { type: 'string', description: 'Optional name of person to assign the task to' },
                             location: { type: 'string', description: 'Optional room/area where the task should be performed' },
+                            onCompleteAction: {
+                                type: 'object',
+                                description: 'Optional system action to execute when the task is completed. Use for hybrid tasks that need both physical work and a database write. Must have type and data matching an automated action tool.',
+                                properties: {
+                                    type: { type: 'string', description: 'The action type (e.g. create_planting, move_plants, record_wet_weight)' },
+                                    data: { type: 'object', description: 'Action data matching the corresponding tool schema' },
+                                },
+                                required: ['type', 'data'],
+                            },
                         },
                         required: ['title', 'category'],
                     },
@@ -1081,18 +1096,19 @@ export const handler: Handler = async (event) => {
                         break;
                     case 'create_human_tasks':
                         for (const task of (input.tasks || [])) {
-                            actions.push({
-                                type: 'create_human_task',
-                                data: {
-                                    title: task.title,
-                                    description: task.description || '',
-                                    priority: task.priority || 'medium',
-                                    category: task.category || 'other',
-                                    dueDate: task.dueDate || undefined,
-                                    assignee: task.assignee || undefined,
-                                    location: task.location || undefined,
-                                },
-                            });
+                            const taskData: Record<string, any> = {
+                                title: task.title,
+                                description: task.description || '',
+                                priority: task.priority || 'medium',
+                                category: task.category || 'other',
+                                dueDate: task.dueDate || undefined,
+                                assignee: task.assignee || undefined,
+                                location: task.location || undefined,
+                            };
+                            if (task.onCompleteAction) {
+                                taskData.onCompleteAction = task.onCompleteAction;
+                            }
+                            actions.push({ type: 'create_human_task', data: taskData });
                         }
                         break;
                     case 'update_human_tasks':
