@@ -181,7 +181,7 @@ export const CreatePlantingModal: React.FC<CreatePlantingModalProps> = ({
                     Strain <span className="required">*</span>
                 </label>
                 {strains.length === 0 ? (
-                    <div className="flex items-center gap-2 text-xs text-gray-400 py-2">
+                    <div className="field-loading-inline">
                         <Loader2 size={14} className="animate-spin" /> Loading...
                     </div>
                 ) : (
@@ -202,13 +202,13 @@ export const CreatePlantingModal: React.FC<CreatePlantingModalProps> = ({
                     Room <span className="required">*</span>
                 </label>
                 {rooms.length === 0 ? (
-                    <div className="flex items-center gap-2 text-xs text-gray-400 py-2">
+                    <div className="field-loading-inline">
                         <Loader2 size={14} className="animate-spin" /> Loading...
                     </div>
                 ) : (
                     <>
                         {filteredRooms.length === 0 && rooms.length > 0 && (
-                            <p className="field-hint" style={{ marginBottom: 6, marginTop: 0 }}>
+                            <p className="field-hint" style={{ marginBottom: 6 }}>
                                 No matching rooms for this phase. Showing all:
                             </p>
                         )}
@@ -298,16 +298,15 @@ export const CreatePlantingModal: React.FC<CreatePlantingModalProps> = ({
                 <>
                     <div className="field">
                         <label className="field-label">Growth Phase</label>
-                        <div className="toggle-group" style={{ maxWidth: 260 }}>
+                        <div className="toggle-group toggle-group-compact">
                             {(['vegetative', 'flowering'] as const).map(p => (
                                 <button
                                     key={p}
                                     type="button"
                                     onClick={() => setGrowthPhase(p)}
                                     className={`toggle-option ${growthPhase === p ? 'toggle-active' : ''}`}
-                                    style={{ textTransform: 'capitalize' }}
                                 >
-                                    {p}
+                                    {p.charAt(0).toUpperCase() + p.slice(1)}
                                 </button>
                             ))}
                         </div>
@@ -356,7 +355,7 @@ export const CreatePlantingModal: React.FC<CreatePlantingModalProps> = ({
                                     <span key={label} className="label-tag">{label}</span>
                                 ))}
                                 {plantCount > 20 && (
-                                    <span className="label-tag" style={{ background: 'none', border: 'none', color: '#9CA3AF' }}>
+                                    <span className="label-tag label-tag-overflow">
                                         +{plantCount - 20} more
                                     </span>
                                 )}

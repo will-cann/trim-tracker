@@ -72,7 +72,7 @@ export const AddBatchModal: React.FC<AddBatchModalProps> = ({ onClose, onSubmit 
             </>
         }>
             {loading ? (
-                <div className="flex items-center justify-center gap-2 py-8 text-sm text-gray-400">
+                <div className="field-loading">
                     <Loader2 size={16} className="animate-spin" /> Loading...
                 </div>
             ) : (
@@ -148,7 +148,7 @@ export const AddBatchModal: React.FC<AddBatchModalProps> = ({ onClose, onSubmit 
                             License <span className="required">*</span>
                         </label>
                         {licenses.length === 0 ? (
-                            <p className="field-hint" style={{ marginTop: 0 }}>No licenses found</p>
+                            <p className="field-hint">No licenses found</p>
                         ) : (
                             <div className="chip-group">
                                 {licenses.map(lic => (

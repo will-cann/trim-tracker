@@ -65,7 +65,7 @@ export const CreateHarvestModal: React.FC<CreateHarvestModalProps> = ({ onClose,
             </>
         }>
             {loading ? (
-                <div className="flex items-center justify-center gap-2 py-8 text-sm text-gray-400">
+                <div className="field-loading">
                     <Loader2 size={16} className="animate-spin" /> Loading...
                 </div>
             ) : (
@@ -106,7 +106,7 @@ export const CreateHarvestModal: React.FC<CreateHarvestModalProps> = ({ onClose,
                             License <span className="required">*</span>
                         </label>
                         {licenses.length === 0 ? (
-                            <p className="field-hint" style={{ marginTop: 0 }}>No licenses found</p>
+                            <p className="field-hint">No licenses found</p>
                         ) : (
                             <div className="chip-group">
                                 {licenses.map(lic => (
@@ -164,7 +164,7 @@ export const CreateHarvestModal: React.FC<CreateHarvestModalProps> = ({ onClose,
                                         onClick={() => setAllocation(a.value)}
                                         className={`chip chip-flex ${allocation === a.value ? 'chip-active' : ''}`}
                                     >
-                                        <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                        <span className="chip-label-row">
                                             <Icon size={14} />
                                             {a.label}
                                         </span>
