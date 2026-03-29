@@ -1,5 +1,6 @@
 import { Handler } from '@netlify/functions';
 import { resolveContext } from './utils/auth';
+import { sql } from './utils/db';
 
 const ANTHROPIC_API_URL = 'https://api.anthropic.com/v1/messages';
 
@@ -55,8 +56,9 @@ You understand the FULL range of cannabis cultivation, processing, and manufactu
 - Assign the correct category from the available options. Use "cultivation" for plant care tasks like feeding, transplanting, defoliation, topping, flushing, light adjustments, clone management, and watering. Use "harvest" only for tasks specifically about cutting, weighing, or processing harvested plant material.
 - Default priority to "medium" unless urgency is clear from context
 - If the user mentions a specific person, set them as the assignee
+- If the user says "remind me", "I need to", "I should", or refers to themselves, assign the task to the current user (their name will be in the context)
 - If the user mentions a location/room, capture it in the location field
-- If the user mentions a deadline or timeframe, set an appropriate dueDate
+- If the user mentions a deadline or timeframe, convert it to a concrete YYYY-MM-DD date using today's date from the context. Examples: "by Monday" = next Monday's date, "by Friday" = this coming Friday, "tomorrow" = today + 1 day, "next week" = next Monday, "end of month" = last day of current month
 
 ## Screen Context Awareness
 
@@ -491,9 +493,20 @@ export const handler: Handler = async (event) => {
             userMessage = request.message!;
         }
 
+        // Look up current user's name
+        let userName = 'Unknown';
+        try {
+            const { rows } = await sql`SELECT name FROM users WHERE id = ${authContext.userId}`;
+            if (rows.length > 0 && rows[0].name) userName = rows[0].name;
+        } catch { /* proceed without name */ }
+
         // Add context about current state
+        const today = new Date().toISOString().slice(0, 10);
+        const dayOfWeek = new Date().toLocaleDateString('en-US', { weekday: 'long' });
         const contextInfo = [
             `\n\nCurrent application state:`,
+            `- Today's date: ${today} (${dayOfWeek})`,
+            `- Current user: ${userName}`,
         ];
 
         if (request.context.screenContext) {
