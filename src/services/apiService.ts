@@ -1,4 +1,4 @@
-import type { TrimSession, CreateTrimSessionDTO, Trimmer, TrimmerProfile, ProposedAction, Harvest, CreateHarvestDTO, HarvestWasteType, HarvestAllocation, HarvestPlantWeight, Strain, License, SpeechMode, HumanTask, TeamRole, Tag, TagType, TagStats, TagSettings, Package, CreatePackageDTO } from '../types/definitions';
+import type { TrimSession, CreateTrimSessionDTO, Trimmer, TrimmerProfile, ProposedAction, Harvest, CreateHarvestDTO, HarvestWasteType, HarvestAllocation, HarvestPlantWeight, FloweringBatchGroup, Strain, License, SpeechMode, HumanTask, TeamRole, Tag, TagType, TagStats, TagSettings, Package, CreatePackageDTO } from '../types/definitions';
 
 const API_BASE = '/.netlify/functions';
 
@@ -516,6 +516,12 @@ export const deleteTask = async (taskId: string): Promise<void> => {
 // PLANT MAP
 // ============================================================================
 
+export const getFloweringPlants = async (): Promise<FloweringBatchGroup[]> => {
+    const response = await fetchWithAuth(`${API_BASE}/get-flowering-plants`);
+    if (!response.ok) return [];
+    return await response.json();
+};
+
 export const getPlantMap = async (phase: string): Promise<Record<string, any>> => {
     try {
         const response = await fetchWithAuth(`${API_BASE}/get-plant-map?phase=${phase}`);
@@ -833,6 +839,7 @@ export const apiService = {
     updateTask,
     deleteTask,
     // Plant Map
+    getFloweringPlants,
     getPlantMap,
     getRoomMap,
     getRooms,

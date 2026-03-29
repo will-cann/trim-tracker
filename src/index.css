@@ -3112,6 +3112,99 @@ select.field-input {
   gap: var(--space-md);
 }
 
+/* ── Batch Picker ── */
+.hd-picker-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.hd-picker-batch {
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius);
+  overflow: hidden;
+}
+
+.hd-picker-batch-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.hd-picker-batch-header:hover {
+  background: var(--background-color);
+}
+
+.hd-picker-expanded {
+  background: var(--background-color);
+  border-bottom: 1px solid var(--border-color);
+}
+
+.hd-picker-batch-info {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  flex-wrap: wrap;
+}
+
+.hd-picker-strain {
+  font-weight: 600;
+  font-size: 0.875rem;
+  color: var(--text-color);
+}
+
+.hd-picker-detail {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+}
+
+.hd-picker-ready {
+  color: var(--primary-color);
+  font-weight: 600;
+}
+
+.hd-picker-plants {
+  padding: 4px 0;
+  max-height: 240px;
+  overflow-y: auto;
+}
+
+.hd-picker-plant {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: 6px 12px 6px 16px;
+  cursor: pointer;
+  font-size: 0.8125rem;
+  transition: background 0.1s;
+}
+
+.hd-picker-plant:hover {
+  background: rgba(59, 181, 112, 0.04);
+}
+
+.hd-picker-plant-selected {
+  background: rgba(59, 181, 112, 0.06);
+}
+
+.hd-picker-select-all {
+  border-bottom: 1px solid var(--background-color);
+  padding-top: 8px;
+  padding-bottom: 8px;
+}
+
+.hd-picker-plant-label {
+  font-family: monospace;
+  font-size: 0.8125rem;
+  color: var(--text-color);
+}
+
 /* Saving indicator */
 .hd-saving {
   display: inline-flex;

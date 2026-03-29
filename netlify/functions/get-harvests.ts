@@ -68,6 +68,7 @@ export const handler: Handler = async (event) => {
             status: h.status,
             isOnHold: h.is_on_hold,
             contaminants: h.contaminants || [],
+            sourceBatchId: h.source_batch_id,
             dryWeight: h.dry_weight ? parseFloat(h.dry_weight) : undefined,
             harvestStartDate: h.harvest_start_date,
             harvestEndDate: h.harvest_end_date,

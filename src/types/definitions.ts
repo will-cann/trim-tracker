@@ -110,6 +110,7 @@ export interface Harvest {
   isOnHold: boolean;
   contaminants: ContaminantFlag[];
   dryWeight?: number;
+  sourceBatchId?: string;
   harvestStartDate?: string;
   harvestEndDate?: string;
   submittedAt?: string;
@@ -136,6 +137,33 @@ export interface CreateHarvestDTO {
   allocation: AllocationChoice;
   targetWeight?: number;       // required when allocation is 'Both'
   manicureLocation?: string;   // required when allocation is 'Both'
+  plantIds?: string[];          // flowering plant IDs to harvest
+  sourceBatchId?: string;       // source plant batch ID
+}
+
+export interface FloweringPlant {
+  id: string;
+  label: string;
+  strainName: string;
+  roomName: string;
+  plantBatchId: string;
+  plantBatchName: string;
+  floweringDate?: string;
+  targetHarvestDate?: string;
+  plantHealth: number;
+  contaminants: string[];
+  harvestId?: string;
+}
+
+export interface FloweringBatchGroup {
+  batchId: string;
+  batchName: string;
+  strainName: string;
+  roomId: string;
+  roomName: string;
+  plants: FloweringPlant[];
+  targetHarvestDate?: string;
+  avgHealth: number;
 }
 
 // ============================================================================

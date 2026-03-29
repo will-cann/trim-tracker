@@ -15,7 +15,11 @@ export const handler: Handler = async (event) => {
         }
 
         const data = JSON.parse(event.body || '{}');
-        const { licenseNumber, strain, allocation, name, plantCount, dryingLocation, targetWeight, manicureLocation } = data;
+        const {
+            licenseNumber, strain, allocation, name,
+            plantCount, dryingLocation, targetWeight, manicureLocation,
+            plantIds, sourceBatchId,
+        } = data;
 
         if (!strain || !allocation) {
             return {
@@ -51,17 +55,37 @@ export const handler: Handler = async (event) => {
                 };
             }
 
+            // Determine plant count from plantIds if provided
+            const resolvedPlantCount = (plantIds && plantIds.length > 0)
+                ? plantIds.length
+                : (plantCount || 0);
+
             const { rows: [harvest] } = await client.query(`
                 INSERT INTO harvests (
                     company_id, created_by, batch_id, name, license_number, strain,
-                    plant_count, drying_location, manicure_location, status, harvest_start_date
-                ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'planning', NOW())
+                    plant_count, drying_location, manicure_location, source_batch_id,
+                    status, harvest_start_date
+                ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 'planning', NOW())
                 RETURNING *
             `, [
                 context.companyId, context.userId, batchId, name || null,
-                licenseNumber, strain, plantCount || 0,
+                licenseNumber, strain, resolvedPlantCount,
                 dryingLocation || null, manicureLocation || null,
+                sourceBatchId || null,
             ]);
+
+            // Link plants to this harvest and transition them to 'harvested'
+            if (plantIds && plantIds.length > 0) {
+                await client.query(`
+                    UPDATE plants
+                    SET harvest_id = $1,
+                        growth_phase = 'harvested',
+                        harvested_date = NOW()
+                    WHERE id = ANY($2::uuid[])
+                        AND company_id = $3
+                        AND growth_phase = 'flowering'
+                `, [harvest.id, plantIds, context.companyId]);
+            }
 
             // Auto-capture strain
             if (strain) {
@@ -88,8 +112,10 @@ export const handler: Handler = async (event) => {
                     totalWasteWeight: parseFloat(harvest.total_waste_weight) || 0,
                     dryingLocation: harvest.drying_location,
                     manicureLocation: harvest.manicure_location,
+                    sourceBatchId: harvest.source_batch_id,
                     status: harvest.status,
                     isOnHold: harvest.is_on_hold,
+                    contaminants: harvest.contaminants || [],
                     harvestStartDate: harvest.harvest_start_date,
                     allocations: [],
                     waste: [],

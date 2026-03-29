@@ -6,7 +6,7 @@ import { HarvestCenterColumn } from './HarvestCenterColumn';
 import { HarvestLeftColumn } from './HarvestLeftColumn';
 import { HarvestRightColumn } from './HarvestRightColumn';
 import { HarvestDaySummary } from './HarvestDaySummary';
-import { CreateHarvestModal } from '../Harvest/CreateHarvestModal';
+import { AddBatchPicker } from './AddBatchPicker';
 import { Modal, Button } from '../ui';
 
 interface HarvestDayCockpitProps {
@@ -224,7 +224,7 @@ export const HarvestDayCockpit: React.FC<HarvestDayCockpitProps> = ({ onExit }) 
             )}
 
             {showCreateModal && (
-                <CreateHarvestModal
+                <AddBatchPicker
                     onClose={() => setShowCreateModal(false)}
                     onSubmit={handleCreate}
                 />
