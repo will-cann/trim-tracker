@@ -45,27 +45,35 @@ export const HarvestLeftColumn: React.FC<HarvestLeftColumnProps> = ({ harvest, o
     const currentAllocation = dbAllocation || optimisticChoice;
 
     const handleAllocate = async (choice: AllocationChoice) => {
-        if (available <= 0 || allocating) return;
+        if (allocating) return;
 
-        // Optimistic update — highlight immediately
-        setOptimisticChoice(choice);
-
+        // "Both" just opens the split panel — no API call yet
         if (choice === 'Both') {
+            setOptimisticChoice('Both');
             setShowBothSplit(true);
             return;
         }
 
+        // Skip if already set to this allocation
+        if (dbAllocation === choice) return;
+
+        setOptimisticChoice(choice);
         setShowBothSplit(false);
         setAllocating(true);
         try {
+            // Use available weight, or 0 if not yet weighed (server will store it)
+            const weight = Math.max(available, 0);
             const allocations: Array<{ type: 'flower' | 'frozen'; targetWeight: number }> = [];
             if (choice === 'Flower') {
-                allocations.push({ type: 'flower', targetWeight: available });
+                allocations.push({ type: 'flower', targetWeight: weight });
             } else {
-                allocations.push({ type: 'frozen', targetWeight: available });
+                allocations.push({ type: 'frozen', targetWeight: weight });
             }
             await apiService.allocateHarvest(harvest.id, allocations);
             await onUpdate();
+        } catch (err) {
+            console.error('Allocation failed:', err);
+            setOptimisticChoice(dbAllocation);
         } finally {
             setAllocating(false);
         }
@@ -116,7 +124,7 @@ export const HarvestLeftColumn: React.FC<HarvestLeftColumnProps> = ({ harvest, o
                                 className={`hd-alloc-chip ${isActive ? 'hd-alloc-chip-active' : ''}`}
                                 data-type={a.value.toLowerCase()}
                                 onClick={() => handleAllocate(a.value)}
-                                disabled={harvest.totalWetWeight <= 0 || allocating}
+                                disabled={allocating}
                             >
                                 <Icon size={16} />
                                 <span>{a.label}</span>

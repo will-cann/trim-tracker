@@ -41,7 +41,8 @@ export const handler: Handler = async (event) => {
             const totalAllocated = allocations.reduce((sum: number, a: any) => sum + a.targetWeight, 0);
             const available = parseFloat(harvest.total_wet_weight) - parseFloat(harvest.total_waste_weight);
 
-            if (totalAllocated > available) {
+            // Only validate if weight has been recorded (allow allocation before weighing)
+            if (available > 0 && totalAllocated > available) {
                 await client.query('ROLLBACK');
                 return {
                     statusCode: 400,
