@@ -240,6 +240,7 @@ const SELECT_OPTIONS: Record<string, Array<{ value: string; label: string }>> = 
         { value: 'training', label: 'Training' },
         { value: 'trim', label: 'Trim' },
         { value: 'harvest', label: 'Harvest' },
+        { value: 'cultivation', label: 'Cultivation' },
         { value: 'other', label: 'Other' },
     ],
     status: [
