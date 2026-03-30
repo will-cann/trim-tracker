@@ -8,8 +8,7 @@ import {
 import { useDeepgram } from '../hooks/useDeepgram';
 import { useAIChat } from '../hooks/useAIChat';
 import { ActionPreview } from './ActionPreview';
-import { apiService } from '../services/apiService';
-import { executeAction } from '../services/actionExecutor';
+import { analyzeAmbientChunk as analyzeChunk } from '../services/ambientAnalyzer';
 import type { TrimSession, TrimmerProfile, Harvest, HumanTask, HumanTaskStatus, SpeechMode } from '../types/definitions';
 import logo from '../assets/logo.png';
 
@@ -19,7 +18,8 @@ interface TranscriptEntry {
     id: string;
     text: string;
     timestamp: Date;
-    status: 'processing' | 'created' | 'no_action' | 'error';
+    status: 'processing' | 'created' | 'partial' | 'no_action' | 'error';
+    summary?: string;
 }
 
 interface ChatPanelProps {
@@ -28,6 +28,7 @@ interface ChatPanelProps {
     harvests?: Harvest[];
     onSessionUpdate: () => Promise<void>;
     screenContext?: string;
+    plantMapSummary?: Array<{ roomName: string; roomId: string; strains: string[]; plantIds: string[]; entityType: 'plants' | 'plantbatches'; plantHealth: number; contaminants: string[] }>;
     // Task props
     tasks?: HumanTask[];
     onUpdateTaskStatus?: (id: string, status: HumanTaskStatus) => void;
@@ -66,6 +67,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
     harvests,
     onSessionUpdate,
     screenContext,
+    plantMapSummary,
     tasks = [],
     onUpdateTaskStatus,
     onDeleteTask,
@@ -133,8 +135,9 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
         harvests: (harvests || []).map(h => ({
             id: h.id, batchId: h.batchId, strain: h.strain, status: h.status,
         })),
+        plantMapSummary: plantMapSummary || undefined,
         screenContext,
-    }), [session, trimmerProfiles, harvests, screenContext]);
+    }), [session, trimmerProfiles, harvests, plantMapSummary, screenContext]);
 
     const analyzeAmbientChunk = useCallback(async (text: string) => {
         if (!text.trim()) return;
@@ -149,39 +152,12 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
         setTranscriptEntries(prev => [...prev, entry]);
 
         try {
-            const result = await apiService.aiParse({
-                transcriptChunks: [text],
-                context: buildAmbientContext(),
+            const { status, summary } = await analyzeChunk(text, buildAmbientContext(), {
+                onCreateHumanTasks,
+                onSessionUpdate,
             });
-
-            if (result.actions.length === 0) {
-                setTranscriptEntries(prev =>
-                    prev.map(e => e.id === entryId ? { ...e, status: 'no_action' as const } : e)
-                );
-                return;
-            }
-
-            // Split actions by type
-            const taskActions = result.actions.filter(a => a.type === 'create_human_task');
-            const automatedActions = result.actions.filter(a => a.type !== 'create_human_task');
-
-            // Execute automated actions (record_wet_weight, create_harvest, etc.)
-            for (const action of automatedActions) {
-                await executeAction(action);
-            }
-
-            // Create human tasks
-            if (taskActions.length > 0 && onCreateHumanTasks) {
-                await onCreateHumanTasks(taskActions.map(a => a.data as any));
-            }
-
-            // Refresh session data if automated actions were executed
-            if (automatedActions.length > 0) {
-                await onSessionUpdate();
-            }
-
             setTranscriptEntries(prev =>
-                prev.map(e => e.id === entryId ? { ...e, status: 'created' as const } : e)
+                prev.map(e => e.id === entryId ? { ...e, status, summary } : e)
             );
         } catch {
             setTranscriptEntries(prev =>
@@ -555,7 +531,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
                                                 </span>
                                                 <p className="text-sm text-gray-700 flex-1">"{entry.text}"</p>
                                             </div>
-                                            <div className="ml-12 mt-1">
+                                            <div className="ml-12 mt-1 flex flex-col gap-0.5">
                                                 {entry.status === 'processing' && (
                                                     <span className="inline-flex items-center gap-1 text-xs text-amber-600">
                                                         <Loader2 size={10} className="animate-spin" />
@@ -565,7 +541,13 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
                                                 {entry.status === 'created' && (
                                                     <span className="inline-flex items-center gap-1 text-xs text-emerald-600">
                                                         <CheckCircle2 size={10} />
-                                                        Action applied
+                                                        {entry.summary || 'Action applied'}
+                                                    </span>
+                                                )}
+                                                {entry.status === 'partial' && (
+                                                    <span className="inline-flex items-center gap-1 text-xs text-amber-600">
+                                                        <Circle size={10} />
+                                                        {entry.summary || 'Some actions skipped'}
                                                     </span>
                                                 )}
                                                 {entry.status === 'no_action' && (

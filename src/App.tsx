@@ -402,6 +402,7 @@ function AppContent() {
             harvests={harvests}
             onSessionUpdate={refreshAll}
             screenContext={VIEW_SCREEN_CONTEXT[currentView]}
+            plantMapSummary={plantMapSummary}
             tasks={humanTasks}
             onUpdateTaskStatus={updateTaskStatus}
             onDeleteTask={deleteHumanTask}
