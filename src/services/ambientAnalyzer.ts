@@ -64,11 +64,14 @@ function actionLabel(action: ProposedAction): string {
  * Analyze an ambient transcript chunk with live progress updates.
  * Calls onProgress after each action so the UI can show a live checklist.
  */
+type AiParseContext = Parameters<typeof apiService.aiParse>[0]['context'];
+type HumanTaskData = { title: string; description?: string; priority: string; category: string; dueDate?: string; assignee?: string; location?: string };
+
 export async function analyzeAmbientChunk(
     text: string,
-    context: Record<string, unknown>,
+    context: AiParseContext,
     callbacks: {
-        onCreateHumanTasks?: (tasks: Array<Record<string, unknown>>) => Promise<void>;
+        onCreateHumanTasks?: (tasks: HumanTaskData[]) => Promise<void>;
         onSessionUpdate: () => Promise<void>;
         onProgress?: (items: ActionItemState[]) => void;
     },
@@ -102,7 +105,7 @@ export async function analyzeAmbientChunk(
             // Handle task creation
             if (callbacks.onCreateHumanTasks) {
                 try {
-                    await callbacks.onCreateHumanTasks([action.data as Record<string, unknown>]);
+                    await callbacks.onCreateHumanTasks([action.data as HumanTaskData]);
                     items[i] = { ...items[i], status: 'done' };
                     anyExecuted = true;
                 } catch (e) {
