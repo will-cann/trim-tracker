@@ -5,6 +5,7 @@ import {
     Scissors, Sprout, Leaf, Circle, Trash2,
     CheckCircle2, PlayCircle, CalendarClock, Zap, ArrowRight,
     MapPin, User, Search, MoreHorizontal, RotateCcw, Pencil, X, Check, SlidersHorizontal,
+    ArrowUp, ArrowDown, ChevronsUpDown,
 } from 'lucide-react';
 import type { HumanTask, HumanTaskStatus, HumanTaskCategory, HumanTaskPriority } from '../types/definitions';
 import { executeAction } from '../services/actionExecutor';
@@ -16,10 +17,17 @@ export interface TeamMember {
     userId?: string;
 }
 
+type TaskFilters = {
+    status: HumanTaskStatus[] | 'all';
+    category: HumanTaskCategory | 'all';
+    priority: HumanTaskPriority | 'all';
+    assignees: string[] | 'all';
+};
+
 interface TasksPanelProps {
     tasks: HumanTask[];
-    filters: { status: HumanTaskStatus | 'all'; category: HumanTaskCategory | 'all'; priority: HumanTaskPriority | 'all' };
-    onSetFilters: (f: Partial<TasksPanelProps['filters']>) => void;
+    filters: TaskFilters;
+    onSetFilters: (f: Partial<TaskFilters>) => void;
     onUpdateStatus: (id: string, status: HumanTaskStatus) => Promise<void>;
     onUpdateTask: (id: string, updates: Partial<HumanTask>) => Promise<void>;
     onDeleteTask: (id: string) => Promise<void>;
@@ -689,14 +697,32 @@ export const TasksPanel = ({
     onRetry,
     teamMembers,
 }: TasksPanelProps) => {
+    type SortField = 'title' | 'assignee' | 'location' | 'dueDate' | 'category' | 'priority' | 'status';
+    type SortDir = 'asc' | 'desc';
+
     const [searchQuery, setSearchQuery] = useState('');
     const [expandedId, setExpandedId] = useState<string | null>(null);
     const [editingId, setEditingId] = useState<string | null>(null);
     const [showFilters, setShowFilters] = useState(false);
     const [pendingComplete, setPendingComplete] = useState<HumanTask | null>(null);
     const [executingAction, setExecutingAction] = useState(false);
+    const [sortField, setSortField] = useState<SortField | null>(null);
+    const [sortDir, setSortDir] = useState<SortDir>('asc');
     const activeCategories = [...new Set(tasks.map(t => t.category))];
-    const hasActiveFilters = filters.status !== 'all' || filters.category !== 'all' || filters.priority !== 'all';
+    const hasActiveFilters = filters.status !== 'all' || filters.category !== 'all' || filters.priority !== 'all' || filters.assignees !== 'all';
+
+    const toggleSort = (field: SortField) => {
+        if (sortField === field) {
+            if (sortDir === 'asc') setSortDir('desc');
+            else { setSortField(null); setSortDir('asc'); }
+        } else {
+            setSortField(field);
+            setSortDir('asc');
+        }
+    };
+
+    const PRIORITY_RANK: Record<string, number> = { urgent: 0, high: 1, medium: 2, low: 3 };
+    const STATUS_RANK: Record<string, number> = { pending: 0, in_progress: 1, completed: 2 };
 
     // Intercept status updates to check for completion actions
     const handleUpdateStatus = async (id: string, status: HumanTaskStatus) => {
@@ -741,6 +767,38 @@ export const TasksPanel = ({
         }
         return true;
     });
+
+    const sortedTasks = sortField
+        ? [...filteredTasks].sort((a, b) => {
+            let cmp = 0;
+            switch (sortField) {
+                case 'title': cmp = a.title.localeCompare(b.title); break;
+                case 'assignee': cmp = (a.assignee || '').localeCompare(b.assignee || ''); break;
+                case 'location': cmp = (a.location || '').localeCompare(b.location || ''); break;
+                case 'dueDate': cmp = (a.dueDate || '9').localeCompare(b.dueDate || '9'); break;
+                case 'category': cmp = (CATEGORY_CONFIG[a.category]?.label || '').localeCompare(CATEGORY_CONFIG[b.category]?.label || ''); break;
+                case 'priority': cmp = (PRIORITY_RANK[a.priority] ?? 9) - (PRIORITY_RANK[b.priority] ?? 9); break;
+                case 'status': cmp = (STATUS_RANK[a.status] ?? 9) - (STATUS_RANK[b.status] ?? 9); break;
+            }
+            return sortDir === 'desc' ? -cmp : cmp;
+        })
+        : filteredTasks;
+
+    const SortHeader = ({ field, children, className }: { field: SortField; children: React.ReactNode; className?: string }) => (
+        <th
+            className={`px-3 py-3 text-xs font-medium uppercase tracking-wider cursor-pointer select-none group hover:text-gray-600 transition-colors ${className || ''} ${sortField === field ? 'text-teal-600' : 'text-gray-400'}`}
+            onClick={() => toggleSort(field)}
+        >
+            <span className="inline-flex items-center gap-1">
+                {children}
+                {sortField === field ? (
+                    sortDir === 'asc' ? <ArrowUp size={12} /> : <ArrowDown size={12} />
+                ) : (
+                    <ChevronsUpDown size={12} className="opacity-0 group-hover:opacity-40 transition-opacity" />
+                )}
+            </span>
+        </th>
+    );
 
     return (
         <div className="flex flex-col h-full bg-white">
@@ -797,7 +855,7 @@ export const TasksPanel = ({
                         Filter
                         {hasActiveFilters && (
                             <span className="ml-0.5 w-4 h-4 rounded-full bg-teal-500 text-white text-[10px] flex items-center justify-center font-bold">
-                                {(filters.status !== 'all' ? 1 : 0) + (filters.category !== 'all' ? 1 : 0) + (filters.priority !== 'all' ? 1 : 0)}
+                                {(filters.status !== 'all' ? 1 : 0) + (filters.category !== 'all' ? 1 : 0) + (filters.priority !== 'all' ? 1 : 0) + (filters.assignees !== 'all' ? 1 : 0)}
                             </span>
                         )}
                     </button>
@@ -805,12 +863,12 @@ export const TasksPanel = ({
                     {showFilters && (
                         <>
                             <div className="fixed inset-0 z-20" onClick={() => setShowFilters(false)} />
-                            <div className="absolute right-0 top-10 z-30 bg-white rounded-lg shadow-lg border border-gray-200 p-4 w-64 space-y-3">
+                            <div className="absolute right-0 top-10 z-30 bg-white rounded-lg shadow-lg border border-gray-200 p-4 w-72 space-y-3">
                                 <div className="flex items-center justify-between">
                                     <span className="text-xs font-semibold text-gray-700 uppercase tracking-wider">Filters</span>
                                     {hasActiveFilters && (
                                         <button
-                                            onClick={() => { onSetFilters({ status: 'all', category: 'all', priority: 'all' }); setShowFilters(false); }}
+                                            onClick={() => { onSetFilters({ status: 'all', category: 'all', priority: 'all', assignees: 'all' }); setShowFilters(false); }}
                                             className="text-[11px] text-teal-600 hover:text-teal-700 font-medium"
                                         >
                                             Clear all
@@ -818,13 +876,72 @@ export const TasksPanel = ({
                                     )}
                                 </div>
 
+                                {/* Status — multi-select checkboxes */}
                                 <div>
-                                    <label className="block text-[11px] font-medium text-gray-500 mb-1">Status</label>
-                                    <select value={filters.status} onChange={(e) => onSetFilters({ status: e.target.value as HumanTaskStatus | 'all' })}
-                                        className="w-full text-sm border border-gray-200 rounded-md px-2.5 py-1.5 bg-white focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-400">
-                                        {STATUS_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-                                    </select>
+                                    <label className="block text-[11px] font-medium text-gray-500 mb-1.5">Status</label>
+                                    <div className="space-y-1">
+                                        {STATUS_OPTIONS.filter(o => o.value !== 'all').map(o => {
+                                            const selected = filters.status === 'all' || filters.status.includes(o.value as HumanTaskStatus);
+                                            const toggle = () => {
+                                                if (filters.status === 'all') {
+                                                    // Switching from "all" → select only this one
+                                                    onSetFilters({ status: [o.value as HumanTaskStatus] });
+                                                } else {
+                                                    const arr = filters.status as HumanTaskStatus[];
+                                                    if (arr.includes(o.value as HumanTaskStatus)) {
+                                                        const next = arr.filter(s => s !== o.value);
+                                                        onSetFilters({ status: next.length === 0 ? 'all' : next });
+                                                    } else {
+                                                        const next = [...arr, o.value as HumanTaskStatus];
+                                                        if (next.length === STATUS_OPTIONS.length - 1) onSetFilters({ status: 'all' });
+                                                        else onSetFilters({ status: next });
+                                                    }
+                                                }
+                                            };
+                                            return (
+                                                <label key={o.value} className="flex items-center gap-2 px-2 py-1 rounded hover:bg-gray-50 cursor-pointer">
+                                                    <input type="checkbox" checked={selected} onChange={toggle}
+                                                        className="rounded border-gray-300 text-teal-500 focus:ring-teal-500/30 h-3.5 w-3.5" />
+                                                    <span className="text-sm text-gray-700">{o.label}</span>
+                                                </label>
+                                            );
+                                        })}
+                                    </div>
                                 </div>
+
+                                {/* Assignee — multi-select checkboxes */}
+                                {teamMembers.length > 0 && (
+                                    <div>
+                                        <label className="block text-[11px] font-medium text-gray-500 mb-1.5">Assignee</label>
+                                        <div className="space-y-1 max-h-40 overflow-y-auto">
+                                            {teamMembers.map(m => {
+                                                const selected = filters.assignees === 'all' || filters.assignees.includes(m.name);
+                                                const toggle = () => {
+                                                    if (filters.assignees === 'all') {
+                                                        onSetFilters({ assignees: [m.name] });
+                                                    } else {
+                                                        const arr = filters.assignees as string[];
+                                                        if (arr.includes(m.name)) {
+                                                            const next = arr.filter(n => n !== m.name);
+                                                            onSetFilters({ assignees: next.length === 0 ? 'all' : next });
+                                                        } else {
+                                                            const next = [...arr, m.name];
+                                                            if (next.length === teamMembers.length) onSetFilters({ assignees: 'all' });
+                                                            else onSetFilters({ assignees: next });
+                                                        }
+                                                    }
+                                                };
+                                                return (
+                                                    <label key={m.id} className="flex items-center gap-2 px-2 py-1 rounded hover:bg-gray-50 cursor-pointer">
+                                                        <input type="checkbox" checked={selected} onChange={toggle}
+                                                            className="rounded border-gray-300 text-teal-500 focus:ring-teal-500/30 h-3.5 w-3.5" />
+                                                        <span className="text-sm text-gray-700">{m.name}</span>
+                                                    </label>
+                                                );
+                                            })}
+                                        </div>
+                                    </div>
+                                )}
 
                                 <div>
                                     <label className="block text-[11px] font-medium text-gray-500 mb-1">Category</label>
@@ -854,7 +971,7 @@ export const TasksPanel = ({
 
             {/* Table */}
             <div className="flex-1 overflow-y-auto">
-                {filteredTasks.length === 0 ? (
+                {sortedTasks.length === 0 ? (
                     <div className="flex flex-col items-center justify-center py-20 text-center">
                         <div className="w-16 h-16 rounded-full bg-gray-50 flex items-center justify-center mb-4">
                             <ClipboardList size={28} className="text-gray-300" />
@@ -872,18 +989,18 @@ export const TasksPanel = ({
                     <table className="w-full">
                         <thead>
                             <tr className="border-b border-gray-100 text-left">
-                                <th className="pl-5 pr-2 py-3 w-10" />
-                                <th className="px-3 py-3 text-xs font-medium text-gray-400 uppercase tracking-wider">Task</th>
-                                <th className="px-3 py-3 text-xs font-medium text-gray-400 uppercase tracking-wider hidden md:table-cell">Assignee</th>
-                                <th className="px-3 py-3 text-xs font-medium text-gray-400 uppercase tracking-wider hidden md:table-cell">Location</th>
-                                <th className="px-3 py-3 text-xs font-medium text-gray-400 uppercase tracking-wider hidden sm:table-cell">Due</th>
-                                <th className="px-3 py-3 text-xs font-medium text-gray-400 uppercase tracking-wider hidden sm:table-cell">Category</th>
-                                <th className="px-3 py-3 text-xs font-medium text-gray-400 uppercase tracking-wider hidden lg:table-cell">Priority</th>
+                                <SortHeader field="status" className="pl-5 pr-2 py-3 w-10"><span className="sr-only">Status</span></SortHeader>
+                                <SortHeader field="title">Task</SortHeader>
+                                <SortHeader field="assignee" className="hidden md:table-cell">Assignee</SortHeader>
+                                <SortHeader field="location" className="hidden md:table-cell">Location</SortHeader>
+                                <SortHeader field="dueDate" className="hidden sm:table-cell">Due</SortHeader>
+                                <SortHeader field="category" className="hidden sm:table-cell">Category</SortHeader>
+                                <SortHeader field="priority" className="hidden lg:table-cell">Priority</SortHeader>
                                 <th className="pr-4 pl-2 py-3 w-10" />
                             </tr>
                         </thead>
                         <tbody>
-                            {filteredTasks.map(task => (
+                            {sortedTasks.map(task => (
                                 <TaskRow
                                     key={task.id}
                                     task={task}

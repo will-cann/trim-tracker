@@ -3,9 +3,10 @@ import type { HumanTask, HumanTaskStatus, HumanTaskCategory, HumanTaskPriority }
 import { apiService } from '../services/apiService';
 
 interface Filters {
-    status: HumanTaskStatus | 'all';
+    status: HumanTaskStatus[] | 'all';
     category: HumanTaskCategory | 'all';
     priority: HumanTaskPriority | 'all';
+    assignees: string[] | 'all';
 }
 
 interface UseHumanTasksReturn {
@@ -31,6 +32,7 @@ export const useHumanTasks = (): UseHumanTasksReturn => {
         status: 'all',
         category: 'all',
         priority: 'all',
+        assignees: 'all',
     });
 
     // Load all tasks from server
@@ -99,9 +101,13 @@ export const useHumanTasks = (): UseHumanTasksReturn => {
 
     // Apply filters client-side
     const filtered = tasks.filter(t => {
-        if (filters.status !== 'all' && t.status !== filters.status) return false;
+        if (filters.status !== 'all' && !filters.status.includes(t.status)) return false;
         if (filters.category !== 'all' && t.category !== filters.category) return false;
         if (filters.priority !== 'all' && t.priority !== filters.priority) return false;
+        if (filters.assignees !== 'all') {
+            const name = t.assignee || '';
+            if (!filters.assignees.includes(name)) return false;
+        }
         return true;
     });
 
