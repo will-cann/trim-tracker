@@ -2,10 +2,10 @@ import React, { useState } from 'react';
 import type { TrimSession, CreateTrimSessionDTO, TrimmerProfile } from '../types/definitions';
 import { Cannabis, Trash2, Scale, Plus, Package, Hourglass, Users } from 'lucide-react';
 
-import { DashboardDonutChart } from './DashboardDonutChart';
 import { EntryList } from './EntryList';
 import { AddBatchModal } from './AddBatchModal';
 import { StatCard } from './ui';
+import { StackedProgressBar, buildSegments } from './StackedProgressBar';
 
 interface DashboardProps {
     session: TrimSession;
@@ -76,8 +76,22 @@ export const Dashboard: React.FC<DashboardProps> = ({
                     <StatCard icon={<Trash2 size={18} />} iconClassName="waste-icon" label="Total Waste" value={`${session.totalWaste.toFixed(0)}g`} />
                 </div>
 
-                <div className="dashboard-chart-wrapper">
-                    <DashboardDonutChart session={session} />
+                <div className="dashboard-bar-wrapper">
+                    <StackedProgressBar
+                        segments={buildSegments(
+                            {
+                                flower: session.totalFlower,
+                                shake: session.totalShake,
+                                trim: session.totalTrim,
+                                waste: session.totalWaste,
+                            },
+                            totalStartWeight
+                        )}
+                        total={totalStartWeight}
+                        height={14}
+                        showLegend
+                        showPercentage
+                    />
                 </div>
             </div>
 

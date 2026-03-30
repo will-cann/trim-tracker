@@ -9,6 +9,7 @@ import { useDeepgram } from '../hooks/useDeepgram';
 import { useAIChat } from '../hooks/useAIChat';
 import { ActionPreview } from './ActionPreview';
 import { apiService } from '../services/apiService';
+import { executeAction } from '../services/actionExecutor';
 import type { TrimSession, TrimmerProfile, Harvest, HumanTask, HumanTaskStatus, SpeechMode } from '../types/definitions';
 import logo from '../assets/logo.png';
 
@@ -136,7 +137,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
     }), [session, trimmerProfiles, harvests, screenContext]);
 
     const analyzeAmbientChunk = useCallback(async (text: string) => {
-        if (!text.trim() || !onCreateHumanTasks) return;
+        if (!text.trim()) return;
 
         const entryId = crypto.randomUUID();
         const entry: TranscriptEntry = {
@@ -152,23 +153,42 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
                 transcriptChunks: [text],
                 context: buildAmbientContext(),
             });
-            const taskActions = result.actions.filter(a => a.type === 'create_human_task');
-            if (taskActions.length > 0) {
-                await onCreateHumanTasks(taskActions.map(a => a.data as any));
-                setTranscriptEntries(prev =>
-                    prev.map(e => e.id === entryId ? { ...e, status: 'created' as const } : e)
-                );
-            } else {
+
+            if (result.actions.length === 0) {
                 setTranscriptEntries(prev =>
                     prev.map(e => e.id === entryId ? { ...e, status: 'no_action' as const } : e)
                 );
+                return;
             }
+
+            // Split actions by type
+            const taskActions = result.actions.filter(a => a.type === 'create_human_task');
+            const automatedActions = result.actions.filter(a => a.type !== 'create_human_task');
+
+            // Execute automated actions (record_wet_weight, create_harvest, etc.)
+            for (const action of automatedActions) {
+                await executeAction(action);
+            }
+
+            // Create human tasks
+            if (taskActions.length > 0 && onCreateHumanTasks) {
+                await onCreateHumanTasks(taskActions.map(a => a.data as any));
+            }
+
+            // Refresh session data if automated actions were executed
+            if (automatedActions.length > 0) {
+                await onSessionUpdate();
+            }
+
+            setTranscriptEntries(prev =>
+                prev.map(e => e.id === entryId ? { ...e, status: 'created' as const } : e)
+            );
         } catch {
             setTranscriptEntries(prev =>
                 prev.map(e => e.id === entryId ? { ...e, status: 'error' as const } : e)
             );
         }
-    }, [buildAmbientContext, onCreateHumanTasks]);
+    }, [buildAmbientContext, onCreateHumanTasks, onSessionUpdate]);
 
     const handleAmbientTranscript = useCallback((text: string, isFinal: boolean) => {
         if (isFinal) {
@@ -545,7 +565,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
                                                 {entry.status === 'created' && (
                                                     <span className="inline-flex items-center gap-1 text-xs text-emerald-600">
                                                         <CheckCircle2 size={10} />
-                                                        Created task
+                                                        Action applied
                                                     </span>
                                                 )}
                                                 {entry.status === 'no_action' && (
