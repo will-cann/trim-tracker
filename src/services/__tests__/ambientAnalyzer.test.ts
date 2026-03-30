@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { analyzeAmbientChunk } from '../ambientAnalyzer';
+import type { ActionItemState } from '../ambientAnalyzer';
 
 // --- Mocks ---
 const mockAiParse = vi.fn();
@@ -18,6 +19,7 @@ const dummyContext = { hasActiveSession: false };
 const makeCallbacks = () => ({
     onCreateHumanTasks: vi.fn().mockResolvedValue(undefined),
     onSessionUpdate: vi.fn().mockResolvedValue(undefined),
+    onProgress: vi.fn(),
 });
 
 beforeEach(() => {
@@ -35,7 +37,7 @@ describe('analyzeAmbientChunk', () => {
         expect(mockExecuteAction).not.toHaveBeenCalled();
     });
 
-    it('executes automated actions and returns created with summary', async () => {
+    it('executes automated actions and returns created', async () => {
         const action = { type: 'record_wet_weight', data: { harvestIdentifier: 'Wi Fi OG', weight: 574392 } };
         mockAiParse.mockResolvedValue({ actions: [action], message: 'Recorded.' });
         mockExecuteAction.mockResolvedValue({ executed: true, label: 'Weight recorded' });
@@ -48,7 +50,6 @@ describe('analyzeAmbientChunk', () => {
         );
 
         expect(result.status).toBe('created');
-        expect(result.summary).toBe('Weight recorded');
         expect(mockExecuteAction).toHaveBeenCalledWith(action);
         expect(cbs.onSessionUpdate).toHaveBeenCalled();
         expect(cbs.onCreateHumanTasks).not.toHaveBeenCalled();
@@ -69,7 +70,6 @@ describe('analyzeAmbientChunk', () => {
         );
 
         expect(result.status).toBe('created');
-        expect(result.summary).toContain('1 task created');
         expect(cbs.onCreateHumanTasks).toHaveBeenCalledWith([taskAction.data]);
         expect(mockExecuteAction).not.toHaveBeenCalled();
         expect(cbs.onSessionUpdate).not.toHaveBeenCalled();
@@ -85,8 +85,6 @@ describe('analyzeAmbientChunk', () => {
         const result = await analyzeAmbientChunk('harvest wifi og and check dry room temps', dummyContext, cbs);
 
         expect(result.status).toBe('created');
-        expect(result.summary).toContain('Harvest created');
-        expect(result.summary).toContain('1 task created');
         expect(mockExecuteAction).toHaveBeenCalledWith(autoAction);
         expect(cbs.onCreateHumanTasks).toHaveBeenCalledWith([taskAction.data]);
         expect(cbs.onSessionUpdate).toHaveBeenCalled();
@@ -101,9 +99,6 @@ describe('analyzeAmbientChunk', () => {
         const result = await analyzeAmbientChunk('ice cream cake at 85%', dummyContext, cbs);
 
         expect(result.status).toBe('partial');
-        expect(result.summary).toContain('Skipped');
-        expect(result.summary).toContain('no plants found');
-        // Session should NOT be refreshed when nothing actually executed
         expect(cbs.onSessionUpdate).not.toHaveBeenCalled();
     });
 
@@ -119,9 +114,33 @@ describe('analyzeAmbientChunk', () => {
         const result = await analyzeAmbientChunk('sourdeezel 98, unknown 50', dummyContext, cbs);
 
         expect(result.status).toBe('partial');
-        expect(result.summary).toContain('Health updated');
-        expect(result.summary).toContain('Skipped');
         expect(cbs.onSessionUpdate).toHaveBeenCalled();
+    });
+
+    it('calls onProgress after each action with updated statuses', async () => {
+        const action1 = { type: 'update_plant_health', data: { plantIdentifier: 'OG Kush', health: 90 } };
+        const action2 = { type: 'update_plant_health', data: { plantIdentifier: 'Blue Dream', health: 95 } };
+        mockAiParse.mockResolvedValue({ actions: [action1, action2], message: '' });
+        mockExecuteAction
+            .mockResolvedValueOnce({ executed: true, label: 'Health updated' })
+            .mockResolvedValueOnce({ executed: true, label: 'Health updated' });
+
+        const cbs = makeCallbacks();
+        await analyzeAmbientChunk('OG Kush 90, Blue Dream 95', dummyContext, cbs);
+
+        // First call: both pending (initial state)
+        expect(cbs.onProgress).toHaveBeenCalledTimes(3); // initial + after each action
+        const firstCall = cbs.onProgress.mock.calls[0][0] as ActionItemState[];
+        expect(firstCall.every(i => i.status === 'pending')).toBe(true);
+
+        // Second call: first done, second pending
+        const secondCall = cbs.onProgress.mock.calls[1][0] as ActionItemState[];
+        expect(secondCall[0].status).toBe('done');
+        expect(secondCall[1].status).toBe('pending');
+
+        // Third call: both done
+        const thirdCall = cbs.onProgress.mock.calls[2][0] as ActionItemState[];
+        expect(thirdCall.every(i => i.status === 'done')).toBe(true);
     });
 
     it('works without onCreateHumanTasks callback', async () => {
@@ -137,21 +156,28 @@ describe('analyzeAmbientChunk', () => {
         expect(mockExecuteAction).toHaveBeenCalledWith(autoAction);
     });
 
-    it('propagates errors from executeAction', async () => {
-        const action = { type: 'record_wet_weight', data: { weight: 500 } };
-        mockAiParse.mockResolvedValue({ actions: [action], message: '' });
-        mockExecuteAction.mockRejectedValue(new Error('API down'));
-
-        await expect(
-            analyzeAmbientChunk('500 grams', dummyContext, makeCallbacks()),
-        ).rejects.toThrow('API down');
-    });
-
     it('propagates errors from aiParse', async () => {
         mockAiParse.mockRejectedValue(new Error('Network error'));
 
         await expect(
             analyzeAmbientChunk('anything', dummyContext, makeCallbacks()),
         ).rejects.toThrow('Network error');
+    });
+
+    it('marks action as error when executeAction throws', async () => {
+        const action = { type: 'record_wet_weight', data: { weight: 500 } };
+        mockAiParse.mockResolvedValue({ actions: [action], message: '' });
+        mockExecuteAction.mockRejectedValue(new Error('API down'));
+
+        const cbs = makeCallbacks();
+        // Should not throw — errors are captured per-action
+        const result = await analyzeAmbientChunk('500 grams', dummyContext, cbs);
+
+        // Last progress call should show error status
+        const lastCall = cbs.onProgress.mock.calls.at(-1)?.[0] as ActionItemState[];
+        expect(lastCall[0].status).toBe('error');
+        expect(lastCall[0].detail).toContain('API down');
+        // partial because nothing succeeded
+        expect(result.status).toBe('partial');
     });
 });

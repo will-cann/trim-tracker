@@ -9,17 +9,29 @@ import { useDeepgram } from '../hooks/useDeepgram';
 import { useAIChat } from '../hooks/useAIChat';
 import { ActionPreview } from './ActionPreview';
 import { analyzeAmbientChunk as analyzeChunk } from '../services/ambientAnalyzer';
+import type { ActionItemState } from '../services/ambientAnalyzer';
 import type { TrimSession, TrimmerProfile, Harvest, HumanTask, HumanTaskStatus, SpeechMode } from '../types/definitions';
 import logo from '../assets/logo.png';
 
 type PanelTab = 'chat' | 'tasks' | 'transcript';
+
+interface ActionItem {
+    label: string;
+    status: 'pending' | 'done' | 'skipped' | 'error';
+    detail?: string;
+}
 
 interface TranscriptEntry {
     id: string;
     text: string;
     timestamp: Date;
     status: 'processing' | 'created' | 'partial' | 'no_action' | 'error';
-    summary?: string;
+}
+
+interface ActiveActionGroup {
+    id: string;
+    timestamp: Date;
+    items: ActionItem[];
 }
 
 interface ChatPanelProps {
@@ -90,6 +102,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
     const [ambientActive, setAmbientActive] = useState(false);
     const ambientTranscriptRef = useRef('');
     const [transcriptEntries, setTranscriptEntries] = useState<TranscriptEntry[]>([]);
+    const [activeActionGroups, setActiveActionGroups] = useState<ActiveActionGroup[]>([]);
     const prevTabRef = useRef<PanelTab>('chat');
 
     // --- Action mic deepgram ---
@@ -143,26 +156,47 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
         if (!text.trim()) return;
 
         const entryId = crypto.randomUUID();
-        const entry: TranscriptEntry = {
-            id: entryId,
-            text,
-            timestamp: new Date(),
-            status: 'processing',
-        };
-        setTranscriptEntries(prev => [...prev, entry]);
+        const groupId = entryId;
+
+        // Add transcript entry (background log)
+        setTranscriptEntries(prev => [...prev, {
+            id: entryId, text, timestamp: new Date(), status: 'processing',
+        }]);
 
         try {
-            const { status, summary } = await analyzeChunk(text, buildAmbientContext(), {
+            const { status } = await analyzeChunk(text, buildAmbientContext(), {
                 onCreateHumanTasks,
                 onSessionUpdate,
+                onProgress: (items: ActionItemState[]) => {
+                    setActiveActionGroups(prev => {
+                        const exists = prev.find(g => g.id === groupId);
+                        const group: ActiveActionGroup = {
+                            id: groupId,
+                            timestamp: new Date(),
+                            items: items.map(i => ({ label: i.label, status: i.status, detail: i.detail })),
+                        };
+                        return exists
+                            ? prev.map(g => g.id === groupId ? group : g)
+                            : [...prev, group];
+                    });
+                },
             });
+
+            // Update transcript status
             setTranscriptEntries(prev =>
-                prev.map(e => e.id === entryId ? { ...e, status, summary } : e)
+                prev.map(e => e.id === entryId ? { ...e, status } : e)
             );
+
+            // Auto-remove completed groups after a delay
+            setTimeout(() => {
+                setActiveActionGroups(prev => prev.filter(g => g.id !== groupId));
+            }, 5000);
         } catch {
             setTranscriptEntries(prev =>
                 prev.map(e => e.id === entryId ? { ...e, status: 'error' as const } : e)
             );
+            // Remove failed group
+            setActiveActionGroups(prev => prev.filter(g => g.id !== groupId));
         }
     }, [buildAmbientContext, onCreateHumanTasks, onSessionUpdate]);
 
@@ -204,9 +238,9 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
         } else {
             ambientTranscriptRef.current = '';
             setAmbientActive(true);
-            // Auto-switch to transcript tab
+            // Auto-switch to tasks tab so user sees actions populating
             prevTabRef.current = activeTab;
-            setActiveTab('transcript');
+            setActiveTab('tasks');
             await ambientStart();
         }
     }, [ambientListening, ambientStart, ambientStop, analyzeAmbientChunk, activeTab]);
@@ -454,13 +488,53 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
                                 )}
                             </div>
 
-                            {visibleTasks.length === 0 ? (
+                            {/* Live action checklist from ambient mode */}
+                            {activeActionGroups.length > 0 && (
+                                <div className="mb-3 space-y-2">
+                                    {activeActionGroups.map(group => (
+                                        <div key={group.id} className="bg-gray-50 rounded-lg px-3 py-2 border border-gray-100">
+                                            <div className="flex flex-col gap-1">
+                                                {group.items.map((item, idx) => (
+                                                    <div key={idx} className="flex items-center gap-2">
+                                                        {item.status === 'pending' && (
+                                                            <Loader2 size={12} className="animate-spin text-amber-500 shrink-0" />
+                                                        )}
+                                                        {item.status === 'done' && (
+                                                            <CheckCircle2 size={12} className="text-emerald-500 shrink-0" />
+                                                        )}
+                                                        {item.status === 'skipped' && (
+                                                            <Circle size={12} className="text-amber-400 shrink-0" />
+                                                        )}
+                                                        {item.status === 'error' && (
+                                                            <Circle size={12} className="text-red-400 shrink-0" />
+                                                        )}
+                                                        <span className={`text-xs ${
+                                                            item.status === 'done' ? 'text-emerald-700' :
+                                                            item.status === 'skipped' ? 'text-amber-700' :
+                                                            item.status === 'error' ? 'text-red-600' :
+                                                            'text-gray-600'
+                                                        }`}>
+                                                            {item.label}
+                                                            {item.detail && item.status !== 'done' && (
+                                                                <span className="text-gray-400 ml-1">— {item.detail}</span>
+                                                            )}
+                                                        </span>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+
+                            {visibleTasks.length === 0 && activeActionGroups.length === 0 && (
                                 <div className="flex flex-col items-center justify-center py-8 text-gray-400">
                                     <ListTodo size={24} className="mb-2" />
                                     <p className="text-xs">No tasks yet</p>
                                     <p className="text-xs mt-0.5 text-gray-300">Ask the AI or use ambient mode to create tasks</p>
                                 </div>
-                            ) : (
+                            )}
+                            {visibleTasks.length > 0 && (
                                 <div className="space-y-0.5">
                                     {visibleTasks.map(task => (
                                         <div
@@ -531,7 +605,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
                                                 </span>
                                                 <p className="text-sm text-gray-700 flex-1">"{entry.text}"</p>
                                             </div>
-                                            <div className="ml-12 mt-1 flex flex-col gap-0.5">
+                                            <div className="ml-12 mt-0.5">
                                                 {entry.status === 'processing' && (
                                                     <span className="inline-flex items-center gap-1 text-xs text-amber-600">
                                                         <Loader2 size={10} className="animate-spin" />
@@ -541,20 +615,20 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
                                                 {entry.status === 'created' && (
                                                     <span className="inline-flex items-center gap-1 text-xs text-emerald-600">
                                                         <CheckCircle2 size={10} />
-                                                        {entry.summary || 'Action applied'}
+                                                        Done
                                                     </span>
                                                 )}
                                                 {entry.status === 'partial' && (
                                                     <span className="inline-flex items-center gap-1 text-xs text-amber-600">
                                                         <Circle size={10} />
-                                                        {entry.summary || 'Some actions skipped'}
+                                                        Partial
                                                     </span>
                                                 )}
                                                 {entry.status === 'no_action' && (
                                                     <span className="text-xs text-gray-400">No action needed</span>
                                                 )}
                                                 {entry.status === 'error' && (
-                                                    <span className="text-xs text-red-400">Failed to process</span>
+                                                    <span className="text-xs text-red-400">Failed</span>
                                                 )}
                                             </div>
                                         </div>

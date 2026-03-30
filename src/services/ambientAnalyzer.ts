@@ -1,17 +1,68 @@
 import type { ProposedAction } from '../types/definitions';
 import { apiService } from './apiService';
 import { executeAction } from './actionExecutor';
-import type { ActionOutcome } from './actionExecutor';
+
+export interface ActionItemState {
+    label: string;
+    status: 'pending' | 'done' | 'skipped' | 'error';
+    detail?: string;
+}
 
 export interface AmbientResult {
     status: 'created' | 'partial' | 'no_action' | 'error';
-    /** Human-readable summary of what happened */
-    summary?: string;
+}
+
+/** Generate a short human-readable label for an action */
+function actionLabel(action: ProposedAction): string {
+    const d = action.data;
+    switch (action.type) {
+        case 'create_session': return `Start session${d.strain ? ` — ${d.strain}` : ''}`;
+        case 'add_batch': return `Add batch${d.strain ? ` — ${d.strain}` : ''}`;
+        case 'assign_trimmer': return `Assign ${d.name || 'trimmer'}`;
+        case 'add_trimmer_profile': return `Add ${d.name} to roster`;
+        case 'create_harvest': return `Create harvest${d.strain ? ` — ${d.strain}` : ''}`;
+        case 'record_wet_weight': return `Record weight${d.weight ? ` — ${d.weight}g` : ''}`;
+        case 'allocate_harvest': return `Allocate harvest`;
+        case 'record_harvest_waste': return `Record waste${d.wasteType ? ` — ${d.wasteType}` : ''}`;
+        case 'record_plant_weight': return `Record ${d.weights?.length || ''} plant weight(s)`;
+        case 'flag_contamination': return `Flag contamination`;
+        case 'move_harvest': return `Move harvest${d.dryingLocation ? ` → ${d.dryingLocation}` : ''}`;
+        case 'delete_harvest': return `Delete harvest`;
+        case 'update_harvest': return `Update harvest`;
+        case 'delete_batch': return `Delete batch`;
+        case 'change_batch_status': return `Change status → ${d.newStatus || ''}`;
+        case 'submit_session': return `Submit session`;
+        case 'remove_trimmer': return `Remove ${d.trimmerName || 'trimmer'}`;
+        case 'delete_trimmer_profile': return `Remove profile`;
+        case 'update_trimmer': return `Update ${d.trimmerName || 'trimmer'}`;
+        case 'update_plant_health': return `Health ${d.strain || d.plantIdentifier || d.roomName || ''}${d.health != null ? ` → ${d.health}%` : ''}`;
+        case 'create_planting': return `Create ${d.count || ''} ${d.plantingType || 'planting'}${d.strainName ? ` — ${d.strainName}` : ''}`;
+        case 'move_plants': return `Move plants${d.targetRoomName ? ` → ${d.targetRoomName}` : ''}`;
+        case 'change_plant_phase': return `Change phase → ${d.targetPhase || ''}`;
+        case 'destroy_plants': return `Destroy plants${d.strain ? ` — ${d.strain}` : ''}`;
+        case 'convert_to_trim': return `Convert to trim`;
+        case 'create_strain': return `Create strain — ${d.name || ''}`;
+        case 'delete_strain': return `Delete strain`;
+        case 'create_license': return `Create license`;
+        case 'delete_license': return `Delete license`;
+        case 'import_tags': return `Import tags`;
+        case 'assign_tag': return `Assign tag`;
+        case 'auto_assign_tags': return `Auto-assign tags`;
+        case 'create_package': return `Create package`;
+        case 'update_package': return `Update package`;
+        case 'finish_package': return `Finish package`;
+        case 'delete_package': return `Delete package`;
+        case 'create_room': return `Create room — ${d.name || ''}`;
+        case 'update_room': return `Update room`;
+        case 'delete_room': return `Delete room`;
+        case 'create_human_task': return `Task: ${d.title || 'new task'}`;
+        default: return action.type.replace(/_/g, ' ');
+    }
 }
 
 /**
- * Analyze an ambient transcript chunk: call AI parse, execute any automated
- * actions, and create human tasks. Returns the final status with details.
+ * Analyze an ambient transcript chunk with live progress updates.
+ * Calls onProgress after each action so the UI can show a live checklist.
  */
 export async function analyzeAmbientChunk(
     text: string,
@@ -19,6 +70,7 @@ export async function analyzeAmbientChunk(
     callbacks: {
         onCreateHumanTasks?: (tasks: Array<Record<string, unknown>>) => Promise<void>;
         onSessionUpdate: () => Promise<void>;
+        onProgress?: (items: ActionItemState[]) => void;
     },
 ): Promise<AmbientResult> {
     const result = await apiService.aiParse({
@@ -30,69 +82,69 @@ export async function analyzeAmbientChunk(
         return { status: 'no_action' };
     }
 
-    // Split actions by type
-    const taskActions: ProposedAction[] = [];
-    const automatedActions: ProposedAction[] = [];
-    for (const action of result.actions) {
+    // Build the action items list — all start as pending
+    const items: ActionItemState[] = result.actions.map(a => ({
+        label: actionLabel(a),
+        status: 'pending' as const,
+    }));
+
+    // Report initial pending state
+    callbacks.onProgress?.(structuredClone(items));
+
+    let anyAutoExecuted = false;
+    let anyExecuted = false;
+    let anySkipped = false;
+
+    for (let i = 0; i < result.actions.length; i++) {
+        const action = result.actions[i];
+
         if (action.type === 'create_human_task') {
-            taskActions.push(action);
+            // Handle task creation
+            if (callbacks.onCreateHumanTasks) {
+                try {
+                    await callbacks.onCreateHumanTasks([action.data as Record<string, unknown>]);
+                    items[i] = { ...items[i], status: 'done' };
+                    anyExecuted = true;
+                } catch (e) {
+                    items[i] = { ...items[i], status: 'error', detail: e instanceof Error ? e.message : 'Failed' };
+                    anySkipped = true;
+                }
+            } else {
+                items[i] = { ...items[i], status: 'skipped', detail: 'No task handler' };
+                anySkipped = true;
+            }
         } else {
-            automatedActions.push(action);
+            // Execute automated action
+            try {
+                const outcome = await executeAction(action);
+                if (outcome.executed) {
+                    items[i] = { ...items[i], status: 'done' };
+                    anyExecuted = true;
+                    anyAutoExecuted = true;
+                } else {
+                    items[i] = { ...items[i], status: 'skipped', detail: outcome.label };
+                    anySkipped = true;
+                }
+            } catch (e) {
+                items[i] = { ...items[i], status: 'error', detail: e instanceof Error ? e.message : 'Failed' };
+                anySkipped = true;
+            }
         }
-    }
 
-    // Execute automated actions and collect outcomes
-    const outcomes: ActionOutcome[] = [];
-    for (const action of automatedActions) {
-        outcomes.push(await executeAction(action));
-    }
-
-    const executed = outcomes.filter(o => o.executed).length;
-    const skipped = outcomes.filter(o => !o.executed);
-
-    // Create human tasks
-    let tasksCreated = 0;
-    if (taskActions.length > 0 && callbacks.onCreateHumanTasks) {
-        await callbacks.onCreateHumanTasks(taskActions.map(a => a.data as Record<string, unknown>));
-        tasksCreated = taskActions.length;
+        // Report progress after each action
+        callbacks.onProgress?.(structuredClone(items));
     }
 
     // Refresh session data if any automated actions executed
-    if (executed > 0) {
+    if (anyAutoExecuted) {
         await callbacks.onSessionUpdate();
     }
 
-    // Build summary
-    const total = executed + tasksCreated;
-    const parts: string[] = [];
-    if (executed > 0) {
-        const labels = outcomes.filter(o => o.executed).map(o => o.label);
-        parts.push(labels.join(', '));
+    if (!anyExecuted && anySkipped) {
+        return { status: 'partial' };
     }
-    if (tasksCreated > 0) {
-        parts.push(`${tasksCreated} task${tasksCreated > 1 ? 's' : ''} created`);
+    if (anySkipped) {
+        return { status: 'partial' };
     }
-    if (skipped.length > 0) {
-        const reasons = skipped.map(o => o.label);
-        parts.push(reasons.join('; '));
-    }
-
-    if (total === 0 && skipped.length > 0) {
-        return {
-            status: 'partial',
-            summary: skipped.map(o => o.label).join('; '),
-        };
-    }
-
-    if (skipped.length > 0 && total > 0) {
-        return {
-            status: 'partial',
-            summary: parts.join(' · '),
-        };
-    }
-
-    return {
-        status: 'created',
-        summary: parts.join(' · '),
-    };
+    return { status: 'created' };
 }
