@@ -15,7 +15,7 @@ vi.mock('../actionExecutor', () => ({
 }));
 
 // --- Helpers ---
-const dummyContext = { hasActiveSession: false };
+const dummyContext = { hasActiveSession: false, trimmerProfiles: [] as { id: string; name: string }[], existingEntries: [] as { id: string; harvestName: string; strain: string; status: string }[] };
 const makeCallbacks = () => ({
     onCreateHumanTasks: vi.fn().mockResolvedValue(undefined),
     onSessionUpdate: vi.fn().mockResolvedValue(undefined),
