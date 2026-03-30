@@ -26,6 +26,7 @@ interface TranscriptEntry {
     text: string;
     timestamp: Date;
     status: 'processing' | 'created' | 'partial' | 'no_action' | 'error';
+    actions?: ActionItem[];
 }
 
 interface ActiveActionGroup {
@@ -168,13 +169,14 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
                 onCreateHumanTasks,
                 onSessionUpdate,
                 onProgress: (items: ActionItemState[]) => {
+                    const mapped = items.map(i => ({ label: i.label, status: i.status, detail: i.detail }));
+                    // Update both transcript entry and tasks tab group
+                    setTranscriptEntries(prev =>
+                        prev.map(e => e.id === entryId ? { ...e, actions: mapped } : e)
+                    );
                     setActiveActionGroups(prev => {
+                        const group: ActiveActionGroup = { id: groupId, timestamp: new Date(), items: mapped };
                         const exists = prev.find(g => g.id === groupId);
-                        const group: ActiveActionGroup = {
-                            id: groupId,
-                            timestamp: new Date(),
-                            items: items.map(i => ({ label: i.label, status: i.status, detail: i.detail })),
-                        };
                         return exists
                             ? prev.map(g => g.id === groupId ? group : g)
                             : [...prev, group];
@@ -605,30 +607,45 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
                                                 </span>
                                                 <p className="text-sm text-gray-700 flex-1">"{entry.text}"</p>
                                             </div>
-                                            <div className="ml-12 mt-0.5">
-                                                {entry.status === 'processing' && (
+                                            <div className="ml-12 mt-1 flex flex-col gap-0.5">
+                                                {entry.status === 'processing' && !entry.actions?.length && (
                                                     <span className="inline-flex items-center gap-1 text-xs text-amber-600">
                                                         <Loader2 size={10} className="animate-spin" />
                                                         Processing...
                                                     </span>
                                                 )}
-                                                {entry.status === 'created' && (
-                                                    <span className="inline-flex items-center gap-1 text-xs text-emerald-600">
-                                                        <CheckCircle2 size={10} />
-                                                        Done
-                                                    </span>
-                                                )}
-                                                {entry.status === 'partial' && (
-                                                    <span className="inline-flex items-center gap-1 text-xs text-amber-600">
-                                                        <Circle size={10} />
-                                                        Partial
-                                                    </span>
-                                                )}
-                                                {entry.status === 'no_action' && (
+                                                {entry.actions && entry.actions.length > 0 && entry.actions.map((item, idx) => (
+                                                    <div key={idx} className="flex items-center gap-1.5">
+                                                        {item.status === 'pending' && (
+                                                            <Loader2 size={10} className="animate-spin text-amber-500 shrink-0" />
+                                                        )}
+                                                        {item.status === 'done' && (
+                                                            <CheckCircle2 size={10} className="text-emerald-500 shrink-0" />
+                                                        )}
+                                                        {item.status === 'skipped' && (
+                                                            <Circle size={10} className="text-amber-400 shrink-0" />
+                                                        )}
+                                                        {item.status === 'error' && (
+                                                            <Circle size={10} className="text-red-400 shrink-0" />
+                                                        )}
+                                                        <span className={`text-xs ${
+                                                            item.status === 'done' ? 'text-emerald-600' :
+                                                            item.status === 'skipped' ? 'text-amber-600' :
+                                                            item.status === 'error' ? 'text-red-500' :
+                                                            'text-gray-500'
+                                                        }`}>
+                                                            {item.label}
+                                                            {item.detail && item.status !== 'done' && (
+                                                                <span className="text-gray-400"> — {item.detail}</span>
+                                                            )}
+                                                        </span>
+                                                    </div>
+                                                ))}
+                                                {!entry.actions?.length && entry.status === 'no_action' && (
                                                     <span className="text-xs text-gray-400">No action needed</span>
                                                 )}
-                                                {entry.status === 'error' && (
-                                                    <span className="text-xs text-red-400">Failed</span>
+                                                {!entry.actions?.length && entry.status === 'error' && (
+                                                    <span className="text-xs text-red-400">Failed to process</span>
                                                 )}
                                             </div>
                                         </div>
