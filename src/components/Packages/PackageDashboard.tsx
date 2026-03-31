@@ -84,7 +84,7 @@ export const PackageDashboard: React.FC = () => {
         // Search
         if (searchQuery) {
             const q = searchQuery.toLowerCase();
-            const tag = p.packageTag?.toLowerCase() || '';
+            const tag = p.label?.toLowerCase() || '';
             const strain = p.strain?.toLowerCase() || '';
             const loc = p.location?.toLowerCase() || '';
             if (!tag.includes(q) && !strain.includes(q) && !loc.includes(q)) return false;
@@ -109,7 +109,7 @@ export const PackageDashboard: React.FC = () => {
         ? [...filteredPackages].sort((a, b) => {
             let cmp = 0;
             switch (sortField) {
-                case 'tag': cmp = (a.packageTag || '').localeCompare(b.packageTag || ''); break;
+                case 'tag': cmp = (a.label || '').localeCompare(b.label || ''); break;
                 case 'quantity': cmp = a.quantity - b.quantity; break;
                 case 'strain': cmp = (a.strain || '').localeCompare(b.strain || ''); break;
                 case 'type': cmp = a.packageType.localeCompare(b.packageType); break;
@@ -262,4 +262,10 @@ export const PackageDashboard: React.FC = () => {
             )}
         </div>
     );
+};
+;
+};
+;
+};
+;
 };
