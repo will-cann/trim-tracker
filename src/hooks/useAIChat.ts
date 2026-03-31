@@ -76,6 +76,7 @@ interface UseAIChatOptions {
     humanTasks?: Array<{ id: string; title: string; status: string; priority: string; category: string; assignee?: string; location?: string }>;
     plantMapSummary?: Array<{ roomName: string; roomId: string; strains: string[]; plantIds: string[]; entityType: 'plants' | 'plantbatches'; plantHealth: number; contaminants: string[] }>;
     screenContext?: string;
+    onInterceptAction?: (action: ProposedAction) => boolean;
 }
 
 export const useAIChat = ({
@@ -92,6 +93,7 @@ export const useAIChat = ({
     humanTasks,
     plantMapSummary,
     screenContext,
+    onInterceptAction,
 }: UseAIChatOptions) => {
     const [messages, setMessages] = useState<ChatMessage[]>([]);
     const [isLoading, setIsLoading] = useState(false);
@@ -196,10 +198,24 @@ export const useAIChat = ({
                 context: buildContext(),
             });
 
+            // Route interceptable actions (e.g., extraction) to their card
+            const intercepted: ProposedAction[] = [];
+            const remaining: ProposedAction[] = [];
+            for (const action of result.actions) {
+                if (onInterceptAction?.(action)) {
+                    intercepted.push(action);
+                } else {
+                    remaining.push(action);
+                }
+            }
+
             addMessage('assistant', result.message, { actions: result.actions });
 
-            if (result.actions.length > 0) {
-                setPendingActions(result.actions);
+            if (remaining.length > 0) {
+                setPendingActions(remaining);
+            } else if (intercepted.length > 0) {
+                // All actions were intercepted — auto-switch to tasks tab
+                setPendingActions(null);
             }
         } catch (error) {
             const isNetworkError = error instanceof TypeError || (error instanceof Error && error.message.includes('fetch'));
@@ -231,10 +247,22 @@ export const useAIChat = ({
                 context: buildContext(),
             });
 
+            const csvIntercepted: ProposedAction[] = [];
+            const csvRemaining: ProposedAction[] = [];
+            for (const action of result.actions) {
+                if (onInterceptAction?.(action)) {
+                    csvIntercepted.push(action);
+                } else {
+                    csvRemaining.push(action);
+                }
+            }
+
             addMessage('assistant', result.message, { actions: result.actions });
 
-            if (result.actions.length > 0) {
-                setPendingActions(result.actions);
+            if (csvRemaining.length > 0) {
+                setPendingActions(csvRemaining);
+            } else if (csvIntercepted.length > 0) {
+                setPendingActions(null);
             }
         } catch (error) {
             addMessage('assistant', 'I couldn\'t parse that CSV. Here are a few tips:\n\n' +

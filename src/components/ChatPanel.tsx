@@ -161,6 +161,9 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
     const handleInterceptAction = useCallback((action: ProposedAction): boolean => {
         if (action.type !== 'record_extraction') return false;
 
+        // Auto-switch to tasks tab to show the card
+        setActiveTab('tasks');
+
         const d = action.data;
         setExtractionRunCards(prev => {
             // Find matching card by strain
@@ -435,7 +438,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
         confirmActions,
         cancelActions,
         editAction,
-    } = useAIChat({ session, trimmerProfiles, harvests, onSessionUpdate, screenContext });
+    } = useAIChat({ session, trimmerProfiles, harvests, onSessionUpdate, screenContext, onInterceptAction: handleInterceptAction });
 
     // Auto-scroll chat
     useEffect(() => {
