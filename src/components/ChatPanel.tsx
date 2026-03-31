@@ -262,6 +262,15 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
         setExtractionRunCards(prev => prev.filter(c => c.id !== cardId));
     }, []);
 
+    const handleExtractionCardUpdate = useCallback((cardId: string, updates: Partial<ExtractionRunCardData>) => {
+        setExtractionRunCards(prev => prev.map(c => {
+            if (c.id !== cardId) return c;
+            const updated = { ...c, ...updates };
+            if (isCardReady(updated) && updated.status === 'filling') updated.status = 'ready';
+            return updated;
+        }));
+    }, []);
+
     const analyzeAmbientChunk = useCallback(async (text: string) => {
         if (!text.trim()) return;
 
@@ -464,7 +473,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
                         <img src={logo} alt="AI" className="w-5 h-5 object-contain" />
                     </div>
                     <div className="flex-1">
-                        <h3 className="text-sm font-semibold text-gray-800">neurocann</h3>
+                        <h3 className="text-sm font-bold" style={{ fontFamily: 'Lato, sans-serif' }}><span className="text-emerald-500">neuro</span><span className="text-gray-900">cann</span></h3>
                         <p className="text-xs text-gray-500">Say what happened. I'll update the records.</p>
                     </div>
                     <button
@@ -654,6 +663,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
                                             card={card}
                                             onSubmit={handleExtractionSubmit}
                                             onDismiss={handleExtractionDismiss}
+                                            onUpdateCard={handleExtractionCardUpdate}
                                         />
                                     ))}
                                 </div>

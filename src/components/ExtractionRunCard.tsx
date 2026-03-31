@@ -1,5 +1,7 @@
-import React, { useState, useEffect } from 'react';
-import { CheckCircle2, Circle, X, Loader2, ArrowRight, Snowflake, Droplets, Flame, Package, Send } from 'lucide-react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { CheckCircle2, Circle, X, Loader2, ArrowRight, Snowflake, Droplets, Flame, Package, Send, ChevronDown } from 'lucide-react';
+import { apiService } from '../services/apiService';
+import type { Package as PackageType } from '../types/definitions';
 
 export interface ExtractionRunCardData {
     id: string;
@@ -45,22 +47,50 @@ const FIELDS: FieldDef[] = [
     { key: 'inputPackageType', label: 'Input Type', required: true, format: v => TYPE_LABELS[v] || v },
     { key: 'inputQuantity', label: 'Input Qty', required: true, format: v => `${Number(v).toLocaleString()}g` },
     { key: 'outputPackageType', label: 'Output Type', required: true, format: v => TYPE_LABELS[v] || v },
-    { key: 'outputQuantity', label: 'Output Qty', required: false, format: v => `${Number(v).toLocaleString()}g` },
+    { key: 'outputQuantity', label: 'Output Qty', required: true, format: v => `${Number(v).toLocaleString()}g` },
     { key: 'licenseNumber', label: 'License', required: false },
 ];
 
 export function isCardReady(card: ExtractionRunCardData): boolean {
-    return !!(card.strain && card.inputPackageType && card.inputQuantity && card.outputPackageType);
+    return !!(card.strain && card.inputPackageType && card.inputQuantity && card.outputPackageType && card.outputQuantity);
 }
 
 interface ExtractionRunCardProps {
     card: ExtractionRunCardData;
     onSubmit: (id: string) => void;
     onDismiss: (id: string) => void;
+    onUpdateCard: (id: string, updates: Partial<ExtractionRunCardData>) => void;
 }
 
-export const ExtractionRunCard: React.FC<ExtractionRunCardProps> = ({ card, onSubmit, onDismiss }) => {
+export const ExtractionRunCard: React.FC<ExtractionRunCardProps> = ({ card, onSubmit, onDismiss, onUpdateCard }) => {
     const [highlightField, setHighlightField] = useState<string | null>(null);
+    const [sourcePackages, setSourcePackages] = useState<PackageType[]>([]);
+    const [loadingPackages, setLoadingPackages] = useState(false);
+
+    // Load matching source packages when input type + strain are known
+    const loadSourcePackages = useCallback(async () => {
+        if (!card.inputPackageType || !card.strain) return;
+        setLoadingPackages(true);
+        try {
+            const allPkgs = await apiService.getPackages();
+            const matching = allPkgs.filter(p =>
+                p.packageType === card.inputPackageType &&
+                p.strain.toLowerCase() === card.strain!.toLowerCase() &&
+                p.status === 'active' &&
+                p.quantity > 0
+            );
+            setSourcePackages(matching);
+            // Auto-select if only one match
+            if (matching.length === 1 && !card.sourcePackageId) {
+                onUpdateCard(card.id, { sourcePackageId: matching[0].id });
+            }
+        } catch { /* silent */ }
+        setLoadingPackages(false);
+    }, [card.inputPackageType, card.strain, card.id, card.sourcePackageId, onUpdateCard]);
+
+    useEffect(() => {
+        loadSourcePackages();
+    }, [loadSourcePackages]);
 
     // Flash highlight when a field updates
     useEffect(() => {
@@ -187,6 +217,66 @@ export const ExtractionRunCard: React.FC<ExtractionRunCardProps> = ({ card, onSu
                         </div>
                     );
                 })}
+
+                {/* Source package picker */}
+                {card.inputPackageType && card.strain && sourcePackages.length > 0 && (
+                    <div style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px',
+                        padding: '6px 4px',
+                        marginTop: '2px',
+                        borderTop: '1px solid #F0F0F0',
+                    }}>
+                        {card.sourcePackageId ? (
+                            <CheckCircle2 size={14} style={{ color: '#3BB570', flexShrink: 0 }} />
+                        ) : (
+                            <Circle size={14} style={{ color: '#C0C0C0', flexShrink: 0 }} />
+                        )}
+                        <span style={{ fontSize: '12px', fontWeight: 500, color: '#6B6B6B', width: '80px', flexShrink: 0 }}>
+                            Source Pkg
+                        </span>
+                        {loadingPackages ? (
+                            <Loader2 size={12} className="animate-spin" style={{ color: '#C0C0C0' }} />
+                        ) : (
+                            <div style={{ position: 'relative', flex: 1 }}>
+                                <select
+                                    value={card.sourcePackageId || ''}
+                                    onChange={(e) => onUpdateCard(card.id, { sourcePackageId: e.target.value || null })}
+                                    style={{
+                                        width: '100%',
+                                        fontSize: '12px',
+                                        fontWeight: 500,
+                                        color: card.sourcePackageId ? '#2D2D2D' : '#ABABAB',
+                                        padding: '4px 8px',
+                                        paddingRight: '24px',
+                                        borderRadius: '6px',
+                                        border: '1px solid #E5E5E5',
+                                        background: 'white',
+                                        fontFamily: 'inherit',
+                                        appearance: 'none',
+                                        cursor: 'pointer',
+                                    }}
+                                >
+                                    <option value="">Select source...</option>
+                                    {sourcePackages.map(p => (
+                                        <option key={p.id} value={p.id}>
+                                            {p.label} — {p.quantity.toLocaleString()}g
+                                        </option>
+                                    ))}
+                                </select>
+                                <ChevronDown size={12} style={{
+                                    position: 'absolute',
+                                    right: '8px',
+                                    top: '50%',
+                                    transform: 'translateY(-50%)',
+                                    color: '#C0C0C0',
+                                    pointerEvents: 'none',
+                                }} />
+                            </div>
+                        )}
+                    </div>
+                )}
 
                 {/* Yield percentage */}
                 {yieldPct && (
