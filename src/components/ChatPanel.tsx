@@ -339,6 +339,18 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
 
     // Track the live transcript entry ID so we can update it as words arrive
     const liveEntryIdRef = useRef<string | null>(null);
+    const silenceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const SILENCE_FLUSH_MS = 4000; // Flush after 4s of silence
+
+    const flushAmbientTranscript = useCallback(() => {
+        if (ambientTranscriptRef.current.trim()) {
+            const text = ambientTranscriptRef.current;
+            const existingEntryId = liveEntryIdRef.current;
+            ambientTranscriptRef.current = '';
+            liveEntryIdRef.current = null;
+            analyzeAmbientChunk(text, existingEntryId || undefined);
+        }
+    }, [analyzeAmbientChunk]);
 
     const handleAmbientTranscript = useCallback((text: string, isFinal: boolean) => {
         if (isFinal) {
@@ -361,18 +373,21 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
                     prev.map(e => e.id === id ? { ...e, text: ambientTranscriptRef.current } : e)
                 );
             }
+
+            // Reset silence timer — flush after SILENCE_FLUSH_MS of no new speech
+            if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
+            silenceTimerRef.current = setTimeout(flushAmbientTranscript, SILENCE_FLUSH_MS);
         }
-    }, []);
+    }, [flushAmbientTranscript]);
 
     const handleAmbientUtteranceEnd = useCallback(() => {
-        if (ambientTranscriptRef.current.trim()) {
-            const text = ambientTranscriptRef.current;
-            const existingEntryId = liveEntryIdRef.current;
-            ambientTranscriptRef.current = '';
-            liveEntryIdRef.current = null;
-            analyzeAmbientChunk(text, existingEntryId || undefined);
+        // Clear the silence timer since VAD fired first
+        if (silenceTimerRef.current) {
+            clearTimeout(silenceTimerRef.current);
+            silenceTimerRef.current = null;
         }
-    }, [analyzeAmbientChunk]);
+        flushAmbientTranscript();
+    }, [flushAmbientTranscript]);
 
     const {
         isListening: ambientListening,
@@ -386,11 +401,12 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
 
     const handleAmbientToggle = useCallback(async () => {
         if (ambientListening) {
-            // Flush remaining transcript
-            if (ambientTranscriptRef.current.trim()) {
-                analyzeAmbientChunk(ambientTranscriptRef.current);
-                ambientTranscriptRef.current = '';
+            // Clear silence timer and flush remaining transcript
+            if (silenceTimerRef.current) {
+                clearTimeout(silenceTimerRef.current);
+                silenceTimerRef.current = null;
             }
+            flushAmbientTranscript();
             ambientStop();
             setAmbientActive(false);
         } else {
@@ -401,7 +417,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
             setActiveTab('tasks');
             await ambientStart();
         }
-    }, [ambientListening, ambientStart, ambientStop, analyzeAmbientChunk, activeTab]);
+    }, [ambientListening, ambientStart, ambientStop, flushAmbientTranscript, activeTab]);
 
     // --- Chat hook ---
     const {
