@@ -271,16 +271,24 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
         }));
     }, []);
 
-    const analyzeAmbientChunk = useCallback(async (text: string) => {
+    const analyzeAmbientChunk = useCallback(async (text: string, existingEntryId?: string) => {
         if (!text.trim()) return;
 
-        const entryId = crypto.randomUUID();
+        // Reuse existing transcript entry (created live) or make a new one
+        const entryId = existingEntryId || crypto.randomUUID();
         const groupId = entryId;
 
-        // Add transcript entry (background log)
-        setTranscriptEntries(prev => [...prev, {
-            id: entryId, text, timestamp: new Date(), status: 'processing',
-        }]);
+        if (existingEntryId) {
+            // Entry already exists from live transcript — mark as processing
+            setTranscriptEntries(prev =>
+                prev.map(e => e.id === entryId ? { ...e, status: 'processing' as const } : e)
+            );
+        } else {
+            // Fallback: create entry now (e.g., flush on stop)
+            setTranscriptEntries(prev => [...prev, {
+                id: entryId, text, timestamp: new Date(), status: 'processing',
+            }]);
+        }
 
         try {
             const { status } = await analyzeChunk(text, buildAmbientContext(), {
@@ -321,19 +329,40 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
         }
     }, [buildAmbientContext, onCreateHumanTasks, onSessionUpdate, handleInterceptAction]);
 
+    // Track the live transcript entry ID so we can update it as words arrive
+    const liveEntryIdRef = useRef<string | null>(null);
+
     const handleAmbientTranscript = useCallback((text: string, isFinal: boolean) => {
         if (isFinal) {
             ambientTranscriptRef.current = ambientTranscriptRef.current
                 ? `${ambientTranscriptRef.current} ${text}`
                 : text;
+
+            // Show/update a live transcript entry immediately
+            if (!liveEntryIdRef.current) {
+                liveEntryIdRef.current = crypto.randomUUID();
+                setTranscriptEntries(prev => [...prev, {
+                    id: liveEntryIdRef.current!,
+                    text: ambientTranscriptRef.current,
+                    timestamp: new Date(),
+                    status: 'no_action' as const, // neutral until parsed
+                }]);
+            } else {
+                const id = liveEntryIdRef.current;
+                setTranscriptEntries(prev =>
+                    prev.map(e => e.id === id ? { ...e, text: ambientTranscriptRef.current } : e)
+                );
+            }
         }
     }, []);
 
     const handleAmbientUtteranceEnd = useCallback(() => {
         if (ambientTranscriptRef.current.trim()) {
             const text = ambientTranscriptRef.current;
+            const existingEntryId = liveEntryIdRef.current;
             ambientTranscriptRef.current = '';
-            analyzeAmbientChunk(text);
+            liveEntryIdRef.current = null;
+            analyzeAmbientChunk(text, existingEntryId || undefined);
         }
     }, [analyzeAmbientChunk]);
 
