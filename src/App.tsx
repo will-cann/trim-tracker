@@ -24,7 +24,7 @@ import { usePlantMapSummary } from './hooks/usePlantMapSummary';
 type ViewType = 'ai' | 'dashboard' | 'reports' | 'harvests' | 'harvest-day' | 'settings' | 'tasks' | 'plant-map' | 'packages';
 
 const VIEW_SCREEN_CONTEXT: Record<ViewType, string> = {
-  'ai': 'AI Assistant home — general conversation, no specific module focused',
+  'ai': 'neurocann home — general conversation, no specific module focused',
   'dashboard': 'Trim Session Dashboard — managing active trim sessions, batches, and trimmer assignments',
   'reports': 'Reports & Analytics — viewing trimmer productivity and session reports',
   'harvests': 'Harvest Tracker — managing harvest records, wet weights, drying locations, and allocations',
