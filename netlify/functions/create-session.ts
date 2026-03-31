@@ -49,16 +49,17 @@ export const handler: Handler = async (event) => {
             // Create initial entry/batch
             const entryResult = await client.query(`
         INSERT INTO trim_entries (
-          session_id, 
-          harvest_name, 
-          license_number, 
-          strain, 
-          start_weight, 
-          status
+          session_id,
+          harvest_name,
+          license_number,
+          strain,
+          start_weight,
+          status,
+          harvest_id
         )
-        VALUES ($1, $2, $3, $4, $5, 'active')
+        VALUES ($1, $2, $3, $4, $5, 'active', $6)
         RETURNING *
-      `, [newSession.id, data.harvestName, data.licenseNumber, data.strain, data.startWeight]);
+      `, [newSession.id, data.harvestName, data.licenseNumber, data.strain, data.startWeight, data.harvestId || null]);
 
             const newEntry = entryResult.rows[0];
 

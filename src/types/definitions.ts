@@ -59,6 +59,7 @@ export interface CreateTrimSessionDTO {
   status?: 'active' | 'upcoming';
   plannedTrimDate?: string;
   plannedMethod?: 'machine' | 'scissors';
+  harvestId?: string;
 }
 
 // ============================================================================

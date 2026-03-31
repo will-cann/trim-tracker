@@ -17,7 +17,7 @@ export const handler: Handler = async (event) => {
             };
         }
 
-        const { sessionId, harvestName, licenseNumber, strain, startWeight, status, plannedTrimDate, plannedMethod } = JSON.parse(event.body || '{}');
+        const { sessionId, harvestName, licenseNumber, strain, startWeight, status, plannedTrimDate, plannedMethod, harvestId } = JSON.parse(event.body || '{}');
 
         if (!sessionId || !harvestName) {
             return {
@@ -37,24 +37,26 @@ export const handler: Handler = async (event) => {
 
         const { rows: [newEntry] } = await sql`
       INSERT INTO trim_entries (
-        session_id, 
-        harvest_name, 
-        license_number, 
-        strain, 
-        start_weight, 
+        session_id,
+        harvest_name,
+        license_number,
+        strain,
+        start_weight,
         status,
         planned_trim_date,
-        planned_method
+        planned_method,
+        harvest_id
       )
       VALUES (
-        ${sessionId}, 
-        ${harvestName}, 
-        ${licenseNumber}, 
-        ${strain}, 
-        ${startWeight}, 
+        ${sessionId},
+        ${harvestName},
+        ${licenseNumber},
+        ${strain},
+        ${startWeight},
         ${status || 'active'},
         ${plannedTrimDate || null},
-        ${plannedMethod || null}
+        ${plannedMethod || null},
+        ${harvestId || null}
       )
       RETURNING *
     `;

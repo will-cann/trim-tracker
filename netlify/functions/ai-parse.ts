@@ -1248,21 +1248,25 @@ export const handler: Handler = async (event) => {
                         });
                         break;
                     }
-                    case 'create_planting':
+                    case 'create_planting': {
+                        const batchType = input.batchType || 'clone';
+                        // New plantings always start as nursery batches (clones/seeds)
+                        const plantingType = batchType === 'clone' || batchType === 'seed' || batchType === 'tissue_culture' ? 'batch' : (input.type || 'batch');
                         actions.push({
                             type: 'create_planting',
                             data: {
-                                plantingType: input.type,
+                                plantingType,
                                 strainName: input.strainName,
                                 roomName: input.roomName,
                                 count: input.count,
-                                batchType: input.batchType || 'clone',
+                                batchType,
                                 batchName: input.batchName || '',
                                 growthPhase: input.growthPhase || 'vegetative',
                                 labelPrefix: input.labelPrefix || '',
                             },
                         });
                         break;
+                    }
                     case 'move_plants':
                         actions.push({
                             type: 'move_plants',

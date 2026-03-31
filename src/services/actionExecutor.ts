@@ -196,7 +196,8 @@ export async function executeAction(action: ProposedAction): Promise<ActionOutco
             if (!strain) return SKIPPED('strain not found');
             if (!room) return SKIPPED('room not found');
 
-            if (action.data.plantingType === 'batch') {
+            // All new plantings start as nursery batches — force batch mode
+            if (action.data.plantingType === 'batch' || action.data.batchType === 'clone' || action.data.batchType === 'seed' || action.data.batchType === 'tissue_culture') {
                 const batchName = action.data.batchName || `${strain.name}-${action.data.batchType || 'Clone'}-${new Date().toISOString().slice(0, 10)}`;
                 await apiService.createPlanting({
                     type: 'batch',
