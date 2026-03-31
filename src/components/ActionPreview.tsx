@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Package, Plus, UserPlus, User, Loader2, Check, X, Sprout, Scale, ArrowRightLeft, Trash2, MapPin, CheckCircle2, XCircle, ChevronDown, Scissors, ClipboardList, Send, UserMinus, RefreshCw, Pencil, Leaf, MoveRight, TrendingUp, Skull, KeyRound, Tag, Upload, LayoutGrid } from 'lucide-react';
+import { Package, Plus, UserPlus, User, Loader2, Check, X, Sprout, Scale, ArrowRightLeft, Trash2, MapPin, CheckCircle2, XCircle, ChevronDown, Scissors, ClipboardList, Send, UserMinus, RefreshCw, Pencil, Leaf, MoveRight, TrendingUp, Skull, KeyRound, Tag, Upload, LayoutGrid, ArrowRight, Percent, Snowflake, Flame, Droplets } from 'lucide-react';
 import type { ProposedAction } from '../types/definitions';
 
 interface ActionPreviewProps {
@@ -132,7 +132,7 @@ const FIELD_LABELS: Record<string, string> = {
     outputLabel: 'Output Label',
 };
 
-const HIDDEN_FIELDS = new Set(['entryId', 'profileId', 'harvestId', 'taskId', 'onCompleteAction', 'sourcePackageId']);
+const HIDDEN_FIELDS = new Set(['entryId', 'profileId', 'harvestId', 'taskId', 'onCompleteAction', 'sourcePackageId', 'sourcePackageLabel']);
 
 /** Key fields shown inline per action type — everything else is behind expand */
 const KEY_FIELDS: Record<string, string[]> = {
@@ -373,6 +373,233 @@ function FieldRow({
     );
 }
 
+const PACKAGE_TYPE_LABELS: Record<string, string> = {
+    fresh_frozen: 'Fresh Frozen',
+    bubble_hash: 'Bubble Hash',
+    rosin: 'Rosin',
+    rosin_cart: 'Rosin Carts',
+};
+
+const PACKAGE_TYPE_ICONS: Record<string, typeof Snowflake> = {
+    fresh_frozen: Snowflake,
+    bubble_hash: Droplets,
+    rosin: Flame,
+    rosin_cart: Package,
+};
+
+function ExtractionExpandedView({
+    data,
+    isReadonly,
+    isExecuting,
+    onFieldChange,
+}: {
+    data: Record<string, any>;
+    isReadonly: boolean;
+    isExecuting?: boolean;
+    onFieldChange: (field: string, value: any) => void;
+}) {
+    const [showSecondary, setShowSecondary] = useState(false);
+
+    const inputLabel = PACKAGE_TYPE_LABELS[data.inputPackageType] || data.inputPackageType;
+    const outputLabel = PACKAGE_TYPE_LABELS[data.outputPackageType] || data.outputPackageType;
+    const InputIcon = PACKAGE_TYPE_ICONS[data.inputPackageType] || Package;
+    const OutputIcon = PACKAGE_TYPE_ICONS[data.outputPackageType] || Package;
+
+    const yieldPct = data.inputQuantity && data.outputQuantity
+        ? ((data.outputQuantity / data.inputQuantity) * 100).toFixed(1)
+        : null;
+
+    return (
+        <div style={{ padding: '10px 12px 8px' }}>
+            {/* Strain */}
+            <div style={{ fontSize: '13px', fontWeight: 600, color: '#2D2D2D', marginBottom: '10px' }}>
+                {data.strain}
+            </div>
+
+            {/* Flow visualization */}
+            <div style={{
+                display: 'flex',
+                alignItems: 'stretch',
+                gap: '0',
+                background: '#F8F8F8',
+                borderRadius: '10px',
+                overflow: 'hidden',
+            }}>
+                {/* Input side */}
+                <div style={{
+                    flex: 1,
+                    padding: '10px 12px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    gap: '4px',
+                }}>
+                    <InputIcon size={16} style={{ color: '#959595' }} />
+                    <span style={{ fontSize: '11px', color: '#959595', fontWeight: 500 }}>
+                        {inputLabel}
+                    </span>
+                    {isReadonly ? (
+                        <span style={{ fontSize: '16px', fontWeight: 700, color: '#2D2D2D' }}>
+                            {data.inputQuantity ? `${Number(data.inputQuantity).toLocaleString()}g` : '—'}
+                        </span>
+                    ) : (
+                        <div style={{ display: 'flex', alignItems: 'baseline', gap: '2px' }}>
+                            <input
+                                type="number"
+                                value={data.inputQuantity ?? ''}
+                                onChange={(e) => onFieldChange('inputQuantity', parseFloat(e.target.value) || 0)}
+                                disabled={isExecuting}
+                                style={{
+                                    width: '80px',
+                                    fontSize: '16px',
+                                    fontWeight: 700,
+                                    color: '#2D2D2D',
+                                    textAlign: 'center',
+                                    border: '1px solid #E5E5E5',
+                                    borderRadius: '6px',
+                                    padding: '2px 4px',
+                                    background: 'white',
+                                    fontFamily: 'inherit',
+                                }}
+                            />
+                            <span style={{ fontSize: '12px', color: '#959595' }}>g</span>
+                        </div>
+                    )}
+                </div>
+
+                {/* Arrow */}
+                <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    padding: '0 4px',
+                }}>
+                    <ArrowRight size={18} style={{ color: '#C0C0C0' }} />
+                </div>
+
+                {/* Output side */}
+                <div style={{
+                    flex: 1,
+                    padding: '10px 12px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    gap: '4px',
+                    background: data.outputQuantity ? 'rgba(59, 181, 112, 0.06)' : 'transparent',
+                }}>
+                    <OutputIcon size={16} style={{ color: data.outputQuantity ? '#3BB570' : '#959595' }} />
+                    <span style={{ fontSize: '11px', color: data.outputQuantity ? '#3BB570' : '#959595', fontWeight: 500 }}>
+                        {outputLabel}
+                    </span>
+                    {isReadonly ? (
+                        <span style={{
+                            fontSize: '16px',
+                            fontWeight: 700,
+                            color: data.outputQuantity ? '#3BB570' : '#959595',
+                        }}>
+                            {data.outputQuantity ? `${Number(data.outputQuantity).toLocaleString()}g` : 'Pending'}
+                        </span>
+                    ) : (
+                        <div style={{ display: 'flex', alignItems: 'baseline', gap: '2px' }}>
+                            <input
+                                type="number"
+                                value={data.outputQuantity ?? ''}
+                                onChange={(e) => onFieldChange('outputQuantity', parseFloat(e.target.value) || 0)}
+                                disabled={isExecuting}
+                                placeholder="—"
+                                style={{
+                                    width: '80px',
+                                    fontSize: '16px',
+                                    fontWeight: 700,
+                                    color: '#3BB570',
+                                    textAlign: 'center',
+                                    border: '1px solid #E5E5E5',
+                                    borderRadius: '6px',
+                                    padding: '2px 4px',
+                                    background: 'white',
+                                    fontFamily: 'inherit',
+                                }}
+                            />
+                            <span style={{ fontSize: '12px', color: '#959595' }}>g</span>
+                        </div>
+                    )}
+                </div>
+            </div>
+
+            {/* Yield badge */}
+            {yieldPct && (
+                <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '4px',
+                    marginTop: '8px',
+                }}>
+                    <Percent size={11} style={{ color: '#FA9E52' }} />
+                    <span style={{ fontSize: '12px', fontWeight: 600, color: '#FA9E52' }}>
+                        {yieldPct}% yield
+                    </span>
+                </div>
+            )}
+
+            {/* Output label */}
+            {data.outputLabel && (
+                <div style={{
+                    marginTop: '8px',
+                    fontSize: '11px',
+                    color: '#959595',
+                    textAlign: 'center',
+                }}>
+                    Label: <span style={{ color: '#6B6B6B' }}>{data.outputLabel}</span>
+                </div>
+            )}
+
+            {/* Secondary fields toggle */}
+            {!isReadonly && (
+                <>
+                    <button
+                        type="button"
+                        onClick={() => setShowSecondary(!showSecondary)}
+                        style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            gap: '4px',
+                            width: '100%',
+                            marginTop: '8px',
+                            padding: '4px 0',
+                            fontSize: '11px',
+                            color: '#ABABAB',
+                            background: 'none',
+                            border: 'none',
+                            borderTop: '1px solid #F0F0F0',
+                            cursor: 'pointer',
+                            fontFamily: 'inherit',
+                        }}
+                    >
+                        <ChevronDown size={11} style={{
+                            transform: showSecondary ? 'rotate(180deg)' : 'none',
+                            transition: 'transform 0.15s',
+                        }} />
+                        {showSecondary ? 'Less' : 'Details'}
+                    </button>
+                    {showSecondary && (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', paddingTop: '6px' }}>
+                            <FieldRow fieldKey="outputLabel" value={data.outputLabel} isReadonly={isReadonly} isExecuting={isExecuting}
+                                onChange={(v) => onFieldChange('outputLabel', v)} />
+                            <FieldRow fieldKey="licenseNumber" value={data.licenseNumber} isReadonly={isReadonly} isExecuting={isExecuting}
+                                onChange={(v) => onFieldChange('licenseNumber', v)} />
+                            <FieldRow fieldKey="wasteWeight" value={data.wasteWeight} isReadonly={isReadonly} isExecuting={isExecuting}
+                                onChange={(v) => onFieldChange('wasteWeight', v)} />
+                            <FieldRow fieldKey="notes" value={data.notes} isReadonly={isReadonly} isExecuting={isExecuting}
+                                onChange={(v) => onFieldChange('notes', v)} />
+                        </div>
+                    )}
+                </>
+            )}
+        </div>
+    );
+}
+
 function ActionItem({
     action,
     index,
@@ -428,36 +655,20 @@ function ActionItem({
                 )}
             </div>
 
-            {/* Key fields — always visible */}
-            {keyFields.length > 0 && (
-                <div className="px-3 py-2 space-y-1.5">
-                    {keyFields.map(([key, value]) => (
-                        <FieldRow
-                            key={key}
-                            fieldKey={key}
-                            value={value}
-                            isExecuting={isExecuting}
-                            isReadonly={isReadonly}
-                            onChange={(newVal) => onEditAction?.(index, { [key]: newVal })}
-                        />
-                    ))}
-                </div>
-            )}
-
-            {/* Secondary fields — behind expand */}
-            {hasSecondary && !isReadonly && (
+            {/* Custom extraction view */}
+            {action.type === 'record_extraction' ? (
+                <ExtractionExpandedView
+                    data={action.data}
+                    isReadonly={isReadonly}
+                    isExecuting={isExecuting}
+                    onFieldChange={(field, value) => onEditAction?.(index, { [field]: value })}
+                />
+            ) : (
                 <>
-                    <button
-                        type="button"
-                        onClick={() => setExpanded(!expanded)}
-                        className="w-full flex items-center justify-center gap-1 py-1.5 text-xs text-gray-400 hover:text-gray-600 border-t border-gray-100 transition-colors"
-                    >
-                        <ChevronDown size={12} className={`transition-transform ${expanded ? 'rotate-180' : ''}`} />
-                        {expanded ? 'Less' : `${secondaryFields.length} more`}
-                    </button>
-                    {expanded && (
-                        <div className="px-3 pb-2 space-y-1.5">
-                            {secondaryFields.map(([key, value]) => (
+                    {/* Key fields — always visible */}
+                    {keyFields.length > 0 && (
+                        <div className="px-3 py-2 space-y-1.5">
+                            {keyFields.map(([key, value]) => (
                                 <FieldRow
                                     key={key}
                                     fieldKey={key}
@@ -467,21 +678,49 @@ function ActionItem({
                                     onChange={(newVal) => onEditAction?.(index, { [key]: newVal })}
                                 />
                             ))}
-                            {action.data.onCompleteAction && (
-                                <div className="flex items-start gap-2 mt-1 pt-1.5 border-t border-gray-100">
-                                    <span className="text-xs text-gray-500 w-28 flex-shrink-0 text-right">On Complete</span>
-                                    <span className="text-xs px-2 py-1 rounded-md" style={{ background: 'var(--primary-light)', color: 'var(--primary-dark)' }}>
-                                        {(action.data.onCompleteAction as any).type?.replace(/_/g, ' ')}
-                                        {' — '}
-                                        {Object.entries((action.data.onCompleteAction as any).data || {})
-                                            .filter(([, v]) => v && typeof v !== 'object')
-                                            .slice(0, 3)
-                                            .map(([, v]) => String(v))
-                                            .join(', ')}
-                                    </span>
+                        </div>
+                    )}
+
+                    {/* Secondary fields — behind expand */}
+                    {hasSecondary && !isReadonly && (
+                        <>
+                            <button
+                                type="button"
+                                onClick={() => setExpanded(!expanded)}
+                                className="w-full flex items-center justify-center gap-1 py-1.5 text-xs text-gray-400 hover:text-gray-600 border-t border-gray-100 transition-colors"
+                            >
+                                <ChevronDown size={12} className={`transition-transform ${expanded ? 'rotate-180' : ''}`} />
+                                {expanded ? 'Less' : `${secondaryFields.length} more`}
+                            </button>
+                            {expanded && (
+                                <div className="px-3 pb-2 space-y-1.5">
+                                    {secondaryFields.map(([key, value]) => (
+                                        <FieldRow
+                                            key={key}
+                                            fieldKey={key}
+                                            value={value}
+                                            isExecuting={isExecuting}
+                                            isReadonly={isReadonly}
+                                            onChange={(newVal) => onEditAction?.(index, { [key]: newVal })}
+                                        />
+                                    ))}
+                                    {action.data.onCompleteAction && (
+                                        <div className="flex items-start gap-2 mt-1 pt-1.5 border-t border-gray-100">
+                                            <span className="text-xs text-gray-500 w-28 flex-shrink-0 text-right">On Complete</span>
+                                            <span className="text-xs px-2 py-1 rounded-md" style={{ background: 'var(--primary-light)', color: 'var(--primary-dark)' }}>
+                                                {(action.data.onCompleteAction as any).type?.replace(/_/g, ' ')}
+                                                {' — '}
+                                                {Object.entries((action.data.onCompleteAction as any).data || {})
+                                                    .filter(([, v]) => v && typeof v !== 'object')
+                                                    .slice(0, 3)
+                                                    .map(([, v]) => String(v))
+                                                    .join(', ')}
+                                            </span>
+                                        </div>
+                                    )}
                                 </div>
                             )}
-                        </div>
+                        </>
                     )}
                 </>
             )}
