@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
-import type { TrimEntry, Trimmer, TrimmerProfile } from '../types/definitions';
+import type { TrimEntry, Trimmer, TrimmerProfile, CreatePackageDTO } from '../types/definitions';
 import { TrimmerList } from './TrimmerList';
 import { StackedProgressBar, buildSegments } from './StackedProgressBar';
-import { ChevronDown, Pencil, Check, X, Trash2, CheckCircle, Clock, Undo2 } from 'lucide-react';
+import { ChevronDown, Pencil, Check, X, Trash2, CheckCircle, Clock, Undo2, PackagePlus } from 'lucide-react';
 import { DeleteConfirmationModal } from './DeleteConfirmationModal';
+import { CreatePackageModal } from './Packages/CreatePackageModal';
 import { calculateDuration, formatDuration } from '../utils/timeUtils';
 
 interface TrimCardProps {
@@ -17,6 +18,7 @@ interface TrimCardProps {
     onSubmitBatch?: (entryId: string) => void;
     onStartBatch?: (entryId: string) => void;
     onRevertBatch?: (entryId: string) => void;
+    onCreatePackage?: (data: CreatePackageDTO) => Promise<void>;
     trimmerProfiles: TrimmerProfile[];
 }
 
@@ -30,6 +32,7 @@ export const TrimCard: React.FC<TrimCardProps> = ({
     onSubmitBatch,
     onStartBatch,
     onRevertBatch,
+    onCreatePackage,
     trimmerProfiles
 }) => {
     const cardRef = React.useRef<HTMLDivElement>(null);
@@ -38,6 +41,7 @@ export const TrimCard: React.FC<TrimCardProps> = ({
     const [editStrainValue, setEditStrainValue] = useState(entry.strain || '');
     const [isStatusHovered, setIsStatusHovered] = useState(false);
     const [validationError, setValidationError] = useState<string | null>(null);
+    const [showPackageModal, setShowPackageModal] = useState(false);
 
     const toggleExpand = () => setIsExpanded(!isExpanded);
 
@@ -338,10 +342,42 @@ export const TrimCard: React.FC<TrimCardProps> = ({
                                     readOnly={entry.status === 'submitted'}
                                 />
                             </div>
+                            {entry.status === 'submitted' && onCreatePackage && (
+                                <div className="pt-3 mt-3 border-t border-gray-200">
+                                    <button
+                                        className="btn-start-batch"
+                                        onClick={() => setShowPackageModal(true)}
+                                    >
+                                        <PackagePlus size={14} className="mr-1" />
+                                        Create Packages
+                                    </button>
+                                </div>
+                            )}
                         </div>
                     </div>
                 )}
             </div>
+
+            {showPackageModal && onCreatePackage && (
+                <CreatePackageModal
+                    onClose={() => setShowPackageModal(false)}
+                    onSubmit={async (data) => {
+                        if (Array.isArray(data)) {
+                            for (const d of data) await onCreatePackage(d);
+                        } else {
+                            await onCreatePackage(data);
+                        }
+                        setShowPackageModal(false);
+                    }}
+                    prefill={{
+                        strain: entry.strain,
+                        licenseNumber: entry.licenseNumber,
+                        flowerWeight: entry.flowerWeight,
+                        trimWeight: entry.trimWeight,
+                        shakeWeight: entry.shakeWeight,
+                    }}
+                />
+            )}
 
             {showDeleteModal && (
                 <DeleteConfirmationModal

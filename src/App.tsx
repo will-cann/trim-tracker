@@ -390,6 +390,7 @@ function AppContent() {
               const updatedSession = await apiService.revertBatch(entryId);
               setSession({ ...updatedSession });
             }}
+            onCreatePackage={async (data) => { await apiService.createPackage(data); }}
             trimmerProfiles={trimmerProfiles}
           />
         )}

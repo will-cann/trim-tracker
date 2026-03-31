@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { ChevronDown, Trash2, Snowflake, Flower2, ArrowRightLeft, Scissors, Clock, Plus, Scale } from 'lucide-react';
-import type { Harvest, HarvestWasteType } from '../../types/definitions';
+import { ChevronDown, Trash2, Snowflake, Flower2, ArrowRightLeft, Scissors, Clock, Plus, Scale, PackagePlus } from 'lucide-react';
+import type { Harvest, HarvestWasteType, CreatePackageDTO } from '../../types/definitions';
 import { WasteEntryForm } from './WasteEntryForm';
 import { RecordWeightModal } from './RecordWeightModal';
 import { AllocateModal } from './AllocateModal';
 import { DeleteConfirmationModal } from '../DeleteConfirmationModal';
+import { CreatePackageModal } from '../Packages/CreatePackageModal';
 
 interface HarvestCardProps {
     harvest: Harvest;
@@ -14,6 +15,7 @@ interface HarvestCardProps {
     onConvertToTrim: (allocationId: string) => void;
     onDelete: (harvestId: string) => void;
     onUpdate: (harvestId: string, updates: Record<string, any>) => void;
+    onCreatePackage?: (data: CreatePackageDTO) => Promise<void>;
 }
 
 const STATUS_CLASS: Record<string, string> = {
@@ -42,11 +44,14 @@ export const HarvestCard: React.FC<HarvestCardProps> = ({
     onConvertToTrim,
     onDelete,
     onUpdate,
+    onCreatePackage,
 }) => {
     const [isExpanded, setIsExpanded] = useState(false);
     const [showWeightModal, setShowWeightModal] = useState(false);
     const [showAllocateModal, setShowAllocateModal] = useState(false);
     const [showDeleteModal, setShowDeleteModal] = useState(false);
+    const [showPackageModal, setShowPackageModal] = useState(false);
+    const [packagePrefill, setPackagePrefill] = useState<{ strain?: string; licenseNumber?: string; harvestId?: string; flowerWeight?: number } | null>(null);
     const [, setTick] = useState(0);
     const cardRef = useRef<HTMLDivElement>(null);
 
@@ -269,6 +274,23 @@ export const HarvestCard: React.FC<HarvestCardProps> = ({
                                                     Send to Trim
                                                 </button>
                                             )}
+                                            {alloc.allocationType === 'frozen' && onCreatePackage && (
+                                                <button
+                                                    className="btn-start-batch"
+                                                    onClick={() => {
+                                                        setPackagePrefill({
+                                                            strain: harvest.strain,
+                                                            licenseNumber: harvest.licenseNumber,
+                                                            harvestId: harvest.id,
+                                                            flowerWeight: alloc.targetWeight,
+                                                        });
+                                                        setShowPackageModal(true);
+                                                    }}
+                                                >
+                                                    <PackagePlus size={12} className="mr-1" />
+                                                    Package
+                                                </button>
+                                            )}
                                         </div>
                                     </div>
                                 ))}
@@ -340,6 +362,21 @@ export const HarvestCard: React.FC<HarvestCardProps> = ({
                         setShowDeleteModal(false);
                     }}
                     onCancel={() => setShowDeleteModal(false)}
+                />
+            )}
+            {showPackageModal && onCreatePackage && packagePrefill && (
+                <CreatePackageModal
+                    onClose={() => { setShowPackageModal(false); setPackagePrefill(null); }}
+                    onSubmit={async (data) => {
+                        if (Array.isArray(data)) {
+                            for (const d of data) await onCreatePackage(d);
+                        } else {
+                            await onCreatePackage(data);
+                        }
+                        setShowPackageModal(false);
+                        setPackagePrefill(null);
+                    }}
+                    prefill={packagePrefill}
                 />
             )}
         </>

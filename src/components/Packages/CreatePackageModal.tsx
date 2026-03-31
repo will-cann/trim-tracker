@@ -37,12 +37,14 @@ export const CreatePackageModal: React.FC<CreatePackageModalProps> = ({ onClose,
 
     const [strains, setStrains] = useState<Strain[]>([]);
     const [licenses, setLicenses] = useState<License[]>([]);
+    const [rooms, setRooms] = useState<Array<{ id: string; name: string }>>([]);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
         Promise.all([
             apiService.getStrains().then(setStrains),
             apiService.getMyLicenses().then(setLicenses),
+            apiService.getRooms().then(setRooms),
         ]).finally(() => setLoading(false));
     }, []);
 
@@ -214,13 +216,16 @@ export const CreatePackageModal: React.FC<CreatePackageModalProps> = ({ onClose,
                     <div className="field-row">
                         <div className="field">
                             <label className="field-label">Location</label>
-                            <input
-                                type="text"
+                            <select
                                 className="field-input"
                                 value={location}
                                 onChange={e => setLocation(e.target.value)}
-                                placeholder="Storage Room A"
-                            />
+                            >
+                                <option value="">Select room...</option>
+                                {rooms.map(r => (
+                                    <option key={r.id} value={r.name}>{r.name}</option>
+                                ))}
+                            </select>
                         </div>
                     </div>
 

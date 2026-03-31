@@ -8,8 +8,11 @@ import { CostMetricsRow } from './CostMetricsRow';
 import { getReportsData, shiftWeek, formatDateRange, type ReportsData, type DateRange } from '../../services/reportsData';
 import { ChevronLeft, ChevronRight, MoreVertical, ChevronUp, BarChart3 } from 'lucide-react';
 import { PageSkeleton } from '../Skeleton';
+import { useAuth } from '../../contexts/authContext';
 
 export const ReportsDashboard: React.FC = () => {
+    const { user } = useAuth();
+    const isExecutive = user?.role === 'admin' || user?.role === 'owner';
     const [data, setData] = useState<ReportsData | null>(null);
     const [loading, setLoading] = useState(true);
     const [customWage, setCustomWage] = useState<number>(15);
@@ -140,13 +143,15 @@ export const ReportsDashboard: React.FC = () => {
                 />
             </div>
 
-            {/* Cost Calculator Section */}
-            <CostMetricsRow
-                hourlyWage={customWage}
-                estimatedLaborCost={estimatedLaborCost}
-                avgLaborCostPerLb={avgLaborCostPerLb}
-                onUpdateWage={setCustomWage}
-            />
+            {/* Cost Calculator Section — executive only */}
+            {isExecutive && (
+                <CostMetricsRow
+                    hourlyWage={customWage}
+                    estimatedLaborCost={estimatedLaborCost}
+                    avgLaborCostPerLb={avgLaborCostPerLb}
+                    onUpdateWage={setCustomWage}
+                />
+            )}
 
             {/* Charts Section */}
             <div className="space-y-8">
@@ -172,7 +177,7 @@ export const ReportsDashboard: React.FC = () => {
 
                 <TrimmerStatsTable data={data.trimmerStats} />
 
-                <CostRatioChart data={data.costRatio} />
+                {isExecutive && <CostRatioChart data={data.costRatio} />}
 
                 <TrimmerPerformanceChart data={data.trimmerPerformance} trimmerStats={data.trimmerStats} />
             </div>

@@ -1,6 +1,6 @@
 import React from 'react';
 import { Package } from 'lucide-react';
-import type { TrimEntry, TrimmerProfile } from '../types/definitions';
+import type { TrimEntry, TrimmerProfile, CreatePackageDTO } from '../types/definitions';
 import { TrimCard } from './TrimCard';
 
 interface EntryListProps {
@@ -14,6 +14,7 @@ interface EntryListProps {
     onSubmitBatch?: (entryId: string) => void;
     onStartBatch?: (entryId: string) => void;
     onRevertBatch?: (entryId: string) => void;
+    onCreatePackage?: (data: CreatePackageDTO) => Promise<void>;
     trimmerProfiles: TrimmerProfile[];
 }
 
@@ -28,6 +29,7 @@ export const EntryList: React.FC<EntryListProps> = ({
     onSubmitBatch,
     onStartBatch,
     onRevertBatch,
+    onCreatePackage,
     trimmerProfiles
 }) => {
     return (
@@ -46,6 +48,7 @@ export const EntryList: React.FC<EntryListProps> = ({
                         onSubmitBatch={onSubmitBatch}
                         onStartBatch={onStartBatch}
                         onRevertBatch={onRevertBatch}
+                        onCreatePackage={onCreatePackage}
                         trimmerProfiles={trimmerProfiles}
                     />
                 ))}

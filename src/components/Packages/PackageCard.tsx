@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { ChevronDown, Trash2, Pause, Play, CheckCircle, MapPin, Tag, FlaskConical } from 'lucide-react';
-import type { Package } from '../../types/definitions';
+import { ChevronDown, Trash2, Pause, Play, CheckCircle, MapPin, Tag, FlaskConical, Pencil, X, Save } from 'lucide-react';
+import type { Package, LabTestingState } from '../../types/definitions';
+import { apiService } from '../../services/apiService';
 import { DeleteConfirmationModal } from '../DeleteConfirmationModal';
 
 interface PackageCardProps {
@@ -44,14 +45,114 @@ const LAB_CLASS: Record<string, string> = {
     failed: 'text-red-500',
 };
 
+const LAB_OPTIONS: { value: LabTestingState; label: string }[] = [
+    { value: 'not_submitted', label: 'Not Submitted' },
+    { value: 'submitted', label: 'Submitted' },
+    { value: 'passed', label: 'Passed' },
+    { value: 'failed', label: 'Failed' },
+];
+
+interface EditFields {
+    quantity: number;
+    wasteWeight: number;
+    location: string;
+    labTestingState: LabTestingState;
+    itemName: string;
+    notes: string;
+}
+
 export const PackageCard: React.FC<PackageCardProps> = ({ pkg, onUpdate, onDelete }) => {
     const [isExpanded, setIsExpanded] = useState(false);
     const [showDeleteModal, setShowDeleteModal] = useState(false);
+    const [isEditing, setIsEditing] = useState(false);
+    const [saving, setSaving] = useState(false);
+    const [error, setError] = useState<string | null>(null);
+    const [localFields, setLocalFields] = useState<EditFields>({
+        quantity: pkg.quantity,
+        wasteWeight: pkg.wasteWeight,
+        location: pkg.location || '',
+        labTestingState: pkg.labTestingState,
+        itemName: pkg.itemName || '',
+        notes: pkg.notes || '',
+    });
+
+    const [rooms, setRooms] = useState<Array<{ id: string; name: string }>>([]);
+
+    const isEditable = pkg.status === 'active' || pkg.status === 'on_hold';
+
+    const enterEditMode = async () => {
+        if (rooms.length === 0) {
+            try {
+                const r = await apiService.getRooms();
+                setRooms(r);
+            } catch { /* rooms will be empty, location falls back to text */ }
+        }
+        setLocalFields({
+            quantity: pkg.quantity,
+            wasteWeight: pkg.wasteWeight,
+            location: pkg.location || '',
+            labTestingState: pkg.labTestingState,
+            itemName: pkg.itemName || '',
+            notes: pkg.notes || '',
+        });
+        setError(null);
+        setIsEditing(true);
+    };
+
+    const cancelEdit = () => {
+        setIsEditing(false);
+        setError(null);
+    };
+
+    const handleCollapse = () => {
+        if (isEditing) cancelEdit();
+        setIsExpanded(false);
+    };
+
+    const handleSave = async () => {
+        if (localFields.quantity <= 0) {
+            setError('Quantity must be greater than 0');
+            return;
+        }
+        if (localFields.wasteWeight < 0) {
+            setError('Waste weight cannot be negative');
+            return;
+        }
+
+        setSaving(true);
+        setError(null);
+        try {
+            const updates: Record<string, any> = {};
+            if (localFields.quantity !== pkg.quantity) updates.quantity = localFields.quantity;
+            if (localFields.wasteWeight !== pkg.wasteWeight) updates.wasteWeight = localFields.wasteWeight;
+            if ((localFields.location || '') !== (pkg.location || '')) updates.location = localFields.location || null;
+            if (localFields.labTestingState !== pkg.labTestingState) updates.labTestingState = localFields.labTestingState;
+            if ((localFields.itemName || '') !== (pkg.itemName || '')) updates.itemName = localFields.itemName || null;
+            if ((localFields.notes || '') !== (pkg.notes || '')) updates.notes = localFields.notes || null;
+
+            if (Object.keys(updates).length > 0) {
+                await onUpdate(pkg.id, updates);
+            }
+            setIsEditing(false);
+        } catch {
+            setError('Save failed — try again');
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    const updateField = <K extends keyof EditFields>(field: K, value: EditFields[K]) => {
+        setLocalFields(prev => ({ ...prev, [field]: value }));
+    };
+
+    const netWeight = isEditing
+        ? localFields.quantity - localFields.wasteWeight
+        : pkg.quantity - pkg.wasteWeight;
 
     return (
         <>
             <div className={`trim-card ${isExpanded ? 'expanded' : ''}`}>
-                <div className="trim-card-header" onClick={() => setIsExpanded(!isExpanded)}>
+                <div className="trim-card-header" onClick={() => isExpanded ? handleCollapse() : setIsExpanded(true)}>
                     <div className="trim-card-top">
                         <div className="trim-card-title">
                             <div className="title-with-badge">
@@ -82,6 +183,15 @@ export const PackageCard: React.FC<PackageCardProps> = ({ pkg, onUpdate, onDelet
                             </div>
                         </div>
                         <div className="flex items-center gap-2">
+                            {isExpanded && isEditable && !isEditing && (
+                                <button
+                                    className="icon-btn"
+                                    onClick={(e) => { e.stopPropagation(); enterEditMode(); }}
+                                    title="Edit package"
+                                >
+                                    <Pencil size={16} />
+                                </button>
+                            )}
                             <div className="expand-icon">
                                 <ChevronDown size={24} />
                             </div>
@@ -120,21 +230,63 @@ export const PackageCard: React.FC<PackageCardProps> = ({ pkg, onUpdate, onDelet
                 {/* Expanded content */}
                 {isExpanded && (
                     <div className="trim-card-body" onClick={e => e.stopPropagation()}>
+                        {/* Quantity / Waste / Net */}
                         <div className="trim-card-summary border-b border-gray-200 pb-3 mb-3">
-                            <div className="summary-item">
-                                <span className="label">Quantity</span>
-                                <span className="value text-lg">{pkg.quantity.toFixed(1)}g</span>
-                            </div>
-                            <div className="summary-item">
-                                <span className="label">Waste</span>
-                                <span className="value text-lg text-red-500">{pkg.wasteWeight.toFixed(1)}g</span>
-                            </div>
-                            <div className="summary-item">
-                                <span className="label">Net</span>
-                                <span className="value text-lg text-emerald-500">
-                                    {(pkg.quantity - pkg.wasteWeight).toFixed(1)}g
-                                </span>
-                            </div>
+                            {isEditing ? (
+                                <>
+                                    <div className="summary-item">
+                                        <span className="label">Quantity</span>
+                                        <div className="field-input-wrap" style={{ maxWidth: 120 }}>
+                                            <input
+                                                type="number"
+                                                className="field-input"
+                                                value={localFields.quantity}
+                                                onChange={e => updateField('quantity', Number(e.target.value))}
+                                                min="0.1"
+                                                step="0.1"
+                                            />
+                                            <span className="field-input-unit">g</span>
+                                        </div>
+                                    </div>
+                                    <div className="summary-item">
+                                        <span className="label">Waste</span>
+                                        <div className="field-input-wrap" style={{ maxWidth: 120 }}>
+                                            <input
+                                                type="number"
+                                                className="field-input"
+                                                value={localFields.wasteWeight}
+                                                onChange={e => updateField('wasteWeight', Number(e.target.value))}
+                                                min="0"
+                                                step="0.1"
+                                            />
+                                            <span className="field-input-unit">g</span>
+                                        </div>
+                                    </div>
+                                    <div className="summary-item">
+                                        <span className="label">Net</span>
+                                        <span className={`value text-lg ${netWeight >= 0 ? 'text-emerald-500' : 'text-red-500'}`}>
+                                            {netWeight.toFixed(1)}g
+                                        </span>
+                                    </div>
+                                </>
+                            ) : (
+                                <>
+                                    <div className="summary-item">
+                                        <span className="label">Quantity</span>
+                                        <span className="value text-lg">{pkg.quantity.toFixed(1)}g</span>
+                                    </div>
+                                    <div className="summary-item">
+                                        <span className="label">Waste</span>
+                                        <span className="value text-lg text-red-500">{pkg.wasteWeight.toFixed(1)}g</span>
+                                    </div>
+                                    <div className="summary-item">
+                                        <span className="label">Net</span>
+                                        <span className="value text-lg text-emerald-500">
+                                            {(pkg.quantity - pkg.wasteWeight).toFixed(1)}g
+                                        </span>
+                                    </div>
+                                </>
+                            )}
                         </div>
 
                         {/* Details */}
@@ -145,29 +297,96 @@ export const PackageCard: React.FC<PackageCardProps> = ({ pkg, onUpdate, onDelet
                                     <span className="font-medium">Tag:</span> {pkg.tagNumber}
                                 </div>
                             )}
-                            {pkg.location && (
+
+                            {/* Location */}
+                            {isEditing ? (
+                                <div className="flex items-center gap-2 text-sm">
+                                    <MapPin size={14} className="text-gray-400 shrink-0" />
+                                    <span className="font-medium shrink-0">Location:</span>
+                                    <select
+                                        className="field-input text-sm flex-1"
+                                        value={localFields.location}
+                                        onChange={e => updateField('location', e.target.value)}
+                                    >
+                                        <option value="">Select room...</option>
+                                        {rooms.map(r => (
+                                            <option key={r.id} value={r.name}>{r.name}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                            ) : pkg.location ? (
                                 <div className="flex items-center gap-2 text-sm text-gray-600">
                                     <MapPin size={14} className="text-gray-400" />
                                     <span className="font-medium">Location:</span> {pkg.location}
                                 </div>
+                            ) : null}
+
+                            {/* Lab Testing State */}
+                            {isEditing ? (
+                                <div className="flex items-start gap-2 text-sm">
+                                    <FlaskConical size={14} className="text-gray-400 mt-1 shrink-0" />
+                                    <div>
+                                        <span className="font-medium">Lab Testing:</span>
+                                        <div className="chip-group mt-1">
+                                            {LAB_OPTIONS.map(opt => (
+                                                <button
+                                                    key={opt.value}
+                                                    type="button"
+                                                    onClick={() => updateField('labTestingState', opt.value)}
+                                                    className={`chip ${localFields.labTestingState === opt.value ? 'chip-active' : ''}`}
+                                                >
+                                                    {opt.label}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
+                                </div>
+                            ) : (
+                                <div className="flex items-center gap-2 text-sm text-gray-600">
+                                    <FlaskConical size={14} className={LAB_CLASS[pkg.labTestingState]} />
+                                    <span className="font-medium">Lab Testing:</span>
+                                    <span className={LAB_CLASS[pkg.labTestingState]}>
+                                        {LAB_LABEL[pkg.labTestingState]}
+                                    </span>
+                                </div>
                             )}
-                            <div className="flex items-center gap-2 text-sm text-gray-600">
-                                <FlaskConical size={14} className={LAB_CLASS[pkg.labTestingState]} />
-                                <span className="font-medium">Lab Testing:</span>
-                                <span className={LAB_CLASS[pkg.labTestingState]}>
-                                    {LAB_LABEL[pkg.labTestingState]}
-                                </span>
-                            </div>
-                            {pkg.itemName && (
+
+                            {/* Item Name */}
+                            {isEditing ? (
+                                <div className="flex items-center gap-2 text-sm">
+                                    <span className="font-medium shrink-0">Item:</span>
+                                    <input
+                                        type="text"
+                                        className="field-input text-sm flex-1"
+                                        value={localFields.itemName}
+                                        onChange={e => updateField('itemName', e.target.value)}
+                                        placeholder="Enter item name"
+                                    />
+                                </div>
+                            ) : pkg.itemName ? (
                                 <div className="text-sm text-gray-600">
                                     <span className="font-medium">Item:</span> {pkg.itemName}
                                 </div>
-                            )}
-                            {pkg.notes && (
+                            ) : null}
+
+                            {/* Notes */}
+                            {isEditing ? (
+                                <div className="text-sm">
+                                    <span className="font-medium text-gray-600">Notes:</span>
+                                    <textarea
+                                        className="field-input text-sm w-full mt-1"
+                                        rows={2}
+                                        value={localFields.notes}
+                                        onChange={e => updateField('notes', e.target.value)}
+                                        placeholder="Add notes..."
+                                    />
+                                </div>
+                            ) : pkg.notes ? (
                                 <div className="text-sm text-gray-500 mt-2 italic">
                                     {pkg.notes}
                                 </div>
-                            )}
+                            ) : null}
+
                             <div className="text-xs text-gray-400 mt-2">
                                 Packaged: {new Date(pkg.packagedDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
                                 {pkg.finishedDate && (
@@ -176,8 +395,37 @@ export const PackageCard: React.FC<PackageCardProps> = ({ pkg, onUpdate, onDelet
                             </div>
                         </div>
 
-                        {/* Actions */}
-                        {pkg.status !== 'archived' && (
+                        {/* Error banner */}
+                        {error && (
+                            <div className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2 mb-3">
+                                {error}
+                            </div>
+                        )}
+
+                        {/* Edit mode Save/Cancel */}
+                        {isEditing && (
+                            <div className="flex gap-2 pt-3 border-t border-gray-200 mb-2">
+                                <button
+                                    className="btn-start-batch"
+                                    onClick={handleSave}
+                                    disabled={saving}
+                                >
+                                    <Save size={12} className="mr-1" />
+                                    {saving ? 'Saving...' : 'Save'}
+                                </button>
+                                <button
+                                    className="btn-cancel"
+                                    onClick={cancelEdit}
+                                    disabled={saving}
+                                >
+                                    <X size={12} className="mr-1" />
+                                    Cancel
+                                </button>
+                            </div>
+                        )}
+
+                        {/* Status Actions */}
+                        {!isEditing && pkg.status !== 'archived' && (
                             <div className="flex gap-2 flex-wrap pt-3 border-t border-gray-200">
                                 {pkg.status === 'active' && (
                                     <>

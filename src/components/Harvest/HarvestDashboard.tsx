@@ -78,6 +78,10 @@ export const HarvestDashboard: React.FC<HarvestDashboardProps> = ({ onStartHarve
         await loadHarvests();
     };
 
+    const handleCreatePackage = async (data: Parameters<typeof apiService.createPackage>[0]) => {
+        await apiService.createPackage(data);
+    };
+
     // Summary stats (only for non-completed)
     const activeHarvests = harvests.filter(h => h.status !== 'completed');
     const activeCount = activeHarvests.length;
@@ -211,6 +215,7 @@ export const HarvestDashboard: React.FC<HarvestDashboardProps> = ({ onStartHarve
                             onConvertToTrim={handleConvertToTrim}
                             onDelete={handleDelete}
                             onUpdate={handleUpdate}
+                            onCreatePackage={handleCreatePackage}
                         />
                     ))}
                 </div>
