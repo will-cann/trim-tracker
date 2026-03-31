@@ -4,12 +4,13 @@ import {
     Package, FlaskConical, Warehouse, Truck, SprayCan, GraduationCap,
     Scissors, Sprout, Leaf, Circle, Trash2,
     CheckCircle2, PlayCircle, CalendarClock, Zap, ArrowRight,
-    MapPin, User, Search, MoreHorizontal, RotateCcw, Pencil, X, Check, SlidersHorizontal,
+    MapPin, User, MoreHorizontal, RotateCcw, Pencil, X, Check,
     ArrowUp, ArrowDown, ChevronsUpDown,
 } from 'lucide-react';
 import type { HumanTask, HumanTaskStatus, HumanTaskCategory, HumanTaskPriority } from '../types/definitions';
 import { executeAction } from '../services/actionExecutor';
-import { Modal, Button } from './ui';
+import { Modal, Button, FilterToolbar } from './ui';
+import type { FilterDef, SortOption } from './ui';
 
 export interface TeamMember {
     id: string;
@@ -62,12 +63,6 @@ const PRIORITY_CONFIG: Record<HumanTaskPriority, { label: string; color: string;
     urgent: { label: 'Urgent', color: 'text-red-600', dot: 'bg-red-500' },
 };
 
-const STATUS_OPTIONS: { value: HumanTaskStatus | 'all'; label: string }[] = [
-    { value: 'all', label: 'All' },
-    { value: 'pending', label: 'To Do' },
-    { value: 'in_progress', label: 'In Progress' },
-    { value: 'completed', label: 'Done' },
-];
 
 function formatDueDate(iso: string): string {
     const date = new Date(iso);
@@ -703,13 +698,95 @@ export const TasksPanel = ({
     const [searchQuery, setSearchQuery] = useState('');
     const [expandedId, setExpandedId] = useState<string | null>(null);
     const [editingId, setEditingId] = useState<string | null>(null);
-    const [showFilters, setShowFilters] = useState(false);
     const [pendingComplete, setPendingComplete] = useState<HumanTask | null>(null);
     const [executingAction, setExecutingAction] = useState(false);
     const [sortField, setSortField] = useState<SortField | null>(null);
     const [sortDir, setSortDir] = useState<SortDir>('asc');
     const activeCategories = [...new Set(tasks.map(t => t.category))];
-    const hasActiveFilters = filters.status !== 'all' || filters.category !== 'all' || filters.priority !== 'all' || filters.assignees !== 'all';
+
+    // Build FilterToolbar definitions
+    const statusFilterDef: FilterDef = {
+        key: 'status',
+        label: 'Status',
+        multi: true,
+        options: [
+            { value: 'pending', label: 'To Do', dot: 'bg-gray-300' },
+            { value: 'in_progress', label: 'In Progress', dot: 'bg-[#1C9EFF]' },
+            { value: 'completed', label: 'Done', dot: 'bg-[#3BB570]' },
+        ],
+    };
+
+    const categoryFilterDef: FilterDef = {
+        key: 'category',
+        label: 'Category',
+        options: activeCategories.map(key => ({
+            value: key,
+            label: CATEGORY_CONFIG[key].label,
+        })),
+    };
+
+    const priorityFilterDef: FilterDef = {
+        key: 'priority',
+        label: 'Priority',
+        options: [
+            { value: 'urgent', label: 'Urgent', dot: 'bg-[#DF5B59]' },
+            { value: 'high', label: 'High', dot: 'bg-[#FA9E52]' },
+            { value: 'medium', label: 'Medium', dot: 'bg-[#1C9EFF]' },
+            { value: 'low', label: 'Low', dot: 'bg-gray-300' },
+        ],
+    };
+
+    const assigneeFilterDef: FilterDef = {
+        key: 'assignees',
+        label: 'Assignee',
+        multi: true,
+        options: teamMembers.map(m => ({ value: m.name, label: m.name })),
+    };
+
+    const taskFilterDefs: FilterDef[] = [
+        statusFilterDef,
+        ...(teamMembers.length > 0 ? [assigneeFilterDef] : []),
+        categoryFilterDef,
+        priorityFilterDef,
+    ];
+
+    const taskSortOptions: SortOption[] = [
+        { value: 'title', label: 'Title' },
+        { value: 'assignee', label: 'Assignee' },
+        { value: 'dueDate', label: 'Due date' },
+        { value: 'priority', label: 'Priority' },
+        { value: 'category', label: 'Category' },
+        { value: 'status', label: 'Status' },
+    ];
+
+    // Convert filters state → activeFilters record for toolbar
+    const activeFilterValues: Record<string, string[]> = {
+        status: filters.status === 'all' ? [] : filters.status,
+        category: filters.category === 'all' ? [] : [filters.category],
+        priority: filters.priority === 'all' ? [] : [filters.priority],
+        assignees: filters.assignees === 'all' ? [] : filters.assignees,
+    };
+
+    const handleFilterChange = (key: string, values: string[]) => {
+        if (key === 'status') {
+            onSetFilters({ status: values.length === 0 ? 'all' : values as HumanTaskStatus[] });
+        } else if (key === 'category') {
+            onSetFilters({ category: values.length === 0 ? 'all' : values[0] as HumanTaskCategory });
+        } else if (key === 'priority') {
+            onSetFilters({ priority: values.length === 0 ? 'all' : values[0] as HumanTaskPriority });
+        } else if (key === 'assignees') {
+            onSetFilters({ assignees: values.length === 0 ? 'all' : values });
+        }
+    };
+
+    const handleClearFilters = () => {
+        onSetFilters({ status: 'all', category: 'all', priority: 'all', assignees: 'all' });
+    };
+
+    const handleSortChange = (value: string | null, dir: 'asc' | 'desc') => {
+        setSortField(value as SortField | null);
+        setSortDir(dir);
+    };
 
     const toggleSort = (field: SortField) => {
         if (sortField === field) {
@@ -829,144 +906,21 @@ export const TasksPanel = ({
                 </div>
             )}
 
-            {/* Search + Filter toggle */}
-            <div className="px-6 py-3 flex items-center gap-2 border-b border-gray-100">
-                <div className="relative flex-1 min-w-[180px] max-w-md">
-                    <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-300" />
-                    <input
-                        type="text"
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                        placeholder="Search tasks..."
-                        className="w-full pl-9 pr-3 py-2 text-sm border border-gray-200 rounded-lg bg-white placeholder-gray-300 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-400 transition-colors"
-                    />
-                </div>
-
-                <div className="relative">
-                    <button
-                        onClick={() => setShowFilters(!showFilters)}
-                        className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium border transition-colors ${
-                            hasActiveFilters
-                                ? 'border-emerald-300 bg-emerald-50 text-emerald-700'
-                                : 'border-gray-200 text-gray-500 hover:border-gray-300'
-                        }`}
-                    >
-                        <SlidersHorizontal size={14} />
-                        Filter
-                        {hasActiveFilters && (
-                            <span className="ml-0.5 w-4 h-4 rounded-full bg-emerald-500 text-white text-[10px] flex items-center justify-center font-bold">
-                                {(filters.status !== 'all' ? 1 : 0) + (filters.category !== 'all' ? 1 : 0) + (filters.priority !== 'all' ? 1 : 0) + (filters.assignees !== 'all' ? 1 : 0)}
-                            </span>
-                        )}
-                    </button>
-
-                    {showFilters && (
-                        <>
-                            <div className="fixed inset-0 z-20" onClick={() => setShowFilters(false)} />
-                            <div className="absolute right-0 top-10 z-30 bg-white rounded-lg shadow-lg border border-gray-200 p-4 w-72 space-y-3">
-                                <div className="flex items-center justify-between">
-                                    <span className="text-xs font-semibold text-gray-700 uppercase tracking-wider">Filters</span>
-                                    {hasActiveFilters && (
-                                        <button
-                                            onClick={() => { onSetFilters({ status: 'all', category: 'all', priority: 'all', assignees: 'all' }); setShowFilters(false); }}
-                                            className="text-[11px] text-emerald-600 hover:text-emerald-700 font-medium"
-                                        >
-                                            Clear all
-                                        </button>
-                                    )}
-                                </div>
-
-                                {/* Status — multi-select checkboxes */}
-                                <div>
-                                    <label className="block text-[11px] font-medium text-gray-500 mb-1.5">Status</label>
-                                    <div className="space-y-1">
-                                        {STATUS_OPTIONS.filter(o => o.value !== 'all').map(o => {
-                                            const selected = filters.status === 'all' || filters.status.includes(o.value as HumanTaskStatus);
-                                            const toggle = () => {
-                                                if (filters.status === 'all') {
-                                                    // Switching from "all" → select only this one
-                                                    onSetFilters({ status: [o.value as HumanTaskStatus] });
-                                                } else {
-                                                    const arr = filters.status as HumanTaskStatus[];
-                                                    if (arr.includes(o.value as HumanTaskStatus)) {
-                                                        const next = arr.filter(s => s !== o.value);
-                                                        onSetFilters({ status: next.length === 0 ? 'all' : next });
-                                                    } else {
-                                                        const next = [...arr, o.value as HumanTaskStatus];
-                                                        if (next.length === STATUS_OPTIONS.length - 1) onSetFilters({ status: 'all' });
-                                                        else onSetFilters({ status: next });
-                                                    }
-                                                }
-                                            };
-                                            return (
-                                                <label key={o.value} className="flex items-center gap-2 px-2 py-1 rounded hover:bg-gray-50 cursor-pointer">
-                                                    <input type="checkbox" checked={selected} onChange={toggle}
-                                                        className="rounded border-gray-300 text-emerald-500 focus:ring-emerald-500/30 h-3.5 w-3.5" />
-                                                    <span className="text-sm text-gray-700">{o.label}</span>
-                                                </label>
-                                            );
-                                        })}
-                                    </div>
-                                </div>
-
-                                {/* Assignee — multi-select checkboxes */}
-                                {teamMembers.length > 0 && (
-                                    <div>
-                                        <label className="block text-[11px] font-medium text-gray-500 mb-1.5">Assignee</label>
-                                        <div className="space-y-1 max-h-40 overflow-y-auto">
-                                            {teamMembers.map(m => {
-                                                const selected = filters.assignees === 'all' || filters.assignees.includes(m.name);
-                                                const toggle = () => {
-                                                    if (filters.assignees === 'all') {
-                                                        onSetFilters({ assignees: [m.name] });
-                                                    } else {
-                                                        const arr = filters.assignees as string[];
-                                                        if (arr.includes(m.name)) {
-                                                            const next = arr.filter(n => n !== m.name);
-                                                            onSetFilters({ assignees: next.length === 0 ? 'all' : next });
-                                                        } else {
-                                                            const next = [...arr, m.name];
-                                                            if (next.length === teamMembers.length) onSetFilters({ assignees: 'all' });
-                                                            else onSetFilters({ assignees: next });
-                                                        }
-                                                    }
-                                                };
-                                                return (
-                                                    <label key={m.id} className="flex items-center gap-2 px-2 py-1 rounded hover:bg-gray-50 cursor-pointer">
-                                                        <input type="checkbox" checked={selected} onChange={toggle}
-                                                            className="rounded border-gray-300 text-emerald-500 focus:ring-emerald-500/30 h-3.5 w-3.5" />
-                                                        <span className="text-sm text-gray-700">{m.name}</span>
-                                                    </label>
-                                                );
-                                            })}
-                                        </div>
-                                    </div>
-                                )}
-
-                                <div>
-                                    <label className="block text-[11px] font-medium text-gray-500 mb-1">Category</label>
-                                    <select value={filters.category} onChange={(e) => onSetFilters({ category: e.target.value as HumanTaskCategory | 'all' })}
-                                        className="w-full text-sm border border-gray-200 rounded-md px-2.5 py-1.5 bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-400">
-                                        <option value="all">All Categories</option>
-                                        {activeCategories.map(key => <option key={key} value={key}>{CATEGORY_CONFIG[key].label}</option>)}
-                                    </select>
-                                </div>
-
-                                <div>
-                                    <label className="block text-[11px] font-medium text-gray-500 mb-1">Priority</label>
-                                    <select value={filters.priority} onChange={(e) => onSetFilters({ priority: e.target.value as HumanTaskPriority | 'all' })}
-                                        className="w-full text-sm border border-gray-200 rounded-md px-2.5 py-1.5 bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-400">
-                                        <option value="all">All Priorities</option>
-                                        <option value="urgent">Urgent</option>
-                                        <option value="high">High</option>
-                                        <option value="medium">Medium</option>
-                                        <option value="low">Low</option>
-                                    </select>
-                                </div>
-                            </div>
-                        </>
-                    )}
-                </div>
+            {/* Search + Filters + Sort */}
+            <div className="px-6 py-3 border-b border-gray-100">
+                <FilterToolbar
+                    search={searchQuery}
+                    onSearchChange={setSearchQuery}
+                    searchPlaceholder="Search tasks..."
+                    filters={taskFilterDefs}
+                    activeFilters={activeFilterValues}
+                    onFilterChange={handleFilterChange}
+                    onClearFilters={handleClearFilters}
+                    sortOptions={taskSortOptions}
+                    activeSort={sortField}
+                    sortDir={sortDir}
+                    onSortChange={handleSortChange}
+                />
             </div>
 
             {/* Table */}

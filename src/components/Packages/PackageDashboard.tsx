@@ -5,27 +5,17 @@ import { apiService } from '../../services/apiService';
 import { PackageCard } from './PackageCard';
 import { CreatePackageModal } from './CreatePackageModal';
 import { CardsSkeleton } from '../Skeleton';
-
-type TabKey = 'all' | PkgType | 'on_hold' | 'finished';
-
-const TABS: { key: TabKey; label: string }[] = [
-    { key: 'all', label: 'All' },
-    { key: 'flower', label: 'Flower' },
-    { key: 'trim', label: 'Trim' },
-    { key: 'shake', label: 'Shake' },
-    { key: 'fresh_frozen', label: 'Fresh Frozen' },
-    { key: 'bubble_hash', label: 'Bubble Hash' },
-    { key: 'rosin', label: 'Rosin' },
-    { key: 'rosin_cart', label: 'Rosin Carts' },
-    { key: 'on_hold', label: 'On Hold' },
-    { key: 'finished', label: 'Finished' },
-];
+import { FilterToolbar } from '../ui';
+import type { FilterDef, SortOption } from '../ui';
 
 export const PackageDashboard: React.FC = () => {
     const [packages, setPackages] = useState<PackageType[]>([]);
     const [loading, setLoading] = useState(true);
-    const [activeTab, setActiveTab] = useState<TabKey>('all');
     const [showCreateModal, setShowCreateModal] = useState(false);
+    const [searchQuery, setSearchQuery] = useState('');
+    const [activeFilters, setActiveFilters] = useState<Record<string, string[]>>({ type: [], status: [] });
+    const [sortField, setSortField] = useState<string | null>(null);
+    const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
 
     const loadPackages = useCallback(async () => {
         setLoading(true);
@@ -38,15 +28,95 @@ export const PackageDashboard: React.FC = () => {
         loadPackages();
     }, [loadPackages]);
 
-    const PRODUCT_TYPES: TabKey[] = ['flower', 'trim', 'shake', 'fresh_frozen', 'bubble_hash', 'rosin', 'rosin_cart'];
+    const PRODUCT_TYPES: PkgType[] = ['flower', 'trim', 'shake', 'fresh_frozen', 'bubble_hash', 'rosin', 'rosin_cart'];
+    const TYPE_LABELS: Record<PkgType, string> = {
+        flower: 'Flower', trim: 'Trim', shake: 'Shake', fresh_frozen: 'Fresh Frozen',
+        bubble_hash: 'Bubble Hash', rosin: 'Rosin', rosin_cart: 'Rosin Carts',
+    };
 
-    const filteredPackages = (() => {
-        if (activeTab === 'all') return packages.filter(p => p.status !== 'finished' && p.status !== 'archived');
-        if (activeTab === 'on_hold') return packages.filter(p => p.status === 'on_hold');
-        if (activeTab === 'finished') return packages.filter(p => p.status === 'finished');
-        if (PRODUCT_TYPES.includes(activeTab)) return packages.filter(p => p.packageType === activeTab && p.status !== 'archived');
-        return packages;
-    })();
+    // Filter definitions for toolbar
+    const typeFilterDef: FilterDef = {
+        key: 'type',
+        label: 'Type',
+        multi: true,
+        options: PRODUCT_TYPES.filter(t => packages.some(p => p.packageType === t)).map(t => ({
+            value: t,
+            label: TYPE_LABELS[t],
+        })),
+    };
+
+    const statusFilterDef: FilterDef = {
+        key: 'status',
+        label: 'Status',
+        multi: true,
+        options: [
+            { value: 'active', label: 'Active', dot: 'bg-[#3BB570]' },
+            { value: 'on_hold', label: 'On Hold', dot: 'bg-[#FA9E52]' },
+            { value: 'finished', label: 'Finished', dot: 'bg-gray-400' },
+        ],
+    };
+
+    const pkgSortOptions: SortOption[] = [
+        { value: 'tag', label: 'Package tag' },
+        { value: 'quantity', label: 'Weight' },
+        { value: 'strain', label: 'Strain' },
+        { value: 'type', label: 'Type' },
+    ];
+
+    const handleFilterChange = (key: string, values: string[]) => {
+        setActiveFilters(prev => ({ ...prev, [key]: values }));
+    };
+
+    const handleClearFilters = () => {
+        setActiveFilters({ type: [], status: [] });
+    };
+
+    const handleSortChange = (value: string | null, dir: 'asc' | 'desc') => {
+        setSortField(value);
+        setSortDir(dir);
+    };
+
+    // Apply filters
+    const filteredPackages = packages.filter(p => {
+        // Exclude archived always
+        if (p.status === 'archived') return false;
+
+        // Search
+        if (searchQuery) {
+            const q = searchQuery.toLowerCase();
+            const tag = p.packageTag?.toLowerCase() || '';
+            const strain = p.strain?.toLowerCase() || '';
+            const loc = p.location?.toLowerCase() || '';
+            if (!tag.includes(q) && !strain.includes(q) && !loc.includes(q)) return false;
+        }
+
+        // Type filter
+        const typeFilter = activeFilters.type || [];
+        if (typeFilter.length > 0 && !typeFilter.includes(p.packageType)) return false;
+
+        // Status filter
+        const statusFilter = activeFilters.status || [];
+        if (statusFilter.length > 0 && !statusFilter.includes(p.status)) return false;
+
+        // Default: hide finished if no status filter is active
+        if (statusFilter.length === 0 && p.status === 'finished') return false;
+
+        return true;
+    });
+
+    // Apply sort
+    const sortedPackages = sortField
+        ? [...filteredPackages].sort((a, b) => {
+            let cmp = 0;
+            switch (sortField) {
+                case 'tag': cmp = (a.packageTag || '').localeCompare(b.packageTag || ''); break;
+                case 'quantity': cmp = a.quantity - b.quantity; break;
+                case 'strain': cmp = (a.strain || '').localeCompare(b.strain || ''); break;
+                case 'type': cmp = a.packageType.localeCompare(b.packageType); break;
+            }
+            return sortDir === 'desc' ? -cmp : cmp;
+        })
+        : filteredPackages;
 
     const handleCreate = async (data: CreatePackageDTO | CreatePackageDTO[]) => {
         if (Array.isArray(data)) {
@@ -73,12 +143,6 @@ export const PackageDashboard: React.FC = () => {
     const totalActiveWeight = activePackages.reduce((sum, p) => sum + p.quantity, 0);
     const onHoldCount = packages.filter(p => p.status === 'on_hold').length;
     const finishedCount = packages.filter(p => p.status === 'finished').length;
-
-    const tabCounts: Record<string, number> = Object.fromEntries([
-        ...PRODUCT_TYPES.map(t => [t, packages.filter(p => p.packageType === t && p.status !== 'archived').length]),
-        ['on_hold', onHoldCount],
-        ['finished', finishedCount],
-    ]);
 
     return (
         <div className="dashboard">
@@ -124,47 +188,50 @@ export const PackageDashboard: React.FC = () => {
                 </div>
             </div>
 
-            {/* Tabs + New Package button */}
-            <div className="actions-row">
-                <div className="tabs-container">
-                    {TABS.map(tab => (
-                        <button
-                            key={tab.key}
-                            className={`tab-button ${activeTab === tab.key ? 'active' : ''}`}
-                            onClick={() => setActiveTab(tab.key)}
-                        >
-                            {tab.label}
-                            {tab.key !== 'all' && tabCounts[tab.key] ? ` (${tabCounts[tab.key]})` : ''}
-                        </button>
-                    ))}
-                </div>
-                <button
-                    type="button"
-                    className="btn-new-batch"
-                    onClick={() => setShowCreateModal(true)}
-                >
-                    <Plus size={20} />
-                    New Package
-                </button>
-            </div>
+            {/* Search + Filters + Sort + New Package */}
+            <FilterToolbar
+                search={searchQuery}
+                onSearchChange={setSearchQuery}
+                searchPlaceholder="Search packages..."
+                filters={[typeFilterDef, statusFilterDef]}
+                activeFilters={activeFilters}
+                onFilterChange={handleFilterChange}
+                onClearFilters={handleClearFilters}
+                sortOptions={pkgSortOptions}
+                activeSort={sortField}
+                sortDir={sortDir}
+                onSortChange={handleSortChange}
+                trailing={
+                    <button
+                        type="button"
+                        className="btn-new-batch"
+                        onClick={() => setShowCreateModal(true)}
+                    >
+                        <Plus size={20} />
+                        New Package
+                    </button>
+                }
+            />
 
             {/* Content */}
             {loading ? (
                 <CardsSkeleton count={3} />
-            ) : filteredPackages.length === 0 ? (
+            ) : sortedPackages.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-16 text-center">
                     <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-emerald-50 to-green-50 flex items-center justify-center mb-4 shadow-sm">
                         <Package size={28} className="text-emerald-400" />
                     </div>
                     <h3 className="text-base font-semibold text-gray-600 mb-1">
-                        {activeTab !== 'all' ? `No ${activeTab} packages` : 'No packages yet'}
+                        {searchQuery || activeFilters.type.length > 0 || activeFilters.status.length > 0
+                            ? 'No matching packages'
+                            : 'No packages yet'}
                     </h3>
                     <p className="text-sm text-gray-400 max-w-xs mb-4">
-                        {activeTab === 'all'
-                            ? 'Create packages from your completed trim entries to track inventory.'
-                            : `Packages will appear here when they match the ${activeTab} filter.`}
+                        {searchQuery || activeFilters.type.length > 0 || activeFilters.status.length > 0
+                            ? 'Try adjusting your search or filters.'
+                            : 'Create packages from your completed trim entries to track inventory.'}
                     </p>
-                    {activeTab === 'all' && (
+                    {!searchQuery && activeFilters.type.length === 0 && activeFilters.status.length === 0 && (
                         <button
                             onClick={() => setShowCreateModal(true)}
                             className="btn-new-batch px-4 py-2 text-sm"
@@ -176,7 +243,7 @@ export const PackageDashboard: React.FC = () => {
                 </div>
             ) : (
                 <div className="entry-list">
-                    {filteredPackages.map(pkg => (
+                    {sortedPackages.map(pkg => (
                         <PackageCard
                             key={pkg.id}
                             pkg={pkg}
