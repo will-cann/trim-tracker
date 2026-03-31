@@ -8,9 +8,12 @@ import {
 import { useDeepgram } from '../hooks/useDeepgram';
 import { useAIChat } from '../hooks/useAIChat';
 import { ActionPreview } from './ActionPreview';
+import { ExtractionRunCard, isCardReady } from './ExtractionRunCard';
+import type { ExtractionRunCardData } from './ExtractionRunCard';
 import { analyzeAmbientChunk as analyzeChunk } from '../services/ambientAnalyzer';
 import type { ActionItemState } from '../services/ambientAnalyzer';
-import type { TrimSession, TrimmerProfile, Harvest, HumanTask, HumanTaskStatus, SpeechMode } from '../types/definitions';
+import { apiService } from '../services/apiService';
+import type { TrimSession, TrimmerProfile, Harvest, HumanTask, HumanTaskStatus, SpeechMode, ProposedAction } from '../types/definitions';
 import logo from '../assets/logo.png';
 
 type PanelTab = 'chat' | 'tasks' | 'transcript';
@@ -104,6 +107,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
     const ambientTranscriptRef = useRef('');
     const [transcriptEntries, setTranscriptEntries] = useState<TranscriptEntry[]>([]);
     const [activeActionGroups, setActiveActionGroups] = useState<ActiveActionGroup[]>([]);
+    const [extractionRunCards, setExtractionRunCards] = useState<ExtractionRunCardData[]>([]);
     const prevTabRef = useRef<PanelTab>('chat');
 
     // --- Action mic deepgram ---
@@ -153,6 +157,111 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
         screenContext,
     }), [session, trimmerProfiles, harvests, plantMapSummary, screenContext]);
 
+    // --- Extraction card intercept ---
+    const handleInterceptAction = useCallback((action: ProposedAction): boolean => {
+        if (action.type !== 'record_extraction') return false;
+
+        const d = action.data;
+        setExtractionRunCards(prev => {
+            // Find matching card by strain
+            let match = d.strain
+                ? prev.find(c => c.status === 'filling' && c.strain?.toLowerCase() === d.strain.toLowerCase())
+                : null;
+            // Fallback: most recently updated filling card
+            if (!match) {
+                const filling = prev.filter(c => c.status === 'filling');
+                if (filling.length === 1) match = filling[0];
+            }
+
+            const now = Date.now();
+
+            if (match) {
+                // Merge fields into existing card
+                const updated = { ...match, lastUpdatedAt: now };
+                const fieldsToMerge: (keyof ExtractionRunCardData)[] = [
+                    'strain', 'inputPackageType', 'inputQuantity', 'outputPackageType',
+                    'outputQuantity', 'licenseNumber', 'sourcePackageId', 'outputLabel',
+                    'wasteWeight', 'notes',
+                ];
+                let lastField: string | null = null;
+                for (const key of fieldsToMerge) {
+                    if (d[key] !== null && d[key] !== undefined) {
+                        (updated as any)[key] = d[key];
+                        lastField = key;
+                    }
+                }
+                updated.lastUpdatedField = lastField;
+                if (isCardReady(updated)) updated.status = 'ready';
+                return prev.map(c => c.id === match!.id ? updated : c);
+            } else {
+                // Create new card
+                const card: ExtractionRunCardData = {
+                    id: crypto.randomUUID(),
+                    createdAt: new Date(),
+                    strain: d.strain || null,
+                    inputPackageType: d.inputPackageType || null,
+                    inputQuantity: d.inputQuantity || null,
+                    outputPackageType: d.outputPackageType || null,
+                    outputQuantity: d.outputQuantity || null,
+                    licenseNumber: d.licenseNumber || null,
+                    sourcePackageId: d.sourcePackageId || null,
+                    outputLabel: d.outputLabel || null,
+                    wasteWeight: d.wasteWeight || null,
+                    notes: d.notes || null,
+                    status: 'filling',
+                    lastUpdatedField: 'strain',
+                    lastUpdatedAt: now,
+                };
+                if (isCardReady(card)) card.status = 'ready';
+                return [...prev, card];
+            }
+        });
+        return true; // intercepted
+    }, []);
+
+    const handleExtractionSubmit = useCallback(async (cardId: string) => {
+        setExtractionRunCards(prev => prev.map(c =>
+            c.id === cardId ? { ...c, status: 'submitting' as const } : c
+        ));
+
+        const card = extractionRunCards.find(c => c.id === cardId);
+        if (!card) return;
+
+        try {
+            await apiService.recordExtraction({
+                sourcePackageId: card.sourcePackageId || undefined,
+                inputPackageType: card.inputPackageType!,
+                inputQuantity: card.inputQuantity!,
+                outputPackageType: card.outputPackageType!,
+                outputQuantity: card.outputQuantity || undefined,
+                outputLabel: card.outputLabel || undefined,
+                strain: card.strain!,
+                licenseNumber: card.licenseNumber || undefined,
+                wasteWeight: card.wasteWeight || undefined,
+                notes: card.notes || undefined,
+            });
+
+            setExtractionRunCards(prev => prev.map(c =>
+                c.id === cardId ? { ...c, status: 'submitted' as const } : c
+            ));
+
+            // Auto-dismiss after 3s
+            setTimeout(() => {
+                setExtractionRunCards(prev => prev.filter(c => c.id !== cardId));
+            }, 3000);
+
+            await onSessionUpdate();
+        } catch {
+            setExtractionRunCards(prev => prev.map(c =>
+                c.id === cardId ? { ...c, status: 'error' as const } : c
+            ));
+        }
+    }, [extractionRunCards, onSessionUpdate]);
+
+    const handleExtractionDismiss = useCallback((cardId: string) => {
+        setExtractionRunCards(prev => prev.filter(c => c.id !== cardId));
+    }, []);
+
     const analyzeAmbientChunk = useCallback(async (text: string) => {
         if (!text.trim()) return;
 
@@ -168,6 +277,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
             const { status } = await analyzeChunk(text, buildAmbientContext(), {
                 onCreateHumanTasks,
                 onSessionUpdate,
+                onInterceptAction: handleInterceptAction,
                 onProgress: (items: ActionItemState[]) => {
                     const mapped = items.map(i => ({ label: i.label, status: i.status, detail: i.detail }));
                     // Update both transcript entry and tasks tab group
@@ -200,7 +310,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
             // Remove failed group
             setActiveActionGroups(prev => prev.filter(g => g.id !== groupId));
         }
-    }, [buildAmbientContext, onCreateHumanTasks, onSessionUpdate]);
+    }, [buildAmbientContext, onCreateHumanTasks, onSessionUpdate, handleInterceptAction]);
 
     const handleAmbientTranscript = useCallback((text: string, isFinal: boolean) => {
         if (isFinal) {
@@ -323,7 +433,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
                     className="fixed bottom-6 right-6 z-50 w-14 h-14 rounded-full shadow-lg
                                flex items-center justify-center transition-all duration-200
                                bg-emerald-500 hover:bg-emerald-600 hover:scale-105"
-                    title="AI Assistant"
+                    title="neurocann"
                 >
                     <img src={logo} alt="AI" className="w-6 h-6 object-contain brightness-0 invert" />
                     {/* Ambient indicator on FAB */}
@@ -343,9 +453,9 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
 
             {/* Panel */}
             <div
-                className={`fixed right-0 top-0 h-full z-40 w-full sm:w-[400px]
+                className={`fixed right-0 top-0 h-full z-40 w-full ${extractionRunCards.length > 0 ? 'sm:w-[600px]' : 'sm:w-[400px]'}
                            bg-white shadow-2xl flex flex-col
-                           transition-transform duration-300 ease-in-out
+                           transition-all duration-300 ease-in-out
                            ${isOpen ? 'translate-x-0' : 'translate-x-full'}`}
             >
                 {/* Header */}
@@ -354,8 +464,8 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
                         <img src={logo} alt="AI" className="w-5 h-5 object-contain" />
                     </div>
                     <div className="flex-1">
-                        <h3 className="text-sm font-semibold text-gray-800">AI Assistant</h3>
-                        <p className="text-xs text-gray-500">Add batches, assign trimmers, and more</p>
+                        <h3 className="text-sm font-semibold text-gray-800">neurocann</h3>
+                        <p className="text-xs text-gray-500">Say what happened. I'll update the records.</p>
                     </div>
                     <button
                         onClick={() => setIsOpen(false)}
@@ -529,7 +639,27 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
                                 </div>
                             )}
 
-                            {visibleTasks.length === 0 && activeActionGroups.length === 0 && (
+                            {/* Extraction run cards */}
+                            {extractionRunCards.length > 0 && (
+                                <div className="mb-3 space-y-2">
+                                    <div className="flex items-center gap-2 mb-1">
+                                        <span className="text-xs font-medium text-gray-400 uppercase tracking-wider">
+                                            Extraction Runs
+                                        </span>
+                                        <span className="text-xs text-gray-300">({extractionRunCards.length})</span>
+                                    </div>
+                                    {extractionRunCards.map(card => (
+                                        <ExtractionRunCard
+                                            key={card.id}
+                                            card={card}
+                                            onSubmit={handleExtractionSubmit}
+                                            onDismiss={handleExtractionDismiss}
+                                        />
+                                    ))}
+                                </div>
+                            )}
+
+                            {visibleTasks.length === 0 && activeActionGroups.length === 0 && extractionRunCards.length === 0 && (
                                 <div className="flex flex-col items-center justify-center py-8 text-gray-400">
                                     <ListTodo size={24} className="mb-2" />
                                     <p className="text-xs">No tasks yet</p>

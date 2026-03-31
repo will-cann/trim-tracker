@@ -48,6 +48,7 @@ function actionLabel(action: ProposedAction): string {
         case 'import_tags': return `Import tags`;
         case 'assign_tag': return `Assign tag`;
         case 'auto_assign_tags': return `Auto-assign tags`;
+        case 'record_extraction': return `Extraction${d.strain ? ` — ${d.strain}` : ''}${d.outputPackageType ? ` → ${d.outputPackageType.replace('_', ' ')}` : ''}`;
         case 'create_package': return `Create package`;
         case 'update_package': return `Update package`;
         case 'finish_package': return `Finish package`;
@@ -74,6 +75,7 @@ export async function analyzeAmbientChunk(
         onCreateHumanTasks?: (tasks: HumanTaskData[]) => Promise<void>;
         onSessionUpdate: () => Promise<void>;
         onProgress?: (items: ActionItemState[]) => void;
+        onInterceptAction?: (action: ProposedAction) => boolean;
     },
 ): Promise<AmbientResult> {
     const result = await apiService.aiParse({
@@ -116,6 +118,10 @@ export async function analyzeAmbientChunk(
                 items[i] = { ...items[i], status: 'skipped', detail: 'No task handler' };
                 anySkipped = true;
             }
+        } else if (callbacks.onInterceptAction?.(action)) {
+            // Action intercepted (e.g., extraction routed to card)
+            items[i] = { ...items[i], status: 'done', detail: 'Added to extraction card' };
+            anyExecuted = true;
         } else {
             // Execute automated action
             try {
