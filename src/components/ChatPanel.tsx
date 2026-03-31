@@ -220,12 +220,20 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
     }, []);
 
     const handleExtractionSubmit = useCallback(async (cardId: string) => {
+        const card = extractionRunCards.find(c => c.id === cardId);
+        if (!card) return;
+
+        // Guard: don't submit incomplete cards
+        if (!isCardReady(card)) {
+            setExtractionRunCards(prev => prev.map(c =>
+                c.id === cardId ? { ...c, status: 'filling' as const } : c
+            ));
+            return;
+        }
+
         setExtractionRunCards(prev => prev.map(c =>
             c.id === cardId ? { ...c, status: 'submitting' as const } : c
         ));
-
-        const card = extractionRunCards.find(c => c.id === cardId);
-        if (!card) return;
 
         try {
             await apiService.recordExtraction({
@@ -233,7 +241,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
                 inputPackageType: card.inputPackageType!,
                 inputQuantity: card.inputQuantity!,
                 outputPackageType: card.outputPackageType!,
-                outputQuantity: card.outputQuantity || undefined,
+                outputQuantity: card.outputQuantity!,
                 outputLabel: card.outputLabel || undefined,
                 strain: card.strain!,
                 licenseNumber: card.licenseNumber || undefined,

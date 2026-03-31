@@ -52,7 +52,13 @@ const FIELDS: FieldDef[] = [
 ];
 
 export function isCardReady(card: ExtractionRunCardData): boolean {
-    return !!(card.strain && card.inputPackageType && card.inputQuantity && card.outputPackageType && card.outputQuantity);
+    return !!(
+        card.strain &&
+        card.inputPackageType &&
+        card.inputQuantity && card.inputQuantity > 0 &&
+        card.outputPackageType &&
+        card.outputQuantity && card.outputQuantity > 0
+    );
 }
 
 interface ExtractionRunCardProps {
@@ -317,7 +323,7 @@ export const ExtractionRunCard: React.FC<ExtractionRunCardProps> = ({ card, onSu
                             fontSize: '13px',
                             fontWeight: 600,
                             cursor: isReady && !isSubmitting ? 'pointer' : 'default',
-                            background: isReady ? '#3BB570' : '#F0F0F0',
+                            background: isReady ? '#FA9E52' : '#F0F0F0',
                             color: isReady ? 'white' : '#C0C0C0',
                             transition: 'background 0.15s, color 0.15s',
                             opacity: isSubmitting ? 0.7 : 1,
