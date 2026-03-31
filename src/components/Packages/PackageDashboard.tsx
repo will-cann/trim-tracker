@@ -14,6 +14,9 @@ const TABS: { key: TabKey; label: string }[] = [
     { key: 'trim', label: 'Trim' },
     { key: 'shake', label: 'Shake' },
     { key: 'fresh_frozen', label: 'Fresh Frozen' },
+    { key: 'bubble_hash', label: 'Bubble Hash' },
+    { key: 'rosin', label: 'Rosin' },
+    { key: 'rosin_cart', label: 'Rosin Carts' },
     { key: 'on_hold', label: 'On Hold' },
     { key: 'finished', label: 'Finished' },
 ];
@@ -35,22 +38,14 @@ export const PackageDashboard: React.FC = () => {
         loadPackages();
     }, [loadPackages]);
 
+    const PRODUCT_TYPES: TabKey[] = ['flower', 'trim', 'shake', 'fresh_frozen', 'bubble_hash', 'rosin', 'rosin_cart'];
+
     const filteredPackages = (() => {
-        switch (activeTab) {
-            case 'all':
-                return packages.filter(p => p.status !== 'finished' && p.status !== 'archived');
-            case 'flower':
-            case 'trim':
-            case 'shake':
-            case 'fresh_frozen':
-                return packages.filter(p => p.packageType === activeTab && p.status !== 'archived');
-            case 'on_hold':
-                return packages.filter(p => p.status === 'on_hold');
-            case 'finished':
-                return packages.filter(p => p.status === 'finished');
-            default:
-                return packages;
-        }
+        if (activeTab === 'all') return packages.filter(p => p.status !== 'finished' && p.status !== 'archived');
+        if (activeTab === 'on_hold') return packages.filter(p => p.status === 'on_hold');
+        if (activeTab === 'finished') return packages.filter(p => p.status === 'finished');
+        if (PRODUCT_TYPES.includes(activeTab)) return packages.filter(p => p.packageType === activeTab && p.status !== 'archived');
+        return packages;
     })();
 
     const handleCreate = async (data: CreatePackageDTO | CreatePackageDTO[]) => {
@@ -79,14 +74,11 @@ export const PackageDashboard: React.FC = () => {
     const onHoldCount = packages.filter(p => p.status === 'on_hold').length;
     const finishedCount = packages.filter(p => p.status === 'finished').length;
 
-    const tabCounts: Record<string, number> = {
-        flower: packages.filter(p => p.packageType === 'flower' && p.status !== 'archived').length,
-        trim: packages.filter(p => p.packageType === 'trim' && p.status !== 'archived').length,
-        shake: packages.filter(p => p.packageType === 'shake' && p.status !== 'archived').length,
-        fresh_frozen: packages.filter(p => p.packageType === 'fresh_frozen' && p.status !== 'archived').length,
-        on_hold: onHoldCount,
-        finished: finishedCount,
-    };
+    const tabCounts: Record<string, number> = Object.fromEntries([
+        ...PRODUCT_TYPES.map(t => [t, packages.filter(p => p.packageType === t && p.status !== 'archived').length]),
+        ['on_hold', onHoldCount],
+        ['finished', finishedCount],
+    ]);
 
     return (
         <div className="dashboard">
