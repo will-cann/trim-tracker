@@ -176,7 +176,8 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
             const now = Date.now();
 
             if (match) {
-                // Merge fields into existing card
+                // Merge fields into existing card — only fill empty fields,
+                // don't overwrite values the card already has
                 const updated = { ...match, lastUpdatedAt: now };
                 const fieldsToMerge: (keyof ExtractionRunCardData)[] = [
                     'strain', 'inputPackageType', 'inputQuantity', 'outputPackageType',
@@ -185,8 +186,12 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
                 ];
                 let lastField: string | null = null;
                 for (const key of fieldsToMerge) {
-                    if (d[key] !== null && d[key] !== undefined) {
-                        (updated as any)[key] = d[key];
+                    const incoming = d[key];
+                    if (incoming === null || incoming === undefined) continue;
+                    const existing = (match as any)[key];
+                    // Only write if the card's field is empty, or this is notes (append)
+                    if (existing === null || existing === undefined || existing === '' || key === 'notes') {
+                        (updated as any)[key] = incoming;
                         lastField = key;
                     }
                 }

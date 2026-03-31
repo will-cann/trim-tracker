@@ -80,6 +80,8 @@ The user often works in large increments of fresh frozen (e.g. 17,000g). They ma
 
 If the user mentions pulling material but does NOT yet have the yield (e.g. "I pulled 17K blackberry for a wash"), still create the record_extraction — just omit outputQuantity. This records the input consumption. They will report the yield later.
 
+**Reporting yield on an existing run**: When the user reports output (e.g. "we got 79 grams of bubble hash from the white fire OG"), set ONLY the outputQuantity and outputPackageType. Do NOT set inputQuantity — the input was already recorded when the run started. The yield quantity is always the OUTPUT, not the input.
+
 ## Rules for Automated Actions
 - Match trimmer names to existing trimmer profiles when possible (fuzzy match is fine — "Maria" matches "Maria Garcia").
 - Match batch references (by harvest name or strain) to existing entries when assigning trimmers.
