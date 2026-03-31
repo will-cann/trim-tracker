@@ -779,6 +779,30 @@ export const updatePackage = async (packageId: string, updates: Partial<Package>
     return await response.json();
 };
 
+export const recordExtraction = async (data: {
+    sourcePackageId?: string;
+    inputPackageType: string;
+    inputQuantity: number;
+    outputPackageType: string;
+    outputQuantity?: number;
+    outputLabel?: string;
+    strain: string;
+    licenseNumber?: string;
+    wasteWeight?: number;
+    notes?: string;
+}): Promise<{ package: Package | null; log: any }> => {
+    const response = await fetchWithAuth(`${API_BASE}/record-extraction`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+    });
+    if (!response.ok) {
+        const err = await response.json().catch(() => ({ error: 'Failed to record extraction' }));
+        throw new Error(err.error);
+    }
+    return await response.json();
+};
+
 export const deletePackage = async (id: string): Promise<void> => {
     const response = await fetchWithAuth(`${API_BASE}/delete-package?id=${id}`, {
         method: 'DELETE',
@@ -866,4 +890,6 @@ export const apiService = {
     createPackages,
     updatePackage,
     deletePackage,
+    // Extraction
+    recordExtraction,
 };

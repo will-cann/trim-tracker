@@ -26,6 +26,7 @@ const ACTION_CONFIG: Record<string, { icon: typeof Package; label: string; color
     record_harvest_waste: { icon: Trash2, label: 'Record Waste', color: 'text-red-600', bgColor: 'bg-red-50' },
     move_harvest: { icon: MapPin, label: 'Move Harvest', color: 'text-blue-600', bgColor: 'bg-blue-50' },
     create_human_task: { icon: ClipboardList, label: 'Task', color: 'text-emerald-600', bgColor: 'bg-emerald-50' },
+    record_extraction: { icon: ArrowRightLeft, label: 'Extraction', color: 'text-amber-600', bgColor: 'bg-amber-50' },
 };
 
 const FIELD_LABELS: Record<string, string> = {

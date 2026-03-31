@@ -235,7 +235,7 @@ export interface TagStats {
 // PACKAGE TYPES
 // ============================================================================
 
-export type PackageType = 'flower' | 'trim' | 'shake' | 'fresh_frozen';
+export type PackageType = 'flower' | 'trim' | 'shake' | 'fresh_frozen' | 'bubble_hash' | 'rosin' | 'rosin_cart';
 export type PackageStatus = 'active' | 'on_hold' | 'finished' | 'archived';
 export type LabTestingState = 'not_submitted' | 'submitted' | 'passed' | 'failed';
 
@@ -245,12 +245,14 @@ export interface Package {
   trimEntryId?: string;
   tagId?: string;
   tagNumber?: string;
+  sourcePackageId?: string;
   label: string;
   packageType: PackageType;
   itemName?: string;
   strain: string;
   licenseNumber: string;
   quantity: number;
+  inputQuantity?: number;
   unit: string;
   wasteWeight: number;
   location?: string;
@@ -267,12 +269,14 @@ export interface CreatePackageDTO {
   harvestId?: string;
   trimEntryId?: string;
   tagId?: string;
+  sourcePackageId?: string;
   label: string;
   packageType: PackageType;
   itemName?: string;
   strain: string;
   licenseNumber: string;
   quantity: number;
+  inputQuantity?: number;
   wasteWeight?: number;
   location?: string;
   notes?: string;
@@ -293,6 +297,7 @@ export type ProposedActionType =
   | 'create_strain' | 'delete_strain' | 'create_license' | 'delete_license'
   | 'import_tags' | 'assign_tag' | 'auto_assign_tags'
   | 'create_package' | 'update_package' | 'finish_package' | 'delete_package'
+  | 'record_extraction'
   | 'create_room' | 'update_room' | 'delete_room'
   | 'record_plant_weight' | 'flag_contamination' | 'submit_harvest_batch' | 'approve_harvest_day';
 

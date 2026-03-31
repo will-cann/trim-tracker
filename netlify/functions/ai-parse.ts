@@ -60,6 +60,26 @@ When the user is on the Harvest Day cockpit (screenContext mentions "Harvest Day
 - "PM" = powdery_mildew, "mold" or "bud rot" = bud_rot, "bugs" or "insects" = insects
 - When only one harvest is active in the cockpit, you can use its strain or batchId as the harvestIdentifier without the user naming it explicitly.
 
+## Extraction / Concentrate Production Workflow
+
+You understand the full ice water hash and rosin extraction pipeline. The stages are:
+
+1. **Fresh Frozen** → stored in freezer as packages (already tracked)
+2. **Wash** (ice water extraction) → produces **Bubble Hash** from Fresh Frozen input
+3. **Press** (heat/pressure) → produces **Rosin** from Bubble Hash input
+4. **Cart Fill** → produces **Rosin Carts** from Rosin input
+
+When the user describes extraction work, use the \`record_extraction\` tool. Key vocabulary mappings:
+- "pulled from the freezer", "pulled for a wash", "washing" → inputPackageType: fresh_frozen, outputPackageType: bubble_hash
+- "wash yielded", "hash came out", "bubble hash" → outputPackageType: bubble_hash
+- "pressed", "pressing", "press run" → inputPackageType: bubble_hash, outputPackageType: rosin
+- "filled carts", "cart fill", "rosin carts" → inputPackageType: rosin, outputPackageType: rosin_cart
+- "yield", "yielded", "got", "came out to" → the outputQuantity
+
+The user often works in large increments of fresh frozen (e.g. 17,000g). They may report results for multiple strains in one utterance (e.g. "gummy worms was 450, blackberry was 600, mad fruit was 525"). Create separate \`record_extraction\` calls for each strain.
+
+If the user mentions pulling material but does NOT yet have the yield (e.g. "I pulled 17K blackberry for a wash"), still create the record_extraction — just omit outputQuantity. This records the input consumption. They will report the yield later.
+
 ## Rules for Automated Actions
 - Match trimmer names to existing trimmer profiles when possible (fuzzy match is fine — "Maria" matches "Maria Garcia").
 - Match batch references (by harvest name or strain) to existing entries when assigning trimmers.
@@ -737,7 +757,7 @@ const tools = [
                         type: 'object',
                         properties: {
                             label: { type: 'string', description: 'Package label/identifier (e.g. PKG-001)' },
-                            packageType: { type: 'string', enum: ['flower', 'trim', 'shake', 'fresh_frozen'], description: 'Type of packaged product. Use fresh_frozen for frozen harvest allocations.' },
+                            packageType: { type: 'string', enum: ['flower', 'trim', 'shake', 'fresh_frozen', 'bubble_hash', 'rosin', 'rosin_cart'], description: 'Type of packaged product. Use fresh_frozen for frozen harvest allocations, bubble_hash/rosin/rosin_cart for extraction outputs.' },
                             strain: { type: 'string', description: 'Cannabis strain name' },
                             licenseNumber: { type: 'string', description: 'License number' },
                             quantity: { type: 'number', description: 'Package weight in grams' },
@@ -787,6 +807,66 @@ const tools = [
                 packageIdentifier: { type: 'string', description: 'Package label to delete' },
             },
             required: ['packageIdentifier'],
+        },
+    },
+    // ── Extraction / Concentrate Production ──
+    {
+        name: 'record_extraction',
+        description: `Record an extraction/processing step. This handles all stages of concentrate production:
+- Fresh Frozen → Wash → Bubble Hash (ice water extraction)
+- Bubble Hash → Press → Rosin (heat/pressure extraction)
+- Rosin → Cart Fill → Rosin Carts
+
+The user reports what they started with and what they got out. The system will:
+1. Find the source package and reduce its quantity by the input amount
+2. Create a new output package at the next stage
+3. Log the extraction event with yield percentage
+
+Examples:
+- "I pulled 17,000 grams of blackberry from the freezer for a wash" → input: fresh_frozen 17000g, output: bubble_hash (pending)
+- "The wash yielded 800g of bubble hash from 17K blackberry" → input: fresh_frozen 17000g, output: bubble_hash 800g
+- "Pressed the blackberry hash, got 550g of rosin" → input: bubble_hash, output: rosin 550g
+- "Filled 200 rosin carts from the blackberry rosin" → input: rosin, output: rosin_cart 200`,
+        input_schema: {
+            type: 'object' as const,
+            properties: {
+                strain: { type: 'string', description: 'Cannabis strain being processed' },
+                inputPackageType: {
+                    type: 'string',
+                    enum: ['fresh_frozen', 'bubble_hash', 'rosin'],
+                    description: 'Type of the source/input material being consumed',
+                },
+                inputQuantity: {
+                    type: 'number',
+                    description: 'Grams of input material consumed. If not stated, assume the full source package quantity.',
+                },
+                outputPackageType: {
+                    type: 'string',
+                    enum: ['bubble_hash', 'rosin', 'rosin_cart'],
+                    description: 'Type of output product created',
+                },
+                outputQuantity: {
+                    type: 'number',
+                    description: 'Grams (or count for carts) of output produced. Omit if extraction is still in progress and yield is unknown.',
+                },
+                outputLabel: {
+                    type: 'string',
+                    description: 'Optional label for the output package. Auto-generated if omitted.',
+                },
+                licenseNumber: {
+                    type: 'string',
+                    description: 'License number. Inherited from source package if not specified.',
+                },
+                wasteWeight: {
+                    type: 'number',
+                    description: 'Waste produced during this extraction step, in grams.',
+                },
+                notes: {
+                    type: 'string',
+                    description: 'Process notes (e.g. micron size, press temperature, bag type).',
+                },
+            },
+            required: ['strain', 'inputPackageType', 'outputPackageType'],
         },
     },
 ];
@@ -1478,6 +1558,40 @@ export const handler: Handler = async (event) => {
                             data: {
                                 label: delPkg?.label || input.packageIdentifier,
                                 packageId: delPkg?.id || input.packageIdentifier,
+                            },
+                        });
+                        break;
+                    }
+                    case 'record_extraction': {
+                        // Find source package by strain + type
+                        const { rows: srcPkgs } = await sql`
+                            SELECT id, label, quantity, license_number
+                            FROM packages
+                            WHERE company_id = ${authContext.companyId}
+                              AND package_type = ${input.inputPackageType}
+                              AND LOWER(strain) = LOWER(${input.strain || ''})
+                              AND status = 'active'
+                            ORDER BY created_at DESC
+                            LIMIT 1
+                        `;
+                        const srcPkg = srcPkgs[0];
+                        const autoLabel = input.outputLabel ||
+                            `${input.strain}-${(input.outputPackageType || '').replace('_', '-').toUpperCase()}-${new Date().toISOString().slice(0, 10)}`;
+
+                        actions.push({
+                            type: 'record_extraction',
+                            data: {
+                                strain: input.strain,
+                                sourcePackageId: srcPkg?.id || null,
+                                sourcePackageLabel: srcPkg?.label || `${input.strain} ${input.inputPackageType}`,
+                                inputPackageType: input.inputPackageType,
+                                inputQuantity: input.inputQuantity || (srcPkg ? parseFloat(srcPkg.quantity) : null),
+                                outputPackageType: input.outputPackageType,
+                                outputQuantity: input.outputQuantity || null,
+                                outputLabel: autoLabel,
+                                licenseNumber: input.licenseNumber || srcPkg?.license_number || null,
+                                wasteWeight: input.wasteWeight || 0,
+                                notes: input.notes || null,
                             },
                         });
                         break;

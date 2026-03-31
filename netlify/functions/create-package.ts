@@ -29,10 +29,10 @@ export const handler: Handler = async (event) => {
                     body: JSON.stringify({ error: 'label, packageType, strain, licenseNumber, and quantity are required' }),
                 };
             }
-            if (!['flower', 'trim', 'shake', 'fresh_frozen'].includes(pkg.packageType)) {
+            if (!['flower', 'trim', 'shake', 'fresh_frozen', 'bubble_hash', 'rosin', 'rosin_cart'].includes(pkg.packageType)) {
                 return {
                     statusCode: 400,
-                    body: JSON.stringify({ error: 'packageType must be flower, trim, or shake' }),
+                    body: JSON.stringify({ error: 'Invalid packageType' }),
                 };
             }
         }
@@ -59,9 +59,10 @@ export const handler: Handler = async (event) => {
                 const { rows: [row] } = await client.query(`
                     INSERT INTO packages (
                         company_id, created_by, harvest_id, trim_entry_id, tag_id,
+                        source_package_id, input_quantity,
                         label, package_type, item_name, strain, license_number,
                         quantity, waste_weight, location, notes, contaminants
-                    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+                    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
                     RETURNING *
                 `, [
                     context.companyId,
@@ -69,6 +70,8 @@ export const handler: Handler = async (event) => {
                     pkg.harvestId || null,
                     pkg.trimEntryId || null,
                     pkg.tagId || null,
+                    pkg.sourcePackageId || null,
+                    pkg.inputQuantity || null,
                     pkg.label,
                     pkg.packageType,
                     pkg.itemName || null,
@@ -120,6 +123,8 @@ function formatPackage(row: any) {
         harvestId: row.harvest_id,
         trimEntryId: row.trim_entry_id,
         tagId: row.tag_id,
+        sourcePackageId: row.source_package_id,
+        inputQuantity: row.input_quantity ? parseFloat(row.input_quantity) : null,
         label: row.label,
         packageType: row.package_type,
         itemName: row.item_name,

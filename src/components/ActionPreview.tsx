@@ -57,6 +57,8 @@ const ACTION_CONFIG: Record<string, { icon: typeof Package; label: string; color
     update_package: { icon: Package, label: 'Update Package', color: 'text-blue-600', bgColor: 'bg-blue-50' },
     finish_package: { icon: Package, label: 'Finish Package', color: 'text-emerald-600', bgColor: 'bg-emerald-50' },
     delete_package: { icon: Trash2, label: 'Delete Package', color: 'text-red-600', bgColor: 'bg-red-50' },
+    // Extraction
+    record_extraction: { icon: ArrowRightLeft, label: 'Extraction', color: 'text-amber-600', bgColor: 'bg-amber-50' },
 };
 
 const FIELD_LABELS: Record<string, string> = {
@@ -121,9 +123,16 @@ const FIELD_LABELS: Record<string, string> = {
     itemName: 'Item Name',
     packageId: 'Package ID',
     labTestingState: 'Lab Testing',
+    // Extraction fields
+    sourcePackageLabel: 'Source',
+    inputPackageType: 'Input Type',
+    inputQuantity: 'Input (g)',
+    outputPackageType: 'Output Type',
+    outputQuantity: 'Output (g)',
+    outputLabel: 'Output Label',
 };
 
-const HIDDEN_FIELDS = new Set(['entryId', 'profileId', 'harvestId', 'taskId', 'onCompleteAction']);
+const HIDDEN_FIELDS = new Set(['entryId', 'profileId', 'harvestId', 'taskId', 'onCompleteAction', 'sourcePackageId']);
 
 /** Key fields shown inline per action type — everything else is behind expand */
 const KEY_FIELDS: Record<string, string[]> = {
@@ -164,6 +173,8 @@ const KEY_FIELDS: Record<string, string[]> = {
     update_package: ['label', 'status', 'labTestingState'],
     finish_package: ['label'],
     delete_package: ['label'],
+    // Extraction
+    record_extraction: ['strain', 'inputPackageType', 'inputQuantity', 'outputPackageType', 'outputQuantity'],
 };
 
 /** Build a human-readable one-liner from action data */
@@ -213,6 +224,12 @@ function summarizeAction(action: ProposedAction): string {
         case 'finish_package':
         case 'delete_package':
             return d.label || '';
+        case 'record_extraction':
+            return [
+                d.strain,
+                d.inputQuantity && `${d.inputQuantity}g ${d.inputPackageType?.replace('_', ' ')}`,
+                d.outputQuantity ? `→ ${d.outputQuantity}g ${d.outputPackageType?.replace('_', ' ')}` : `→ ${d.outputPackageType?.replace('_', ' ')} (pending)`,
+            ].filter(Boolean).join(' ');
         default:
             return Object.values(d).filter(v => v && !HIDDEN_FIELDS.has(String(v))).slice(0, 3).join(' · ');
     }
@@ -267,6 +284,19 @@ const SELECT_OPTIONS: Record<string, Array<{ value: string; label: string }>> = 
         { value: 'trim', label: 'Trim' },
         { value: 'shake', label: 'Shake' },
         { value: 'fresh_frozen', label: 'Fresh Frozen' },
+        { value: 'bubble_hash', label: 'Bubble Hash' },
+        { value: 'rosin', label: 'Rosin' },
+        { value: 'rosin_cart', label: 'Rosin Cart' },
+    ],
+    inputPackageType: [
+        { value: 'fresh_frozen', label: 'Fresh Frozen' },
+        { value: 'bubble_hash', label: 'Bubble Hash' },
+        { value: 'rosin', label: 'Rosin' },
+    ],
+    outputPackageType: [
+        { value: 'bubble_hash', label: 'Bubble Hash' },
+        { value: 'rosin', label: 'Rosin' },
+        { value: 'rosin_cart', label: 'Rosin Cart' },
     ],
     labTestingState: [
         { value: 'not_submitted', label: 'Not Submitted' },

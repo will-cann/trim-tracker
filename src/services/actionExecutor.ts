@@ -364,6 +364,25 @@ export async function executeAction(action: ProposedAction): Promise<ActionOutco
             if (!action.data.packageId) return SKIPPED('no package ID');
             await apiService.deletePackage(action.data.packageId);
             return OK('Package deleted');
+        case 'record_extraction': {
+            const d = action.data;
+            if (!d.inputPackageType || !d.outputPackageType || !d.strain) return SKIPPED('missing extraction data');
+            await apiService.recordExtraction({
+                sourcePackageId: d.sourcePackageId,
+                inputPackageType: d.inputPackageType,
+                inputQuantity: d.inputQuantity,
+                outputPackageType: d.outputPackageType,
+                outputQuantity: d.outputQuantity,
+                outputLabel: d.outputLabel,
+                strain: d.strain,
+                licenseNumber: d.licenseNumber,
+                wasteWeight: d.wasteWeight,
+                notes: d.notes,
+            });
+            const parts = [d.inputQuantity ? `${d.inputQuantity}g` : '', d.inputPackageType?.replace('_', ' ')];
+            if (d.outputQuantity) parts.push('→', `${d.outputQuantity}g`, d.outputPackageType?.replace('_', ' '));
+            return OK(`Extraction: ${parts.filter(Boolean).join(' ')}`);
+        }
         case 'create_room':
             await apiService.createRoom({
                 name: action.data.name,
