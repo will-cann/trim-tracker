@@ -13,7 +13,7 @@ export const PackageDashboard: React.FC = () => {
     const [loading, setLoading] = useState(true);
     const [showCreateModal, setShowCreateModal] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
-    const [activeFilters, setActiveFilters] = useState<Record<string, string[]>>({ type: [], status: [] });
+    const [activeFilters, setActiveFilters] = useState<Record<string, string[]>>({ type: [], strain: [], status: [] });
     const [sortField, setSortField] = useState<string | null>(null);
     const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
 
@@ -45,6 +45,16 @@ export const PackageDashboard: React.FC = () => {
         })),
     };
 
+    const strainFilterDef: FilterDef = {
+        key: 'strain',
+        label: 'Strain',
+        multi: true,
+        options: [...new Set(packages.map(p => p.strain).filter(Boolean))].sort().map(s => ({
+            value: s,
+            label: s,
+        })),
+    };
+
     const statusFilterDef: FilterDef = {
         key: 'status',
         label: 'Status',
@@ -68,7 +78,7 @@ export const PackageDashboard: React.FC = () => {
     };
 
     const handleClearFilters = () => {
-        setActiveFilters({ type: [], status: [] });
+        setActiveFilters({ type: [], strain: [], status: [] });
     };
 
     const handleSortChange = (value: string | null, dir: 'asc' | 'desc') => {
@@ -93,6 +103,10 @@ export const PackageDashboard: React.FC = () => {
         // Type filter
         const typeFilter = activeFilters.type || [];
         if (typeFilter.length > 0 && !typeFilter.includes(p.packageType)) return false;
+
+        // Strain filter
+        const strainFilter = activeFilters.strain || [];
+        if (strainFilter.length > 0 && !strainFilter.includes(p.strain)) return false;
 
         // Status filter
         const statusFilter = activeFilters.status || [];
@@ -193,7 +207,7 @@ export const PackageDashboard: React.FC = () => {
                 search={searchQuery}
                 onSearchChange={setSearchQuery}
                 searchPlaceholder="Search packages..."
-                filters={[typeFilterDef, statusFilterDef]}
+                filters={[typeFilterDef, strainFilterDef, statusFilterDef]}
                 activeFilters={activeFilters}
                 onFilterChange={handleFilterChange}
                 onClearFilters={handleClearFilters}
