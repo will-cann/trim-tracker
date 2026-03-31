@@ -16,7 +16,7 @@ const ROLE_LABELS: Record<TeamRole, string> = {
 };
 
 const ROLE_COLORS: Record<TeamRole, string> = {
-    admin: 'bg-purple-100 text-purple-700',
+    admin: 'bg-blue-100 text-blue-700',
     manager: 'bg-blue-100 text-blue-700',
     lead: 'bg-amber-100 text-amber-700',
     worker: 'bg-gray-100 text-gray-600',

@@ -47,7 +47,7 @@ export const DashboardDonutChart: React.FC<DashboardDonutChartProps> = ({ sessio
         flower: '#3BB570', // chameleon
         shake: '#FA9E52',  // lion
         waste: '#DF5B59',  // cardinal
-        trim: '#8B5CF6',   // violet
+        trim: '#1C9EFF',   // macaw
         remaining: '#E0E0E0'
     };
 

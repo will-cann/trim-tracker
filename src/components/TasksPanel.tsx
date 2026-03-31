@@ -40,10 +40,10 @@ interface TasksPanelProps {
 const CATEGORY_CONFIG: Record<HumanTaskCategory, { icon: typeof ClipboardList; label: string; color: string; bg: string; dot: string }> = {
     drying_curing: { icon: Thermometer, label: 'Drying/Curing', color: 'text-amber-700', bg: 'bg-amber-50 border-amber-200', dot: 'bg-amber-500' },
     ipm: { icon: Bug, label: 'IPM', color: 'text-red-700', bg: 'bg-red-50 border-red-200', dot: 'bg-red-500' },
-    compliance: { icon: Shield, label: 'Compliance', color: 'text-purple-700', bg: 'bg-purple-50 border-purple-200', dot: 'bg-purple-500' },
+    compliance: { icon: Shield, label: 'Compliance', color: 'text-blue-700', bg: 'bg-blue-50 border-blue-200', dot: 'bg-blue-500' },
     equipment: { icon: Wrench, label: 'Equipment', color: 'text-gray-700', bg: 'bg-gray-50 border-gray-200', dot: 'bg-gray-500' },
     environmental: { icon: CloudSun, label: 'Environmental', color: 'text-blue-700', bg: 'bg-blue-50 border-blue-200', dot: 'bg-blue-500' },
-    packaging: { icon: Package, label: 'Packaging', color: 'text-teal-700', bg: 'bg-teal-50 border-teal-200', dot: 'bg-teal-500' },
+    packaging: { icon: Package, label: 'Packaging', color: 'text-emerald-700', bg: 'bg-emerald-50 border-teal-200', dot: 'bg-emerald-500' },
     qc_testing: { icon: FlaskConical, label: 'QC/Testing', color: 'text-indigo-700', bg: 'bg-indigo-50 border-indigo-200', dot: 'bg-indigo-500' },
     inventory: { icon: Warehouse, label: 'Inventory', color: 'text-orange-700', bg: 'bg-orange-50 border-orange-200', dot: 'bg-orange-500' },
     transportation: { icon: Truck, label: 'Transport', color: 'text-slate-700', bg: 'bg-slate-50 border-slate-200', dot: 'bg-slate-500' },
@@ -122,7 +122,7 @@ const InlineTextCell = ({
                     onChange={(e) => setDraft(e.target.value)}
                     onBlur={commit}
                     onKeyDown={(e) => { if (e.key === 'Enter') commit(); if (e.key === 'Escape') { setDraft(value); setEditing(false); } }}
-                    className="text-sm text-gray-700 bg-white border border-teal-300 rounded px-1.5 py-0.5 w-full focus:outline-none focus:ring-2 focus:ring-teal-500/20"
+                    className="text-sm text-gray-700 bg-white border border-emerald-300 rounded px-1.5 py-0.5 w-full focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
                     placeholder={placeholder}
                 />
             </div>
@@ -180,7 +180,7 @@ const InlineDateCell = ({
                 onChange={(e) => { setDraft(e.target.value); }}
                 onBlur={commit}
                 onKeyDown={(e) => { if (e.key === 'Enter') commit(); if (e.key === 'Escape') { setDraft(dateStr); setEditing(false); } }}
-                className="text-sm text-gray-700 bg-white border border-teal-300 rounded px-1.5 py-0.5 focus:outline-none focus:ring-2 focus:ring-teal-500/20 w-[130px]"
+                className="text-sm text-gray-700 bg-white border border-emerald-300 rounded px-1.5 py-0.5 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 w-[130px]"
             />
         );
     }
@@ -397,7 +397,7 @@ const TaskEditForm = ({
                         value={draft.title}
                         onChange={(e) => setDraft(d => ({ ...d, title: e.target.value }))}
                         placeholder="Task title"
-                        className="w-full text-sm font-medium text-gray-900 bg-white border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-400"
+                        className="w-full text-sm font-medium text-gray-900 bg-white border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-400"
                         onKeyDown={(e) => { if (e.key === 'Enter') handleSave(); if (e.key === 'Escape') onClose(); }}
                     />
                     <textarea
@@ -405,7 +405,7 @@ const TaskEditForm = ({
                         onChange={(e) => setDraft(d => ({ ...d, description: e.target.value }))}
                         placeholder="Description (optional)"
                         rows={2}
-                        className="w-full text-sm text-gray-700 bg-white border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-400 resize-none"
+                        className="w-full text-sm text-gray-700 bg-white border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-400 resize-none"
                         onKeyDown={(e) => { if (e.key === 'Escape') onClose(); }}
                     />
                     <div className="flex flex-wrap items-center gap-3">
@@ -414,7 +414,7 @@ const TaskEditForm = ({
                             <select
                                 value={draft.assignee}
                                 onChange={(e) => setDraft(d => ({ ...d, assignee: e.target.value }))}
-                                className="text-sm text-gray-700 bg-white border border-gray-200 rounded-md px-2 py-1.5 w-full focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-400"
+                                className="text-sm text-gray-700 bg-white border border-gray-200 rounded-md px-2 py-1.5 w-full focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-400"
                             >
                                 <option value="">Unassigned</option>
                                 {teamMembers.map(m => (
@@ -425,13 +425,13 @@ const TaskEditForm = ({
                         <div className="flex items-center gap-1.5 min-w-[140px]">
                             <MapPin size={13} className="text-gray-400 shrink-0" />
                             <input value={draft.location} onChange={(e) => setDraft(d => ({ ...d, location: e.target.value }))} placeholder="Location"
-                                className="text-sm text-gray-700 bg-white border border-gray-200 rounded-md px-2 py-1.5 w-full focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-400"
+                                className="text-sm text-gray-700 bg-white border border-gray-200 rounded-md px-2 py-1.5 w-full focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-400"
                                 onKeyDown={(e) => { if (e.key === 'Enter') handleSave(); if (e.key === 'Escape') onClose(); }} />
                         </div>
                         <div className="flex items-center gap-1.5">
                             <CalendarClock size={13} className="text-gray-400 shrink-0" />
                             <input type="date" value={draft.dueDate} onChange={(e) => setDraft(d => ({ ...d, dueDate: e.target.value }))}
-                                className="text-sm text-gray-700 bg-white border border-gray-200 rounded-md px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-400" />
+                                className="text-sm text-gray-700 bg-white border border-gray-200 rounded-md px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-400" />
                         </div>
                         <div className="relative">
                             <button onClick={() => setShowPriorityPicker(!showPriorityPicker)}
@@ -462,7 +462,7 @@ const TaskEditForm = ({
                     </div>
                     <div className="flex items-center gap-2 pt-1">
                         <button onClick={handleSave} disabled={saving || !draft.title.trim()}
-                            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-white bg-teal-600 hover:bg-teal-700 disabled:opacity-50 rounded-md transition-colors">
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-white bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 rounded-md transition-colors">
                             <Check size={13} />
                             {saving ? 'Saving...' : 'Save'}
                         </button>
@@ -786,7 +786,7 @@ export const TasksPanel = ({
 
     const SortHeader = ({ field, children, className }: { field: SortField; children: React.ReactNode; className?: string }) => (
         <th
-            className={`px-3 py-3 text-xs font-medium uppercase tracking-wider cursor-pointer select-none group hover:text-gray-600 transition-colors ${className || ''} ${sortField === field ? 'text-teal-600' : 'text-gray-400'}`}
+            className={`px-3 py-3 text-xs font-medium uppercase tracking-wider cursor-pointer select-none group hover:text-gray-600 transition-colors ${className || ''} ${sortField === field ? 'text-emerald-600' : 'text-gray-400'}`}
             onClick={() => toggleSort(field)}
         >
             <span className="inline-flex items-center gap-1">
@@ -838,7 +838,7 @@ export const TasksPanel = ({
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
                         placeholder="Search tasks..."
-                        className="w-full pl-9 pr-3 py-2 text-sm border border-gray-200 rounded-lg bg-white placeholder-gray-300 focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-400 transition-colors"
+                        className="w-full pl-9 pr-3 py-2 text-sm border border-gray-200 rounded-lg bg-white placeholder-gray-300 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-400 transition-colors"
                     />
                 </div>
 
@@ -847,14 +847,14 @@ export const TasksPanel = ({
                         onClick={() => setShowFilters(!showFilters)}
                         className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium border transition-colors ${
                             hasActiveFilters
-                                ? 'border-teal-300 bg-teal-50 text-teal-700'
+                                ? 'border-emerald-300 bg-emerald-50 text-emerald-700'
                                 : 'border-gray-200 text-gray-500 hover:border-gray-300'
                         }`}
                     >
                         <SlidersHorizontal size={14} />
                         Filter
                         {hasActiveFilters && (
-                            <span className="ml-0.5 w-4 h-4 rounded-full bg-teal-500 text-white text-[10px] flex items-center justify-center font-bold">
+                            <span className="ml-0.5 w-4 h-4 rounded-full bg-emerald-500 text-white text-[10px] flex items-center justify-center font-bold">
                                 {(filters.status !== 'all' ? 1 : 0) + (filters.category !== 'all' ? 1 : 0) + (filters.priority !== 'all' ? 1 : 0) + (filters.assignees !== 'all' ? 1 : 0)}
                             </span>
                         )}
@@ -869,7 +869,7 @@ export const TasksPanel = ({
                                     {hasActiveFilters && (
                                         <button
                                             onClick={() => { onSetFilters({ status: 'all', category: 'all', priority: 'all', assignees: 'all' }); setShowFilters(false); }}
-                                            className="text-[11px] text-teal-600 hover:text-teal-700 font-medium"
+                                            className="text-[11px] text-emerald-600 hover:text-emerald-700 font-medium"
                                         >
                                             Clear all
                                         </button>
@@ -901,7 +901,7 @@ export const TasksPanel = ({
                                             return (
                                                 <label key={o.value} className="flex items-center gap-2 px-2 py-1 rounded hover:bg-gray-50 cursor-pointer">
                                                     <input type="checkbox" checked={selected} onChange={toggle}
-                                                        className="rounded border-gray-300 text-teal-500 focus:ring-teal-500/30 h-3.5 w-3.5" />
+                                                        className="rounded border-gray-300 text-emerald-500 focus:ring-emerald-500/30 h-3.5 w-3.5" />
                                                     <span className="text-sm text-gray-700">{o.label}</span>
                                                 </label>
                                             );
@@ -934,7 +934,7 @@ export const TasksPanel = ({
                                                 return (
                                                     <label key={m.id} className="flex items-center gap-2 px-2 py-1 rounded hover:bg-gray-50 cursor-pointer">
                                                         <input type="checkbox" checked={selected} onChange={toggle}
-                                                            className="rounded border-gray-300 text-teal-500 focus:ring-teal-500/30 h-3.5 w-3.5" />
+                                                            className="rounded border-gray-300 text-emerald-500 focus:ring-emerald-500/30 h-3.5 w-3.5" />
                                                         <span className="text-sm text-gray-700">{m.name}</span>
                                                     </label>
                                                 );
@@ -946,7 +946,7 @@ export const TasksPanel = ({
                                 <div>
                                     <label className="block text-[11px] font-medium text-gray-500 mb-1">Category</label>
                                     <select value={filters.category} onChange={(e) => onSetFilters({ category: e.target.value as HumanTaskCategory | 'all' })}
-                                        className="w-full text-sm border border-gray-200 rounded-md px-2.5 py-1.5 bg-white focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-400">
+                                        className="w-full text-sm border border-gray-200 rounded-md px-2.5 py-1.5 bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-400">
                                         <option value="all">All Categories</option>
                                         {activeCategories.map(key => <option key={key} value={key}>{CATEGORY_CONFIG[key].label}</option>)}
                                     </select>
@@ -955,7 +955,7 @@ export const TasksPanel = ({
                                 <div>
                                     <label className="block text-[11px] font-medium text-gray-500 mb-1">Priority</label>
                                     <select value={filters.priority} onChange={(e) => onSetFilters({ priority: e.target.value as HumanTaskPriority | 'all' })}
-                                        className="w-full text-sm border border-gray-200 rounded-md px-2.5 py-1.5 bg-white focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-400">
+                                        className="w-full text-sm border border-gray-200 rounded-md px-2.5 py-1.5 bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-400">
                                         <option value="all">All Priorities</option>
                                         <option value="urgent">Urgent</option>
                                         <option value="high">High</option>

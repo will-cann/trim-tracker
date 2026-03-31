@@ -112,7 +112,7 @@ export const PackageDashboard: React.FC = () => {
                         </div>
                     </div>
                     <div className="stat-item">
-                        <div className="stat-icon" style={{ backgroundColor: '#fef3c7', color: '#d97706' }}>
+                        <div className="stat-icon" style={{ backgroundColor: 'rgba(250, 158, 82, 0.15)', color: '#FA9E52' }}>
                             <Pause size={24} />
                         </div>
                         <div className="stat-content">
@@ -121,7 +121,7 @@ export const PackageDashboard: React.FC = () => {
                         </div>
                     </div>
                     <div className="stat-item">
-                        <div className="stat-icon" style={{ backgroundColor: '#d1fae5', color: '#059669' }}>
+                        <div className="stat-icon" style={{ backgroundColor: 'rgba(59, 181, 112, 0.15)', color: '#3BB570' }}>
                             <CheckCircle size={24} />
                         </div>
                         <div className="stat-content">

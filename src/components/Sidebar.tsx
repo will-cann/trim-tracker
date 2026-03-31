@@ -125,9 +125,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                 title={label}
                             >
                                 <span className="relative">
-                                    {icon(isActive ? '#3BB570' : '#6b7280')}
+                                    {icon(isActive ? '#3BB570' : '#959595')}
                                     {view === 'tasks' && taskCount > 0 && (
-                                        <span className="absolute -top-1.5 -right-1.5 bg-teal-500 text-white text-[9px] font-bold min-w-[16px] h-4 flex items-center justify-center rounded-full px-1">
+                                        <span className="absolute -top-1.5 -right-1.5 bg-emerald-500 text-white text-[9px] font-bold min-w-[16px] h-4 flex items-center justify-center rounded-full px-1">
                                             {taskCount > 99 ? '99+' : taskCount}
                                         </span>
                                     )}
@@ -145,7 +145,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         onClick={() => onViewChange('settings')}
                         title="Settings"
                     >
-                        <Settings size={16} color={currentView === 'settings' ? '#3BB570' : '#6b7280'} />
+                        <Settings size={16} color={currentView === 'settings' ? '#3BB570' : '#959595'} />
                         <span className="sidebar-label">Settings</span>
                     </button>
                     {user && (
@@ -165,7 +165,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         onClick={logout}
                         title="Logout"
                     >
-                        <LogOut size={18} color="#ef4444" />
+                        <LogOut size={18} color="#DF5B59" />
                     </button>
                 </div>
             </div>

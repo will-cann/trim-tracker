@@ -16,7 +16,7 @@ export const WeightInput: React.FC<WeightInputProps> = ({ label, value, onChange
             case 'shake': return 'text-shake focus:ring-amber-500';
             case 'blue': return 'text-blue-600 focus:ring-blue-500'; // Keep for backward compat if needed
             case 'trim':
-            case 'purple': return 'text-trim focus:ring-purple-500';
+            case 'purple': return 'text-trim focus:ring-blue-500';
             case 'waste':
             case 'red': return 'text-waste focus:ring-red-500';
             default: return 'text-gray-600 focus:ring-gray-500';

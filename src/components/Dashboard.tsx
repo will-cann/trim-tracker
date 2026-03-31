@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import type { TrimSession, CreateTrimSessionDTO, TrimmerProfile } from '../types/definitions';
+import type { TrimSession, CreateTrimSessionDTO, TrimmerProfile, CreatePackageDTO } from '../types/definitions';
 import { Cannabis, Trash2, Scale, Plus, Package, Hourglass, Users } from 'lucide-react';
 
 import { EntryList } from './EntryList';
@@ -20,6 +20,7 @@ interface DashboardProps {
     onSubmitBatch?: (entryId: string) => void;
     onStartBatch?: (entryId: string) => void;
     onRevertBatch?: (entryId: string) => void;
+    onCreatePackage?: (data: CreatePackageDTO) => Promise<void>;
     trimmerProfiles: TrimmerProfile[];
 }
 
@@ -36,6 +37,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
     onSubmitBatch,
     onStartBatch,
     onRevertBatch,
+    onCreatePackage,
     trimmerProfiles
 }) => {
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -69,7 +71,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                     <StatCard icon={<Package size={18} />} iconClassName="start-icon" label="Total Start" value={`${totalStartWeight.toFixed(0)}g`} />
                     <StatCard icon={<Scale size={18} />} iconClassName="output-icon" label="Total Output" value={`${totalOutput.toFixed(0)}g`} />
                     <StatCard icon={<Hourglass size={18} />} iconClassName="remaining-icon" label="Remaining" value={`${remainingWeight.toFixed(0)}g`} />
-                    <StatCard icon={<Users size={18} />} iconStyle={{ backgroundColor: '#ede9fe', color: '#7c3aed' }} label="Trimmers" value={activeTrimmerCount} />
+                    <StatCard icon={<Users size={18} />} iconStyle={{ backgroundColor: 'rgba(28, 158, 255, 0.1)', color: '#1C9EFF' }} label="Trimmers" value={activeTrimmerCount} />
                     {/* Row 2 */}
                     <StatCard icon={<Cannabis size={18} />} iconClassName="flower-icon" label="Total Flower" value={`${session.totalFlower.toFixed(0)}g`} />
                     <StatCard icon={<Cannabis size={18} />} iconClassName="shake-icon" label="Total Shake" value={`${session.totalShake.toFixed(0)}g`} />
@@ -144,6 +146,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                     setActiveTab('upcoming');
                     await onRevertBatch(entryId);
                 } : undefined}
+                onCreatePackage={onCreatePackage}
                 trimmerProfiles={trimmerProfiles}
             />
 

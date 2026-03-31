@@ -14,7 +14,7 @@ export const Login: React.FC = () => {
     const { login } = useAuth();
 
     return (
-        <div className="min-h-screen bg-[#fafafa] flex">
+        <div className="min-h-screen bg-gray-50 flex">
             {/* Left — brand + value prop */}
             <div className="hidden lg:flex flex-col justify-between flex-1 p-12 xl:p-16">
                 <div>

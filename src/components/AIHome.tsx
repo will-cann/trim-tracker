@@ -32,26 +32,26 @@ const ALL_SUGGESTIONS: Suggestion[] = [
     { text: 'Revert batch H-105 back to upcoming', icon: ArrowRightLeft, color: 'var(--color-shake)', bg: 'rgba(250,158,82,0.1)' },
     // Trimmers
     { text: 'Assign Maria and Carlos to the active batch', icon: User, color: 'var(--color-trim)', bg: 'rgba(28,158,255,0.1)' },
-    { text: 'Add a new trimmer named Sofia to the roster', icon: UserPlus, color: '#8B5CF6', bg: 'rgba(139,92,246,0.1)' },
+    { text: 'Add a new trimmer named Sofia to the roster', icon: UserPlus, color: '#1C9EFF', bg: 'rgba(28,158,255,0.1)' },
     { text: 'Remove Jordan from batch H-103', icon: User, color: 'var(--color-waste)', bg: 'rgba(223,91,89,0.1)' },
     { text: 'How is Maria performing this session?', icon: Scale, color: 'var(--color-trim)', bg: 'rgba(28,158,255,0.1)' },
     // Harvest
     { text: 'Create a harvest for Gelato', icon: Sprout, color: 'var(--color-flower)', bg: 'rgba(59,181,112,0.1)' },
     { text: 'Record wet weight 2400g for harvest H-201', icon: Scale, color: 'var(--color-trim)', bg: 'rgba(28,158,255,0.1)' },
     { text: 'Allocate harvest H-201 to flower and frozen', icon: ArrowRightLeft, color: 'var(--color-shake)', bg: 'rgba(250,158,82,0.1)' },
-    { text: 'Move harvest H-198 to drying room 2', icon: MapPin, color: '#8B5CF6', bg: 'rgba(139,92,246,0.1)' },
+    { text: 'Move harvest H-198 to drying room 2', icon: MapPin, color: '#1C9EFF', bg: 'rgba(28,158,255,0.1)' },
     { text: 'Record stem waste for the Gelato harvest', icon: Trash2, color: 'var(--color-waste)', bg: 'rgba(223,91,89,0.1)' },
     // Plants
     { text: 'Move 30 clones to veg room A', icon: MoveRight, color: 'var(--color-flower)', bg: 'rgba(59,181,112,0.1)' },
     { text: 'Create a batch of 50 Wedding Cake clones', icon: Leaf, color: 'var(--color-flower)', bg: 'rgba(59,181,112,0.1)' },
     { text: 'Promote nursery batch to vegetative', icon: Sprout, color: 'var(--color-trim)', bg: 'rgba(28,158,255,0.1)' },
-    { text: 'Move flowering plants from room C to room D', icon: MapPin, color: '#8B5CF6', bg: 'rgba(139,92,246,0.1)' },
+    { text: 'Move flowering plants from room C to room D', icon: MapPin, color: '#1C9EFF', bg: 'rgba(28,158,255,0.1)' },
     { text: 'How many plants are in veg right now?', icon: Leaf, color: 'var(--color-flower)', bg: 'rgba(59,181,112,0.1)' },
     // Tasks
-    { text: 'Add a task: flush all plants in room B by Friday', icon: ClipboardList, color: '#0D9488', bg: 'rgba(13,148,136,0.1)' },
-    { text: 'Create a task to calibrate scales before next session', icon: ClipboardList, color: '#0D9488', bg: 'rgba(13,148,136,0.1)' },
+    { text: 'Add a task: flush all plants in room B by Friday', icon: ClipboardList, color: '#3BB570', bg: 'rgba(59,181,112,0.1)' },
+    { text: 'Create a task to calibrate scales before next session', icon: ClipboardList, color: '#3BB570', bg: 'rgba(59,181,112,0.1)' },
     { text: 'Remind me to order new trim trays by Monday', icon: CalendarCheck, color: 'var(--color-shake)', bg: 'rgba(250,158,82,0.1)' },
-    { text: 'Assign the dehumidifier check to Carlos', icon: ClipboardList, color: '#0D9488', bg: 'rgba(13,148,136,0.1)' },
+    { text: 'Assign the dehumidifier check to Carlos', icon: ClipboardList, color: '#3BB570', bg: 'rgba(59,181,112,0.1)' },
     // Reports / Questions
     { text: 'Show me this week\'s trim output by strain', icon: Scale, color: 'var(--color-trim)', bg: 'rgba(28,158,255,0.1)' },
     { text: 'What\'s the flower-to-waste ratio this month?', icon: Thermometer, color: 'var(--color-shake)', bg: 'rgba(250,158,82,0.1)' },

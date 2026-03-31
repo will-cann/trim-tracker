@@ -19,13 +19,13 @@ const ACTION_CONFIG: Record<string, { icon: typeof Package; label: string; color
     create_session: { icon: Package, label: 'Create Session', color: 'text-emerald-600', bgColor: 'bg-emerald-50' },
     add_batch: { icon: Plus, label: 'Add Batch', color: 'text-blue-600', bgColor: 'bg-blue-50' },
     assign_trimmer: { icon: User, label: 'Assign Trimmer', color: 'text-amber-600', bgColor: 'bg-amber-50' },
-    add_trimmer_profile: { icon: UserPlus, label: 'Add to Roster', color: 'text-purple-600', bgColor: 'bg-purple-50' },
+    add_trimmer_profile: { icon: UserPlus, label: 'Add to Roster', color: 'text-blue-600', bgColor: 'bg-blue-50' },
     create_harvest: { icon: Sprout, label: 'Create Harvest', color: 'text-emerald-600', bgColor: 'bg-emerald-50' },
     record_wet_weight: { icon: Scale, label: 'Record Wet Weight', color: 'text-blue-600', bgColor: 'bg-blue-50' },
     allocate_harvest: { icon: ArrowRightLeft, label: 'Allocate Harvest', color: 'text-amber-600', bgColor: 'bg-amber-50' },
     record_harvest_waste: { icon: Trash2, label: 'Record Waste', color: 'text-red-600', bgColor: 'bg-red-50' },
-    move_harvest: { icon: MapPin, label: 'Move Harvest', color: 'text-purple-600', bgColor: 'bg-purple-50' },
-    create_human_task: { icon: ClipboardList, label: 'Task', color: 'text-teal-600', bgColor: 'bg-teal-50' },
+    move_harvest: { icon: MapPin, label: 'Move Harvest', color: 'text-blue-600', bgColor: 'bg-blue-50' },
+    create_human_task: { icon: ClipboardList, label: 'Task', color: 'text-emerald-600', bgColor: 'bg-emerald-50' },
 };
 
 const FIELD_LABELS: Record<string, string> = {
