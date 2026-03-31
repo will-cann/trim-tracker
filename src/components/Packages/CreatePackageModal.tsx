@@ -23,6 +23,9 @@ const PACKAGE_TYPES: { value: PackageType; label: string }[] = [
     { value: 'trim', label: 'Trim' },
     { value: 'shake', label: 'Shake' },
     { value: 'fresh_frozen', label: 'Fresh Frozen' },
+    { value: 'bubble_hash', label: 'Bubble Hash' },
+    { value: 'rosin', label: 'Rosin' },
+    { value: 'rosin_cart', label: 'Rosin Cart' },
 ];
 
 export const CreatePackageModal: React.FC<CreatePackageModalProps> = ({ onClose, onSubmit, prefill }) => {

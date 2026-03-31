@@ -1578,6 +1578,12 @@ export const handler: Handler = async (event) => {
                         const autoLabel = input.outputLabel ||
                             `${input.strain}-${(input.outputPackageType || '').replace('_', '-').toUpperCase()}-${new Date().toISOString().slice(0, 10)}`;
 
+                        // Resolve inputQuantity: AI value > source package qty > outputQuantity fallback
+                        const resolvedInputQty = input.inputQuantity
+                            || (srcPkg ? parseFloat(srcPkg.quantity) : null)
+                            || input.outputQuantity
+                            || null;
+
                         actions.push({
                             type: 'record_extraction',
                             data: {
@@ -1585,7 +1591,7 @@ export const handler: Handler = async (event) => {
                                 sourcePackageId: srcPkg?.id || null,
                                 sourcePackageLabel: srcPkg?.label || `${input.strain} ${input.inputPackageType}`,
                                 inputPackageType: input.inputPackageType,
-                                inputQuantity: input.inputQuantity || (srcPkg ? parseFloat(srcPkg.quantity) : null),
+                                inputQuantity: resolvedInputQty,
                                 outputPackageType: input.outputPackageType,
                                 outputQuantity: input.outputQuantity || null,
                                 outputLabel: autoLabel,

@@ -28,10 +28,10 @@ export const handler: Handler = async (event) => {
             notes,
         } = data;
 
-        if (!inputPackageType || !inputQuantity || !outputPackageType || !strain) {
+        if (!inputPackageType || !outputPackageType || !strain) {
             return {
                 statusCode: 400,
-                body: JSON.stringify({ error: 'inputPackageType, inputQuantity, outputPackageType, and strain are required' }),
+                body: JSON.stringify({ error: 'inputPackageType, outputPackageType, and strain are required' }),
             };
         }
 
@@ -58,8 +58,8 @@ export const handler: Handler = async (event) => {
         try {
             await client.query('BEGIN');
 
-            // Step 1: Decrement source package quantity (if source provided)
-            if (sourcePackageId) {
+            // Step 1: Decrement source package quantity (if source and quantity provided)
+            if (sourcePackageId && inputQuantity) {
                 const { rows: [source] } = await client.query(
                     `SELECT quantity FROM packages WHERE id = $1 AND company_id = $2`,
                     [sourcePackageId, context.companyId]
@@ -139,7 +139,7 @@ export const handler: Handler = async (event) => {
                 context.userId,
                 sourcePackageId || null,
                 inputPackageType,
-                inputQuantity,
+                inputQuantity || null,
                 outputPackageId,
                 outputPackageType,
                 outputQuantity || null,
