@@ -1,7 +1,7 @@
 import React from 'react';
 import { Maximize2 } from 'lucide-react';
 import type { LocationMeta, PlantPhase } from '../../types/plantMap';
-import { getHealthColor, HEALTH_COLOR_MAP, buildWeekRatioString, abbreviateContaminants } from '../../types/plantMap';
+import { getHealthColor, HEALTH_COLOR_MAP, buildWeekRatioString, buildPhaseProgress, abbreviateContaminants } from '../../types/plantMap';
 import { PlantHealthCircle } from './PlantHealthCircle';
 import { PlantHealthCode } from './PlantHealthCode';
 
@@ -44,6 +44,11 @@ export const RoomCard: React.FC<RoomCardProps> = ({ name, room, phase, phaseLabe
 
     const contaminantStr = abbreviateContaminants(room.contaminants);
 
+    // Flowering progress: % through the flowering cycle
+    const flowerProgress = isFlowering && room.phaseDates[0] && room.harvestDates[0]
+        ? buildPhaseProgress(room.phaseDates[0], room.harvestDates[0])
+        : undefined;
+
     return (
         <button
             onClick={onClick}
@@ -84,6 +89,24 @@ export const RoomCard: React.FC<RoomCardProps> = ({ name, room, phase, phaseLabe
                     <span className="text-gray-400"> plant{room.totalPlants !== 1 ? 's' : ''}</span>
                 </div>
             </div>
+
+            {/* Flowering progress bar */}
+            {flowerProgress != null && (
+                <div className="mb-3">
+                    <div className="h-1.5 rounded-full bg-gray-100 overflow-hidden">
+                        <div
+                            className="h-full rounded-full transition-all"
+                            style={{
+                                width: `${flowerProgress}%`,
+                                background: flowerProgress >= 90
+                                    ? '#f59e0b'
+                                    : 'var(--color-chameleon, #3BB570)',
+                            }}
+                        />
+                    </div>
+                    <p className="text-[10px] text-gray-400 mt-1 tabular-nums">{flowerProgress}% complete</p>
+                </div>
+            )}
 
             {/* Health section */}
             <div className="flex items-center justify-between pt-3 border-t border-gray-100">

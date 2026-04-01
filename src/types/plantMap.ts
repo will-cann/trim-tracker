@@ -132,6 +132,17 @@ export const buildWeekRatioString = (startDate: string, endDate: string): string
   return undefined;
 };
 
+/** Returns 0–100 progress through a phase given start and end dates. */
+export const buildPhaseProgress = (startDate: string, endDate: string): number | undefined => {
+  const now = Date.now();
+  const start = new Date(startDate).getTime();
+  const end = new Date(endDate).getTime();
+  const total = end - start;
+  if (isNaN(total) || total <= 0) return undefined;
+  const elapsed = now - start;
+  return Math.max(0, Math.min(100, Math.round((elapsed / total) * 100)));
+};
+
 // ============================================================================
 // ROOM ENTITY
 // ============================================================================

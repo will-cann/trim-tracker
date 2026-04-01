@@ -35,7 +35,7 @@ export const handler: Handler = async (event) => {
                     pb.planted_date::text AS phase_date,
                     NULL::text AS harvest_date,
                     CASE WHEN pb.planted_date IS NOT NULL
-                        THEN (pb.planted_date + 14 * INTERVAL '1 day')::date::text
+                        THEN (pb.planted_date + 14)::date::text
                         ELSE NULL
                     END AS flip_date
                 FROM rooms r
@@ -58,7 +58,7 @@ export const handler: Handler = async (event) => {
                     p.vegetative_date::text AS phase_date,
                     NULL::text AS harvest_date,
                     CASE WHEN s.veg_length_days IS NOT NULL AND p.vegetative_date IS NOT NULL
-                        THEN (p.vegetative_date + s.veg_length_days * INTERVAL '1 day')::date::text
+                        THEN (p.vegetative_date + s.veg_length_days)::date::text
                         ELSE NULL
                     END AS flip_date
                 FROM plants p
