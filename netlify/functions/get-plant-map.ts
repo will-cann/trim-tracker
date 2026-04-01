@@ -32,11 +32,40 @@ export const handler: Handler = async (event) => {
                     (pb.untracked_count + pb.tracked_count) AS plant_count,
                     pb.plant_health,
                     pb.contaminants,
-                    pb.planted_date::text AS phase_date
+                    pb.planted_date::text AS phase_date,
+                    NULL::text AS harvest_date,
+                    CASE WHEN pb.planted_date IS NOT NULL
+                        THEN (pb.planted_date + 14 * INTERVAL '1 day')::date::text
+                        ELSE NULL
+                    END AS flip_date
                 FROM rooms r
                 JOIN plant_batches pb ON pb.room_id = r.id AND pb.company_id = r.company_id
+                LEFT JOIN strains s ON s.company_id = pb.company_id AND LOWER(s.name) = LOWER(pb.strain_name)
                 WHERE r.company_id = ${context.companyId}
                     AND r.room_type = 'nursery'
+                ORDER BY r.name
+            `;
+            rows = result.rows;
+        } else if (phase === 'vegetative') {
+            const result = await sql`
+                SELECT
+                    r.id AS room_id,
+                    r.name AS room_name,
+                    p.strain_name,
+                    1 AS plant_count,
+                    p.plant_health,
+                    p.contaminants,
+                    p.vegetative_date::text AS phase_date,
+                    NULL::text AS harvest_date,
+                    CASE WHEN s.veg_length_days IS NOT NULL AND p.vegetative_date IS NOT NULL
+                        THEN (p.vegetative_date + s.veg_length_days * INTERVAL '1 day')::date::text
+                        ELSE NULL
+                    END AS flip_date
+                FROM plants p
+                JOIN rooms r ON r.id = p.room_id AND r.company_id = p.company_id
+                LEFT JOIN strains s ON s.company_id = p.company_id AND LOWER(s.name) = LOWER(p.strain_name)
+                WHERE p.company_id = ${context.companyId}
+                    AND p.growth_phase = 'vegetative'
                 ORDER BY r.name
             `;
             rows = result.rows;
@@ -49,15 +78,13 @@ export const handler: Handler = async (event) => {
                     1 AS plant_count,
                     p.plant_health,
                     p.contaminants,
-                    CASE
-                        WHEN ${phase} = 'vegetative' THEN p.vegetative_date::text
-                        ELSE p.flowering_date::text
-                    END AS phase_date,
-                    p.target_harvest_date::text AS harvest_date
+                    p.flowering_date::text AS phase_date,
+                    p.target_harvest_date::text AS harvest_date,
+                    NULL::text AS flip_date
                 FROM plants p
                 JOIN rooms r ON r.id = p.room_id AND r.company_id = p.company_id
                 WHERE p.company_id = ${context.companyId}
-                    AND p.growth_phase = ${phase}
+                    AND p.growth_phase = 'flowering'
                 ORDER BY r.name
             `;
             rows = result.rows;
@@ -73,6 +100,7 @@ export const handler: Handler = async (event) => {
             contaminants: Set<string>;
             phaseDates: Set<string>;
             harvestDates: Set<string>;
+            flipDates: Set<string>;
         }>();
 
         for (const row of rows) {
@@ -87,6 +115,7 @@ export const handler: Handler = async (event) => {
                     contaminants: new Set(),
                     phaseDates: new Set(),
                     harvestDates: new Set(),
+                    flipDates: new Set(),
                 };
                 roomMap.set(row.room_name, room);
             }
@@ -101,6 +130,7 @@ export const handler: Handler = async (event) => {
             }
             if (row.phase_date) room.phaseDates.add(row.phase_date);
             if (row.harvest_date) room.harvestDates.add(row.harvest_date);
+            if (row.flip_date) room.flipDates.add(row.flip_date);
         }
 
         const plantMap: Record<string, any> = {};
@@ -114,6 +144,7 @@ export const handler: Handler = async (event) => {
                 contaminants: [...room.contaminants].sort(),
                 phaseDates: [...room.phaseDates].sort(),
                 harvestDates: [...room.harvestDates].sort(),
+                flipDates: [...room.flipDates].sort(),
             };
         }
 

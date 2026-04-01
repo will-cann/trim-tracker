@@ -16,7 +16,7 @@ interface StrainsListProps {
     onRevalidate: () => void;
 }
 
-type SortKey = 'strain' | 'totalPlants' | 'plantHealth' | 'contamination' | 'plantedDate' | 'harvestDate';
+type SortKey = 'strain' | 'totalPlants' | 'plantHealth' | 'contamination' | 'plantedDate' | 'harvestDate' | 'flipDate';
 type SortDir = 'asc' | 'desc';
 
 const ACTION_TYPE_MAP: Record<string, PlantActionType | null> = {
@@ -71,6 +71,9 @@ export const StrainsList: React.FC<StrainsListProps> = ({
                     break;
                 case 'harvestDate':
                     cmp = (a.harvestDate || '').localeCompare(b.harvestDate || '');
+                    break;
+                case 'flipDate':
+                    cmp = (a.flipDate || '').localeCompare(b.flipDate || '');
                     break;
             }
             return sortDir === 'asc' ? cmp : -cmp;
@@ -158,14 +161,20 @@ export const StrainsList: React.FC<StrainsListProps> = ({
         );
     }
 
-    const showHarvestCol = phase === 'flowering';
+    // Each phase gets one milestone date column instead of a generic "Date"
+    const milestoneCol: { key: SortKey; label: string } | null =
+        phase === 'nursery'   ? { key: 'flipDate', label: 'Uppot' } :
+        phase === 'vegetative' ? { key: 'flipDate', label: 'Flip' } :
+        phase === 'flowering'  ? { key: 'harvestDate', label: 'Harvest' } :
+        null;
+
     const columns: { key: SortKey; label: string; width: string }[] = [
         { key: 'plantHealth', label: 'Health', width: 'w-16' },
         { key: 'strain', label: 'Strain', width: 'flex-1' },
         { key: 'totalPlants', label: 'Plants', width: 'w-14' },
         { key: 'contamination', label: 'Contam.', width: 'w-20' },
-        { key: 'plantedDate', label: 'Date', width: 'w-18' },
-        ...(showHarvestCol ? [{ key: 'harvestDate' as SortKey, label: 'Est. Harvest', width: 'w-22' }] : []),
+        { key: 'plantedDate', label: 'Days', width: 'w-14' },
+        ...(milestoneCol ? [{ key: milestoneCol.key, label: milestoneCol.label, width: 'w-20' }] : []),
     ];
 
     const SortIcon = ({ col }: { col: SortKey }) => {
@@ -256,17 +265,26 @@ export const StrainsList: React.FC<StrainsListProps> = ({
                                             <td className="px-2 py-2 w-24 text-gray-500">
                                                 {contam}
                                             </td>
-                                            <td className="px-2 py-2 w-18 tabular-nums text-gray-500">
-                                                {row.plantedDate?.slice(5).replace('-', '/')}
+                                            <td className="px-2 py-2 w-14 tabular-nums text-gray-500">
+                                                {(() => {
+                                                    const d = row.phaseDate || row.plantedDate;
+                                                    if (!d) return '—';
+                                                    const days = Math.floor((Date.now() - new Date(d).getTime()) / 86400000);
+                                                    return days >= 0 ? days : '—';
+                                                })()}
                                             </td>
-                                            {showHarvestCol && (
-                                                <td className="px-2 py-2 w-22 tabular-nums text-gray-500">
-                                                    {row.harvestDate
-                                                        ? <span className="text-amber-600">~{row.harvestDate.slice(5).replace('-', '/')}</span>
-                                                        : <span className="text-gray-300">—</span>
-                                                    }
-                                                </td>
-                                            )}
+                                            {milestoneCol && (() => {
+                                                const val = milestoneCol.key === 'harvestDate' ? row.harvestDate : row.flipDate;
+                                                const color = phase === 'flowering' ? 'text-amber-600' : 'text-blue-500';
+                                                return (
+                                                    <td className="px-2 py-2 w-20 tabular-nums text-gray-500">
+                                                        {val
+                                                            ? <span className={color}>~{val.slice(5).replace('-', '/')}</span>
+                                                            : <span className="text-gray-300">—</span>
+                                                        }
+                                                    </td>
+                                                );
+                                            })()}
                                         </tr>
                                     );
                                 })}

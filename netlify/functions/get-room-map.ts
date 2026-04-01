@@ -42,7 +42,12 @@ export const handler: Handler = async (event) => {
                     pb.contaminants,
                     pb.planted_date::text AS planted_date,
                     pb.tag,
-                    'plantbatches' AS entity_type
+                    'plantbatches' AS entity_type,
+                    NULL::text AS target_harvest_date,
+                    CASE WHEN pb.planted_date IS NOT NULL
+                        THEN (pb.planted_date + 14 * INTERVAL '1 day')::date::text
+                        ELSE NULL
+                    END AS flip_date
                 FROM plant_batches pb
                 JOIN rooms r ON r.id = pb.room_id AND r.company_id = pb.company_id
                 WHERE pb.company_id = ${context.companyId}
@@ -50,8 +55,7 @@ export const handler: Handler = async (event) => {
                 ORDER BY pb.strain_name, pb.planted_date
             `;
             rows = result.rows;
-        } else {
-            const phaseDateCol = phase === 'vegetative' ? 'p.vegetative_date' : 'p.flowering_date';
+        } else if (phase === 'vegetative') {
             const result = await sql`
                 SELECT
                     p.id,
@@ -61,18 +65,43 @@ export const handler: Handler = async (event) => {
                     p.plant_health,
                     p.contaminants,
                     p.planted_date::text AS planted_date,
-                    CASE
-                        WHEN ${phase} = 'vegetative' THEN p.vegetative_date::text
-                        ELSE p.flowering_date::text
-                    END AS phase_date,
+                    p.vegetative_date::text AS phase_date,
+                    NULL::text AS target_harvest_date,
+                    CASE WHEN s.veg_length_days IS NOT NULL AND p.vegetative_date IS NOT NULL
+                        THEN (p.vegetative_date + s.veg_length_days * INTERVAL '1 day')::date::text
+                        ELSE NULL
+                    END AS flip_date,
+                    p.tag,
+                    'plants' AS entity_type
+                FROM plants p
+                JOIN rooms r ON r.id = p.room_id AND r.company_id = p.company_id
+                LEFT JOIN strains s ON s.company_id = p.company_id AND LOWER(s.name) = LOWER(p.strain_name)
+                WHERE p.company_id = ${context.companyId}
+                    AND r.name = ${roomName}
+                    AND p.growth_phase = 'vegetative'
+                ORDER BY p.strain_name, p.planted_date
+            `;
+            rows = result.rows;
+        } else {
+            const result = await sql`
+                SELECT
+                    p.id,
+                    p.label,
+                    p.strain_name,
+                    1 AS plant_count,
+                    p.plant_health,
+                    p.contaminants,
+                    p.planted_date::text AS planted_date,
+                    p.flowering_date::text AS phase_date,
                     p.target_harvest_date::text AS target_harvest_date,
+                    NULL::text AS flip_date,
                     p.tag,
                     'plants' AS entity_type
                 FROM plants p
                 JOIN rooms r ON r.id = p.room_id AND r.company_id = p.company_id
                 WHERE p.company_id = ${context.companyId}
                     AND r.name = ${roomName}
-                    AND p.growth_phase = ${phase}
+                    AND p.growth_phase = 'flowering'
                 ORDER BY p.strain_name, p.planted_date
             `;
             rows = result.rows;
@@ -86,7 +115,9 @@ export const handler: Handler = async (event) => {
             plants: string[];
             contamination: Set<string>;
             plantedDate: string;
+            phaseDate: string | null;
             harvestDate: string | null;
+            flipDate: string | null;
             strain: string;
             type: string;
             tags: string[];
@@ -103,7 +134,9 @@ export const handler: Handler = async (event) => {
                     plants: [],
                     contamination: new Set(),
                     plantedDate: row.planted_date || row.phase_date,
+                    phaseDate: row.phase_date || row.planted_date,
                     harvestDate: row.target_harvest_date || null,
+                    flipDate: row.flip_date || null,
                     strain: row.strain_name,
                     type: row.entity_type,
                     tags: [],
@@ -118,6 +151,10 @@ export const handler: Handler = async (event) => {
             // Use earliest harvest date in group
             if (row.target_harvest_date && (!group.harvestDate || row.target_harvest_date < group.harvestDate)) {
                 group.harvestDate = row.target_harvest_date;
+            }
+            // Use earliest flip date in group
+            if (row.flip_date && (!group.flipDate || row.flip_date < group.flipDate)) {
+                group.flipDate = row.flip_date;
             }
 
             if (Array.isArray(row.contaminants)) {
@@ -134,7 +171,9 @@ export const handler: Handler = async (event) => {
                 plants: group.plants,
                 contamination: [...group.contamination].sort(),
                 plantedDate: group.plantedDate,
+                phaseDate: group.phaseDate,
                 harvestDate: group.harvestDate,
+                flipDate: group.flipDate,
                 strain: group.strain,
                 type: group.type,
                 tags: group.tags,

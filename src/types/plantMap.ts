@@ -31,6 +31,7 @@ export type LocationMeta = {
   contaminants: string[];
   phaseDates: string[];
   harvestDates: string[];
+  flipDates: string[];
 };
 
 // ============================================================================
@@ -45,7 +46,9 @@ export type PlantGroup = {
   plants: string[];
   contamination: string[];
   plantedDate: string;
+  phaseDate: string | null;
   harvestDate: string | null;
+  flipDate: string | null;
   strain: string;
   type: 'plants' | 'plantbatches';
 };

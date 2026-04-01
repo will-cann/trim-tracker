@@ -118,6 +118,7 @@ export const PlantMapDashboard: React.FC<PlantMapDashboardProps> = ({ refreshKey
                                 key={name}
                                 name={name}
                                 room={room}
+                                phase={activePhase}
                                 phaseLabel={currentTab.label}
                                 onClick={() => handleRoomClick(name)}
                             />

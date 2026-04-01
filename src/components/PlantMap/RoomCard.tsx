@@ -1,6 +1,6 @@
 import React from 'react';
 import { Maximize2 } from 'lucide-react';
-import type { LocationMeta } from '../../types/plantMap';
+import type { LocationMeta, PlantPhase } from '../../types/plantMap';
 import { getHealthColor, HEALTH_COLOR_MAP, buildWeekRatioString, abbreviateContaminants } from '../../types/plantMap';
 import { PlantHealthCircle } from './PlantHealthCircle';
 import { PlantHealthCode } from './PlantHealthCode';
@@ -8,19 +8,40 @@ import { PlantHealthCode } from './PlantHealthCode';
 interface RoomCardProps {
     name: string;
     room: LocationMeta;
+    phase: PlantPhase;
     phaseLabel: string;
     onClick: () => void;
 }
 
-export const RoomCard: React.FC<RoomCardProps> = ({ name, room, phaseLabel, onClick }) => {
+export const RoomCard: React.FC<RoomCardProps> = ({ name, room, phase, phaseLabel, onClick }) => {
     const healthColor = getHealthColor(room.plantHealth);
     const borderColor = HEALTH_COLOR_MAP[healthColor];
-    const weekRatio = room.phaseDates[0] && room.harvestDates[0]
+
+    const isFlowering = phase === 'flowering';
+    const isVeg = phase === 'vegetative';
+
+    // Flowering rooms show week ratio + harvest date
+    // Veg rooms show flip date
+    // Nursery rooms show no milestone date
+    const weekRatio = isFlowering && room.phaseDates[0] && room.harvestDates[0]
         ? buildWeekRatioString(room.phaseDates[0], room.harvestDates[0])
         : undefined;
     const subtitle = weekRatio || `${phaseLabel} Room`;
-    const harvestDate = room.harvestDates[0];
-    const extraHarvests = room.harvestDates.length - 1;
+
+    let dateLabel: string | null = null;
+    let primaryDate: string | undefined;
+    let extraDates = 0;
+
+    if (isFlowering && room.harvestDates.length > 0) {
+        dateLabel = 'Harvest';
+        primaryDate = room.harvestDates[0];
+        extraDates = room.harvestDates.length - 1;
+    } else if (isVeg && room.flipDates && room.flipDates.length > 0) {
+        dateLabel = 'Flip';
+        primaryDate = room.flipDates[0];
+        extraDates = room.flipDates.length - 1;
+    }
+
     const contaminantStr = abbreviateContaminants(room.contaminants);
 
     return (
@@ -43,14 +64,14 @@ export const RoomCard: React.FC<RoomCardProps> = ({ name, room, phaseLabel, onCl
 
             {/* Metrics row */}
             <div className="flex items-center gap-4 mb-4 text-xs text-gray-500">
-                {harvestDate && (
+                {dateLabel && primaryDate && (
                     <div>
-                        <span className="text-gray-400">Harvest </span>
-                        <span className="font-medium text-amber-600 tabular-nums">
-                            ~{harvestDate.slice(5).replace('-', '/')}
+                        <span className="text-gray-400">{dateLabel} </span>
+                        <span className={`font-medium tabular-nums ${isFlowering ? 'text-amber-600' : 'text-blue-500'}`}>
+                            ~{primaryDate.slice(5).replace('-', '/')}
                         </span>
-                        {extraHarvests > 0 && (
-                            <span className="text-gray-400"> (+{extraHarvests})</span>
+                        {extraDates > 0 && (
+                            <span className="text-gray-400"> (+{extraDates})</span>
                         )}
                     </div>
                 )}
