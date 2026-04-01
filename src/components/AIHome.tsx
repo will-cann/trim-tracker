@@ -395,6 +395,10 @@ export const AIHome: React.FC<AIHomeProps> = ({
 
     const handleSend = useCallback((text: string) => {
         if (!text.trim() || isLoading) return;
+        // Cancel stale pending actions — new message supersedes them
+        if (pendingActions && pendingActions.length > 0) {
+            cancelActions();
+        }
         if (!conversationId) {
             const newId = crypto.randomUUID();
             setConversationId(newId);
@@ -407,7 +411,7 @@ export const AIHome: React.FC<AIHomeProps> = ({
         if (inlineListening) {
             inlineStop();
         }
-    }, [isLoading, conversationId, onConversationStarted, sendMessage, setConversationId, inlineListening, inlineStop]);
+    }, [isLoading, conversationId, onConversationStarted, sendMessage, setConversationId, inlineListening, inlineStop, pendingActions, cancelActions]);
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
@@ -770,9 +774,9 @@ export const AIHome: React.FC<AIHomeProps> = ({
                                     value={inputText}
                                     onChange={(e) => setInputText(e.target.value)}
                                     onKeyDown={handleKeyDown}
-                                    placeholder={pendingActions && pendingActions.length > 0 ? "Review actions above..." : inlineListening && voiceMode === 'ambient' ? "Listening... tasks will be created automatically" : "Type a message..."}
+                                    placeholder={pendingActions && pendingActions.length > 0 ? "Add more details or send to update..." : inlineListening && voiceMode === 'ambient' ? "Listening... tasks will be created automatically" : "Type a message..."}
                                     rows={1}
-                                    disabled={isLoading || isExecuting || !!(pendingActions && pendingActions.length > 0)}
+                                    disabled={isLoading || isExecuting}
                                     className="ai-chat-textarea"
                                     onInput={(e) => {
                                         const target = e.target as HTMLTextAreaElement;
