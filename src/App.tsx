@@ -425,8 +425,8 @@ function AppContent() {
           />
         )}
 
-        {/* Task panel edge controls — only on AI home and reports (where ChatPanel isn't shown) */}
-        {(currentView === 'ai' || currentView === 'reports') && (
+        {/* Task panel edge controls — only on reports (AI home has its own voice/ambient/tasks) */}
+        {currentView === 'reports' && (
           <TaskRightPanel
             tasks={humanTasks}
             isOpen={isTaskPanelOpen}
