@@ -58,5 +58,5 @@ export const usePlantMapSummary = () => {
         return () => clearInterval(interval);
     }, [fetchSummary]);
 
-    return summary;
+    return { summary, refetch: fetchSummary };
 };

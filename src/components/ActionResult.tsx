@@ -1,4 +1,4 @@
-import { Check, ArrowRight, Package, Plus, UserPlus, Sprout, Scale, ArrowRightLeft, Trash2, MapPin, User, Scissors, ClipboardList } from 'lucide-react';
+import { Check, ArrowRight, Package, Plus, UserPlus, Sprout, Scale, ArrowRightLeft, Trash2, MapPin, User, Scissors, ClipboardList, Leaf, Thermometer } from 'lucide-react';
 import type { ActionResultItem } from '../types/definitions';
 
 interface ActionResultProps {
@@ -20,6 +20,11 @@ const RESULT_ICONS: Record<string, typeof Package> = {
     create_human_task: ClipboardList,
     update_human_task: ClipboardList,
     delete_human_task: Trash2,
+    update_plant_health: Leaf,
+    create_planting: Sprout,
+    move_plants: MapPin,
+    change_plant_phase: Sprout,
+    record_extraction: Thermometer,
 };
 
 const NAV_LABELS: Record<string, string> = {
@@ -27,50 +32,44 @@ const NAV_LABELS: Record<string, string> = {
     harvests: 'Open Harvest Day',
     reports: 'View Reports',
     tasks: 'View Tasks',
+    'plant-map': 'View Plant Map',
 };
 
 export const ActionResult = ({ results, onNavigate }: ActionResultProps) => {
-    // Group by navigation target for a cleaner CTA
     const navTargets = [...new Set(results.map(r => r.navigateTo).filter(Boolean))] as string[];
 
     return (
-        <div className="space-y-3">
-            {/* Result items */}
-            <div className="rounded-lg border border-emerald-200 bg-emerald-50/30 overflow-hidden">
+        <div className="action-result">
+            <div className="action-result-list">
                 {results.map((result, i) => {
                     const Icon = RESULT_ICONS[result.type] || Check;
                     return (
                         <div
                             key={i}
-                            className={`flex items-center gap-3 px-3 py-2.5 ${
-                                i < results.length - 1 ? 'border-b border-emerald-100' : ''
-                            }`}
+                            className={`action-result-item ${i < results.length - 1 ? 'action-result-item-border' : ''}`}
                         >
-                            <div className="w-5 h-5 rounded-full bg-emerald-500 flex items-center justify-center flex-shrink-0">
-                                <Check size={11} className="text-white" strokeWidth={3} />
+                            <div className="action-result-check">
+                                <Check size={11} strokeWidth={3} />
                             </div>
-                            <div className="flex-1 min-w-0">
-                                <span className="text-sm text-gray-900 font-medium">{result.label}</span>
+                            <div className="action-result-text">
+                                <span className="action-result-label">{result.label}</span>
                                 {result.summary && (
-                                    <span className="text-sm text-gray-500 ml-1.5">{result.summary}</span>
+                                    <span className="action-result-summary">{result.summary}</span>
                                 )}
                             </div>
-                            <Icon size={14} className="text-gray-300 flex-shrink-0" />
+                            <Icon size={14} className="action-result-type-icon" />
                         </div>
                     );
                 })}
             </div>
 
-            {/* Navigation CTAs */}
             {navTargets.length > 0 && onNavigate && (
-                <div className="flex gap-2">
+                <div className="action-result-nav">
                     {navTargets.map(target => (
                         <button
                             key={target}
-                            onClick={() => onNavigate(target as 'dashboard' | 'harvests' | 'reports' | 'tasks')}
-                            className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium
-                                       text-emerald-700 bg-emerald-50 hover:bg-emerald-100
-                                       border border-emerald-200 transition-colors"
+                            onClick={() => onNavigate(target as any)}
+                            className="action-result-nav-btn"
                         >
                             {NAV_LABELS[target] || target}
                             <ArrowRight size={14} />

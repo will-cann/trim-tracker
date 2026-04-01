@@ -39,6 +39,7 @@ function AppContent() {
   const { user, loading: authLoading } = useAuth();
   const [session, setSession] = useState<TrimSession | null>(null);
   const [loading, setLoading] = useState(true);
+  const [refreshKey, setRefreshKey] = useState(0);
   const [currentView, setCurrentView] = useState<ViewType>('ai');
   const [trimmerProfiles, setTrimmerProfiles] = useState<TrimmerProfile[]>([]);
   const [harvests, setHarvests] = useState<Harvest[]>([]);
@@ -72,7 +73,7 @@ function AppContent() {
     retry: retryLoadTasks,
   } = useHumanTasks();
 
-  const plantMapSummary = usePlantMapSummary();
+  const { summary: plantMapSummary, refetch: refetchPlantMap } = usePlantMapSummary();
 
   const handleCreateHumanTasks = useCallback(async (tasks: Array<{ title: string; description?: string; priority: string; category: string; dueDate?: string; assignee?: string; location?: string; onCompleteAction?: { type: string; data: Record<string, any> } }>) => {
     await addHumanTasks(tasks.map(t => ({
@@ -152,8 +153,9 @@ function AppContent() {
   }, []);
 
   const refreshAll = useCallback(async () => {
-    await Promise.all([loadSession(), loadTrimmerProfiles(), loadHarvests(), loadCompletedSessions(), loadLicenses()]);
-  }, [loadSession, loadTrimmerProfiles, loadHarvests, loadCompletedSessions, loadLicenses]);
+    await Promise.all([loadSession(), loadTrimmerProfiles(), loadHarvests(), loadCompletedSessions(), loadLicenses(), refetchPlantMap()]);
+    setRefreshKey(k => k + 1);
+  }, [loadSession, loadTrimmerProfiles, loadHarvests, loadCompletedSessions, loadLicenses, refetchPlantMap]);
 
   useEffect(() => {
     if (user) {
@@ -338,7 +340,7 @@ function AppContent() {
         ) : currentView === 'harvests' ? (
           <HarvestDashboard onStartHarvestDay={() => setCurrentView('harvest-day')} />
         ) : currentView === 'plant-map' ? (
-          <PlantMapDashboard />
+          <PlantMapDashboard refreshKey={refreshKey} />
         ) : currentView === 'packages' ? (
           <PackageDashboard />
         ) : currentView === 'reports' ? (

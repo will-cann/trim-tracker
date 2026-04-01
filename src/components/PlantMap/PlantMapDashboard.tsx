@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { Leaf, Plus } from 'lucide-react';
 import type { PlantPhase } from '../../types/plantMap';
 import { PHASE_TABS } from '../../types/plantMap';
@@ -9,11 +9,24 @@ import { ExpandedRoom } from './ExpandedRoom';
 import { RoomGridSkeleton } from '../Skeleton';
 import { CreatePlantingModal } from './CreatePlantingModal';
 
-export const PlantMapDashboard: React.FC = () => {
+interface PlantMapDashboardProps {
+    refreshKey?: number;
+}
+
+export const PlantMapDashboard: React.FC<PlantMapDashboardProps> = ({ refreshKey }) => {
     const [activePhase, setActivePhase] = useState<PlantPhase>('flowering');
     const [expandedRoom, setExpandedRoom] = useState<string | null>(null);
     const [showCreateModal, setShowCreateModal] = useState(false);
     const { data, loading, refetch } = usePlantMap(activePhase);
+
+    // Refetch when external actions (ambient, chat) modify plant data
+    const prevRefreshKey = useRef(refreshKey);
+    useEffect(() => {
+        if (refreshKey !== undefined && refreshKey !== prevRefreshKey.current) {
+            prevRefreshKey.current = refreshKey;
+            refetch();
+        }
+    }, [refreshKey, refetch]);
 
     const currentTab = PHASE_TABS.find(t => t.key === activePhase)!;
     const rooms = data ? Object.entries(data) : [];
