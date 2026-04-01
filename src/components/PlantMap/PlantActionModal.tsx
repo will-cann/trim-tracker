@@ -66,6 +66,7 @@ export const PlantActionModal: React.FC<PlantActionModalProps> = ({
     const [selectedContaminants, setSelectedContaminants] = useState<Set<string>>(new Set());
 
     const totalPlants = selectedGroups.reduce((sum, g) => sum + g.totalPlants, 0);
+    const [uppotCount, setUppotCount] = useState(totalPlants);
     const plantIds = selectedGroups.flatMap(g => g.plants);
     const entityType = selectedGroups[0]?.type === 'plantbatches' ? 'plantbatches' as const : 'plants' as const;
 
@@ -169,6 +170,7 @@ export const PlantActionModal: React.FC<PlantActionModalProps> = ({
                         targetPhase,
                         ...(targetRoomId ? { targetRoomId } : {}),
                         ...(targetPhase === 'flowering' && targetHarvestDate ? { targetHarvestDate } : {}),
+                        ...(isNurseryUppot ? { uppotCount } : {}),
                     });
                     break;
 
@@ -270,13 +272,32 @@ export const PlantActionModal: React.FC<PlantActionModalProps> = ({
 
                     {action === 'change-phase' && (
                         <div className="space-y-4">
-                            {/* Nursery uppot info */}
+                            {/* Nursery uppot info + count */}
                             {isNurseryUppot && (
-                                <div className="rounded-lg border border-blue-200 bg-blue-50/50 p-3 text-xs text-gray-600">
-                                    <p className="font-medium text-gray-700 mb-1">Uppot to Vegetative</p>
-                                    <p>
-                                        {totalPlants} clone{totalPlants !== 1 ? 's' : ''} will be converted to individually tracked plants in the vegetative phase.
-                                    </p>
+                                <div className="rounded-lg border border-blue-200 bg-blue-50/50 p-3 text-xs text-gray-600 space-y-3">
+                                    <div>
+                                        <p className="font-medium text-gray-700 mb-1">Uppot to Vegetative</p>
+                                        <p>
+                                            Select how many of the {totalPlants} clone{totalPlants !== 1 ? 's' : ''} to keep. The rest will be culled.
+                                        </p>
+                                    </div>
+                                    <div className="flex items-center gap-3">
+                                        <label className="text-xs font-medium text-gray-700 whitespace-nowrap">Plants to keep</label>
+                                        <input
+                                            type="number"
+                                            min={1}
+                                            max={totalPlants}
+                                            value={uppotCount}
+                                            onChange={e => setUppotCount(Math.min(totalPlants, Math.max(1, Number(e.target.value) || 1)))}
+                                            className="w-20 px-2 py-1.5 text-xs border border-gray-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500 tabular-nums text-center"
+                                        />
+                                        <span className="text-[11px] text-gray-400">of {totalPlants}</span>
+                                    </div>
+                                    {uppotCount < totalPlants && (
+                                        <p className="text-[11px] text-amber-600">
+                                            {totalPlants - uppotCount} clone{totalPlants - uppotCount !== 1 ? 's' : ''} will be destroyed
+                                        </p>
+                                    )}
                                 </div>
                             )}
 

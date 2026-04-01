@@ -11,6 +11,7 @@ interface ActionPayload {
     // change-phase
     targetPhase?: string;
     targetHarvestDate?: string; // YYYY-MM-DD, set when moving to flowering
+    uppotCount?: number;        // nursery → veg: how many plants to keep (rest culled)
     // change-room
     targetRoomId?: string;
     // plant-health
@@ -111,11 +112,14 @@ export const handler: Handler = async (event) => {
                     `;
 
                     const destRoomId = targetRoomId || null;
+                    const requestedCount = payload.uppotCount;
                     let totalCreated = 0;
 
                     for (const batch of batches) {
-                        const count = (batch.untracked_count || 0) + (batch.tracked_count || 0);
-                        if (count <= 0) continue;
+                        const batchTotal = (batch.untracked_count || 0) + (batch.tracked_count || 0);
+                        if (batchTotal <= 0) continue;
+                        // Use requested count if provided, capped to batch size
+                        const count = requestedCount ? Math.min(requestedCount, batchTotal) : batchTotal;
 
                         // Generate labels: STRAIN-V-001, STRAIN-V-002, ...
                         const prefix = batch.strain_name.replace(/\s+/g, '').substring(0, 6).toUpperCase();
