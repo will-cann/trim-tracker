@@ -66,7 +66,7 @@ export const handler: Handler = async (event) => {
                 FROM plants p
                 JOIN rooms r ON r.id = p.room_id AND r.company_id = p.company_id
                 WHERE p.company_id = ${context.companyId}
-                    AND p.growth_phase = 'vegetative'
+                    AND p.growth_phase = ${phase}
                 ORDER BY r.name
             `;
 
@@ -103,7 +103,7 @@ export const handler: Handler = async (event) => {
                 FROM plants p
                 JOIN rooms r ON r.id = p.room_id AND r.company_id = p.company_id
                 WHERE p.company_id = ${context.companyId}
-                    AND p.growth_phase = 'flowering'
+                    AND p.growth_phase = ${phase}
                 ORDER BY r.name
             `;
             rows = result.rows;
@@ -173,10 +173,12 @@ export const handler: Handler = async (event) => {
             body: JSON.stringify(plantMap),
         };
     } catch (error) {
-        console.error('Error fetching plant map:', error);
+        const msg = error instanceof Error ? error.message : String(error);
+        const stack = error instanceof Error ? error.stack : '';
+        console.error('Error fetching plant map:', msg, stack);
         return {
             statusCode: 500,
-            body: JSON.stringify({ error: 'Failed to fetch plant map' }),
+            body: JSON.stringify({ error: 'Failed to fetch plant map', detail: msg }),
         };
     }
 };
