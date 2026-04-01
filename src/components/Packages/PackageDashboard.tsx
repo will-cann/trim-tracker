@@ -39,7 +39,7 @@ export const PackageDashboard: React.FC = () => {
         key: 'type',
         label: 'Type',
         multi: true,
-        options: PRODUCT_TYPES.filter(t => packages.some(p => p.packageType === t)).map(t => ({
+        options: PRODUCT_TYPES.map(t => ({
             value: t,
             label: TYPE_LABELS[t],
         })),

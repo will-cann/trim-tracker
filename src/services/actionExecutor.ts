@@ -367,6 +367,7 @@ export async function executeAction(action: ProposedAction): Promise<ActionOutco
         case 'record_extraction': {
             const d = action.data;
             if (!d.inputPackageType || !d.outputPackageType || !d.strain) return SKIPPED('missing extraction data');
+            if (!d.outputQuantity || d.outputQuantity <= 0) return SKIPPED('missing output quantity — needed to create output package');
             await apiService.recordExtraction({
                 sourcePackageId: d.sourcePackageId,
                 inputPackageType: d.inputPackageType,
