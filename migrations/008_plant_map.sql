@@ -114,7 +114,7 @@ SELECT
     r.id, pb.untracked_count, pb.planted_date::date, pb.plant_health, pb.contaminants
 FROM (VALUES
     ('BD-Clone-2026-03', 'clone', 'Blue Dream', 'Nursery A', 48, '2026-03-10', 100, '{}'::text[]),
-    ('GEL-Seed-2026-03', 'seed', 'Gelato', 'Nursery A', 24, '2026-03-15', 85, '{Fungus gnats}'::text[]),
+    ('GEL-Seed-2026-03', 'seed', 'Gelato', 'Nursery A', 24, '2026-03-15', 85, '{fungus_gnats}'::text[]),
     ('WC-Clone-2026-03', 'clone', 'Wedding Cake', 'Nursery A', 36, '2026-03-12', 92, '{}'::text[])
 ) AS pb(name, batch_type, strain_name, room_name, untracked_count, planted_date, plant_health, contaminants)
 JOIN rooms r ON r.name = pb.room_name AND r.company_id = '11111111-1111-1111-1111-111111111111'
@@ -130,10 +130,10 @@ FROM (VALUES
     ('OGK-V-001', 'OG Kush', 'Veg Room 1', '2026-02-15', '2026-03-01', '2026-05-01', 100, '{}'::text[]),
     ('OGK-V-002', 'OG Kush', 'Veg Room 1', '2026-02-15', '2026-03-01', '2026-05-01', 100, '{}'::text[]),
     ('OGK-V-003', 'OG Kush', 'Veg Room 1', '2026-02-15', '2026-03-01', '2026-05-01', 95, '{}'::text[]),
-    ('BD-V-001', 'Blue Dream', 'Veg Room 1', '2026-02-20', '2026-03-05', '2026-05-10', 88, '{Thrips}'::text[]),
+    ('BD-V-001', 'Blue Dream', 'Veg Room 1', '2026-02-20', '2026-03-05', '2026-05-10', 88, '{thrips}'::text[]),
     ('BD-V-002', 'Blue Dream', 'Veg Room 1', '2026-02-20', '2026-03-05', '2026-05-10', 100, '{}'::text[]),
     ('PP-V-001', 'Purple Punch', 'Veg Room 2', '2026-02-18', '2026-03-03', '2026-05-05', 100, '{}'::text[]),
-    ('PP-V-002', 'Purple Punch', 'Veg Room 2', '2026-02-18', '2026-03-03', '2026-05-05', 72, '{Powdery mildew}'::text[]),
+    ('PP-V-002', 'Purple Punch', 'Veg Room 2', '2026-02-18', '2026-03-03', '2026-05-05', 72, '{powdery_mildew}'::text[]),
     ('PP-V-003', 'Purple Punch', 'Veg Room 2', '2026-02-18', '2026-03-03', '2026-05-05', 100, '{}'::text[]),
     ('ZK-V-001', 'Zkittlez', 'Veg Room 2', '2026-02-25', '2026-03-10', '2026-05-15', 100, '{}'::text[]),
     ('ZK-V-002', 'Zkittlez', 'Veg Room 2', '2026-02-25', '2026-03-10', '2026-05-15', 100, '{}'::text[])
@@ -150,17 +150,17 @@ SELECT
 FROM (VALUES
     ('GEL-F-001', 'Gelato', 'Flower Room 1', '2026-01-10', '2026-01-25', '2026-02-20', '2026-04-15', 100, '{}'::text[]),
     ('GEL-F-002', 'Gelato', 'Flower Room 1', '2026-01-10', '2026-01-25', '2026-02-20', '2026-04-15', 100, '{}'::text[]),
-    ('GEL-F-003', 'Gelato', 'Flower Room 1', '2026-01-10', '2026-01-25', '2026-02-20', '2026-04-15', 78, '{Spider mites}'::text[]),
+    ('GEL-F-003', 'Gelato', 'Flower Room 1', '2026-01-10', '2026-01-25', '2026-02-20', '2026-04-15', 78, '{spider_mites}'::text[]),
     ('GEL-F-004', 'Gelato', 'Flower Room 1', '2026-01-10', '2026-01-25', '2026-02-20', '2026-04-15', 100, '{}'::text[]),
-    ('WC-F-001', 'Wedding Cake', 'Flower Room 1', '2026-01-15', '2026-01-30', '2026-02-25', '2026-04-20', 65, '{Powdery mildew,Botrytis}'::text[]),
+    ('WC-F-001', 'Wedding Cake', 'Flower Room 1', '2026-01-15', '2026-01-30', '2026-02-25', '2026-04-20', 65, '{powdery_mildew,botrytis}'::text[]),
     ('WC-F-002', 'Wedding Cake', 'Flower Room 1', '2026-01-15', '2026-01-30', '2026-02-25', '2026-04-20', 100, '{}'::text[]),
     ('OGK-F-001', 'OG Kush', 'Flower Room 2', '2026-01-05', '2026-01-20', '2026-02-15', '2026-04-10', 100, '{}'::text[]),
     ('OGK-F-002', 'OG Kush', 'Flower Room 2', '2026-01-05', '2026-01-20', '2026-02-15', '2026-04-10', 100, '{}'::text[]),
-    ('OGK-F-003', 'OG Kush', 'Flower Room 2', '2026-01-05', '2026-01-20', '2026-02-15', '2026-04-10', 90, '{Thrips}'::text[]),
+    ('OGK-F-003', 'OG Kush', 'Flower Room 2', '2026-01-05', '2026-01-20', '2026-02-15', '2026-04-10', 90, '{thrips}'::text[]),
     ('BD-F-001', 'Blue Dream', 'Flower Room 2', '2026-01-12', '2026-01-27', '2026-02-22', '2026-04-18', 100, '{}'::text[]),
     ('BD-F-002', 'Blue Dream', 'Flower Room 2', '2026-01-12', '2026-01-27', '2026-02-22', '2026-04-18', 100, '{}'::text[]),
     ('PP-F-001', 'Purple Punch', 'Flower Room 3', '2026-01-20', '2026-02-05', '2026-03-01', '2026-04-25', 100, '{}'::text[]),
-    ('PP-F-002', 'Purple Punch', 'Flower Room 3', '2026-01-20', '2026-02-05', '2026-03-01', '2026-04-25', 55, '{Spider mites,Aphids}'::text[]),
+    ('PP-F-002', 'Purple Punch', 'Flower Room 3', '2026-01-20', '2026-02-05', '2026-03-01', '2026-04-25', 55, '{spider_mites,aphids}'::text[]),
     ('ZK-F-001', 'Zkittlez', 'Flower Room 3', '2026-01-22', '2026-02-07', '2026-03-03', '2026-04-28', 100, '{}'::text[]),
     ('ZK-F-002', 'Zkittlez', 'Flower Room 3', '2026-01-22', '2026-02-07', '2026-03-03', '2026-04-28', 100, '{}'::text[])
 ) AS p(label, strain_name, room_name, planted_date, veg_date, flower_date, target_harvest, plant_health, contaminants)

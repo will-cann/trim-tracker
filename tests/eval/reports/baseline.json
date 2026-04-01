@@ -1,0 +1,13 @@
+{
+  "total_cases": 40,
+  "passed": 34,
+  "failed": 6,
+  "pass_rate": 0.85,
+  "areas": {
+    "chunking": {
+      "count": 40,
+      "passed": 34,
+      "avg_score": 0.8616666666666667
+    }
+  }
+}

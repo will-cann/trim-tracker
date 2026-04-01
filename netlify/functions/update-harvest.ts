@@ -30,6 +30,7 @@ export const handler: Handler = async (event) => {
             status: 'status',
             contaminants: 'contaminants',
             dryWeight: 'dry_weight',
+            moistureLossPct: 'moisture_loss_pct',
         };
 
         const setClauses: string[] = [];
@@ -81,6 +82,7 @@ export const handler: Handler = async (event) => {
                 isOnHold: h.is_on_hold,
                 contaminants: h.contaminants || [],
                 dryWeight: h.dry_weight ? parseFloat(h.dry_weight) : undefined,
+                moistureLossPct: parseFloat(h.moisture_loss_pct) || 75,
                 harvestStartDate: h.harvest_start_date,
                 submittedAt: h.submitted_at,
                 approvedAt: h.approved_at,

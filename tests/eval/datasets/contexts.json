@@ -1,0 +1,128 @@
+{
+  "default": {
+    "hasActiveSession": false,
+    "trimmerProfiles": [
+      {"id": "tp-1", "name": "Maria Garcia"},
+      {"id": "tp-2", "name": "Carlos Rodriguez"},
+      {"id": "tp-3", "name": "Jenny Chen"},
+      {"id": "tp-4", "name": "David Kim"},
+      {"id": "tp-5", "name": "Sarah Johnson"},
+      {"id": "tp-6", "name": "Mike Thompson"}
+    ],
+    "existingEntries": [],
+    "harvests": [
+      {"id": "h-1", "batchId": "BATCH-GMO-001", "strain": "GMO", "status": "active"},
+      {"id": "h-2", "batchId": "BATCH-WIFI-001", "strain": "Wi Fi OG", "status": "planning"},
+      {"id": "h-3", "batchId": "BATCH-GEL-001", "strain": "Gelato", "status": "drying"}
+    ],
+    "humanTasks": [],
+    "plantMapSummary": [
+      {
+        "roomName": "Veg Room 1",
+        "roomId": "r-1",
+        "strains": ["Ice Cream Cake", "GMO"],
+        "plantIds": ["p-1", "p-2", "p-3", "p-4", "p-5"],
+        "entityType": "plants",
+        "plantHealth": 85,
+        "contaminants": []
+      },
+      {
+        "roomName": "Veg Room 2",
+        "roomId": "r-2",
+        "strains": ["Wedding Cake"],
+        "plantIds": ["p-6", "p-7", "p-8"],
+        "entityType": "plants",
+        "plantHealth": 90,
+        "contaminants": []
+      },
+      {
+        "roomName": "Flower Room 1",
+        "roomId": "r-3",
+        "strains": ["Gelato", "Runtz"],
+        "plantIds": ["p-9", "p-10", "p-11", "p-12"],
+        "entityType": "plants",
+        "plantHealth": 92,
+        "contaminants": []
+      },
+      {
+        "roomName": "Flower Room 2",
+        "roomId": "r-4",
+        "strains": ["Purple Punch", "Zkittlez"],
+        "plantIds": ["p-13", "p-14", "p-15"],
+        "entityType": "plants",
+        "plantHealth": 78,
+        "contaminants": ["spider_mites"]
+      }
+    ],
+    "screenContext": ""
+  },
+  "active_session": {
+    "hasActiveSession": true,
+    "sessionId": "session-001",
+    "trimmerProfiles": [
+      {"id": "tp-1", "name": "Maria Garcia"},
+      {"id": "tp-2", "name": "Carlos Rodriguez"},
+      {"id": "tp-3", "name": "Jenny Chen"}
+    ],
+    "existingEntries": [
+      {
+        "id": "entry-1",
+        "harvestName": "GMO Batch 1",
+        "strain": "GMO",
+        "status": "active",
+        "trimmers": [
+          {"id": "t-1", "name": "Maria Garcia", "startTime": "08:00", "tool": "scissors"}
+        ]
+      },
+      {
+        "id": "entry-2",
+        "harvestName": "Wi Fi OG Batch 1",
+        "strain": "Wi Fi OG",
+        "status": "upcoming",
+        "trimmers": []
+      }
+    ],
+    "harvests": [],
+    "humanTasks": [],
+    "screenContext": "Trim Session"
+  },
+  "harvest_day": {
+    "hasActiveSession": false,
+    "trimmerProfiles": [],
+    "existingEntries": [],
+    "harvests": [
+      {"id": "h-1", "batchId": "BATCH-WC-001", "strain": "Wedding Cake", "status": "active"}
+    ],
+    "humanTasks": [],
+    "plantMapSummary": [],
+    "screenContext": "Harvest Day"
+  },
+  "plant_map": {
+    "hasActiveSession": false,
+    "trimmerProfiles": [],
+    "existingEntries": [],
+    "harvests": [],
+    "humanTasks": [],
+    "plantMapSummary": [
+      {
+        "roomName": "Veg Room 1",
+        "roomId": "r-1",
+        "strains": ["Ice Cream Cake", "GMO"],
+        "plantIds": ["p-1", "p-2", "p-3"],
+        "entityType": "plants",
+        "plantHealth": 85,
+        "contaminants": []
+      },
+      {
+        "roomName": "Flower Room 1",
+        "roomId": "r-3",
+        "strains": ["Gelato"],
+        "plantIds": ["p-9", "p-10", "p-11"],
+        "entityType": "plants",
+        "plantHealth": 92,
+        "contaminants": []
+      }
+    ],
+    "screenContext": "Plant Map"
+  }
+}

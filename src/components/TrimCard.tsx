@@ -64,6 +64,7 @@ export const TrimCard: React.FC<TrimCardProps> = ({
     };
 
     const totalWeight = entry.flowerWeight + entry.shakeWeight + entry.trimWeight + entry.wasteWeight;
+    const hasWetWeight = entry.wetWeight != null && entry.wetWeight > 0;
 
     // Calculate total labor time
     const totalMinutes = (entry.trimmers || []).reduce((acc, trimmer) => {
@@ -260,9 +261,15 @@ export const TrimCard: React.FC<TrimCardProps> = ({
                             {entry.status === 'upcoming' ? (
                                 <>
                                     <div className="summary-item">
-                                        <span className="label">Start Weight</span>
+                                        <span className="label">Est. Dry Weight</span>
                                         <span className="value">{Math.round(entry.startWeight)}g</span>
                                     </div>
+                                    {hasWetWeight && (
+                                        <div className="summary-item">
+                                            <span className="label">Wet</span>
+                                            <span className="value" style={{ color: 'var(--color-elephant-400)' }}>{Math.round(entry.wetWeight!)}g</span>
+                                        </div>
+                                    )}
                                     <div className="summary-item">
                                         <span className="label">Status</span>
                                         <span className="value">Ready to Start</span>
@@ -291,6 +298,25 @@ export const TrimCard: React.FC<TrimCardProps> = ({
                 {isExpanded && (
                     <div className="trim-card-body">
                         <div className="expanded-summary-container expanded-summary--flat">
+                            {hasWetWeight && (
+                                <div style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '12px',
+                                    padding: '6px 0 8px',
+                                    fontSize: '11px',
+                                    color: 'var(--color-elephant-400)',
+                                    borderBottom: '1px solid var(--color-elephant-100)',
+                                    marginBottom: '8px',
+                                }}>
+                                    <span>Wet: <strong style={{ color: 'var(--color-elephant-600)' }}>{Math.round(entry.wetWeight!).toLocaleString()}g</strong></span>
+                                    <span>&rarr;</span>
+                                    <span>Est. Dry: <strong style={{ color: 'var(--color-elephant-600)' }}>{Math.round(entry.startWeight).toLocaleString()}g</strong></span>
+                                    <span style={{ marginLeft: 'auto' }}>
+                                        Moisture: ~{Math.round(entry.wetWeight! - entry.startWeight).toLocaleString()}g
+                                    </span>
+                                </div>
+                            )}
                             <div className="expanded-weights-row">
                                 <div className="weight-stat">
                                     <span className="label">Start</span>

@@ -70,6 +70,7 @@ export const handler: Handler = async (event) => {
             contaminants: h.contaminants || [],
             sourceBatchId: h.source_batch_id,
             dryWeight: h.dry_weight ? parseFloat(h.dry_weight) : undefined,
+            moistureLossPct: parseFloat(h.moisture_loss_pct) || 75,
             harvestStartDate: h.harvest_start_date,
             harvestEndDate: h.harvest_end_date,
             submittedAt: h.submitted_at,

@@ -1,0 +1,247 @@
+{
+  "version": "1.0",
+  "cases": [
+    {
+      "id": "entity_weight_01",
+      "tags": ["harvest", "weight", "unit_conversion"],
+      "input": "wet weight on the GMO came in at a pound and a half",
+      "context_key": "default",
+      "expected_actions": [{
+        "type": "record_wet_weight",
+        "fields": {
+          "harvestIdentifier": {"value": "GMO", "match": "fuzzy"},
+          "weight": {"value": 680.4, "type": "number", "tolerance_pct": 2}
+        }
+      }]
+    },
+    {
+      "id": "entity_weight_02",
+      "tags": ["harvest", "weight", "unit_conversion"],
+      "input": "the Wi Fi OG weighed in at 38 pounds wet",
+      "context_key": "default",
+      "expected_actions": [{
+        "type": "record_wet_weight",
+        "fields": {
+          "harvestIdentifier": {"value": "Wi Fi OG", "match": "fuzzy"},
+          "weight": {"value": 17236.8, "type": "number", "tolerance_pct": 2}
+        }
+      }]
+    },
+    {
+      "id": "entity_weight_03",
+      "tags": ["harvest", "weight", "large_number"],
+      "input": "batch came in at 17K grams",
+      "context_key": "harvest_day",
+      "expected_actions": [{
+        "type": "record_wet_weight",
+        "fields": {
+          "weight": {"value": 17000, "type": "number", "tolerance_pct": 1}
+        }
+      }]
+    },
+    {
+      "id": "entity_strain_01",
+      "tags": ["strain", "fuzzy_match"],
+      "input": "start a harvest for the wifi OG, 12 plants",
+      "context_key": "default",
+      "expected_actions": [{
+        "type": "create_harvest",
+        "fields": {
+          "strain": {"value": "Wi Fi OG", "match": "fuzzy"},
+          "plantCount": {"value": 12, "type": "number"}
+        }
+      }]
+    },
+    {
+      "id": "entity_strain_02",
+      "tags": ["strain", "abbreviation"],
+      "input": "wet weight on the ICC is 22 pounds",
+      "context_key": "default",
+      "context_override": {
+        "harvests": [
+          {"id": "h-10", "batchId": "BATCH-ICC-001", "strain": "Ice Cream Cake", "status": "planning"}
+        ]
+      },
+      "expected_actions": [{
+        "type": "record_wet_weight",
+        "fields": {
+          "harvestIdentifier": {"value": "Ice Cream Cake", "match": "fuzzy"},
+          "weight": {"value": 9979.0, "type": "number", "tolerance_pct": 2}
+        }
+      }]
+    },
+    {
+      "id": "entity_time_01",
+      "tags": ["trim", "time_conversion"],
+      "input": "Maria started at 8am on the GMO",
+      "context_key": "active_session",
+      "expected_actions": [{
+        "type": "assign_trimmers",
+        "fields": {
+          "entryIdentifier": {"value": "GMO", "match": "fuzzy"},
+          "trimmers": {"type": "array", "value": "contains trimmer with startTime 08:00"}
+        }
+      }]
+    },
+    {
+      "id": "entity_time_02",
+      "tags": ["trim", "time_conversion"],
+      "input": "Carlos clocked in at 2:30 in the afternoon on the Wi Fi",
+      "context_key": "active_session",
+      "expected_actions": [{
+        "type": "assign_trimmers",
+        "fields": {
+          "entryIdentifier": {"value": "Wi Fi OG", "match": "fuzzy"},
+          "trimmers": {"type": "array", "value": "contains trimmer with startTime 14:30"}
+        }
+      }]
+    },
+    {
+      "id": "entity_personnel_01",
+      "tags": ["trim", "fuzzy_name"],
+      "input": "put Maria on the GMO at 9",
+      "context_key": "active_session",
+      "expected_actions": [{
+        "type": "assign_trimmers",
+        "fields": {
+          "entryIdentifier": {"value": "GMO", "match": "fuzzy"},
+          "trimmers": {"type": "array", "value": "contains Maria Garcia with profileId tp-1"}
+        }
+      }]
+    },
+    {
+      "id": "entity_extraction_01",
+      "tags": ["extraction", "input_output"],
+      "input": "pulled 17000 grams of blackberry from the freezer for a wash",
+      "context_key": "default",
+      "expected_actions": [{
+        "type": "record_extraction",
+        "fields": {
+          "strain": {"value": "Blackberry", "match": "fuzzy"},
+          "inputPackageType": {"value": "fresh_frozen", "type": "enum"},
+          "outputPackageType": {"value": "bubble_hash", "type": "enum"},
+          "inputQuantity": {"value": 17000, "type": "number", "tolerance_pct": 1}
+        }
+      }]
+    },
+    {
+      "id": "entity_extraction_02",
+      "tags": ["extraction", "yield_report"],
+      "input": "the wash yielded 800 grams of bubble hash from the blackberry",
+      "context_key": "default",
+      "expected_actions": [{
+        "type": "record_extraction",
+        "fields": {
+          "strain": {"value": "Blackberry", "match": "fuzzy"},
+          "outputPackageType": {"value": "bubble_hash", "type": "enum"},
+          "outputQuantity": {"value": 800, "type": "number", "tolerance_pct": 1}
+        }
+      }]
+    },
+    {
+      "id": "entity_extraction_03",
+      "tags": ["extraction", "press"],
+      "input": "pressed the GMO hash, got 550g of rosin",
+      "context_key": "default",
+      "expected_actions": [{
+        "type": "record_extraction",
+        "fields": {
+          "strain": {"value": "GMO", "match": "fuzzy"},
+          "inputPackageType": {"value": "bubble_hash", "type": "enum"},
+          "outputPackageType": {"value": "rosin", "type": "enum"},
+          "outputQuantity": {"value": 550, "type": "number", "tolerance_pct": 1}
+        }
+      }]
+    },
+    {
+      "id": "entity_location_01",
+      "tags": ["harvest", "location"],
+      "input": "move the Gelato harvest to dry room 3",
+      "context_key": "default",
+      "expected_actions": [{
+        "type": "move_harvest",
+        "fields": {
+          "harvestIdentifier": {"value": "Gelato", "match": "fuzzy"},
+          "dryingLocation": {"value": "dry room 3", "match": "fuzzy"}
+        }
+      }]
+    },
+    {
+      "id": "entity_plant_weights_01",
+      "tags": ["harvest", "plant_weight", "sequential"],
+      "input": "342, 298, 415, 380, 425",
+      "context_key": "harvest_day",
+      "expected_actions": [{
+        "type": "record_plant_weight",
+        "fields": {
+          "weights": {
+            "type": "array",
+            "value": "5 weight entries with values [342, 298, 415, 380, 425]"
+          }
+        }
+      }]
+    },
+    {
+      "id": "entity_plant_weights_02",
+      "tags": ["harvest", "plant_weight", "numbered"],
+      "input": "plant one 342, two 298, three had some PM, 415 grams",
+      "context_key": "harvest_day",
+      "expected_actions": [
+        {
+          "type": "record_plant_weight",
+          "fields": {
+            "weights": {
+              "type": "array",
+              "value": "3 entries: [{plantNumber:1, weight:342}, {plantNumber:2, weight:298}, {plantNumber:3, weight:415}]"
+            }
+          }
+        },
+        {
+          "type": "flag_contamination",
+          "fields": {
+            "contaminants": {"type": "array", "value": ["powdery_mildew"]}
+          }
+        }
+      ]
+    },
+    {
+      "id": "entity_waste_01",
+      "tags": ["harvest", "waste", "unit_conversion"],
+      "input": "3 pounds of stems and about a pound of leaves from the GMO",
+      "context_key": "default",
+      "expected_actions": [
+        {
+          "type": "record_harvest_waste",
+          "fields": {
+            "harvestIdentifier": {"value": "GMO", "match": "fuzzy"},
+            "wasteType": {"value": "stems", "type": "enum"},
+            "weight": {"value": 1360.8, "type": "number", "tolerance_pct": 2}
+          }
+        },
+        {
+          "type": "record_harvest_waste",
+          "fields": {
+            "harvestIdentifier": {"value": "GMO", "match": "fuzzy"},
+            "wasteType": {"value": "leaves", "type": "enum"},
+            "weight": {"value": 453.6, "type": "number", "tolerance_pct": 2}
+          }
+        }
+      ]
+    },
+    {
+      "id": "entity_task_01",
+      "tags": ["tasks", "due_date", "assignee"],
+      "input": "remind me to calibrate the scale by Friday",
+      "context_key": "default",
+      "expected_actions": [{
+        "type": "create_human_tasks",
+        "fields": {
+          "tasks": {
+            "type": "array",
+            "value": "task with title containing 'calibrate' and 'scale', category 'equipment', dueDate set"
+          }
+        }
+      }]
+    }
+  ]
+}

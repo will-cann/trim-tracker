@@ -1,0 +1,120 @@
+{
+  "version": "1.0",
+  "cases": [
+    {
+      "id": "chunk_single_action_01",
+      "tags": ["single_action", "baseline"],
+      "segments": [
+        {"text": "I just harvested the GMO", "pause_after_ms": 200},
+        {"text": "12 plants total", "pause_after_ms": 0}
+      ],
+      "expected_boundaries_ms": [],
+      "expected_chunk_count": 1,
+      "expected_action_types_per_chunk": [["create_harvest"]],
+      "notes": "Single action with brief pause — should NOT split"
+    },
+    {
+      "id": "chunk_two_actions_01",
+      "tags": ["two_actions", "clear_boundary"],
+      "segments": [
+        {"text": "I just harvested the GMO, 12 plants", "pause_after_ms": 1500},
+        {"text": "put Maria and Carlos on the Wi Fi OG at 8am", "pause_after_ms": 0}
+      ],
+      "expected_boundaries_ms": [1500],
+      "expected_chunk_count": 2,
+      "expected_action_types_per_chunk": [
+        ["create_harvest"],
+        ["assign_trimmers"]
+      ],
+      "notes": "Two distinct actions with clear 1.5s pause"
+    },
+    {
+      "id": "chunk_two_actions_02",
+      "tags": ["two_actions", "short_pause"],
+      "segments": [
+        {"text": "wet weight on the GMO was 38 pounds", "pause_after_ms": 800},
+        {"text": "move it to dry room 2", "pause_after_ms": 0}
+      ],
+      "expected_boundaries_ms": [800],
+      "expected_chunk_count": 2,
+      "expected_action_types_per_chunk": [
+        ["record_wet_weight"],
+        ["move_harvest"]
+      ],
+      "notes": "Two actions with 800ms pause — should split at 750ms but not at 1000ms"
+    },
+    {
+      "id": "chunk_three_actions_01",
+      "tags": ["three_actions", "mixed_pauses"],
+      "segments": [
+        {"text": "harvested the Wedding Cake, 14 plants", "pause_after_ms": 2000},
+        {"text": "wet weight was 42 pounds", "pause_after_ms": 1500},
+        {"text": "and moved it to dry room 1", "pause_after_ms": 0}
+      ],
+      "expected_boundaries_ms": [2000, 3500],
+      "expected_chunk_count": 3,
+      "expected_action_types_per_chunk": [
+        ["create_harvest"],
+        ["record_wet_weight"],
+        ["move_harvest"]
+      ],
+      "notes": "Three actions with decreasing pauses"
+    },
+    {
+      "id": "chunk_no_split_01",
+      "tags": ["single_action", "mid_sentence_pause"],
+      "segments": [
+        {"text": "I just harvested the", "pause_after_ms": 600},
+        {"text": "GMO, about 12 plants", "pause_after_ms": 0}
+      ],
+      "expected_boundaries_ms": [],
+      "expected_chunk_count": 1,
+      "expected_action_types_per_chunk": [["create_harvest"]],
+      "notes": "Mid-sentence pause should NOT split the action at thresholds >= 750ms"
+    },
+    {
+      "id": "chunk_merge_risk_01",
+      "tags": ["merge_risk", "rapid_fire"],
+      "segments": [
+        {"text": "GMO was 450 from the wash", "pause_after_ms": 400},
+        {"text": "blackberry was 600", "pause_after_ms": 400},
+        {"text": "mad fruit was 525", "pause_after_ms": 0}
+      ],
+      "expected_boundaries_ms": [],
+      "expected_chunk_count": 1,
+      "expected_action_types_per_chunk": [
+        ["record_extraction", "record_extraction", "record_extraction"]
+      ],
+      "notes": "Rapid-fire multi-strain extraction report — short pauses should keep as one chunk, AI handles multi-action"
+    },
+    {
+      "id": "chunk_self_correction_01",
+      "tags": ["self_correction", "no_split"],
+      "segments": [
+        {"text": "wet weight was 38 pounds", "pause_after_ms": 700},
+        {"text": "no wait, it was 36 pounds", "pause_after_ms": 0}
+      ],
+      "expected_boundaries_ms": [],
+      "expected_chunk_count": 1,
+      "expected_action_types_per_chunk": [["record_wet_weight"]],
+      "notes": "Self-correction — should stay as one chunk so AI can process the correction"
+    },
+    {
+      "id": "chunk_long_monologue_01",
+      "tags": ["long_input", "multiple_topics"],
+      "segments": [
+        {"text": "we harvested the Gelato this morning, 10 plants", "pause_after_ms": 2500},
+        {"text": "oh and we need to do an IPM spray in flower room 2", "pause_after_ms": 3000},
+        {"text": "also remind me to order more nutrients", "pause_after_ms": 0}
+      ],
+      "expected_boundaries_ms": [2500, 5500],
+      "expected_chunk_count": 3,
+      "expected_action_types_per_chunk": [
+        ["create_harvest"],
+        ["create_human_tasks"],
+        ["create_human_tasks"]
+      ],
+      "notes": "Long monologue with topic switches marked by long pauses"
+    }
+  ]
+}

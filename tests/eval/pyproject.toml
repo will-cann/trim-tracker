@@ -1,0 +1,19 @@
+[project]
+name = "neurocann-eval"
+version = "0.1.0"
+description = "Evaluation framework for the NeuroCann AI voice-to-action pipeline"
+requires-python = ">=3.11"
+dependencies = [
+    "pytest>=8.0",
+    "httpx>=0.27",
+    "rapidfuzz>=3.0",
+    "python-dotenv>=1.0",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["."]
+markers = [
+    "live: requires live API endpoint (deselect with '-m not live')",
+    "slow: long-running evaluations",
+]
+addopts = "--tb=short -q"

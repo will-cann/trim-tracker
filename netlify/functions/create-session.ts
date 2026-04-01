@@ -46,6 +46,26 @@ export const handler: Handler = async (event) => {
 
             const newSession = sessionResult.rows[0];
 
+            // If linked to a harvest, fetch moisture loss pct and calculate dry start weight
+            let startWeight = data.startWeight;
+            let wetWeight: number | null = null;
+
+            if (data.harvestId) {
+                const { rows: [harvest] } = await client.query(
+                    `SELECT moisture_loss_pct, dry_weight FROM harvests WHERE id = $1`,
+                    [data.harvestId]
+                );
+                if (harvest) {
+                    const moistureLossPct = parseFloat(harvest.moisture_loss_pct) || 75;
+                    wetWeight = data.startWeight;
+                    // Use recorded dry weight if available, otherwise estimate
+                    const dryWeight = parseFloat(harvest.dry_weight);
+                    startWeight = dryWeight > 0
+                        ? dryWeight
+                        : Math.round(wetWeight * (1 - moistureLossPct / 100) * 100) / 100;
+                }
+            }
+
             // Create initial entry/batch
             const entryResult = await client.query(`
         INSERT INTO trim_entries (
@@ -54,12 +74,13 @@ export const handler: Handler = async (event) => {
           license_number,
           strain,
           start_weight,
+          wet_weight,
           status,
           harvest_id
         )
-        VALUES ($1, $2, $3, $4, $5, 'active', $6)
+        VALUES ($1, $2, $3, $4, $5, $6, 'active', $7)
         RETURNING *
-      `, [newSession.id, data.harvestName, data.licenseNumber, data.strain, data.startWeight, data.harvestId || null]);
+      `, [newSession.id, data.harvestName, data.licenseNumber, data.strain, startWeight, wetWeight, data.harvestId || null]);
 
             const newEntry = entryResult.rows[0];
 

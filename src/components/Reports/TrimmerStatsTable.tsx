@@ -45,7 +45,7 @@ export const TrimmerStatsTable: React.FC<TrimmerStatsTableProps> = ({ data }) =>
                             <tr
                                 key={trimmer.id}
                                 className="hover:bg-gray-50 transition-colors"
-                                style={{ backgroundColor: index % 2 === 0 ? 'white' : '#fafafa' }}
+                                style={{ backgroundColor: index % 2 === 0 ? 'white' : '#F8F8F8' }}
                             >
                                 <td className="px-6 py-4">
                                     <div className="flex items-center">

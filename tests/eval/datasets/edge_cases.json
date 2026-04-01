@@ -1,0 +1,150 @@
+{
+  "version": "1.0",
+  "cases": [
+    {
+      "id": "edge_correction_01",
+      "tags": ["self_correction", "weight"],
+      "input": "wet weight was 38 pounds, no wait, it was 36 pounds",
+      "context_key": "harvest_day",
+      "expected_actions": [{
+        "type": "record_wet_weight",
+        "fields": {
+          "weight": {"value": 16329.3, "type": "number", "tolerance_pct": 2, "note": "Should use corrected value: 36 lbs = 16329.3g"}
+        }
+      }]
+    },
+    {
+      "id": "edge_correction_02",
+      "tags": ["self_correction", "strain"],
+      "input": "start a harvest for the GMO, I mean the Gelato, 10 plants",
+      "context_key": "default",
+      "expected_actions": [{
+        "type": "create_harvest",
+        "fields": {
+          "strain": {"value": "Gelato", "match": "fuzzy", "note": "Should use corrected strain, not GMO"},
+          "plantCount": {"value": 10, "type": "number"}
+        }
+      }]
+    },
+    {
+      "id": "edge_correction_03",
+      "tags": ["self_correction", "count"],
+      "input": "342, 298, actually scratch that last one, it was 305, then 415",
+      "context_key": "harvest_day",
+      "expected_actions": [{
+        "type": "record_plant_weight",
+        "fields": {
+          "weights": {
+            "type": "array",
+            "value": "Should contain [342, 305, 415] — the 298 was corrected to 305"
+          }
+        }
+      }]
+    },
+    {
+      "id": "edge_multi_action_01",
+      "tags": ["multi_action"],
+      "input": "harvested the GMO, 14 plants, wet weight 42 pounds, and moved it to dry room 1",
+      "context_key": "default",
+      "expected_actions": [
+        {"type": "create_harvest", "fields": {"strain": {"value": "GMO", "match": "fuzzy"}, "plantCount": {"value": 14, "type": "number"}}},
+        {"type": "record_wet_weight", "fields": {"weight": {"value": 19051, "type": "number", "tolerance_pct": 2}}},
+        {"type": "move_harvest", "fields": {"dryingLocation": {"value": "dry room 1", "match": "fuzzy"}}}
+      ]
+    },
+    {
+      "id": "edge_multi_action_02",
+      "tags": ["multi_action", "extraction"],
+      "input": "gummy worms was 450, blackberry was 600, mad fruit was 525 from the wash",
+      "context_key": "default",
+      "expected_actions": [
+        {"type": "record_extraction", "fields": {"strain": {"value": "Gummy Worms", "match": "fuzzy"}, "outputQuantity": {"value": 450, "type": "number"}, "outputPackageType": {"value": "bubble_hash", "type": "enum"}}},
+        {"type": "record_extraction", "fields": {"strain": {"value": "Blackberry", "match": "fuzzy"}, "outputQuantity": {"value": 600, "type": "number"}, "outputPackageType": {"value": "bubble_hash", "type": "enum"}}},
+        {"type": "record_extraction", "fields": {"strain": {"value": "Mad Fruit", "match": "fuzzy"}, "outputQuantity": {"value": 525, "type": "number"}, "outputPackageType": {"value": "bubble_hash", "type": "enum"}}}
+      ]
+    },
+    {
+      "id": "edge_multi_action_03",
+      "tags": ["multi_action", "trim"],
+      "input": "put Maria at 8, Carlos at 8:30, and Jenny at 9 on the GMO batch",
+      "context_key": "active_session",
+      "expected_actions": [{
+        "type": "assign_trimmers",
+        "fields": {
+          "entryIdentifier": {"value": "GMO", "match": "fuzzy"},
+          "trimmers": {"type": "array", "value": "3 trimmers: Maria@08:00, Carlos@08:30, Jenny@09:00"}
+        }
+      }]
+    },
+    {
+      "id": "edge_ambiguous_unit_01",
+      "tags": ["ambiguous", "unit"],
+      "input": "the batch came in at 42",
+      "context_key": "harvest_day",
+      "expected_actions": [{
+        "type": "record_plant_weight",
+        "fields": {
+          "weights": {"type": "array", "value": "single weight entry of 42 grams (default unit on harvest day)"}
+        }
+      }],
+      "notes": "Ambiguous — could be 42g or 42lbs. On Harvest Day recording plant weights, should default to grams."
+    },
+    {
+      "id": "edge_ambiguous_unit_02",
+      "tags": ["ambiguous", "unit"],
+      "input": "wet weight was 42",
+      "context_key": "harvest_day",
+      "expected_actions": [{
+        "type": "record_wet_weight",
+        "fields": {
+          "weight": {"value": 42, "type": "number", "note": "Could be 42g if recording individual plants or 42lbs if total wet weight. Context-dependent."}
+        }
+      }],
+      "notes": "Ambiguous without more context. The AI may reasonably ask for clarification."
+    },
+    {
+      "id": "edge_mumble_01",
+      "tags": ["unclear", "mumble"],
+      "input": "uh the uh... batch... something about 300 grams maybe",
+      "context_key": "default",
+      "expected_actions": [],
+      "accept_clarification": true,
+      "notes": "Input is too unclear. AI should ask for clarification rather than guessing."
+    },
+    {
+      "id": "edge_mumble_02",
+      "tags": ["unclear", "partial"],
+      "input": "move the... to room...",
+      "context_key": "default",
+      "expected_actions": [],
+      "accept_clarification": true,
+      "notes": "Incomplete input. AI should ask what to move and where."
+    },
+    {
+      "id": "edge_implied_context_01",
+      "tags": ["implicit", "harvest"],
+      "input": "it was 38 pounds",
+      "context_key": "harvest_day",
+      "expected_actions": [{
+        "type": "record_wet_weight",
+        "fields": {
+          "weight": {"value": 17236.8, "type": "number", "tolerance_pct": 2}
+        }
+      }],
+      "notes": "On harvest day with one active harvest, 'it' should refer to the active harvest."
+    },
+    {
+      "id": "edge_rapid_fire_01",
+      "tags": ["rapid_fire", "plant_weight"],
+      "input": "342 298 415 380 425 390 410 375 445 360",
+      "context_key": "harvest_day",
+      "expected_actions": [{
+        "type": "record_plant_weight",
+        "fields": {
+          "weights": {"type": "array", "value": "10 weight entries: [342, 298, 415, 380, 425, 390, 410, 375, 445, 360]"}
+        }
+      }],
+      "notes": "Rapid-fire weight readings without plant numbers. Should capture all 10."
+    }
+  ]
+}

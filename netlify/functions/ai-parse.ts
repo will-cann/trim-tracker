@@ -431,8 +431,8 @@ const tools = [
                 health: { type: 'number', description: 'Health score from 0 to 100 (100 = healthy)' },
                 contaminants: {
                     type: 'array',
-                    items: { type: 'string', enum: ['Spider mites', 'Thrips', 'Whiteflies', 'Aphids', 'Fungus gnats', 'Powdery mildew', 'Botrytis', 'Fusarium', 'Verticillium', 'Tobacco mosaic virus', 'Root aphids', 'Hops latent viroid', 'Other'] },
-                    description: 'List of contaminants detected on the plants',
+                    items: { type: 'string', enum: ['spider_mites', 'thrips', 'whiteflies', 'aphids', 'fungus_gnats', 'powdery_mildew', 'botrytis', 'fusarium', 'verticillium', 'tobacco_mosaic_virus', 'root_aphids', 'hops_latent_viroid', 'nutrient_deficiency', 'other'] },
+                    description: 'List of contaminants detected on the plants (use snake_case keys)',
                 },
                 note: { type: 'string', description: 'Optional note about the health update' },
             },

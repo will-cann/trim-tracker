@@ -56,9 +56,9 @@ export const ThroughputChart: React.FC<ThroughputChartProps> = ({ data }) => {
                         contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)' }}
                     />
                     <Legend iconType="circle" />
-                    <Bar yAxisId="left" dataKey="flowerLbs" name="Flower (LBs)" stackId="a" fill="#FDE047" radius={[0, 0, 4, 4]} barSize={40} />
-                    <Bar yAxisId="left" dataKey="trimLbs" name="Trim (LBs)" stackId="a" fill="#6366F1" radius={[4, 4, 0, 0]} barSize={40} />
-                    <Line yAxisId="right" type="monotone" dataKey="laborHours" name="Labor Hours" stroke="#DF5B59" strokeWidth={2} dot={false} strokeDasharray="5 5" />
+                    <Bar yAxisId="left" dataKey="flowerLbs" name="Flower (LBs)" stackId="a" fill="#4E79A7" radius={[0, 0, 4, 4]} barSize={40} />
+                    <Bar yAxisId="left" dataKey="trimLbs" name="Trim (LBs)" stackId="a" fill="#76B7B2" radius={[4, 4, 0, 0]} barSize={40} />
+                    <Line yAxisId="right" type="monotone" dataKey="laborHours" name="Labor Hours" stroke="#E15759" strokeWidth={2} dot={false} strokeDasharray="5 5" />
                 </ComposedChart>
             </ResponsiveContainer>
         </div>

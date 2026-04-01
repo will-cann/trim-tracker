@@ -76,6 +76,15 @@ export const handler: Handler = async (event) => {
                 );
             }
 
+            // Calculate moisture loss for entries that have a wet_weight recorded
+            // moisture_loss = wet_weight - (flower + shake + trim + waste)
+            await client.query(
+                `UPDATE trim_entries
+                 SET moisture_loss = GREATEST(0, COALESCE(wet_weight, 0) - (flower_weight + shake_weight + trim_weight + waste_weight))
+                 WHERE session_id = $1 AND wet_weight IS NOT NULL`,
+                [sessionId]
+            );
+
             // Recalculate old session totals (only submitted entries remain)
             await client.query(
                 `UPDATE trim_sessions SET

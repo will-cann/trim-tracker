@@ -72,26 +72,40 @@ export const HEALTH_COLOR_MAP: Record<HealthColor, string> = {
 // CONTAMINATION CONSTANTS
 // ============================================================================
 
-export const CONTAMINANT_ABBREVS: Record<string, string> = {
-  'Spider mites': 'SM',
-  'Thrips': 'TH',
-  'Whiteflies': 'WF',
-  'Aphids': 'AP',
-  'Fungus gnats': 'FG',
-  'Powdery mildew': 'PM',
-  'Botrytis': 'BO',
-  'Fusarium': 'FU',
-  'Verticillium': 'VE',
-  'Tobacco mosaic virus': 'TMV',
-  'Root aphids': 'RA',
-  'Hops latent viroid': 'HLV',
-  'Other': 'O',
+export type ContaminantInfo = { label: string; abbrev: string };
+
+export const CONTAMINANT_MAP: Record<string, ContaminantInfo> = {
+  spider_mites:        { label: 'Spider mites',        abbrev: 'SM'  },
+  thrips:              { label: 'Thrips',               abbrev: 'TH'  },
+  whiteflies:          { label: 'Whiteflies',           abbrev: 'WF'  },
+  aphids:              { label: 'Aphids',               abbrev: 'AP'  },
+  fungus_gnats:        { label: 'Fungus gnats',         abbrev: 'FG'  },
+  powdery_mildew:      { label: 'Powdery mildew',       abbrev: 'PM'  },
+  botrytis:            { label: 'Botrytis',             abbrev: 'BO'  },
+  fusarium:            { label: 'Fusarium',             abbrev: 'FU'  },
+  verticillium:        { label: 'Verticillium',         abbrev: 'VE'  },
+  tobacco_mosaic_virus:{ label: 'Tobacco mosaic virus',  abbrev: 'TMV' },
+  root_aphids:         { label: 'Root aphids',          abbrev: 'RA'  },
+  hops_latent_viroid:  { label: 'Hops latent viroid',   abbrev: 'HLV' },
+  nutrient_deficiency: { label: 'Nutrient deficiency',  abbrev: 'ND'  },
+  other:               { label: 'Other',                abbrev: 'O'   },
 };
+
+/** @deprecated Use CONTAMINANT_MAP instead */
+export const CONTAMINANT_ABBREVS: Record<string, string> = Object.fromEntries(
+  Object.entries(CONTAMINANT_MAP).map(([key, { abbrev }]) => [key, abbrev]),
+);
+
+export const contaminantLabel = (key: string): string =>
+  CONTAMINANT_MAP[key]?.label ?? key;
+
+export const contaminantAbbrev = (key: string): string =>
+  CONTAMINANT_MAP[key]?.abbrev ?? key;
 
 export const abbreviateContaminants = (contaminants: string[]): string => {
   if (!contaminants.length) return 'N/A';
   const abbrevs = [...new Set(contaminants)]
-    .map(c => CONTAMINANT_ABBREVS[c] || c)
+    .map(c => contaminantAbbrev(c))
     .sort();
   return abbrevs.join(', ');
 };

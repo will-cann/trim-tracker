@@ -29,6 +29,8 @@ export interface TrimEntry {
   licenseNumber: string;
   strain: string;
   startWeight: number;
+  wetWeight?: number;
+  moistureLoss: number;
   flowerWeight: number;
   shakeWeight: number;
   trimWeight: number;
@@ -37,6 +39,7 @@ export interface TrimEntry {
   status: 'active' | 'submitted' | 'upcoming';
   plannedTrimDate?: string;
   plannedMethod?: 'machine' | 'scissors';
+  harvestId?: string;
 }
 
 export interface TrimSession {
@@ -111,6 +114,7 @@ export interface Harvest {
   isOnHold: boolean;
   contaminants: ContaminantFlag[];
   dryWeight?: number;
+  moistureLossPct: number;
   sourceBatchId?: string;
   harvestStartDate?: string;
   harvestEndDate?: string;

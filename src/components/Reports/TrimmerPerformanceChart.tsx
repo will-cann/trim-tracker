@@ -42,7 +42,8 @@ export const TrimmerPerformanceChart: React.FC<TrimmerPerformanceChartProps> = (
         }
     };
 
-    const colors = ['#A78BFA', '#FDE047', '#F472B6', '#60A5FA', '#34D399', '#FB923C'];
+    // Colorblind-safe data viz palette (Tableau-inspired, perceptually distinct)
+    const colors = ['#4E79A7', '#F28E2B', '#E15759', '#76B7B2', '#59A14F', '#EDC948'];
 
     return (
         <div className="bg-white p-6 rounded-xl border border-gray-100 shadow-sm">

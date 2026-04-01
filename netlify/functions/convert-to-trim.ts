@@ -23,9 +23,10 @@ export const handler: Handler = async (event) => {
         try {
             await client.query('BEGIN');
 
-            // Get allocation + parent harvest
+            // Get allocation + parent harvest (including moisture loss pct)
             const { rows: [allocation] } = await client.query(`
-                SELECT ha.*, h.batch_id, h.strain, h.license_number, h.company_id
+                SELECT ha.*, h.batch_id, h.strain, h.license_number, h.company_id,
+                       h.moisture_loss_pct, h.dry_weight AS harvest_dry_weight
                 FROM harvest_allocations ha
                 JOIN harvests h ON ha.harvest_id = h.id
                 WHERE ha.id = $1
@@ -64,19 +65,28 @@ export const handler: Handler = async (event) => {
                 sessionId = newSession.id;
             }
 
-            // Use actual_weight if set, otherwise target_weight (dry weight may differ from target)
-            const startWeight = parseFloat(allocation.actual_weight) > 0
-                ? allocation.actual_weight
-                : allocation.target_weight;
+            // Wet weight is the allocation target (based on wet harvest weight minus waste)
+            const wetWeight = parseFloat(allocation.actual_weight) > 0
+                ? parseFloat(allocation.actual_weight)
+                : parseFloat(allocation.target_weight);
 
-            // Create the trim entry
+            // If the harvest has a recorded dry weight, use that directly.
+            // Otherwise estimate dry weight from moisture loss percentage.
+            const moistureLossPct = parseFloat(allocation.moisture_loss_pct) || 75;
+            const harvestDryWeight = parseFloat(allocation.harvest_dry_weight);
+            const startWeight = harvestDryWeight > 0
+                ? harvestDryWeight
+                : Math.round(wetWeight * (1 - moistureLossPct / 100) * 100) / 100;
+
+            // Create the trim entry with wet weight for reconciliation
             const { rows: [trimEntry] } = await client.query(`
                 INSERT INTO trim_entries (
                     session_id, harvest_name, license_number, strain,
-                    start_weight, status, harvest_allocation_id
-                ) VALUES ($1, $2, $3, $4, $5, 'upcoming', $6)
+                    start_weight, wet_weight, status, harvest_allocation_id, harvest_id
+                ) VALUES ($1, $2, $3, $4, $5, $6, 'upcoming', $7, $8)
                 RETURNING *
-            `, [sessionId, allocation.batch_id, allocation.license_number, allocation.strain, startWeight, allocationId]);
+            `, [sessionId, allocation.batch_id, allocation.license_number, allocation.strain,
+                startWeight, wetWeight, allocationId, allocation.harvest_id]);
 
             // Update allocation
             await client.query(`
@@ -111,8 +121,11 @@ export const handler: Handler = async (event) => {
                         licenseNumber: trimEntry.license_number,
                         strain: trimEntry.strain,
                         startWeight: parseFloat(trimEntry.start_weight) || 0,
+                        wetWeight: parseFloat(trimEntry.wet_weight) || 0,
+                        moistureLoss: parseFloat(trimEntry.moisture_loss) || 0,
                         status: trimEntry.status,
                         harvestAllocationId: trimEntry.harvest_allocation_id,
+                        harvestId: trimEntry.harvest_id,
                     },
                     sessionId,
                 }),

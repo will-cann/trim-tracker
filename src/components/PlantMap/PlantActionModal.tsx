@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { X, AlertTriangle, Loader2, Calendar } from 'lucide-react';
 import type { PlantPhase, PlantGroup } from '../../types/plantMap';
-import { CONTAMINANT_ABBREVS } from '../../types/plantMap';
+import { CONTAMINANT_MAP } from '../../types/plantMap';
 import type { Strain } from '../../types/definitions';
 import { apiService } from '../../services/apiService';
 
@@ -422,13 +422,13 @@ export const PlantActionModal: React.FC<PlantActionModalProps> = ({
                                     Contaminants
                                 </label>
                                 <div className="flex flex-wrap gap-1.5">
-                                    {Object.entries(CONTAMINANT_ABBREVS).map(([name, abbrev]) => {
-                                        const isActive = selectedContaminants.has(name);
+                                    {Object.entries(CONTAMINANT_MAP).map(([key, { label, abbrev }]) => {
+                                        const isActive = selectedContaminants.has(key);
                                         return (
                                             <button
-                                                key={name}
-                                                onClick={() => toggleContaminant(name)}
-                                                title={name}
+                                                key={key}
+                                                onClick={() => toggleContaminant(key)}
+                                                title={label}
                                                 className={`px-2 py-1 rounded-md text-[11px] font-medium border transition-colors ${
                                                     isActive
                                                         ? 'border-red-300 bg-red-50 text-red-700'

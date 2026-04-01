@@ -65,8 +65,8 @@ export const CostRatioChart: React.FC<CostRatioChartProps> = ({ data }) => {
                             contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)' }}
                         />
                         <Legend iconType="square" />
-                        <Line yAxisId="right" type="monotone" dataKey="flowerRatio" name="Flower Ratio" stroke="#86EFAC" strokeWidth={3} dot={false} />
-                        <Line yAxisId="left" type="monotone" dataKey="costPerLb" name="Estimated Cost Per Gram" stroke="#60A5FA" strokeWidth={3} dot={{ r: 4, fill: '#60A5FA', strokeWidth: 2, stroke: '#fff' }} />
+                        <Line yAxisId="right" type="monotone" dataKey="flowerRatio" name="Flower Ratio" stroke="#59A14F" strokeWidth={3} dot={false} />
+                        <Line yAxisId="left" type="monotone" dataKey="costPerLb" name="Estimated Cost Per Gram" stroke="#4E79A7" strokeWidth={3} dot={{ r: 4, fill: '#4E79A7', strokeWidth: 2, stroke: '#fff' }} />
                     </ComposedChart>
                 </ResponsiveContainer>
             </div>

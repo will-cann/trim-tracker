@@ -1,0 +1,240 @@
+{
+  "version": "1.0",
+  "cases": [
+    {
+      "id": "e2e_harvest_flow_01",
+      "tags": ["harvest", "full_flow"],
+      "input": "I just harvested the Wedding Cake, 12 plants, wet weight came in at 28 pounds, put it in dry room 1",
+      "context_key": "default",
+      "expected_actions": [
+        {
+          "type": "create_harvest",
+          "fields": {
+            "strain": {"value": "Wedding Cake", "match": "fuzzy"},
+            "plantCount": {"value": 12, "type": "number"}
+          },
+          "required_fields": ["strain", "licenseNumber", "allocation"]
+        },
+        {
+          "type": "record_wet_weight",
+          "fields": {
+            "weight": {"value": 12700.8, "type": "number", "tolerance_pct": 2}
+          },
+          "required_fields": ["harvestIdentifier", "weight"]
+        },
+        {
+          "type": "move_harvest",
+          "fields": {
+            "dryingLocation": {"value": "dry room 1", "match": "fuzzy"}
+          },
+          "required_fields": ["harvestIdentifier", "dryingLocation"]
+        }
+      ]
+    },
+    {
+      "id": "e2e_trim_session_01",
+      "tags": ["trim", "full_flow"],
+      "input": "start a new session with the GMO batch, 8000 grams, license C11-0001234. Put Maria and Carlos on it starting at 8am.",
+      "context_key": "default",
+      "expected_actions": [
+        {
+          "type": "create_session",
+          "fields": {
+            "strain": {"value": "GMO", "match": "fuzzy"},
+            "startWeight": {"value": 8000, "type": "number"},
+            "licenseNumber": {"value": "C11-0001234", "match": "exact"}
+          },
+          "required_fields": ["harvestName", "strain", "licenseNumber", "startWeight"]
+        },
+        {
+          "type": "assign_trimmers",
+          "fields": {
+            "trimmers": {"type": "array", "value": "Maria Garcia and Carlos Rodriguez, both starting at 08:00"}
+          },
+          "required_fields": ["entryIdentifier", "trimmers"]
+        }
+      ]
+    },
+    {
+      "id": "e2e_extraction_pipeline_01",
+      "tags": ["extraction", "full_flow"],
+      "input": "pulled 17000 grams of GMO from the freezer for a wash. The yield was 800 grams of bubble hash.",
+      "context_key": "default",
+      "expected_actions": [
+        {
+          "type": "record_extraction",
+          "fields": {
+            "strain": {"value": "GMO", "match": "fuzzy"},
+            "inputPackageType": {"value": "fresh_frozen", "type": "enum"},
+            "outputPackageType": {"value": "bubble_hash", "type": "enum"},
+            "inputQuantity": {"value": 17000, "type": "number"},
+            "outputQuantity": {"value": 800, "type": "number"}
+          },
+          "required_fields": ["strain", "inputPackageType", "outputPackageType"]
+        }
+      ]
+    },
+    {
+      "id": "e2e_plant_management_01",
+      "tags": ["cultivation", "full_flow"],
+      "input": "the ice cream cake in veg room 1 has thrips, health is about 65. Move them to quarantine.",
+      "context_key": "plant_map",
+      "expected_actions": [
+        {
+          "type": "update_plant_health",
+          "fields": {
+            "plantIdentifier": {"value": "Ice Cream Cake", "match": "fuzzy"},
+            "roomName": {"value": "Veg Room 1", "match": "fuzzy"},
+            "health": {"value": 65, "type": "number", "tolerance_abs": 5},
+            "contaminants": {"type": "array", "value": ["thrips"]}
+          },
+          "required_fields": ["plantIdentifier"]
+        },
+        {
+          "type": "move_plants",
+          "fields": {
+            "targetRoomName": {"value": "quarantine", "match": "fuzzy"}
+          },
+          "required_fields": ["targetRoomName"]
+        }
+      ]
+    },
+    {
+      "id": "e2e_hybrid_task_01",
+      "tags": ["tasks", "hybrid"],
+      "input": "cut 50 clones of Wedding Cake and put them in nursery room 1",
+      "context_key": "default",
+      "expected_actions": [
+        {
+          "type": "create_human_tasks",
+          "fields": {
+            "tasks": {
+              "type": "array",
+              "value": "task with title about cutting clones, onCompleteAction containing create_planting with strainName:Wedding Cake, count:50, roomName:nursery room 1"
+            }
+          },
+          "required_fields": ["tasks"]
+        }
+      ]
+    },
+    {
+      "id": "e2e_waste_tracking_01",
+      "tags": ["harvest", "waste"],
+      "input": "the GMO had about 5 pounds of stems and 2 pounds of leaves, and we found some PM on a couple plants",
+      "context_key": "default",
+      "expected_actions": [
+        {
+          "type": "record_harvest_waste",
+          "fields": {
+            "harvestIdentifier": {"value": "GMO", "match": "fuzzy"},
+            "wasteType": {"value": "stems", "type": "enum"},
+            "weight": {"value": 2268.0, "type": "number", "tolerance_pct": 2}
+          },
+          "required_fields": ["harvestIdentifier", "wasteType", "weight"]
+        },
+        {
+          "type": "record_harvest_waste",
+          "fields": {
+            "harvestIdentifier": {"value": "GMO", "match": "fuzzy"},
+            "wasteType": {"value": "leaves", "type": "enum"},
+            "weight": {"value": 907.2, "type": "number", "tolerance_pct": 2}
+          },
+          "required_fields": ["harvestIdentifier", "wasteType", "weight"]
+        },
+        {
+          "type": "flag_contamination",
+          "fields": {
+            "harvestIdentifier": {"value": "GMO", "match": "fuzzy"},
+            "contaminants": {"type": "array", "value": ["powdery_mildew"]}
+          },
+          "required_fields": ["harvestIdentifier", "contaminants"]
+        }
+      ]
+    },
+    {
+      "id": "e2e_package_create_01",
+      "tags": ["packages", "create"],
+      "input": "package up 454 grams of GMO flower as PKG-GMO-001 under license C11-0001234, put it in vault A",
+      "context_key": "default",
+      "expected_actions": [
+        {
+          "type": "create_packages",
+          "fields": {
+            "packages": {
+              "type": "array",
+              "value": "1 package: label PKG-GMO-001, packageType flower, strain GMO, licenseNumber C11-0001234, quantity 454, location vault A"
+            }
+          },
+          "required_fields": ["packages"]
+        }
+      ]
+    },
+    {
+      "id": "e2e_harvest_day_weights_01",
+      "tags": ["harvest", "plant_weight", "contamination"],
+      "input": "plant one 342 grams, plant two 298, plant three had PM, 415 grams, plant four 380",
+      "context_key": "harvest_day",
+      "expected_actions": [
+        {
+          "type": "record_plant_weight",
+          "fields": {
+            "weights": {
+              "type": "array",
+              "value": "[{plantNumber:1, weight:342}, {plantNumber:2, weight:298}, {plantNumber:3, weight:415}, {plantNumber:4, weight:380}]"
+            }
+          },
+          "required_fields": ["harvestIdentifier", "weights"]
+        },
+        {
+          "type": "flag_contamination",
+          "fields": {
+            "contaminants": {"type": "array", "value": ["powdery_mildew"]}
+          },
+          "required_fields": ["harvestIdentifier", "contaminants"]
+        }
+      ]
+    },
+    {
+      "id": "e2e_auto_strain_01",
+      "tags": ["reference", "auto_create"],
+      "input": "start a harvest for Purple Urkle, 8 plants",
+      "context_key": "default",
+      "expected_actions": [
+        {
+          "type": "create_strain",
+          "fields": {
+            "name": {"value": "Purple Urkle", "match": "fuzzy"}
+          },
+          "required_fields": ["name"],
+          "notes": "AI should auto-create strain since Purple Urkle doesn't exist in context"
+        },
+        {
+          "type": "create_harvest",
+          "fields": {
+            "strain": {"value": "Purple Urkle", "match": "fuzzy"},
+            "plantCount": {"value": 8, "type": "number"}
+          },
+          "required_fields": ["strain", "licenseNumber", "allocation"]
+        }
+      ]
+    },
+    {
+      "id": "e2e_room_management_01",
+      "tags": ["reference", "room"],
+      "input": "create a new flower room called Flower Room 3, it's 800 square feet and can hold 150 plants",
+      "context_key": "default",
+      "expected_actions": [
+        {
+          "type": "create_room",
+          "fields": {
+            "name": {"value": "Flower Room 3", "match": "fuzzy"},
+            "roomType": {"value": "flower", "type": "enum"},
+            "capacity": {"value": 150, "type": "number"},
+            "squareFootage": {"value": 800, "type": "number"}
+          },
+          "required_fields": ["name"]
+        }
+      ]
+    }
+  ]
+}

@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useCallback } from 'react';
 import { Minimize2 } from 'lucide-react';
 import type { LocationMeta, PlantPhase } from '../../types/plantMap';
-import { getHealthColor, HEALTH_COLOR_MAP, abbreviateContaminants } from '../../types/plantMap';
+import { getHealthColor, HEALTH_COLOR_MAP, contaminantLabel } from '../../types/plantMap';
 import { useRoomMap } from '../../hooks/useRoomMap';
 import { PlantHealthCircle } from './PlantHealthCircle';
 import { PlantHealthCode } from './PlantHealthCode';
@@ -27,7 +27,9 @@ export const ExpandedRoom: React.FC<ExpandedRoomProps> = ({
     const containerRef = useRef<HTMLDivElement>(null);
     const healthColor = getHealthColor(room.plantHealth);
     const borderColor = HEALTH_COLOR_MAP[healthColor];
-    const contaminantStr = abbreviateContaminants(room.contaminants);
+    const contaminantStr = room.contaminants.length
+        ? [...new Set(room.contaminants)].map(c => contaminantLabel(c)).sort().join(', ')
+        : 'N/A';
     const showHarvestDate = phase === 'flowering' && room.harvestDates[0];
 
     const { data: roomMapData, loading: roomMapLoading, error: roomMapError, refetch: refetchRoomMap } = useRoomMap(phase, name);

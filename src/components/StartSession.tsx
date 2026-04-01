@@ -58,11 +58,12 @@ export const StartSession: React.FC<StartSessionProps> = ({ onStart }) => {
             const flowerAlloc = selectedHarvest.allocations?.find(
                 a => a.allocationType === 'flower' && a.status !== 'completed'
             );
+            const wetWeight = flowerAlloc?.targetWeight ?? selectedHarvest.totalWetWeight;
             onStart({
                 harvestName: selectedHarvest.batchId,
                 strain: selectedHarvest.strain,
                 licenseNumber: selectedHarvest.licenseNumber,
-                startWeight: flowerAlloc?.targetWeight ?? selectedHarvest.totalWetWeight,
+                startWeight: wetWeight,
                 status: 'active',
                 harvestId: selectedHarvest.id,
             });
@@ -139,7 +140,9 @@ export const StartSession: React.FC<StartSessionProps> = ({ onStart }) => {
                                 const flowerAlloc = h.allocations?.find(
                                     a => a.allocationType === 'flower' && a.status !== 'completed'
                                 );
-                                const weight = flowerAlloc?.targetWeight ?? h.totalWetWeight;
+                                const wetWeight = flowerAlloc?.targetWeight ?? h.totalWetWeight;
+                                const moisturePct = h.moistureLossPct ?? 75;
+                                const estDryWeight = h.dryWeight ?? Math.round(wetWeight * (1 - moisturePct / 100));
                                 const isSelected = selectedHarvestId === h.id;
                                 return (
                                     <button
@@ -183,12 +186,22 @@ export const StartSession: React.FC<StartSessionProps> = ({ onStart }) => {
                                             </div>
                                         </div>
                                         <div style={{
-                                            fontSize: '13px',
-                                            fontWeight: 500,
-                                            color: 'var(--color-elephant-600)',
+                                            textAlign: 'right',
                                             whiteSpace: 'nowrap',
                                         }}>
-                                            {weight.toLocaleString()}g
+                                            <div style={{
+                                                fontSize: '13px',
+                                                fontWeight: 500,
+                                                color: 'var(--color-elephant-600)',
+                                            }}>
+                                                ~{estDryWeight.toLocaleString()}g dry
+                                            </div>
+                                            <div style={{
+                                                fontSize: '11px',
+                                                color: 'var(--color-elephant-400)',
+                                            }}>
+                                                {wetWeight.toLocaleString()}g wet
+                                            </div>
                                         </div>
                                     </button>
                                 );

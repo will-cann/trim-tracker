@@ -12,21 +12,21 @@ export const MetricCard: React.FC<MetricCardProps> = ({ label, value, subtext, c
     const colorClasses = {
         blue: 'bg-blue-50 text-blue-900',
         green: 'bg-green-50 text-green-900',
-        purple: 'bg-purple-50 text-purple-900',
+        purple: 'bg-blue-50 text-blue-900',
         red: 'bg-red-50 text-red-900',
     };
 
     const valueColorClasses = {
         blue: 'text-blue-600',
         green: 'text-green-600',
-        purple: 'text-purple-600',
+        purple: 'text-blue-600',
         red: 'text-red-600',
     };
 
     const labelColorClasses = {
         blue: 'text-blue-400',
         green: 'text-green-400',
-        purple: 'text-purple-400',
+        purple: 'text-blue-400',
         red: 'text-red-400',
     };
 

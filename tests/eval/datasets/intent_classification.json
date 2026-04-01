@@ -1,0 +1,264 @@
+{
+  "version": "1.0",
+  "cases": [
+    {
+      "id": "intent_harvest_01",
+      "tags": ["harvest", "basic"],
+      "input": "I just chopped down the Wi Fi OG, 12 plants total",
+      "context_key": "default",
+      "context_override": {"screenContext": "Harvest Day"},
+      "expected": {
+        "action_types": ["create_harvest"],
+        "primary_workflow": "harvest"
+      }
+    },
+    {
+      "id": "intent_harvest_02",
+      "tags": ["harvest", "wet_weight"],
+      "input": "wet weight on the GMO came in at 38 pounds",
+      "context_key": "default",
+      "expected": {
+        "action_types": ["record_wet_weight"],
+        "primary_workflow": "harvest"
+      }
+    },
+    {
+      "id": "intent_harvest_03",
+      "tags": ["harvest", "plant_weight"],
+      "input": "plant one 342, two 298, three 415",
+      "context_key": "harvest_day",
+      "expected": {
+        "action_types": ["record_plant_weight"],
+        "primary_workflow": "harvest"
+      }
+    },
+    {
+      "id": "intent_harvest_04",
+      "tags": ["harvest", "waste"],
+      "input": "we had about 2 pounds of stems from the Gelato harvest",
+      "context_key": "default",
+      "expected": {
+        "action_types": ["record_harvest_waste"],
+        "primary_workflow": "harvest"
+      }
+    },
+    {
+      "id": "intent_harvest_05",
+      "tags": ["harvest", "move"],
+      "input": "move the GMO to dry room 2",
+      "context_key": "default",
+      "context_override": {"screenContext": "Harvest Tracker"},
+      "expected": {
+        "action_types": ["move_harvest"],
+        "primary_workflow": "harvest"
+      }
+    },
+    {
+      "id": "intent_trim_01",
+      "tags": ["trim", "session"],
+      "input": "let's start a new trim session with the GMO batch, 5000 grams, license A-123",
+      "context_key": "default",
+      "expected": {
+        "action_types": ["create_session"],
+        "primary_workflow": "trim"
+      }
+    },
+    {
+      "id": "intent_trim_02",
+      "tags": ["trim", "assign"],
+      "input": "put Maria and Carlos on the GMO batch starting at 8am",
+      "context_key": "active_session",
+      "expected": {
+        "action_types": ["assign_trimmers"],
+        "primary_workflow": "trim"
+      }
+    },
+    {
+      "id": "intent_trim_03",
+      "tags": ["trim", "add_batch"],
+      "input": "add the Wi Fi OG to the session, 3200 grams, same license",
+      "context_key": "active_session",
+      "expected": {
+        "action_types": ["add_batches"],
+        "primary_workflow": "trim"
+      }
+    },
+    {
+      "id": "intent_cultivation_01",
+      "tags": ["cultivation", "planting"],
+      "input": "we just cut 50 clones of Wedding Cake, put them in nursery room 1",
+      "context_key": "default",
+      "expected": {
+        "action_types": ["create_human_tasks"],
+        "primary_workflow": "tasks",
+        "notes": "hybrid task — physical cloning + onCompleteAction: create_planting"
+      }
+    },
+    {
+      "id": "intent_cultivation_02",
+      "tags": ["cultivation", "move"],
+      "input": "move the ice cream cake from veg room 1 to flower room 1",
+      "context_key": "plant_map",
+      "expected": {
+        "action_types": ["move_plants"],
+        "primary_workflow": "cultivation"
+      }
+    },
+    {
+      "id": "intent_cultivation_03",
+      "tags": ["cultivation", "phase_change"],
+      "input": "flip the Gelato in flower room 1",
+      "context_key": "plant_map",
+      "expected": {
+        "action_types": ["change_plant_phase"],
+        "primary_workflow": "cultivation"
+      }
+    },
+    {
+      "id": "intent_cultivation_04",
+      "tags": ["cultivation", "health"],
+      "input": "the plants in flower room 2 are looking rough, health is about 60, seeing spider mites",
+      "context_key": "plant_map",
+      "expected": {
+        "action_types": ["update_plant_health"],
+        "primary_workflow": "cultivation"
+      }
+    },
+    {
+      "id": "intent_extraction_01",
+      "tags": ["extraction", "wash"],
+      "input": "I pulled 17K of Blackberry from the freezer for a wash",
+      "context_key": "default",
+      "expected": {
+        "action_types": ["record_extraction"],
+        "primary_workflow": "extraction"
+      }
+    },
+    {
+      "id": "intent_extraction_02",
+      "tags": ["extraction", "press"],
+      "input": "pressed the GMO hash, got 550 grams of rosin",
+      "context_key": "default",
+      "expected": {
+        "action_types": ["record_extraction"],
+        "primary_workflow": "extraction"
+      }
+    },
+    {
+      "id": "intent_extraction_03",
+      "tags": ["extraction", "cart_fill"],
+      "input": "filled 200 rosin carts from the Wedding Cake rosin",
+      "context_key": "default",
+      "expected": {
+        "action_types": ["record_extraction"],
+        "primary_workflow": "extraction"
+      }
+    },
+    {
+      "id": "intent_task_01",
+      "tags": ["tasks", "environmental"],
+      "input": "remind me to check the humidity in dry room 2 tomorrow",
+      "context_key": "default",
+      "expected": {
+        "action_types": ["create_human_tasks"],
+        "primary_workflow": "tasks"
+      }
+    },
+    {
+      "id": "intent_task_02",
+      "tags": ["tasks", "ipm"],
+      "input": "we need to do an IPM spray in flower room 2 by Friday",
+      "context_key": "default",
+      "expected": {
+        "action_types": ["create_human_tasks"],
+        "primary_workflow": "tasks"
+      }
+    },
+    {
+      "id": "intent_reference_01",
+      "tags": ["reference", "strain"],
+      "input": "add a new strain called Purple Urkle",
+      "context_key": "default",
+      "expected": {
+        "action_types": ["create_strain"],
+        "primary_workflow": "reference"
+      }
+    },
+    {
+      "id": "intent_reference_02",
+      "tags": ["reference", "room"],
+      "input": "create a new veg room called Veg Room 3, capacity 200 plants, 500 square feet",
+      "context_key": "default",
+      "expected": {
+        "action_types": ["create_room"],
+        "primary_workflow": "reference"
+      }
+    },
+    {
+      "id": "intent_package_01",
+      "tags": ["packages", "create"],
+      "input": "package up 454 grams of GMO flower, label it PKG-GMO-001, license A-123",
+      "context_key": "default",
+      "expected": {
+        "action_types": ["create_packages"],
+        "primary_workflow": "packages"
+      }
+    },
+    {
+      "id": "intent_adversarial_01",
+      "tags": ["adversarial", "slang", "cultivation"],
+      "input": "flip the ice cream cake in veg room 1",
+      "context_key": "plant_map",
+      "expected": {
+        "action_types": ["change_plant_phase"],
+        "primary_workflow": "cultivation",
+        "notes": "'flip' is cannabis slang for transitioning from veg to flower"
+      }
+    },
+    {
+      "id": "intent_adversarial_02",
+      "tags": ["adversarial", "slang", "extraction"],
+      "input": "running a wash on the blackberry, pulled 17K from the walk-in",
+      "context_key": "default",
+      "expected": {
+        "action_types": ["record_extraction"],
+        "primary_workflow": "extraction",
+        "notes": "'running a wash' = ice water extraction, 'walk-in' = freezer"
+      }
+    },
+    {
+      "id": "intent_adversarial_03",
+      "tags": ["adversarial", "ambiguous"],
+      "input": "move the ice cream cake to flower room 1",
+      "context_key": "plant_map",
+      "expected": {
+        "action_types": ["move_plants"],
+        "primary_workflow": "cultivation",
+        "notes": "on Plant Map, 'move' should mean move plants, not a harvest"
+      }
+    },
+    {
+      "id": "intent_adversarial_04",
+      "tags": ["adversarial", "slang", "harvest"],
+      "input": "chop the gelato, 8 plants",
+      "context_key": "default",
+      "context_override": {"screenContext": "Harvest Day"},
+      "expected": {
+        "action_types": ["create_harvest"],
+        "primary_workflow": "harvest",
+        "notes": "'chop' = harvest in cannabis slang"
+      }
+    },
+    {
+      "id": "intent_adversarial_05",
+      "tags": ["adversarial", "slang", "harvest"],
+      "input": "pulling the runtz tomorrow, about 10 girls",
+      "context_key": "default",
+      "expected": {
+        "action_types": ["create_human_tasks"],
+        "primary_workflow": "tasks",
+        "notes": "'pulling' = harvesting, 'girls' = female plants. Hybrid task since it's scheduled for tomorrow."
+      }
+    }
+  ]
+}

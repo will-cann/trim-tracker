@@ -52,8 +52,11 @@ export const handler: Handler = async (event) => {
             return {
                 ...entry,
                 harvestName: entry.harvest_name,
+                harvestId: entry.harvest_id,
                 licenseNumber: entry.license_number,
                 startWeight: parseFloat(entry.start_weight) || 0,
+                wetWeight: entry.wet_weight ? parseFloat(entry.wet_weight) : undefined,
+                moistureLoss: parseFloat(entry.moisture_loss) || 0,
                 flowerWeight: parseFloat(entry.flower_weight) || 0,
                 shakeWeight: parseFloat(entry.shake_weight) || 0,
                 trimWeight: parseFloat(entry.trim_weight) || 0,
