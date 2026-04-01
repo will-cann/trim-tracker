@@ -2,9 +2,9 @@ import React, { useState, useRef, useEffect, useCallback } from 'react';
 import ReactMarkdown from 'react-markdown';
 import {
     Upload, FileText, ArrowRight, Loader2, Pencil,
-    Scissors, Package, Plus, User, UserPlus, Sprout, Scale,
-    ArrowRightLeft, Trash2, MapPin, ClipboardList, Leaf,
-    MoveRight, Thermometer, CalendarCheck, type LucideIcon,
+    Scissors, Package, Plus, User, Sprout, Scale,
+    ArrowRightLeft, MapPin, ClipboardList, Leaf,
+    MoveRight, Thermometer, Radio, ChevronDown, type LucideIcon,
 } from 'lucide-react';
 import { useDeepgram } from '../hooks/useDeepgram';
 import { useAIChat } from '../hooks/useAIChat';
@@ -15,53 +15,88 @@ import { apiService } from '../services/apiService';
 import type { TrimSession, TrimmerProfile, Harvest, ChatMessage, CreateTrimSessionDTO, License, HumanTask, SpeechMode } from '../types/definitions';
 import logo from '../assets/logo.png';
 
-// ── Suggestion chips with icons + brand colors ──
-interface Suggestion {
-    text: string;
-    icon: LucideIcon;
-    color: string;   // CSS color for icon
-    bg: string;       // CSS background for icon badge
-}
+// ── Quick starts (always visible) + full workflow catalog (expandable) ──
+interface WorkflowItem { text: string; icon: LucideIcon }
+interface WorkflowCategory { label: string; color: string; items: WorkflowItem[] }
 
-const ALL_SUGGESTIONS: Suggestion[] = [
-    // Trim
-    { text: 'Start a trim session with OG Kush 500g', icon: Scissors, color: 'var(--color-flower)', bg: 'rgba(59,181,112,0.1)' },
-    { text: 'Add 3 batches of Blue Dream to the active session', icon: Plus, color: 'var(--color-trim)', bg: 'rgba(28,158,255,0.1)' },
-    { text: 'Submit all completed batches', icon: Package, color: 'var(--color-flower)', bg: 'rgba(59,181,112,0.1)' },
-    { text: 'Record 200g waste from batch H-102', icon: Trash2, color: 'var(--color-waste)', bg: 'rgba(223,91,89,0.1)' },
-    { text: 'Revert batch H-105 back to upcoming', icon: ArrowRightLeft, color: 'var(--color-shake)', bg: 'rgba(250,158,82,0.1)' },
-    // Trimmers
-    { text: 'Assign Maria and Carlos to the active batch', icon: User, color: 'var(--color-trim)', bg: 'rgba(28,158,255,0.1)' },
-    { text: 'Add a new trimmer named Sofia to the roster', icon: UserPlus, color: '#1C9EFF', bg: 'rgba(28,158,255,0.1)' },
-    { text: 'Remove Jordan from batch H-103', icon: User, color: 'var(--color-waste)', bg: 'rgba(223,91,89,0.1)' },
-    { text: 'How is Maria performing this session?', icon: Scale, color: 'var(--color-trim)', bg: 'rgba(28,158,255,0.1)' },
-    // Harvest
-    { text: 'Create a harvest for Gelato', icon: Sprout, color: 'var(--color-flower)', bg: 'rgba(59,181,112,0.1)' },
-    { text: 'Record wet weight 2400g for harvest H-201', icon: Scale, color: 'var(--color-trim)', bg: 'rgba(28,158,255,0.1)' },
-    { text: 'Allocate harvest H-201 to flower and frozen', icon: ArrowRightLeft, color: 'var(--color-shake)', bg: 'rgba(250,158,82,0.1)' },
-    { text: 'Move harvest H-198 to drying room 2', icon: MapPin, color: '#1C9EFF', bg: 'rgba(28,158,255,0.1)' },
-    { text: 'Record stem waste for the Gelato harvest', icon: Trash2, color: 'var(--color-waste)', bg: 'rgba(223,91,89,0.1)' },
-    // Plants
-    { text: 'Move 30 clones to veg room A', icon: MoveRight, color: 'var(--color-flower)', bg: 'rgba(59,181,112,0.1)' },
-    { text: 'Create a batch of 50 Wedding Cake clones', icon: Leaf, color: 'var(--color-flower)', bg: 'rgba(59,181,112,0.1)' },
-    { text: 'Promote nursery batch to vegetative', icon: Sprout, color: 'var(--color-trim)', bg: 'rgba(28,158,255,0.1)' },
-    { text: 'Move flowering plants from room C to room D', icon: MapPin, color: '#1C9EFF', bg: 'rgba(28,158,255,0.1)' },
-    { text: 'How many plants are in veg right now?', icon: Leaf, color: 'var(--color-flower)', bg: 'rgba(59,181,112,0.1)' },
-    // Tasks
-    { text: 'Add a task: flush all plants in room B by Friday', icon: ClipboardList, color: '#3BB570', bg: 'rgba(59,181,112,0.1)' },
-    { text: 'Create a task to calibrate scales before next session', icon: ClipboardList, color: '#3BB570', bg: 'rgba(59,181,112,0.1)' },
-    { text: 'Remind me to order new trim trays by Monday', icon: CalendarCheck, color: 'var(--color-shake)', bg: 'rgba(250,158,82,0.1)' },
-    { text: 'Assign the dehumidifier check to Carlos', icon: ClipboardList, color: '#3BB570', bg: 'rgba(59,181,112,0.1)' },
-    // Reports / Questions
-    { text: 'Show me this week\'s trim output by strain', icon: Scale, color: 'var(--color-trim)', bg: 'rgba(28,158,255,0.1)' },
-    { text: 'What\'s the flower-to-waste ratio this month?', icon: Thermometer, color: 'var(--color-shake)', bg: 'rgba(250,158,82,0.1)' },
+// One per category, randomized each mount
+const STARTER_POOLS: { color: string; options: { text: string; icon: LucideIcon }[] }[] = [
+    {
+        color: '#3BB570', // Plants
+        options: [
+            { text: 'Plant new clones', icon: Leaf },
+            { text: 'Track a plant health issue', icon: Thermometer },
+            { text: 'Move plants to flower', icon: MoveRight },
+        ],
+    },
+    {
+        color: '#FA9E52', // Harvest & Extraction
+        options: [
+            { text: 'Harvest for fresh frozen', icon: Sprout },
+            { text: 'Harvest for dry trim', icon: Sprout },
+            { text: 'Log an extraction run', icon: Thermometer },
+            { text: 'Plan a harvest', icon: ClipboardList },
+        ],
+    },
+    {
+        color: '#1C9EFF', // Trim
+        options: [
+            { text: 'Start a trim session', icon: Scissors },
+            { text: 'Manage the trim team', icon: User },
+            { text: 'Check trimmer performance', icon: Scale },
+        ],
+    },
+    {
+        color: '#959595', // Operations
+        options: [
+            { text: 'Schedule an IPM task', icon: ClipboardList },
+            { text: 'Run this week\u2019s trim report', icon: Scale },
+            { text: 'Check flower-to-waste ratio', icon: Thermometer },
+        ],
+    },
 ];
 
-/** Pick N random suggestions, stable per mount */
-function pickSuggestions(count: number): Suggestion[] {
-    const shuffled = [...ALL_SUGGESTIONS].sort(() => Math.random() - 0.5);
-    return shuffled.slice(0, count);
-}
+const WORKFLOW_CATEGORIES: WorkflowCategory[] = [
+    {
+        label: 'Trim',
+        color: '#1C9EFF',
+        items: [
+            { text: 'Start a trim session', icon: Scissors },
+            { text: 'Add batches to session', icon: Plus },
+            { text: 'Assign trimmers', icon: User },
+            { text: 'Submit completed batches', icon: Package },
+        ],
+    },
+    {
+        label: 'Harvest & Extraction',
+        color: '#FA9E52',
+        items: [
+            { text: 'Harvest for fresh frozen', icon: Sprout },
+            { text: 'Record harvest weights', icon: Scale },
+            { text: 'Allocate to flower & trim', icon: ArrowRightLeft },
+            { text: 'Record extraction run', icon: Thermometer },
+        ],
+    },
+    {
+        label: 'Plants',
+        color: '#3BB570',
+        items: [
+            { text: 'Plant new clones', icon: Leaf },
+            { text: 'Move between rooms', icon: MoveRight },
+            { text: 'Track plant health issue', icon: Thermometer },
+            { text: 'Change growth phase', icon: Sprout },
+        ],
+    },
+    {
+        label: 'Operations',
+        color: '#959595',
+        items: [
+            { text: 'Schedule an IPM task', icon: ClipboardList },
+            { text: 'Weekly trim report', icon: Scale },
+            { text: 'Flower-to-waste ratio', icon: Thermometer },
+        ],
+    },
+];
 
 interface AIHomeProps {
     conversationId: string | null;
@@ -250,6 +285,37 @@ export const AIHome: React.FC<AIHomeProps> = ({
         setInlineInterim('');
     }, [inlineListening, inlineStop]);
 
+    // One-click ambient start from feature card
+    const [wantAmbientStart, setWantAmbientStart] = useState(false);
+
+    const handleStartAmbient = useCallback(() => {
+        if (inlineListening && voiceMode === 'ambient') {
+            // Already ambient — stop
+            if (inlineTranscriptRef.current.trim()) {
+                analyzeAmbientChunk(inlineTranscriptRef.current);
+                inlineTranscriptRef.current = '';
+                setInputText('');
+            }
+            inlineStop();
+            return;
+        }
+        if (inlineListening) inlineStop();
+        setVoiceMode('ambient');
+        inlineTranscriptRef.current = '';
+        setInputText('');
+        setInlineInterim('');
+        setWantAmbientStart(true);
+    }, [inlineListening, inlineStop, voiceMode, analyzeAmbientChunk]);
+
+    useEffect(() => {
+        if (wantAmbientStart && voiceMode === 'ambient' && !inlineListening) {
+            setWantAmbientStart(false);
+            inlineStart().catch(err => {
+                setMicError(err instanceof Error ? err.message : 'Failed to start mic');
+            });
+        }
+    }, [wantAmbientStart, voiceMode, inlineListening, inlineStart]);
+
     const {
         messages,
         isLoading,
@@ -387,7 +453,32 @@ export const AIHome: React.FC<AIHomeProps> = ({
     };
 
     const hasMessages = messages.length > 0;
-    const [suggestions] = useState(() => pickSuggestions(6));
+    const [showAllWorkflows, setShowAllWorkflows] = useState(false);
+
+    // Rotating quick starts — one chip cycles at a time
+    const [starterIndices, setStarterIndices] = useState(() =>
+        STARTER_POOLS.map(pool => Math.floor(Math.random() * pool.options.length))
+    );
+    const [fadingChip, setFadingChip] = useState(-1);
+
+    useEffect(() => {
+        if (hasMessages) return;
+        let cursor = 0;
+        const interval = setInterval(() => {
+            const poolIdx = cursor % STARTER_POOLS.length;
+            setFadingChip(poolIdx);
+            setTimeout(() => {
+                setStarterIndices(prev => {
+                    const next = [...prev];
+                    next[poolIdx] = (next[poolIdx] + 1) % STARTER_POOLS[poolIdx].options.length;
+                    return next;
+                });
+                setFadingChip(-1);
+            }, 250);
+            cursor++;
+        }, 3500);
+        return () => clearInterval(interval);
+    }, [hasMessages]);
 
     const licenseSelector = licenses.length > 0 ? (
         <div className="ai-license-selector">
@@ -407,49 +498,35 @@ export const AIHome: React.FC<AIHomeProps> = ({
     return (
         <div className="ai-home">
             {!hasMessages ? (
-                /* Empty state — centered */
-                <div className="ai-home-empty">
-                    <div className="ai-home-logo">
-                        <img src={logo} alt="Neurocann" className="w-12 h-12 object-contain" />
+                /* Empty state — command center */
+                <div
+                    className="ai-home-empty"
+                    onDrop={handleDrop}
+                    onDragOver={(e) => { e.preventDefault(); setIsDragOver(true); }}
+                    onDragLeave={() => setIsDragOver(false)}
+                >
+                    {/* Brand */}
+                    <div className="ai-hero">
+                        <img src={logo} alt="neurocann" className="ai-hero-logo" />
+                        <h1 className="ai-hero-brand"><span className="ai-hero-accent">neuro</span>cann</h1>
                     </div>
-                    <h1 className="text-2xl font-bold mb-1" style={{ color: 'var(--text-color)' }}>Tell me what to do</h1>
-                    <p className="text-sm mb-8" style={{ color: 'var(--text-secondary)' }}>
-                        Run your operation with natural language — trim, harvest, plants, tasks, and more.
-                    </p>
 
                     {/* License selector */}
                     {licenseSelector}
 
-                    {/* Input */}
-                    <form onSubmit={handleSubmit} className="w-full max-w-2xl space-y-3">
-                        <div className="relative">
+                    {/* Primary input */}
+                    <form onSubmit={handleSubmit} className="ai-hero-form">
+                        <div className="ai-hero-input">
                             <textarea
                                 ref={textareaRef}
                                 value={inputText}
                                 onChange={(e) => setInputText(e.target.value)}
                                 onKeyDown={handleKeyDown}
-                                placeholder='e.g. "Move 20 clones from nursery to veg room B"'
-                                rows={3}
+                                placeholder="What needs to happen?"
+                                rows={2}
                                 disabled={isLoading || isExecuting}
-                                className="w-full px-4 py-3 pr-24 rounded-xl resize-none
-                                           text-sm focus:outline-none focus:ring-2 transition-colors
-                                           disabled:cursor-not-allowed"
-                                style={{
-                                    border: '1px solid var(--border-color)',
-                                    color: 'var(--text-color)',
-                                    '--tw-ring-color': 'var(--primary-light)',
-                                } as React.CSSProperties}
                             />
-                            <div className="absolute right-2 bottom-2 flex items-center gap-1">
-                                <button
-                                    type="button"
-                                    onClick={() => fileInputRef.current?.click()}
-                                    className="p-2 rounded-lg transition-colors"
-                                    style={{ color: 'var(--text-secondary)' }}
-                                    title="Upload CSV"
-                                >
-                                    <Upload size={16} />
-                                </button>
+                            <div className="ai-hero-input-actions">
                                 <VoicePill
                                     isListening={inlineListening}
                                     mode={voiceMode}
@@ -460,10 +537,9 @@ export const AIHome: React.FC<AIHomeProps> = ({
                                 <button
                                     type="submit"
                                     disabled={!inputText.trim() || isLoading || isExecuting}
-                                    className="p-2 rounded-lg text-white disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                                    style={{ background: 'var(--primary-color)' }}
+                                    className="ai-hero-send"
                                 >
-                                    <ArrowRight size={16} />
+                                    <ArrowRight size={18} />
                                 </button>
                             </div>
                         </div>
@@ -478,53 +554,110 @@ export const AIHome: React.FC<AIHomeProps> = ({
                             }}
                             className="hidden"
                         />
-
-                        {/* CSV Drop Zone */}
-                        <div
-                            onDrop={handleDrop}
-                            onDragOver={(e) => { e.preventDefault(); setIsDragOver(true); }}
-                            onDragLeave={() => setIsDragOver(false)}
-                            onClick={() => fileInputRef.current?.click()}
-                            className="border-2 border-dashed rounded-xl p-4 text-center cursor-pointer transition-colors"
-                            style={{
-                                borderColor: isDragOver ? 'var(--primary-color)' : 'var(--border-color)',
-                                background: isDragOver ? 'var(--primary-light)' : 'transparent',
-                            }}
-                        >
-                            <div className="flex items-center justify-center gap-2 text-sm" style={{ color: 'var(--text-secondary)' }}>
-                                {isDragOver ? (
-                                    <>
-                                        <Upload size={16} style={{ color: 'var(--primary-color)' }} />
-                                        <span className="font-medium" style={{ color: 'var(--primary-dark)' }}>Drop CSV here</span>
-                                    </>
-                                ) : (
-                                    <>
-                                        <FileText size={16} />
-                                        <span>Drop a CSV file here, or click to upload</span>
-                                    </>
-                                )}
-                            </div>
-                        </div>
                     </form>
 
-                    {/* Suggestions */}
-                    <div className="mt-6 flex flex-wrap justify-center gap-2 max-w-2xl">
-                        {suggestions.map((s) => {
-                            const Icon = s.icon;
+                    {/* Quick starts — rotating colored pills, one per category */}
+                    <div className="ai-quick-starts">
+                        {STARTER_POOLS.map((pool, i) => {
+                            const opt = pool.options[starterIndices[i]];
+                            const Icon = opt.icon;
                             return (
                                 <button
-                                    key={s.text}
-                                    onClick={() => handleSend(s.text)}
-                                    className="suggestion-chip"
+                                    key={i}
+                                    onClick={() => handleSend(opt.text)}
+                                    className={`ai-quick-chip${fadingChip === i ? ' fading' : ''}`}
+                                    type="button"
+                                    style={{
+                                        '--chip-color': pool.color,
+                                        '--chip-bg': `${pool.color}0D`,
+                                        '--chip-bg-hover': `${pool.color}1A`,
+                                    } as React.CSSProperties}
                                 >
-                                    <span className="suggestion-chip-icon" style={{ background: s.bg, color: s.color }}>
-                                        <Icon size={12} />
-                                    </span>
-                                    {s.text}
+                                    <Icon size={14} />
+                                    {opt.text}
                                 </button>
                             );
                         })}
                     </div>
+
+                    {/* Feature cards: Ambient + Import */}
+                    <div className="ai-features">
+                        <button
+                            className={`ai-feature-card${inlineListening && voiceMode === 'ambient' ? ' ai-feature-active' : ''}`}
+                            onClick={handleStartAmbient}
+                            type="button"
+                        >
+                            <div className="ai-feature-icon" style={{ background: 'rgba(28,158,255,0.08)', color: '#1C9EFF' }}>
+                                <Radio size={20} />
+                            </div>
+                            <div className="ai-feature-text">
+                                <span className="ai-feature-title">Ambient Listening</span>
+                                <span className="ai-feature-desc">
+                                    {inlineListening && voiceMode === 'ambient'
+                                        ? 'Listening — tasks created automatically'
+                                        : 'Leave the mic on — tasks captured as your team talks'}
+                                </span>
+                            </div>
+                        </button>
+
+                        <button
+                            className={`ai-feature-card${isDragOver ? ' ai-feature-drop' : ''}`}
+                            onClick={() => fileInputRef.current?.click()}
+                            type="button"
+                        >
+                            <div className="ai-feature-icon" style={{ background: 'rgba(250,158,82,0.08)', color: '#FA9E52' }}>
+                                <FileText size={20} />
+                            </div>
+                            <div className="ai-feature-text">
+                                <span className="ai-feature-title">Spreadsheet Import</span>
+                                <span className="ai-feature-desc">Bulk create harvests, plants, or tag assignments from CSV</span>
+                            </div>
+                        </button>
+                    </div>
+
+                    {/* All workflows — progressive disclosure */}
+                    <div className="ai-wf-section">
+                        <button
+                            className={`ai-wf-toggle${showAllWorkflows ? ' open' : ''}`}
+                            onClick={() => setShowAllWorkflows(v => !v)}
+                            type="button"
+                        >
+                            All workflows
+                            <ChevronDown size={14} />
+                        </button>
+                        <div className={`ai-wf-expand${showAllWorkflows ? ' open' : ''}`}>
+                            <div className="ai-wf-expand-inner">
+                                <div className="ai-workflows">
+                                    {WORKFLOW_CATEGORIES.map((cat) => (
+                                        <div key={cat.label} className="ai-wf-group">
+                                            <span className="ai-wf-label" style={{ color: cat.color }}>{cat.label}</span>
+                                            <div className="ai-wf-items">
+                                                {cat.items.map((w) => {
+                                                    const Icon = w.icon;
+                                                    return (
+                                                        <button
+                                                            key={w.text}
+                                                            onClick={() => handleSend(w.text)}
+                                                            className="ai-wf-item"
+                                                            type="button"
+                                                        >
+                                                            <Icon size={13} style={{ color: cat.color, flexShrink: 0 }} />
+                                                            {w.text}
+                                                        </button>
+                                                    );
+                                                })}
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Mic error */}
+                    {(micError || deepgramError) && (
+                        <p className="text-xs" style={{ color: 'var(--color-waste)' }}>{micError || deepgramError}</p>
+                    )}
                 </div>
             ) : (
                 /* Chat view — messages + input at bottom */
@@ -563,8 +696,8 @@ export const AIHome: React.FC<AIHomeProps> = ({
                                 <div
                                     className={`ai-msg-bubble ${
                                         msg.role === 'user'
-                                            ? 'bg-emerald-500 text-white'
-                                            : 'bg-gray-100 text-gray-800'
+                                            ? 'ai-msg-bubble-user'
+                                            : 'ai-msg-bubble-assistant'
                                     }`}
                                 >
                                     <ReactMarkdown>{msg.content}</ReactMarkdown>
@@ -597,8 +730,8 @@ export const AIHome: React.FC<AIHomeProps> = ({
                                 <div className="ai-msg-avatar">
                                     <img src={logo} alt="" className="w-5 h-5 object-contain" />
                                 </div>
-                                <div className="ai-msg-bubble bg-gray-100">
-                                    <Loader2 size={16} className="animate-spin text-gray-400" />
+                                <div className="ai-msg-bubble ai-msg-bubble-assistant">
+                                    <Loader2 size={16} className="animate-spin" style={{ color: 'var(--text-secondary)' }} />
                                 </div>
                             </div>
                         )}
@@ -622,7 +755,7 @@ export const AIHome: React.FC<AIHomeProps> = ({
                     <div className="ai-home-input-bar">
                         {(micError || deepgramError) && (
                             <div className="max-w-3xl mx-auto w-full mb-2">
-                                <p className="text-xs text-red-500 px-1">{micError || deepgramError}</p>
+                                <p className="text-xs px-1" style={{ color: 'var(--color-waste)' }}>{micError || deepgramError}</p>
                             </div>
                         )}
                         {licenseSelector && (
@@ -630,8 +763,8 @@ export const AIHome: React.FC<AIHomeProps> = ({
                                 {licenseSelector}
                             </div>
                         )}
-                        <form onSubmit={handleSubmit} className="max-w-3xl mx-auto w-full flex items-end gap-2">
-                            <div className="flex-1 relative">
+                        <form onSubmit={handleSubmit} className="ai-chat-form">
+                            <div className="ai-chat-input-wrap">
                                 <textarea
                                     ref={textareaRef}
                                     value={inputText}
@@ -640,11 +773,7 @@ export const AIHome: React.FC<AIHomeProps> = ({
                                     placeholder={pendingActions && pendingActions.length > 0 ? "Review actions above..." : inlineListening && voiceMode === 'ambient' ? "Listening... tasks will be created automatically" : "Type a message..."}
                                     rows={1}
                                     disabled={isLoading || isExecuting || !!(pendingActions && pendingActions.length > 0)}
-                                    className="w-full px-4 py-3 border border-gray-200 rounded-xl resize-none
-                                               text-sm text-gray-800 placeholder-gray-400
-                                               focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:border-emerald-400
-                                               disabled:bg-gray-50"
-                                    style={{ minHeight: '44px', maxHeight: '120px' }}
+                                    className="ai-chat-textarea"
                                     onInput={(e) => {
                                         const target = e.target as HTMLTextAreaElement;
                                         target.style.height = '44px';
@@ -652,11 +781,11 @@ export const AIHome: React.FC<AIHomeProps> = ({
                                     }}
                                 />
                             </div>
-                            <div className="flex items-center gap-1 pb-1">
+                            <div className="ai-chat-actions">
                                 <button
                                     type="button"
                                     onClick={() => fileInputRef.current?.click()}
-                                    className="p-2.5 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
+                                    className="ai-chat-icon-btn"
                                     title="Upload CSV"
                                 >
                                     <Upload size={18} />
@@ -682,8 +811,7 @@ export const AIHome: React.FC<AIHomeProps> = ({
                                 <button
                                     type="submit"
                                     disabled={!inputText.trim() || isLoading || isExecuting}
-                                    className="p-2.5 rounded-lg bg-emerald-500 text-white hover:bg-emerald-600
-                                               disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                                    className="ai-chat-send"
                                 >
                                     <ArrowRight size={18} />
                                 </button>
