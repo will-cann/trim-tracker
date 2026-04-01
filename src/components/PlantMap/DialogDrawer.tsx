@@ -12,7 +12,7 @@ interface DialogAction {
 
 const ACTIONS: DialogAction[] = [
     { key: 'destroy', label: 'Destroy Plants', icon: <Trash2 size={14} />, phases: ['nursery', 'vegetative', 'flowering'], implemented: true },
-    { key: 'change-phase', label: 'Change Growth Phase', icon: <RefreshCw size={14} />, phases: ['vegetative', 'flowering'], implemented: true },
+    { key: 'change-phase', label: 'Change Growth Phase', icon: <RefreshCw size={14} />, phases: ['nursery', 'vegetative', 'flowering'], implemented: true },
     { key: 'change-room', label: 'Change Rooms', icon: <ArrowRightLeft size={14} />, phases: ['nursery', 'vegetative', 'flowering'], implemented: true },
     { key: 'create-harvest', label: 'Create Harvests', icon: <Scissors size={14} />, phases: ['flowering'], implemented: false },
     { key: 'plant-health', label: 'Plant Health Report', icon: <Heart size={14} />, phases: ['nursery', 'vegetative', 'flowering'], implemented: true },

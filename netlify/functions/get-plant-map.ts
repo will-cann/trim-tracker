@@ -33,20 +33,26 @@ export const handler: Handler = async (event) => {
                     pb.plant_health,
                     pb.contaminants,
                     pb.planted_date::text AS phase_date,
-                    NULL::text AS harvest_date,
-                    CASE WHEN pb.planted_date IS NOT NULL
-                        THEN (pb.planted_date + 14)::date::text
-                        ELSE NULL
-                    END AS flip_date
+                    NULL::text AS harvest_date
                 FROM rooms r
                 JOIN plant_batches pb ON pb.room_id = r.id AND pb.company_id = r.company_id
-                LEFT JOIN strains s ON s.company_id = pb.company_id AND LOWER(s.name) = LOWER(pb.strain_name)
                 WHERE r.company_id = ${context.companyId}
                     AND r.room_type = 'nursery'
                 ORDER BY r.name
             `;
-            rows = result.rows;
+            // Compute uppot date: planted_date + 14 days (clone rooting period)
+            rows = result.rows.map((r: any) => {
+                let flipDate = null;
+                if (r.phase_date) {
+                    const d = new Date(r.phase_date);
+                    d.setDate(d.getDate() + 14);
+                    flipDate = d.toISOString().split('T')[0];
+                }
+                return { ...r, flip_date: flipDate };
+            });
         } else if (phase === 'vegetative') {
+            // Fetch veg plants and strain veg_length_days separately to avoid
+            // complex LEFT JOIN in tagged template
             const result = await sql`
                 SELECT
                     r.id AS room_id,
@@ -56,19 +62,32 @@ export const handler: Handler = async (event) => {
                     p.plant_health,
                     p.contaminants,
                     p.vegetative_date::text AS phase_date,
-                    NULL::text AS harvest_date,
-                    CASE WHEN s.veg_length_days IS NOT NULL AND p.vegetative_date IS NOT NULL
-                        THEN (p.vegetative_date + s.veg_length_days)::date::text
-                        ELSE NULL
-                    END AS flip_date
+                    NULL::text AS harvest_date
                 FROM plants p
                 JOIN rooms r ON r.id = p.room_id AND r.company_id = p.company_id
-                LEFT JOIN strains s ON s.company_id = p.company_id AND LOWER(s.name) = LOWER(p.strain_name)
                 WHERE p.company_id = ${context.companyId}
                     AND p.growth_phase = 'vegetative'
                 ORDER BY r.name
             `;
-            rows = result.rows;
+
+            // Fetch strain veg lengths for flip date calculation
+            const { rows: strainRows } = await sql`
+                SELECT LOWER(name) AS name, veg_length_days
+                FROM strains
+                WHERE company_id = ${context.companyId} AND veg_length_days IS NOT NULL
+            `;
+            const vegLengthMap = new Map(strainRows.map((s: any) => [s.name, s.veg_length_days]));
+
+            rows = result.rows.map((r: any) => {
+                const vegDays = vegLengthMap.get(r.strain_name?.toLowerCase());
+                let flipDate = null;
+                if (vegDays && r.phase_date) {
+                    const d = new Date(r.phase_date);
+                    d.setDate(d.getDate() + vegDays);
+                    flipDate = d.toISOString().split('T')[0];
+                }
+                return { ...r, flip_date: flipDate };
+            });
         } else {
             const result = await sql`
                 SELECT

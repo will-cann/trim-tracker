@@ -43,18 +43,22 @@ export const handler: Handler = async (event) => {
                     pb.planted_date::text AS planted_date,
                     pb.tag,
                     'plantbatches' AS entity_type,
-                    NULL::text AS target_harvest_date,
-                    CASE WHEN pb.planted_date IS NOT NULL
-                        THEN (pb.planted_date + 14)::date::text
-                        ELSE NULL
-                    END AS flip_date
+                    NULL::text AS target_harvest_date
                 FROM plant_batches pb
                 JOIN rooms r ON r.id = pb.room_id AND r.company_id = pb.company_id
                 WHERE pb.company_id = ${context.companyId}
                     AND r.name = ${roomName}
                 ORDER BY pb.strain_name, pb.planted_date
             `;
-            rows = result.rows;
+            rows = result.rows.map((r: any) => {
+                let flip_date = null;
+                if (r.planted_date) {
+                    const d = new Date(r.planted_date);
+                    d.setDate(d.getDate() + 14);
+                    flip_date = d.toISOString().split('T')[0];
+                }
+                return { ...r, flip_date };
+            });
         } else if (phase === 'vegetative') {
             const result = await sql`
                 SELECT
@@ -67,21 +71,32 @@ export const handler: Handler = async (event) => {
                     p.planted_date::text AS planted_date,
                     p.vegetative_date::text AS phase_date,
                     NULL::text AS target_harvest_date,
-                    CASE WHEN s.veg_length_days IS NOT NULL AND p.vegetative_date IS NOT NULL
-                        THEN (p.vegetative_date + s.veg_length_days)::date::text
-                        ELSE NULL
-                    END AS flip_date,
                     p.tag,
                     'plants' AS entity_type
                 FROM plants p
                 JOIN rooms r ON r.id = p.room_id AND r.company_id = p.company_id
-                LEFT JOIN strains s ON s.company_id = p.company_id AND LOWER(s.name) = LOWER(p.strain_name)
                 WHERE p.company_id = ${context.companyId}
                     AND r.name = ${roomName}
                     AND p.growth_phase = 'vegetative'
                 ORDER BY p.strain_name, p.planted_date
             `;
-            rows = result.rows;
+            // Compute flip dates from strain veg_length_days
+            const { rows: strainRows } = await sql`
+                SELECT LOWER(name) AS name, veg_length_days
+                FROM strains
+                WHERE company_id = ${context.companyId} AND veg_length_days IS NOT NULL
+            `;
+            const vegLengthMap = new Map(strainRows.map((s: any) => [s.name, s.veg_length_days]));
+            rows = result.rows.map((r: any) => {
+                const vegDays = vegLengthMap.get(r.strain_name?.toLowerCase());
+                let flip_date = null;
+                if (vegDays && r.phase_date) {
+                    const d = new Date(r.phase_date);
+                    d.setDate(d.getDate() + vegDays);
+                    flip_date = d.toISOString().split('T')[0];
+                }
+                return { ...r, flip_date };
+            });
         } else {
             const result = await sql`
                 SELECT
@@ -94,7 +109,6 @@ export const handler: Handler = async (event) => {
                     p.planted_date::text AS planted_date,
                     p.flowering_date::text AS phase_date,
                     p.target_harvest_date::text AS target_harvest_date,
-                    NULL::text AS flip_date,
                     p.tag,
                     'plants' AS entity_type
                 FROM plants p
@@ -104,7 +118,7 @@ export const handler: Handler = async (event) => {
                     AND p.growth_phase = 'flowering'
                 ORDER BY p.strain_name, p.planted_date
             `;
-            rows = result.rows;
+            rows = result.rows.map((r: any) => ({ ...r, flip_date: null }));
         }
 
         // Group by strain + phase_date into PlantGroup records

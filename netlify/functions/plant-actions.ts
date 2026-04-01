@@ -78,13 +78,6 @@ export const handler: Handler = async (event) => {
                     };
                 }
 
-                if (!isPlants) {
-                    return {
-                        statusCode: 400,
-                        body: JSON.stringify({ error: 'Phase changes are only supported for individual plants, not batches.' }),
-                    };
-                }
-
                 // Optionally move to a new room and/or set harvest date
                 const { targetRoomId, targetHarvestDate } = payload;
                 const harvestDate = targetHarvestDate || null;
@@ -100,7 +93,77 @@ export const handler: Handler = async (event) => {
                     }
                 }
 
-                // Phase change queries
+                // ── Plant batches: convert to individual plants (uppotting) ──
+                if (!isPlants) {
+                    if (targetPhase !== 'vegetative') {
+                        return {
+                            statusCode: 400,
+                            body: JSON.stringify({ error: 'Plant batches can only be moved to vegetative phase.' }),
+                        };
+                    }
+
+                    // Fetch the batch details
+                    const { rows: batches } = await sql`
+                        SELECT id, name, strain_name, strain_id, room_id, untracked_count, tracked_count,
+                               planted_date, plant_health, contaminants
+                        FROM plant_batches
+                        WHERE id = ANY(${plantIds}::uuid[]) AND company_id = ${context.companyId}
+                    `;
+
+                    const destRoomId = targetRoomId || null;
+                    let totalCreated = 0;
+
+                    for (const batch of batches) {
+                        const count = (batch.untracked_count || 0) + (batch.tracked_count || 0);
+                        if (count <= 0) continue;
+
+                        // Generate labels: STRAIN-V-001, STRAIN-V-002, ...
+                        const prefix = batch.strain_name.replace(/\s+/g, '').substring(0, 6).toUpperCase();
+
+                        // Find the highest existing label number for this prefix
+                        const { rows: [maxRow] } = await sql`
+                            SELECT label FROM plants
+                            WHERE company_id = ${context.companyId}
+                                AND label LIKE ${prefix + '-V-%'}
+                            ORDER BY label DESC LIMIT 1
+                        `;
+                        let counter = 0;
+                        if (maxRow?.label) {
+                            const match = maxRow.label.match(/-(\d+)$/);
+                            if (match) counter = parseInt(match[1], 10);
+                        }
+
+                        // Insert individual plants
+                        for (let i = 0; i < count; i++) {
+                            counter++;
+                            const label = `${prefix}-V-${String(counter).padStart(3, '0')}`;
+                            await sql`
+                                INSERT INTO plants (
+                                    company_id, label, strain_name, strain_id,
+                                    room_id, growth_phase, planted_date, vegetative_date,
+                                    plant_batch_id, plant_health, contaminants
+                                ) VALUES (
+                                    ${context.companyId}, ${label}, ${batch.strain_name}, ${batch.strain_id},
+                                    COALESCE(${destRoomId}::uuid, ${batch.room_id}::uuid),
+                                    'vegetative', ${batch.planted_date}, NOW()::date,
+                                    ${batch.id}::uuid, ${batch.plant_health}, ${batch.contaminants}::text[]
+                                )
+                            `;
+                        }
+                        totalCreated += count;
+
+                        // Remove the batch
+                        await sql`
+                            DELETE FROM plant_batches
+                            WHERE id = ${batch.id}::uuid AND company_id = ${context.companyId}
+                        `;
+                    }
+
+                    affectedCount = totalCreated;
+                    break;
+                }
+
+                // ── Individual plants: phase change queries ──
                 if (targetPhase === 'vegetative') {
                     await sql`
                         UPDATE plants

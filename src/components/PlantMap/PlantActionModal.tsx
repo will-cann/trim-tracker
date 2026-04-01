@@ -48,8 +48,10 @@ export const PlantActionModal: React.FC<PlantActionModalProps> = ({
     const [submitting, setSubmitting] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
-    // Change phase state
-    const [targetPhase, setTargetPhase] = useState('');
+    // Change phase state — auto-select vegetative for nursery uppotting
+    const [targetPhase, setTargetPhase] = useState(
+        action === 'change-phase' && phase === 'nursery' ? 'vegetative' : ''
+    );
 
     // Change room state
     const [rooms, setRooms] = useState<Array<{ id: string; name: string; room_type: string }>>([]);
@@ -155,6 +157,11 @@ export const PlantActionModal: React.FC<PlantActionModalProps> = ({
                         setSubmitting(false);
                         return;
                     }
+                    if (isNurseryUppot && !targetRoomId) {
+                        setError('Select a veg room to move plants into.');
+                        setSubmitting(false);
+                        return;
+                    }
                     await apiService.executePlantAction({
                         action: 'change-phase',
                         plantIds,
@@ -208,7 +215,10 @@ export const PlantActionModal: React.FC<PlantActionModalProps> = ({
     };
 
     const isDestructive = action === 'destroy';
-    const phaseOptionsFiltered = PHASE_OPTIONS.filter(o => o.value !== phase);
+    const isNurseryUppot = action === 'change-phase' && phase === 'nursery';
+    const phaseOptionsFiltered = isNurseryUppot
+        ? [{ value: 'vegetative', label: 'Vegetative' }]
+        : PHASE_OPTIONS.filter(o => o.value !== phase);
 
     return (
         <div className="modal-overlay" onClick={onClose}>
@@ -260,7 +270,18 @@ export const PlantActionModal: React.FC<PlantActionModalProps> = ({
 
                     {action === 'change-phase' && (
                         <div className="space-y-4">
-                            {/* Phase selector */}
+                            {/* Nursery uppot info */}
+                            {isNurseryUppot && (
+                                <div className="rounded-lg border border-blue-200 bg-blue-50/50 p-3 text-xs text-gray-600">
+                                    <p className="font-medium text-gray-700 mb-1">Uppot to Vegetative</p>
+                                    <p>
+                                        {totalPlants} clone{totalPlants !== 1 ? 's' : ''} will be converted to individually tracked plants in the vegetative phase.
+                                    </p>
+                                </div>
+                            )}
+
+                            {/* Phase selector (hidden for nursery since auto-selected) */}
+                            {!isNurseryUppot && (
                             <div>
                                 <label className="block text-xs font-medium text-gray-700 mb-2">
                                     Move to Phase
@@ -281,6 +302,7 @@ export const PlantActionModal: React.FC<PlantActionModalProps> = ({
                                     ))}
                                 </div>
                             </div>
+                            )}
 
                             {/* Harvest date — shown when flowering selected */}
                             {targetPhase === 'flowering' && (
@@ -330,10 +352,10 @@ export const PlantActionModal: React.FC<PlantActionModalProps> = ({
                                 </div>
                             )}
 
-                            {/* Optional room move */}
+                            {/* Room move — required for nursery, optional otherwise */}
                             <div>
                                 <label className="block text-xs font-medium text-gray-700 mb-2">
-                                    Also move to room <span className="text-gray-400 font-normal">(optional)</span>
+                                    {isNurseryUppot ? 'Move to veg room' : (<>Also move to room <span className="text-gray-400 font-normal">(optional)</span></>)}
                                 </label>
                                 {rooms.length === 0 ? (
                                     <div className="flex items-center gap-2 text-xs text-gray-400 py-2">
@@ -344,6 +366,7 @@ export const PlantActionModal: React.FC<PlantActionModalProps> = ({
                                     <div className="grid grid-cols-2 gap-2 max-h-32 overflow-auto">
                                         {rooms
                                             .filter(r => r.name !== roomName)
+                                            .filter(r => !isNurseryUppot || r.room_type === 'veg')
                                             .map(r => (
                                                 <button
                                                     key={r.id}
