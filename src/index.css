@@ -5197,13 +5197,224 @@ select.field-input {
 .sidebar-ambient-dots span:nth-child(3) { animation-delay: 0.4s; }
 
 /* ============================================================================
+   CHATPANEL — Header, Empty State, Input Bar, FAB
+   ============================================================================ */
+
+.chatpanel-header {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid var(--border-color);
+  background: white;
+}
+
+.chatpanel-header-logo {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: var(--primary-light);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.chatpanel-brand {
+  font-family: 'Lato', sans-serif;
+  font-weight: 900;
+  font-size: 0.9375rem;
+  letter-spacing: -0.02em;
+  color: var(--text-color);
+  line-height: 1;
+  margin: 0;
+}
+
+.chatpanel-brand-accent {
+  color: var(--color-flower);
+}
+
+.chatpanel-close {
+  padding: 0.375rem;
+  border-radius: 8px;
+  border: none;
+  background: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.chatpanel-close:hover {
+  background: rgba(0, 0, 0, 0.04);
+  color: var(--text-color);
+}
+
+/* Empty state */
+.chatpanel-empty {
+  text-align: center;
+  padding: 2.5rem 0 1rem;
+}
+
+.chatpanel-empty-text {
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+  margin-bottom: 1rem;
+}
+
+.chatpanel-empty-suggestions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+}
+
+.chatpanel-suggestion {
+  display: block;
+  width: 100%;
+  text-align: left;
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  padding: 0.5rem 0.75rem;
+  border-radius: 8px;
+  border: 1px solid var(--border-color);
+  background: white;
+  cursor: pointer;
+  font-family: inherit;
+  transition: border-color 0.15s, background 0.15s, color 0.15s;
+}
+
+.chatpanel-suggestion:hover {
+  border-color: var(--primary-color);
+  background: var(--primary-light);
+  color: var(--text-color);
+}
+
+/* Input bar */
+.chatpanel-input-bar {
+  border-top: 1px solid var(--border-color);
+  padding: 0.75rem;
+  background: white;
+}
+
+.chatpanel-form {
+  display: flex;
+  align-items: flex-end;
+  gap: 0.5rem;
+}
+
+.chatpanel-textarea {
+  width: 100%;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  resize: none;
+  font-size: 0.875rem;
+  line-height: 1.5;
+  color: var(--text-color);
+  background: white;
+  font-family: inherit;
+  outline: none;
+  min-height: 38px;
+  max-height: 96px;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.chatpanel-textarea::placeholder {
+  color: var(--text-secondary);
+}
+
+.chatpanel-textarea:focus {
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 2px var(--primary-light);
+}
+
+.chatpanel-textarea:disabled {
+  background: var(--bg-secondary, #F5F5F5);
+}
+
+.chatpanel-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.125rem;
+  padding-bottom: 0.125rem;
+}
+
+.chatpanel-icon-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  border: none;
+  background: none;
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: color 0.15s, background 0.15s;
+}
+
+.chatpanel-icon-btn:hover {
+  color: var(--text-color);
+  background: rgba(0, 0, 0, 0.04);
+}
+
+.chatpanel-icon-btn-active {
+  color: var(--color-waste) !important;
+  background: rgba(223, 91, 89, 0.08);
+}
+
+.chatpanel-icon-btn-ambient {
+  color: var(--color-flower) !important;
+}
+
+.chatpanel-send {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  border: none;
+  background: var(--primary-color);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.chatpanel-send:hover { background: var(--primary-dark); }
+.chatpanel-send:disabled { opacity: 0.4; cursor: not-allowed; }
+
+/* FAB */
+.chatpanel-fab {
+  position: fixed;
+  bottom: 1.5rem;
+  right: 1.5rem;
+  z-index: 50;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  border: none;
+  background: var(--primary-color);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15), 0 4px 16px rgba(0, 0, 0, 0.1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 0.2s, transform 0.2s;
+}
+
+.chatpanel-fab:hover {
+  background: var(--primary-dark);
+  transform: scale(1.05);
+}
+
+/* ============================================================================
    CHATPANEL — Tabs, Ambient, Tooltips, Transcript
    ============================================================================ */
 
 /* Tab bar */
 .chatpanel-tabs {
   display: flex;
-  border-bottom: 1px solid #e5e7eb;
+  border-bottom: 1px solid var(--border-color);
   padding: 0 16px;
   gap: 0;
   background: white;

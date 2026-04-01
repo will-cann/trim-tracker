@@ -3,7 +3,7 @@ import ReactMarkdown from 'react-markdown';
 import {
     Upload, FileText, ArrowRight, Loader2, Pencil,
     Scissors, Package, Plus, User, Sprout, Scale,
-    ArrowRightLeft, MapPin, ClipboardList, Leaf,
+    ArrowRightLeft, ClipboardList, Leaf,
     MoveRight, Thermometer, Radio, ChevronDown, type LucideIcon,
 } from 'lucide-react';
 import { useDeepgram } from '../hooks/useDeepgram';

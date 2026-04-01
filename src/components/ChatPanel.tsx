@@ -500,9 +500,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
             {!isOpen && (
                 <button
                     onClick={() => setIsOpen(true)}
-                    className="fixed bottom-6 right-6 z-50 w-14 h-14 rounded-full shadow-lg
-                               flex items-center justify-center transition-all duration-200
-                               bg-emerald-500 hover:bg-emerald-600 hover:scale-105"
+                    className="chatpanel-fab"
                     title="neurocann"
                 >
                     <img src={logo} alt="AI" className="w-6 h-6 object-contain brightness-0 invert" />
@@ -529,17 +527,16 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
                            ${isOpen ? 'translate-x-0' : 'translate-x-full'}`}
             >
                 {/* Header */}
-                <div className="flex items-center gap-3 px-4 py-3 border-b border-gray-200 bg-gray-50">
-                    <div className="w-8 h-8 rounded-lg bg-emerald-50 flex items-center justify-center overflow-hidden">
+                <div className="chatpanel-header">
+                    <div className="chatpanel-header-logo">
                         <img src={logo} alt="AI" className="w-5 h-5 object-contain" />
                     </div>
                     <div className="flex-1">
-                        <h3 className="text-sm font-bold" style={{ fontFamily: 'Lato, sans-serif' }}><span className="text-emerald-500">neuro</span><span className="text-gray-900">cann</span></h3>
-                        <p className="text-xs text-gray-500">Say what happened. I'll update the records.</p>
+                        <h3 className="chatpanel-brand"><span className="chatpanel-brand-accent">neuro</span>cann</h3>
                     </div>
                     <button
                         onClick={() => setIsOpen(false)}
-                        className="p-1.5 rounded-lg hover:bg-gray-200 text-gray-400 transition-colors"
+                        className="chatpanel-close"
                     >
                         <X size={16} />
                     </button>
@@ -584,25 +581,22 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
                     {activeTab === 'chat' && (
                         <div className="px-4 py-3 space-y-3">
                             {messages.length === 0 && (
-                                <div className="text-center py-8">
-                                    <img src={logo} alt="" className="w-8 h-8 object-contain opacity-20 mx-auto mb-3" />
-                                    <p className="text-sm text-gray-400">
-                                        Tell me what you need — add batches, assign trimmers, or upload a CSV.
+                                <div className="chatpanel-empty">
+                                    <p className="chatpanel-empty-text">
+                                        What needs to happen?
                                     </p>
-                                    <div className="mt-4 space-y-2">
+                                    <div className="chatpanel-empty-suggestions">
                                         {[
-                                            'Add 3 batches of Blue Dream',
-                                            'Assign Maria to the OG Kush batch at 8am',
-                                            'Add a new trimmer Carlos to the roster',
+                                            'Track a plant health issue',
+                                            'Harvest for fresh frozen',
+                                            'Schedule an IPM task',
                                         ].map((suggestion) => (
                                             <button
                                                 key={suggestion}
                                                 onClick={() => setInputText(suggestion)}
-                                                className="block w-full text-left text-xs text-gray-500 px-3 py-2
-                                                           rounded-lg border border-gray-100 hover:border-emerald-200
-                                                           hover:bg-emerald-50 transition-colors"
+                                                className="chatpanel-suggestion"
                                             >
-                                                "{suggestion}"
+                                                {suggestion}
                                             </button>
                                         ))}
                                     </div>
@@ -615,10 +609,10 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
                                     className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
                                 >
                                     <div
-                                        className={`chat-bubble max-w-[85%] rounded-2xl px-3 py-2 text-sm ${
+                                        className={`max-w-[85%] rounded-2xl px-3 py-2 text-sm ${
                                             msg.role === 'user'
-                                                ? 'bg-emerald-500 text-white'
-                                                : 'bg-gray-100 text-gray-800'
+                                                ? 'ai-msg-bubble-user'
+                                                : 'ai-msg-bubble-assistant'
                                         }`}
                                     >
                                         <ReactMarkdown>{msg.content}</ReactMarkdown>
@@ -628,8 +622,8 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
 
                             {isLoading && (
                                 <div className="flex justify-start">
-                                    <div className="bg-gray-100 rounded-2xl px-4 py-2">
-                                        <Loader2 size={16} className="animate-spin text-gray-400" />
+                                    <div className="ai-msg-bubble-assistant rounded-2xl px-4 py-2">
+                                        <Loader2 size={16} className="animate-spin" style={{ color: 'var(--text-secondary)' }} />
                                     </div>
                                 </div>
                             )}
@@ -859,9 +853,9 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
                 </div>
 
                 {/* Input bar — always visible */}
-                <div className="border-t border-gray-200 px-3 py-3 bg-white">
-                    <form onSubmit={handleSubmit} className="flex items-end gap-2">
-                        <div className="flex-1 relative">
+                <div className="chatpanel-input-bar">
+                    <form onSubmit={handleSubmit} className="chatpanel-form">
+                        <div className="flex-1">
                             <textarea
                                 value={inputText}
                                 onChange={(e) => setInputText(e.target.value)}
@@ -873,11 +867,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
                                 }
                                 rows={1}
                                 disabled={isLoading || isExecuting || !!(pendingActions && pendingActions.length > 0)}
-                                className="w-full px-3 py-2 border border-gray-200 rounded-xl resize-none
-                                           text-sm text-gray-800 placeholder-gray-400
-                                           focus:outline-none focus:ring-1 focus:ring-emerald-400 focus:border-emerald-400
-                                           disabled:bg-gray-50"
-                                style={{ minHeight: '38px', maxHeight: '96px' }}
+                                className="chatpanel-textarea"
                                 onInput={(e) => {
                                     const target = e.target as HTMLTextAreaElement;
                                     target.style.height = '38px';
@@ -886,12 +876,12 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
                             />
                         </div>
 
-                        <div className="flex items-center gap-1 pb-0.5">
+                        <div className="chatpanel-actions">
                             {/* CSV Upload */}
                             <button
                                 type="button"
                                 onClick={() => fileInputRef.current?.click()}
-                                className="p-2 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
+                                className="chatpanel-icon-btn"
                                 title="Upload CSV"
                             >
                                 <Upload size={16} />
@@ -913,11 +903,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
                                 <button
                                     type="button"
                                     onClick={handleActionMicToggle}
-                                    className={`p-2 rounded-lg transition-colors ${
-                                        actionMicActive
-                                            ? 'bg-red-100 text-red-500'
-                                            : 'text-gray-400 hover:text-gray-600 hover:bg-gray-100'
-                                    }`}
+                                    className={`chatpanel-icon-btn ${actionMicActive ? 'chatpanel-icon-btn-active' : ''}`}
                                     title={actionMicActive ? 'Stop dictation' : 'Voice command — speak, then send'}
                                 >
                                     {actionMicActive ? <MicOff size={16} /> : <Mic size={16} />}
@@ -932,11 +918,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
                                 <button
                                     type="button"
                                     onClick={handleAmbientToggle}
-                                    className={`p-2 rounded-lg transition-colors relative ${
-                                        ambientActive
-                                            ? 'text-emerald-600'
-                                            : 'text-gray-400 hover:text-gray-600 hover:bg-gray-100'
-                                    }`}
+                                    className={`chatpanel-icon-btn ${ambientActive ? 'chatpanel-icon-btn-ambient' : ''}`}
                                     title={ambientActive ? 'Stop ambient listening' : 'Ambient — transcribes speech in background'}
                                 >
                                     <Radio size={16} />
@@ -953,8 +935,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
                             <button
                                 type="submit"
                                 disabled={!inputText.trim() || isLoading || isExecuting}
-                                className="p-2 rounded-lg bg-emerald-500 text-white hover:bg-emerald-600
-                                           disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                                className="chatpanel-send"
                             >
                                 <ArrowRight size={16} />
                             </button>
