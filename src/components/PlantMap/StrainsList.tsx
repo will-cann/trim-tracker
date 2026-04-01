@@ -119,8 +119,6 @@ export const StrainsList: React.FC<StrainsListProps> = ({
     const handleAction = useCallback((actionKey: string) => {
         const modalType = ACTION_TYPE_MAP[actionKey];
         if (!modalType) return;
-        // Block change-phase for batches at the UI level
-        if (modalType === 'change-phase' && entityType === 'plantbatches') return;
         setActiveModal(modalType);
     }, [entityType]);
 
