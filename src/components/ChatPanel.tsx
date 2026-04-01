@@ -54,18 +54,65 @@ interface ChatPanelProps {
     onViewAllTasks?: () => void;
 }
 
+// --- Context-aware suggestions per screen ---
+const SCREEN_SUGGESTIONS: Record<string, string[]> = {
+    'Plant Map': [
+        'Track a plant health issue',
+        'Move plants to flower',
+        'Check plant counts by room',
+    ],
+    'Harvest': [
+        'Harvest for fresh frozen',
+        'Record harvest weights',
+        'Allocate to flower & trim',
+    ],
+    'Trim': [
+        'Start a trim session',
+        'Assign trimmers to the batch',
+        'Submit completed batches',
+    ],
+    'Harvest Day': [
+        'Record plant weights',
+        'Package for fresh frozen',
+        'Submit this harvest batch',
+    ],
+    'Package': [
+        'Create a new package',
+        'Update package weight',
+        'Check compliance status',
+    ],
+    'Tasks': [
+        'Schedule an IPM task',
+        'Assign a task to the team',
+        'What tasks are overdue?',
+    ],
+};
+const DEFAULT_SUGGESTIONS = [
+    'Track a plant health issue',
+    'Harvest for fresh frozen',
+    'Schedule an IPM task',
+];
+
+function getSuggestions(screenContext?: string): string[] {
+    if (!screenContext) return DEFAULT_SUGGESTIONS;
+    for (const [key, suggestions] of Object.entries(SCREEN_SUGGESTIONS)) {
+        if (screenContext.toLowerCase().includes(key.toLowerCase())) return suggestions;
+    }
+    return DEFAULT_SUGGESTIONS;
+}
+
 // --- Task list helpers ---
 const PRIORITY_DOT: Record<string, string> = {
-    urgent: 'bg-red-500',
-    high: 'bg-amber-500',
-    medium: 'bg-blue-400',
-    low: 'bg-gray-300',
+    urgent: 'chatpanel-dot-urgent',
+    high: 'chatpanel-dot-high',
+    medium: 'chatpanel-dot-medium',
+    low: 'chatpanel-dot-low',
 };
 
 const STATUS_ICON: Record<string, React.ReactNode> = {
-    pending: <Circle size={14} className="text-gray-300" />,
-    in_progress: <Clock size={14} className="text-amber-500" />,
-    completed: <CheckCircle2 size={14} className="text-emerald-500" />,
+    pending: <Circle size={14} style={{ color: 'var(--text-secondary)' }} />,
+    in_progress: <Clock size={14} style={{ color: 'var(--color-shake)' }} />,
+    completed: <CheckCircle2 size={14} style={{ color: 'var(--color-flower)' }} />,
 };
 
 function nextStatus(current: HumanTaskStatus): HumanTaskStatus {
@@ -586,14 +633,13 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
                                         What needs to happen?
                                     </p>
                                     <div className="chatpanel-empty-suggestions">
-                                        {[
-                                            'Track a plant health issue',
-                                            'Harvest for fresh frozen',
-                                            'Schedule an IPM task',
-                                        ].map((suggestion) => (
+                                        {getSuggestions(screenContext).map((suggestion) => (
                                             <button
                                                 key={suggestion}
-                                                onClick={() => setInputText(suggestion)}
+                                                onClick={() => {
+                                                    setInputText(suggestion);
+                                                    sendMessage(suggestion);
+                                                }}
                                                 className="chatpanel-suggestion"
                                             >
                                                 {suggestion}
@@ -647,9 +693,9 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
                         <div className="px-4 py-3">
                             <div className="flex items-center justify-between mb-3">
                                 <div className="flex items-center gap-2">
-                                    <h3 className="text-sm font-semibold text-gray-700">Tasks</h3>
+                                    <h3 className="text-sm font-semibold" style={{ color: 'var(--text-color)' }}>Tasks</h3>
                                     {taskPendingCount > 0 && (
-                                        <span className="text-xs bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded-full font-medium">
+                                        <span className="chatpanel-task-badge">
                                             {taskPendingCount}
                                         </span>
                                     )}
@@ -657,7 +703,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
                                 {onViewAllTasks && (
                                     <button
                                         onClick={onViewAllTasks}
-                                        className="text-xs text-emerald-600 hover:text-emerald-700 transition-colors font-medium"
+                                        className="chatpanel-view-all"
                                     >
                                         View all
                                     </button>
@@ -668,31 +714,31 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
                             {activeActionGroups.length > 0 && (
                                 <div className="mb-3 space-y-2">
                                     {activeActionGroups.map(group => (
-                                        <div key={group.id} className="bg-gray-50 rounded-lg px-3 py-2 border border-gray-100">
+                                        <div key={group.id} className="chatpanel-action-group">
                                             <div className="flex flex-col gap-1">
                                                 {group.items.map((item, idx) => (
-                                                    <div key={idx} className="flex items-center gap-2">
+                                                    <div key={idx} className="chatpanel-action-item">
                                                         {item.status === 'pending' && (
-                                                            <Loader2 size={12} className="animate-spin text-amber-500 shrink-0" />
+                                                            <Loader2 size={12} className="animate-spin shrink-0" style={{ color: 'var(--color-shake)' }} />
                                                         )}
                                                         {item.status === 'done' && (
-                                                            <CheckCircle2 size={12} className="text-emerald-500 shrink-0" />
+                                                            <CheckCircle2 size={12} className="shrink-0" style={{ color: 'var(--color-flower)' }} />
                                                         )}
                                                         {item.status === 'skipped' && (
-                                                            <Circle size={12} className="text-amber-400 shrink-0" />
+                                                            <Circle size={12} className="shrink-0" style={{ color: 'var(--color-shake)' }} />
                                                         )}
                                                         {item.status === 'error' && (
-                                                            <Circle size={12} className="text-red-400 shrink-0" />
+                                                            <Circle size={12} className="shrink-0" style={{ color: 'var(--color-waste)' }} />
                                                         )}
                                                         <span className={`text-xs ${
-                                                            item.status === 'done' ? 'text-emerald-700' :
-                                                            item.status === 'skipped' ? 'text-amber-700' :
-                                                            item.status === 'error' ? 'text-red-600' :
-                                                            'text-gray-600'
+                                                            item.status === 'done' ? 'chatpanel-status-done' :
+                                                            item.status === 'skipped' ? 'chatpanel-status-skipped' :
+                                                            item.status === 'error' ? 'chatpanel-status-error' :
+                                                            'chatpanel-status-pending'
                                                         }`}>
                                                             {item.label}
                                                             {item.detail && item.status !== 'done' && (
-                                                                <span className="text-gray-400 ml-1">— {item.detail}</span>
+                                                                <span style={{ color: 'var(--text-secondary)', marginLeft: '0.25rem' }}>— {item.detail}</span>
                                                             )}
                                                         </span>
                                                     </div>
@@ -725,10 +771,10 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
                             )}
 
                             {visibleTasks.length === 0 && activeActionGroups.length === 0 && extractionRunCards.length === 0 && (
-                                <div className="flex flex-col items-center justify-center py-8 text-gray-400">
-                                    <ListTodo size={24} className="mb-2" />
-                                    <p className="text-xs">No tasks yet</p>
-                                    <p className="text-xs mt-0.5 text-gray-300">Ask the AI or use ambient mode to create tasks</p>
+                                <div className="chatpanel-tasks-empty">
+                                    <ListTodo size={24} />
+                                    <p>No tasks yet</p>
+                                    <span>Try ambient mode — tasks are created from speech automatically</span>
                                 </div>
                             )}
                             {visibleTasks.length > 0 && (
@@ -736,33 +782,29 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
                                     {visibleTasks.map(task => (
                                         <div
                                             key={task.id}
-                                            className={`group flex items-start gap-2 px-2 py-2 rounded-md transition-colors hover:bg-gray-50 ${
-                                                task.status === 'completed' ? 'opacity-50' : ''
-                                            }`}
+                                            className={`chatpanel-task-row ${task.status === 'completed' ? 'chatpanel-task-done' : ''}`}
                                         >
                                             <button
                                                 onClick={() => onUpdateTaskStatus?.(task.id, nextStatus(task.status))}
-                                                className="flex-shrink-0 mt-0.5 hover:scale-110 transition-transform"
+                                                className="chatpanel-task-status-btn"
                                                 title={`Status: ${task.status} — click to advance`}
                                             >
                                                 {STATUS_ICON[task.status]}
                                             </button>
                                             <div className="flex-1 min-w-0">
-                                                <p className={`text-sm leading-tight truncate ${
-                                                    task.status === 'completed' ? 'line-through text-gray-400' : 'text-gray-800'
-                                                }`}>
+                                                <p className={`chatpanel-task-title ${task.status === 'completed' ? 'chatpanel-task-title-done' : ''}`}>
                                                     {task.title}
                                                 </p>
-                                                <div className="flex items-center gap-1.5 mt-0.5">
-                                                    <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${PRIORITY_DOT[task.priority] || PRIORITY_DOT.medium}`} />
-                                                    <span className="text-xs text-gray-400 truncate">
+                                                <div className="chatpanel-task-meta">
+                                                    <span className={`chatpanel-priority-dot ${PRIORITY_DOT[task.priority] || PRIORITY_DOT.medium}`} />
+                                                    <span className="chatpanel-task-category">
                                                         {task.category}{task.assignee ? ` · ${task.assignee}` : ''}
                                                     </span>
                                                 </div>
                                             </div>
                                             <button
                                                 onClick={() => onDeleteTask?.(task.id)}
-                                                className="flex-shrink-0 opacity-0 group-hover:opacity-100 p-0.5 text-gray-300 hover:text-red-500 transition-all"
+                                                className="chatpanel-task-delete"
                                                 title="Delete task"
                                             >
                                                 <Trash2 size={12} />
@@ -778,69 +820,69 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
                     {activeTab === 'transcript' && (
                         <div className="px-4 py-3">
                             {ambientActive && (
-                                <div className="flex items-center gap-2 mb-3 px-2 py-1.5 rounded-lg bg-emerald-50 border border-emerald-200">
+                                <div className="chatpanel-ambient-banner">
                                     <span className="chatpanel-ambient-dot" />
-                                    <span className="text-xs text-emerald-700 font-medium">Listening — tasks created automatically</span>
+                                    <span>Listening — tasks created automatically</span>
                                 </div>
                             )}
 
                             {transcriptEntries.length === 0 ? (
-                                <div className="flex flex-col items-center justify-center py-8 text-gray-400">
-                                    <FileText size={24} className="mb-2" />
-                                    <p className="text-xs">No transcript yet</p>
-                                    <p className="text-xs mt-0.5 text-gray-300">
+                                <div className="chatpanel-tasks-empty">
+                                    <FileText size={24} />
+                                    <p>No transcript yet</p>
+                                    <span>
                                         {ambientActive ? 'Start speaking — utterances appear here' : 'Enable ambient mode to start transcribing'}
-                                    </p>
+                                    </span>
                                 </div>
                             ) : (
                                 <div className="space-y-3">
                                     {transcriptEntries.map(entry => (
                                         <div key={entry.id} className="chatpanel-transcript-entry">
                                             <div className="flex items-start gap-2">
-                                                <span className="text-xs text-gray-400 whitespace-nowrap mt-0.5">
+                                                <span className="chatpanel-transcript-time">
                                                     {formatTime(entry.timestamp)}
                                                 </span>
-                                                <p className="text-sm text-gray-700 flex-1">"{entry.text}"</p>
+                                                <p className="chatpanel-transcript-text">"{entry.text}"</p>
                                             </div>
                                             <div className="ml-12 mt-1 flex flex-col gap-0.5">
                                                 {entry.status === 'processing' && !entry.actions?.length && (
-                                                    <span className="inline-flex items-center gap-1 text-xs text-amber-600">
+                                                    <span className="chatpanel-action-item" style={{ color: 'var(--color-shake)' }}>
                                                         <Loader2 size={10} className="animate-spin" />
                                                         Processing...
                                                     </span>
                                                 )}
                                                 {entry.actions && entry.actions.length > 0 && entry.actions.map((item, idx) => (
-                                                    <div key={idx} className="flex items-center gap-1.5">
+                                                    <div key={idx} className="chatpanel-action-item">
                                                         {item.status === 'pending' && (
-                                                            <Loader2 size={10} className="animate-spin text-amber-500 shrink-0" />
+                                                            <Loader2 size={10} className="animate-spin shrink-0" style={{ color: 'var(--color-shake)' }} />
                                                         )}
                                                         {item.status === 'done' && (
-                                                            <CheckCircle2 size={10} className="text-emerald-500 shrink-0" />
+                                                            <CheckCircle2 size={10} className="shrink-0" style={{ color: 'var(--color-flower)' }} />
                                                         )}
                                                         {item.status === 'skipped' && (
-                                                            <Circle size={10} className="text-amber-400 shrink-0" />
+                                                            <Circle size={10} className="shrink-0" style={{ color: 'var(--color-shake)' }} />
                                                         )}
                                                         {item.status === 'error' && (
-                                                            <Circle size={10} className="text-red-400 shrink-0" />
+                                                            <Circle size={10} className="shrink-0" style={{ color: 'var(--color-waste)' }} />
                                                         )}
                                                         <span className={`text-xs ${
-                                                            item.status === 'done' ? 'text-emerald-600' :
-                                                            item.status === 'skipped' ? 'text-amber-600' :
-                                                            item.status === 'error' ? 'text-red-500' :
-                                                            'text-gray-500'
+                                                            item.status === 'done' ? 'chatpanel-status-done' :
+                                                            item.status === 'skipped' ? 'chatpanel-status-skipped' :
+                                                            item.status === 'error' ? 'chatpanel-status-error' :
+                                                            'chatpanel-status-pending'
                                                         }`}>
                                                             {item.label}
                                                             {item.detail && item.status !== 'done' && (
-                                                                <span className="text-gray-400"> — {item.detail}</span>
+                                                                <span style={{ color: 'var(--text-secondary)' }}> — {item.detail}</span>
                                                             )}
                                                         </span>
                                                     </div>
                                                 ))}
                                                 {!entry.actions?.length && entry.status === 'no_action' && (
-                                                    <span className="text-xs text-gray-400">No action needed</span>
+                                                    <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>No action needed</span>
                                                 )}
                                                 {!entry.actions?.length && entry.status === 'error' && (
-                                                    <span className="text-xs text-red-400">Failed to process</span>
+                                                    <span className="text-xs" style={{ color: 'var(--color-waste)' }}>Failed to process</span>
                                                 )}
                                             </div>
                                         </div>
