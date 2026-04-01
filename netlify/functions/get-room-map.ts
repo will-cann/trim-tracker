@@ -82,11 +82,11 @@ export const handler: Handler = async (event) => {
             `;
             // Compute flip dates from strain veg_length_days
             const { rows: strainRows } = await sql`
-                SELECT LOWER(name) AS name, veg_length_days
+                SELECT LOWER(name) AS name, default_veg_days
                 FROM strains
-                WHERE company_id = ${context.companyId} AND veg_length_days IS NOT NULL
+                WHERE company_id = ${context.companyId} AND default_veg_days IS NOT NULL
             `;
-            const vegLengthMap = new Map(strainRows.map((s: any) => [s.name, s.veg_length_days]));
+            const vegLengthMap = new Map(strainRows.map((s: any) => [s.name, s.default_veg_days]));
             rows = result.rows.map((r: any) => {
                 const vegDays = vegLengthMap.get(r.strain_name?.toLowerCase());
                 let flip_date = null;
