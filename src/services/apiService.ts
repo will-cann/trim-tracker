@@ -826,6 +826,14 @@ export const recordExtraction = async (data: {
     return await response.json();
 };
 
+export const syncUser = async (data: { name?: string; email?: string }): Promise<void> => {
+    await fetchWithAuth(`${API_BASE}/sync-user`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+    });
+};
+
 export const deletePackage = async (id: string): Promise<void> => {
     const response = await fetchWithAuth(`${API_BASE}/delete-package?id=${id}`, {
         method: 'DELETE',
@@ -917,4 +925,6 @@ export const apiService = {
     deletePackage,
     // Extraction
     recordExtraction,
+    // User sync
+    syncUser,
 };

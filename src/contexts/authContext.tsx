@@ -83,7 +83,16 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
     useEffect(() => {
         if (isAuthenticated && !isLoading) {
-            getToken().then(() => setTokenReady(true));
+            getToken().then(() => {
+                setTokenReady(true);
+                // Sync Auth0 profile info to backend (ID token has name/email, access token doesn't)
+                if (auth0User?.name || auth0User?.email) {
+                    apiService.syncUser({
+                        name: auth0User.name,
+                        email: auth0User.email,
+                    }).catch(() => {});
+                }
+            });
         } else if (!isLoading) {
             apiService.setAuthToken(null);
             setTokenReady(false);
