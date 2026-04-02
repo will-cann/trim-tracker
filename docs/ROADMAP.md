@@ -102,6 +102,22 @@ Planned features, integrations, and improvements. Updated as priorities evolve.
 
 ---
 
+## Team & Delegation
+
+### Department Leads
+- Each department (cultivation, harvest, extraction, trim, packaging, etc.) can have a designated lead
+- New tasks created in a department are auto-assigned to the department lead by default
+- Lead can then reassign/delegate tasks to their team members
+- Reduces bottleneck on admins/owners — leads manage their own crew's workload
+- Lead gets a view of all tasks in their department and who's assigned to what
+
+### Role Hierarchy
+- Current roles: admin, user — may need a "lead" role or per-department lead designation
+- Leads have permission to assign/reassign tasks within their department but not facility-wide settings
+- Consider: can a person lead multiple departments? (common in smaller ops)
+
+---
+
 ## Extraction & Concentrate Tracking
 
 > Full brief: [docs/briefs/extraction-workflow-brief.md](briefs/extraction-workflow-brief.md)
