@@ -62,7 +62,7 @@ export const PackageDashboard: React.FC = () => {
         options: [
             { value: 'active', label: 'Active', dot: 'bg-[#3BB570]' },
             { value: 'on_hold', label: 'On Hold', dot: 'bg-[#FA9E52]' },
-            { value: 'finished', label: 'Finished', dot: 'bg-gray-400' },
+            { value: 'finished', label: 'Finished', dot: 'bg-[#C0C0C0]' },
         ],
     };
 
@@ -232,15 +232,15 @@ export const PackageDashboard: React.FC = () => {
                 <CardsSkeleton count={3} />
             ) : sortedPackages.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-16 text-center">
-                    <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-emerald-50 to-green-50 flex items-center justify-center mb-4 shadow-sm">
-                        <Package size={28} className="text-emerald-400" />
+                    <div className="w-14 h-14 rounded-full bg-[#F1F1F1] flex items-center justify-center mb-4">
+                        <Package size={24} className="text-[#C0C0C0]" />
                     </div>
-                    <h3 className="text-base font-semibold text-gray-600 mb-1">
+                    <h3 className="text-base font-semibold text-[#1A1A1A] mb-1">
                         {searchQuery || activeFilters.type.length > 0 || activeFilters.status.length > 0
                             ? 'No matching packages'
                             : 'No packages yet'}
                     </h3>
-                    <p className="text-sm text-gray-400 max-w-xs mb-4">
+                    <p className="text-sm text-[#959595] max-w-xs mb-4">
                         {searchQuery || activeFilters.type.length > 0 || activeFilters.status.length > 0
                             ? 'Try adjusting your search or filters.'
                             : 'Create packages from your completed trim entries to track inventory.'}
@@ -256,7 +256,7 @@ export const PackageDashboard: React.FC = () => {
                     )}
                 </div>
             ) : (
-                <div className="entry-list">
+                <div className="entry-grid">
                     {sortedPackages.map(pkg => (
                         <PackageCard
                             key={pkg.id}

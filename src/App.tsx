@@ -66,6 +66,7 @@ function AppContent() {
     tasks: humanTasks,
     filters: taskFilters,
     setFilters: setTaskFilters,
+    addHumanTask,
     addHumanTasks,
     updateTaskStatus,
     updateTask: updateHumanTask,
@@ -330,6 +331,8 @@ function AppContent() {
             onUpdateStatus={updateTaskStatus}
             onUpdateTask={updateHumanTask}
             onDeleteTask={deleteHumanTask}
+            onCreateTask={addHumanTask}
+            onNavigateToAI={() => setCurrentView('ai')}
             pendingCount={taskPendingCount}
             loadError={taskLoadError}
             onRetry={retryLoadTasks}
@@ -443,6 +446,7 @@ function AppContent() {
             onViewAll={() => setCurrentView('tasks')}
             onActionVoiceText={handleActionVoiceText}
             onAmbientAnalyze={handleAmbientAnalyze}
+            onCreateTask={addHumanTask}
           />
         )}
       </div>

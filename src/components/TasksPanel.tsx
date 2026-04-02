@@ -1,15 +1,16 @@
-import { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
     ClipboardList, Thermometer, Bug, Shield, Wrench, CloudSun,
     Package, FlaskConical, Warehouse, Truck, SprayCan, GraduationCap,
     Scissors, Sprout, Leaf, Circle, Trash2,
     CheckCircle2, PlayCircle, CalendarClock, Zap, ArrowRight,
     MapPin, User, MoreHorizontal, RotateCcw, Pencil, X, Check,
-    ArrowUp, ArrowDown, ChevronsUpDown,
+    ArrowUp, ArrowDown, ChevronsUpDown, ChevronDown, ChevronRight, Plus, AlertTriangle, Clock,
+    MessageSquare, Mic,
 } from 'lucide-react';
 import type { HumanTask, HumanTaskStatus, HumanTaskCategory, HumanTaskPriority } from '../types/definitions';
 import { executeAction } from '../services/actionExecutor';
-import { Modal, Button, FilterToolbar } from './ui';
+import { Modal, Button, FilterToolbar, UndoToast } from './ui';
 import type { FilterDef, SortOption } from './ui';
 
 export interface TeamMember {
@@ -32,6 +33,8 @@ interface TasksPanelProps {
     onUpdateStatus: (id: string, status: HumanTaskStatus) => Promise<void>;
     onUpdateTask: (id: string, updates: Partial<HumanTask>) => Promise<void>;
     onDeleteTask: (id: string) => Promise<void>;
+    onCreateTask?: (task: Omit<HumanTask, 'id' | 'createdAt' | 'updatedAt' | 'status'>) => Promise<HumanTask>;
+    onNavigateToAI?: () => void;
     pendingCount: number;
     loadError?: string | null;
     onRetry?: () => void;
@@ -39,28 +42,28 @@ interface TasksPanelProps {
 }
 
 const CATEGORY_CONFIG: Record<HumanTaskCategory, { icon: typeof ClipboardList; label: string; color: string; bg: string; dot: string }> = {
-    drying_curing: { icon: Thermometer, label: 'Drying/Curing', color: 'text-amber-700', bg: 'bg-amber-50 border-amber-200', dot: 'bg-amber-500' },
-    ipm: { icon: Bug, label: 'IPM', color: 'text-red-700', bg: 'bg-red-50 border-red-200', dot: 'bg-red-500' },
-    compliance: { icon: Shield, label: 'Compliance', color: 'text-blue-700', bg: 'bg-blue-50 border-blue-200', dot: 'bg-blue-500' },
-    equipment: { icon: Wrench, label: 'Equipment', color: 'text-gray-700', bg: 'bg-gray-50 border-gray-200', dot: 'bg-gray-500' },
-    environmental: { icon: CloudSun, label: 'Environmental', color: 'text-blue-700', bg: 'bg-blue-50 border-blue-200', dot: 'bg-blue-500' },
-    packaging: { icon: Package, label: 'Packaging', color: 'text-emerald-700', bg: 'bg-emerald-50 border-teal-200', dot: 'bg-emerald-500' },
-    qc_testing: { icon: FlaskConical, label: 'QC/Testing', color: 'text-indigo-700', bg: 'bg-indigo-50 border-indigo-200', dot: 'bg-indigo-500' },
-    inventory: { icon: Warehouse, label: 'Inventory', color: 'text-orange-700', bg: 'bg-orange-50 border-orange-200', dot: 'bg-orange-500' },
-    transportation: { icon: Truck, label: 'Transport', color: 'text-slate-700', bg: 'bg-slate-50 border-slate-200', dot: 'bg-slate-500' },
-    sanitation: { icon: SprayCan, label: 'Sanitation', color: 'text-emerald-700', bg: 'bg-emerald-50 border-emerald-200', dot: 'bg-emerald-500' },
-    training: { icon: GraduationCap, label: 'Training', color: 'text-pink-700', bg: 'bg-pink-50 border-pink-200', dot: 'bg-pink-500' },
-    trim: { icon: Scissors, label: 'Trim', color: 'text-emerald-700', bg: 'bg-emerald-50 border-emerald-200', dot: 'bg-emerald-500' },
-    harvest: { icon: Sprout, label: 'Harvest', color: 'text-green-700', bg: 'bg-green-50 border-green-200', dot: 'bg-green-500' },
-    cultivation: { icon: Leaf, label: 'Cultivation', color: 'text-lime-700', bg: 'bg-lime-50 border-lime-200', dot: 'bg-lime-500' },
-    other: { icon: Circle, label: 'Other', color: 'text-gray-600', bg: 'bg-gray-50 border-gray-200', dot: 'bg-gray-400' },
+    drying_curing: { icon: Thermometer, label: 'Drying/Curing', color: 'text-[#B8860B]', bg: 'bg-[#FFF8E7] border-[#F5DEB3]', dot: 'bg-[#DAA520]' },
+    ipm: { icon: Bug, label: 'IPM', color: 'text-[#DF5B59]', bg: 'bg-[#FDF2F2] border-[#F5C6C6]', dot: 'bg-[#DF5B59]' },
+    compliance: { icon: Shield, label: 'Compliance', color: 'text-[#1C9EFF]', bg: 'bg-[#EFF8FF] border-[#BDE0FE]', dot: 'bg-[#1C9EFF]' },
+    equipment: { icon: Wrench, label: 'Equipment', color: 'text-[#6B7280]', bg: 'bg-[#F3F4F6] border-[#D1D5DB]', dot: 'bg-[#959595]' },
+    environmental: { icon: CloudSun, label: 'Environmental', color: 'text-[#0E7490]', bg: 'bg-[#ECFEFF] border-[#A5F3FC]', dot: 'bg-[#0E7490]' },
+    packaging: { icon: Package, label: 'Packaging', color: 'text-[#3BB570]', bg: 'bg-[#ECFDF5] border-[#A7F3D0]', dot: 'bg-[#3BB570]' },
+    qc_testing: { icon: FlaskConical, label: 'QC/Testing', color: 'text-[#7C6AE8]', bg: 'bg-[#F5F3FF] border-[#DDD6FE]', dot: 'bg-[#7C6AE8]' },
+    inventory: { icon: Warehouse, label: 'Inventory', color: 'text-[#FA9E52]', bg: 'bg-[#FFF7ED] border-[#FED7AA]', dot: 'bg-[#FA9E52]' },
+    transportation: { icon: Truck, label: 'Transport', color: 'text-[#959595]', bg: 'bg-[#F1F1F1] border-[#C0C0C0]', dot: 'bg-[#959595]' },
+    sanitation: { icon: SprayCan, label: 'Sanitation', color: 'text-[#2BBFB3]', bg: 'bg-[#F0FDFA] border-[#99F6E4]', dot: 'bg-[#2BBFB3]' },
+    training: { icon: GraduationCap, label: 'Training', color: 'text-[#D4708A]', bg: 'bg-[#FDF2F8] border-[#FBCFE8]', dot: 'bg-[#D4708A]' },
+    trim: { icon: Scissors, label: 'Trim', color: 'text-[#3BB570]', bg: 'bg-[#ECFDF5] border-[#A7F3D0]', dot: 'bg-[#3BB570]' },
+    harvest: { icon: Sprout, label: 'Harvest', color: 'text-[#2E9A5C]', bg: 'bg-[#F0FDF4] border-[#BBF7D0]', dot: 'bg-[#2E9A5C]' },
+    cultivation: { icon: Leaf, label: 'Cultivation', color: 'text-[#65A30D]', bg: 'bg-[#F7FEE7] border-[#D9F99D]', dot: 'bg-[#65A30D]' },
+    other: { icon: Circle, label: 'Other', color: 'text-[#959595]', bg: 'bg-[#F1F1F1] border-[#C0C0C0]', dot: 'bg-[#C0C0C0]' },
 };
 
 const PRIORITY_CONFIG: Record<HumanTaskPriority, { label: string; color: string; dot: string }> = {
-    low: { label: 'Low', color: 'text-gray-500', dot: 'bg-gray-300' },
-    medium: { label: 'Medium', color: 'text-blue-600', dot: 'bg-blue-400' },
-    high: { label: 'High', color: 'text-amber-600', dot: 'bg-amber-400' },
-    urgent: { label: 'Urgent', color: 'text-red-600', dot: 'bg-red-500' },
+    low: { label: 'Low', color: 'text-[#959595]', dot: 'bg-[#C0C0C0]' },
+    medium: { label: 'Medium', color: 'text-[#1C9EFF]', dot: 'bg-[#1C9EFF]' },
+    high: { label: 'High', color: 'text-[#FA9E52]', dot: 'bg-[#FA9E52]' },
+    urgent: { label: 'Urgent', color: 'text-[#DF5B59]', dot: 'bg-[#DF5B59]' },
 };
 
 
@@ -96,6 +99,7 @@ const InlineTextCell = ({
 }) => {
     const [editing, setEditing] = useState(false);
     const [draft, setDraft] = useState(value);
+    const [flash, setFlash] = useState<'saved' | 'error' | null>(null);
     const inputRef = useRef<HTMLInputElement>(null);
 
     useEffect(() => { if (editing) inputRef.current?.focus(); }, [editing]);
@@ -104,20 +108,28 @@ const InlineTextCell = ({
     const commit = () => {
         setEditing(false);
         const trimmed = draft.trim();
-        if (trimmed !== value) onSave(trimmed);
+        if (trimmed !== value) {
+            try {
+                onSave(trimmed);
+                setFlash('saved');
+            } catch {
+                setFlash('error');
+            }
+            setTimeout(() => setFlash(null), 1200);
+        }
     };
 
     if (editing) {
         return (
             <div className="flex items-center gap-1.5">
-                {Icon && <Icon size={12} className="text-gray-400 shrink-0" />}
+                {Icon && <Icon size={12} className="text-[#959595] shrink-0" />}
                 <input
                     ref={inputRef}
                     value={draft}
                     onChange={(e) => setDraft(e.target.value)}
                     onBlur={commit}
                     onKeyDown={(e) => { if (e.key === 'Enter') commit(); if (e.key === 'Escape') { setDraft(value); setEditing(false); } }}
-                    className="text-sm text-gray-700 bg-white border border-emerald-300 rounded px-1.5 py-0.5 w-full focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+                    className="text-sm text-[#1A1A1A] bg-white border border-[#3BB570] rounded px-1.5 py-0.5 w-full focus:outline-none focus:ring-2 focus:ring-[#3BB570]/20"
                     placeholder={placeholder}
                 />
             </div>
@@ -127,13 +139,21 @@ const InlineTextCell = ({
     return (
         <button
             onClick={() => setEditing(true)}
-            className="flex items-center gap-1.5 text-left w-full group/cell min-h-[28px]"
+            className={`flex items-center gap-1.5 text-left w-full group/cell min-h-[28px] transition-colors duration-300 rounded px-0.5 -mx-0.5 ${
+                flash === 'saved' ? 'bg-[#3BB570]/[0.08]' : flash === 'error' ? 'bg-[#DF5B59]/[0.08]' : ''
+            }`}
         >
-            {Icon && <Icon size={12} className="text-gray-400 shrink-0" />}
-            {value ? (
-                <span className="text-sm text-gray-600 group-hover/cell:text-gray-900 transition-colors">{value}</span>
+            {Icon && <Icon size={12} className="text-[#959595] shrink-0" />}
+            {flash === 'saved' ? (
+                <span className="text-sm text-[#3BB570] flex items-center gap-1">
+                    <Check size={12} /> Saved
+                </span>
+            ) : flash === 'error' ? (
+                <span className="text-sm text-[#DF5B59]">Save failed</span>
+            ) : value ? (
+                <span className="text-sm text-[#1A1A1A]/70 group-hover/cell:text-[#1A1A1A] transition-colors">{value}</span>
             ) : (
-                <span className="text-sm text-gray-300 group-hover/cell:text-gray-400 transition-colors">{placeholder}</span>
+                <span className="text-sm text-[#C0C0C0] group-hover/cell:text-[#959595] transition-colors">{placeholder}</span>
             )}
         </button>
     );
@@ -175,7 +195,7 @@ const InlineDateCell = ({
                 onChange={(e) => { setDraft(e.target.value); }}
                 onBlur={commit}
                 onKeyDown={(e) => { if (e.key === 'Enter') commit(); if (e.key === 'Escape') { setDraft(dateStr); setEditing(false); } }}
-                className="text-sm text-gray-700 bg-white border border-emerald-300 rounded px-1.5 py-0.5 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 w-[130px]"
+                className="text-sm text-[#1A1A1A] bg-white border border-[#3BB570] rounded px-1.5 py-0.5 focus:outline-none focus:ring-2 focus:ring-[#3BB570]/20 w-[130px]"
             />
         );
     }
@@ -184,13 +204,13 @@ const InlineDateCell = ({
         <button onClick={() => setEditing(true)} className="flex items-center gap-1 text-left w-full group/cell min-h-[28px]">
             {value ? (
                 <span className={`text-[12px] inline-flex items-center gap-1 ${
-                    isOverdue(value) && !isComplete ? 'text-red-500 font-medium' : 'text-gray-500 group-hover/cell:text-gray-700'
+                    isOverdue(value) && !isComplete ? 'text-[#DF5B59] font-medium' : 'text-[#959595] group-hover/cell:text-[#1A1A1A]/70'
                 } transition-colors`}>
                     <CalendarClock size={11} />
                     {formatDueDate(value)}
                 </span>
             ) : (
-                <span className="text-sm text-gray-300 group-hover/cell:text-gray-400 transition-colors flex items-center gap-1">
+                <span className="text-sm text-[#C0C0C0] group-hover/cell:text-[#959595] transition-colors flex items-center gap-1">
                     <CalendarClock size={11} />
                     Set date
                 </span>
@@ -216,21 +236,21 @@ const InlineAssigneeCell = ({
                 onClick={() => setOpen(!open)}
                 className="flex items-center gap-1.5 text-left w-full group/cell min-h-[28px]"
             >
-                <User size={12} className="text-gray-400 shrink-0" />
+                <User size={12} className="text-[#959595] shrink-0" />
                 {value ? (
-                    <span className="text-sm text-gray-600 group-hover/cell:text-gray-900 transition-colors">{value}</span>
+                    <span className="text-sm text-[#1A1A1A]/70 group-hover/cell:text-[#1A1A1A] transition-colors">{value}</span>
                 ) : (
-                    <span className="text-sm text-gray-300 group-hover/cell:text-gray-400 transition-colors">Assign</span>
+                    <span className="text-sm text-[#C0C0C0] group-hover/cell:text-[#959595] transition-colors">Assign</span>
                 )}
             </button>
             {open && (
                 <>
                     <div className="fixed inset-0 z-20" onClick={() => setOpen(false)} />
-                    <div className="absolute left-0 top-8 z-30 bg-white rounded-lg shadow-lg border border-gray-200 py-1 w-48 max-h-60 overflow-y-auto">
+                    <div className="absolute left-0 top-8 z-30 bg-white rounded-lg shadow-lg border border-[#C0C0C0] py-1 w-48 max-h-60 overflow-y-auto">
                         {value && (
                             <button
                                 onClick={() => { onSave('', undefined); setOpen(false); }}
-                                className="w-full flex items-center gap-2 px-3 py-1.5 text-sm text-gray-400 hover:bg-gray-50 italic"
+                                className="w-full flex items-center gap-2 px-3 py-1.5 text-sm text-[#959595] hover:bg-[#F1F1F1]/60 italic"
                             >
                                 Unassign
                             </button>
@@ -239,16 +259,16 @@ const InlineAssigneeCell = ({
                             <button
                                 key={m.id}
                                 onClick={() => { onSave(m.name, m.userId); setOpen(false); }}
-                                className="w-full flex items-center gap-2 px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50"
+                                className="w-full flex items-center gap-2 px-3 py-1.5 text-sm text-[#1A1A1A] hover:bg-[#F1F1F1]/60"
                             >
-                                <div className="w-5 h-5 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center text-[10px] font-semibold shrink-0">
+                                <div className="w-5 h-5 rounded-full bg-[#3BB570]/10 text-[#3BB570] flex items-center justify-center text-[10px] font-semibold shrink-0">
                                     {m.name.charAt(0).toUpperCase()}
                                 </div>
                                 {m.name}
                             </button>
                         ))}
                         {teamMembers.length === 0 && (
-                            <div className="px-3 py-2 text-xs text-gray-400">No team members</div>
+                            <div className="px-3 py-2 text-xs text-[#959595]">No team members</div>
                         )}
                     </div>
                 </>
@@ -270,7 +290,7 @@ const CategoryPicker = ({
 }) => {
     const categories = Object.entries(CATEGORY_CONFIG) as [HumanTaskCategory, typeof CATEGORY_CONFIG[HumanTaskCategory]][];
     return (
-        <div className="absolute left-0 top-8 z-30 bg-white rounded-lg shadow-lg border border-gray-200 py-1 w-48 max-h-72 overflow-y-auto">
+        <div className="absolute left-0 top-8 z-30 bg-white rounded-lg shadow-lg border border-[#C0C0C0] py-1 w-48 max-h-72 overflow-y-auto">
             {categories.map(([key, cfg]) => {
                 const Icon = cfg.icon;
                 const isActive = key === current;
@@ -279,7 +299,7 @@ const CategoryPicker = ({
                         key={key}
                         onClick={() => { onSelect(key); onClose(); }}
                         className={`w-full flex items-center gap-2 px-3 py-1.5 text-sm transition-colors ${
-                            isActive ? 'bg-gray-100 font-medium' : 'hover:bg-gray-50'
+                            isActive ? 'bg-[#F1F1F1] font-medium' : 'hover:bg-[#F1F1F1]/60'
                         } ${cfg.color}`}
                     >
                         <Icon size={14} />
@@ -302,7 +322,7 @@ const PriorityPicker = ({
 }) => {
     const priorities = Object.entries(PRIORITY_CONFIG) as [HumanTaskPriority, typeof PRIORITY_CONFIG[HumanTaskPriority]][];
     return (
-        <div className="absolute left-0 top-8 z-30 bg-white rounded-lg shadow-lg border border-gray-200 py-1 w-36">
+        <div className="absolute left-0 top-8 z-30 bg-white rounded-lg shadow-lg border border-[#C0C0C0] py-1 w-36">
             {priorities.map(([key, cfg]) => {
                 const isActive = key === current;
                 return (
@@ -310,7 +330,7 @@ const PriorityPicker = ({
                         key={key}
                         onClick={() => { onSelect(key); onClose(); }}
                         className={`w-full flex items-center gap-2 px-3 py-1.5 text-sm transition-colors ${
-                            isActive ? 'bg-gray-100 font-medium' : 'hover:bg-gray-50'
+                            isActive ? 'bg-[#F1F1F1] font-medium' : 'hover:bg-[#F1F1F1]/60'
                         } ${cfg.color}`}
                     >
                         <span className={`w-2 h-2 rounded-full ${cfg.dot}`} />
@@ -345,6 +365,7 @@ const TaskEditForm = ({
         category: task.category,
     });
     const [saving, setSaving] = useState(false);
+    const [saveError, setSaveError] = useState<string | null>(null);
     const [showCategoryPicker, setShowCategoryPicker] = useState(false);
     const [showPriorityPicker, setShowPriorityPicker] = useState(false);
     const titleRef = useRef<HTMLInputElement>(null);
@@ -372,8 +393,8 @@ const TaskEditForm = ({
                 await onUpdateTask(task.id, updates);
             }
             onClose();
-        } catch {
-            // Allow retry — form stays open
+        } catch (err) {
+            setSaveError(err instanceof Error ? err.message : 'Failed to save changes');
         } finally {
             setSaving(false);
         }
@@ -384,15 +405,15 @@ const TaskEditForm = ({
     const CatIcon = catCfg.icon;
 
     return (
-        <tr className="border-b border-gray-200 bg-gray-50/70">
-            <td colSpan={9} className="px-5 py-4 pl-14">
+        <tr className="border-b border-[#C0C0C0] bg-[#F1F1F1]/50">
+            <td colSpan={5} className="px-5 py-4 pl-14">
                 <div className="space-y-3 max-w-2xl">
                     <input
                         ref={titleRef}
                         value={draft.title}
                         onChange={(e) => setDraft(d => ({ ...d, title: e.target.value }))}
                         placeholder="Task title"
-                        className="w-full text-sm font-medium text-gray-900 bg-white border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-400"
+                        className="w-full text-sm font-medium text-[#1A1A1A] bg-white border border-[#C0C0C0] rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#3BB570]/20 focus:border-[#3BB570]"
                         onKeyDown={(e) => { if (e.key === 'Enter') handleSave(); if (e.key === 'Escape') onClose(); }}
                     />
                     <textarea
@@ -400,16 +421,16 @@ const TaskEditForm = ({
                         onChange={(e) => setDraft(d => ({ ...d, description: e.target.value }))}
                         placeholder="Description (optional)"
                         rows={2}
-                        className="w-full text-sm text-gray-700 bg-white border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-400 resize-none"
+                        className="w-full text-sm text-[#1A1A1A] bg-white border border-[#C0C0C0] rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#3BB570]/20 focus:border-[#3BB570] resize-none"
                         onKeyDown={(e) => { if (e.key === 'Escape') onClose(); }}
                     />
                     <div className="flex flex-wrap items-center gap-3">
                         <div className="flex items-center gap-1.5 min-w-[160px]">
-                            <User size={13} className="text-gray-400 shrink-0" />
+                            <User size={13} className="text-[#959595] shrink-0" />
                             <select
                                 value={draft.assignee}
                                 onChange={(e) => setDraft(d => ({ ...d, assignee: e.target.value }))}
-                                className="text-sm text-gray-700 bg-white border border-gray-200 rounded-md px-2 py-1.5 w-full focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-400"
+                                className="text-sm text-[#1A1A1A] bg-white border border-[#C0C0C0] rounded-md px-2 py-1.5 w-full focus:outline-none focus:ring-2 focus:ring-[#3BB570]/20 focus:border-[#3BB570]"
                             >
                                 <option value="">Unassigned</option>
                                 {teamMembers.map(m => (
@@ -418,15 +439,15 @@ const TaskEditForm = ({
                             </select>
                         </div>
                         <div className="flex items-center gap-1.5 min-w-[140px]">
-                            <MapPin size={13} className="text-gray-400 shrink-0" />
+                            <MapPin size={13} className="text-[#959595] shrink-0" />
                             <input value={draft.location} onChange={(e) => setDraft(d => ({ ...d, location: e.target.value }))} placeholder="Location"
-                                className="text-sm text-gray-700 bg-white border border-gray-200 rounded-md px-2 py-1.5 w-full focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-400"
+                                className="text-sm text-[#1A1A1A] bg-white border border-[#C0C0C0] rounded-md px-2 py-1.5 w-full focus:outline-none focus:ring-2 focus:ring-[#3BB570]/20 focus:border-[#3BB570]"
                                 onKeyDown={(e) => { if (e.key === 'Enter') handleSave(); if (e.key === 'Escape') onClose(); }} />
                         </div>
                         <div className="flex items-center gap-1.5">
-                            <CalendarClock size={13} className="text-gray-400 shrink-0" />
+                            <CalendarClock size={13} className="text-[#959595] shrink-0" />
                             <input type="date" value={draft.dueDate} onChange={(e) => setDraft(d => ({ ...d, dueDate: e.target.value }))}
-                                className="text-sm text-gray-700 bg-white border border-gray-200 rounded-md px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-400" />
+                                className="text-sm text-[#1A1A1A] bg-white border border-[#C0C0C0] rounded-md px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-[#3BB570]/20 focus:border-[#3BB570]" />
                         </div>
                         <div className="relative">
                             <button onClick={() => setShowPriorityPicker(!showPriorityPicker)}
@@ -455,14 +476,20 @@ const TaskEditForm = ({
                             )}
                         </div>
                     </div>
+                    {saveError && (
+                        <p className="text-xs text-[#DF5B59] flex items-center gap-1">
+                            <AlertTriangle size={12} />
+                            {saveError}
+                        </p>
+                    )}
                     <div className="flex items-center gap-2 pt-1">
                         <button onClick={handleSave} disabled={saving || !draft.title.trim()}
-                            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-white bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 rounded-md transition-colors">
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-white bg-[#3BB570] hover:bg-[#2a8f56] disabled:opacity-50 rounded-md transition-colors">
                             <Check size={13} />
                             {saving ? 'Saving...' : 'Save'}
                         </button>
                         <button onClick={onClose}
-                            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-md transition-colors">
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-[#959595] hover:text-[#1A1A1A] hover:bg-[#F1F1F1] rounded-md transition-colors">
                             <X size={13} />
                             Cancel
                         </button>
@@ -486,17 +513,19 @@ const TaskRow = ({
     onStartEdit,
     onStopEdit,
     teamMembers,
+    urgencyBorder,
 }: {
     task: HumanTask;
     onUpdateStatus: (id: string, status: HumanTaskStatus) => Promise<void>;
     onUpdateTask: (id: string, updates: Partial<HumanTask>) => Promise<void>;
-    onDeleteTask: (id: string) => Promise<void>;
+    onDeleteTask: (id: string) => void;
     expanded: boolean;
     onToggleExpand: () => void;
     editing: boolean;
     onStartEdit: () => void;
     onStopEdit: () => void;
     teamMembers: TeamMember[];
+    urgencyBorder?: string;
 }) => {
     const [showCategoryPicker, setShowCategoryPicker] = useState(false);
     const [showPriorityPicker, setShowPriorityPicker] = useState(false);
@@ -508,18 +537,18 @@ const TaskRow = ({
     const cycleStatus = () => {
         if (task.status === 'pending') onUpdateStatus(task.id, 'in_progress');
         else if (task.status === 'in_progress') onUpdateStatus(task.id, 'completed');
-        else onUpdateStatus(task.id, 'pending');
+        // completed → pending requires explicit "Reopen" from context menu
     };
 
     const statusIcon = () => {
-        if (isComplete) return <CheckCircle2 size={18} className="text-emerald-500" />;
-        if (task.status === 'in_progress') return <PlayCircle size={18} className="text-blue-500" />;
-        return <Circle size={18} className="text-gray-300" />;
+        if (isComplete) return <CheckCircle2 size={18} className="text-[#3BB570]" />;
+        if (task.status === 'in_progress') return <PlayCircle size={18} className="text-[#1C9EFF]" />;
+        return <Circle size={18} className="text-[#C0C0C0]" />;
     };
 
     return (
         <>
-            <tr className={`group border-b border-gray-100 hover:bg-gray-50/60 transition-colors ${isComplete ? 'opacity-60' : ''}`}>
+            <tr className={`group border-b border-[#F1F1F1] hover:bg-[#F1F1F1]/40 transition-colors ${isComplete ? 'opacity-60' : ''} ${urgencyBorder ? `border-l-[3px] ${urgencyBorder}` : ''}`}>
                 {/* Status checkbox */}
                 <td className="pl-5 pr-2 py-3 w-10">
                     <button onClick={cycleStatus} className="hover:scale-110 transition-transform">
@@ -527,13 +556,63 @@ const TaskRow = ({
                     </button>
                 </td>
 
-                {/* Task title — click to inline edit */}
+                {/* Task title + metadata row */}
                 <td className="px-3 py-3">
                     <InlineTextCell
                         value={task.title}
                         placeholder="Untitled task"
                         onSave={(val) => onUpdateTask(task.id, { title: val })}
                     />
+                    {/* Secondary metadata */}
+                    <div className="flex items-center gap-2 mt-1 flex-wrap">
+                        {/* Category badge */}
+                        <div className="relative">
+                            <button
+                                onClick={() => setShowCategoryPicker(!showCategoryPicker)}
+                                className={`inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-full border cursor-pointer hover:ring-1 hover:ring-offset-1 hover:ring-gray-200 transition-all ${cat.bg} ${cat.color}`}
+                            >
+                                <CatIcon size={10} />
+                                {cat.label}
+                            </button>
+                            {showCategoryPicker && (
+                                <>
+                                    <div className="fixed inset-0 z-20" onClick={() => setShowCategoryPicker(false)} />
+                                    <CategoryPicker
+                                        current={task.category}
+                                        onSelect={(newCat) => onUpdateTask(task.id, { category: newCat })}
+                                        onClose={() => setShowCategoryPicker(false)}
+                                    />
+                                </>
+                            )}
+                        </div>
+                        {/* Priority */}
+                        <div className="relative">
+                            <button
+                                onClick={() => setShowPriorityPicker(!showPriorityPicker)}
+                                className={`inline-flex items-center gap-1 text-[11px] font-medium cursor-pointer hover:opacity-80 transition-opacity ${pri.color}`}
+                            >
+                                <span className={`w-1.5 h-1.5 rounded-full ${pri.dot}`} />
+                                {pri.label}
+                            </button>
+                            {showPriorityPicker && (
+                                <>
+                                    <div className="fixed inset-0 z-20" onClick={() => setShowPriorityPicker(false)} />
+                                    <PriorityPicker
+                                        current={task.priority}
+                                        onSelect={(newPri) => onUpdateTask(task.id, { priority: newPri })}
+                                        onClose={() => setShowPriorityPicker(false)}
+                                    />
+                                </>
+                            )}
+                        </div>
+                        {/* Location */}
+                        {task.location && (
+                            <span className="inline-flex items-center gap-1 text-[11px] text-[#959595]">
+                                <MapPin size={10} />
+                                {task.location}
+                            </span>
+                        )}
+                    </div>
                 </td>
 
                 {/* Assignee */}
@@ -542,16 +621,6 @@ const TaskRow = ({
                         value={task.assignee || ''}
                         teamMembers={teamMembers}
                         onSave={(name, userId) => onUpdateTask(task.id, { assignee: name || undefined, assignedToUserId: userId })}
-                    />
-                </td>
-
-                {/* Location */}
-                <td className="px-3 py-3 hidden md:table-cell">
-                    <InlineTextCell
-                        value={task.location || ''}
-                        placeholder="Location"
-                        icon={MapPin}
-                        onSave={(val) => onUpdateTask(task.id, { location: val || undefined })}
                     />
                 </td>
 
@@ -564,94 +633,48 @@ const TaskRow = ({
                     />
                 </td>
 
-                {/* Category badge — click to change */}
-                <td className="px-3 py-3 hidden sm:table-cell">
-                    <div className="relative">
-                        <button
-                            onClick={() => setShowCategoryPicker(!showCategoryPicker)}
-                            className={`inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full border cursor-pointer hover:ring-2 hover:ring-offset-1 hover:ring-gray-200 transition-all ${cat.bg} ${cat.color}`}
-                        >
-                            <CatIcon size={12} />
-                            {cat.label}
-                        </button>
-                        {showCategoryPicker && (
-                            <>
-                                <div className="fixed inset-0 z-20" onClick={() => setShowCategoryPicker(false)} />
-                                <CategoryPicker
-                                    current={task.category}
-                                    onSelect={(newCat) => onUpdateTask(task.id, { category: newCat })}
-                                    onClose={() => setShowCategoryPicker(false)}
-                                />
-                            </>
-                        )}
-                    </div>
-                </td>
-
-                {/* Priority — click to change */}
-                <td className="px-3 py-3 hidden lg:table-cell">
-                    <div className="relative">
-                        <button
-                            onClick={() => setShowPriorityPicker(!showPriorityPicker)}
-                            className={`inline-flex items-center gap-1.5 text-xs font-medium cursor-pointer hover:opacity-80 transition-opacity ${pri.color}`}
-                        >
-                            <span className={`w-1.5 h-1.5 rounded-full ${pri.dot}`} />
-                            {pri.label}
-                        </button>
-                        {showPriorityPicker && (
-                            <>
-                                <div className="fixed inset-0 z-20" onClick={() => setShowPriorityPicker(false)} />
-                                <PriorityPicker
-                                    current={task.priority}
-                                    onSelect={(newPri) => onUpdateTask(task.id, { priority: newPri })}
-                                    onClose={() => setShowPriorityPicker(false)}
-                                />
-                            </>
-                        )}
-                    </div>
-                </td>
-
                 {/* Actions menu */}
                 <td className="pr-4 pl-2 py-3 w-10">
                     <div className="relative">
                         <button
                             onClick={onToggleExpand}
-                            className="p-1 text-gray-300 hover:text-gray-500 transition-colors rounded hover:bg-gray-100"
+                            className="p-1 text-[#C0C0C0] hover:text-[#959595] transition-colors rounded hover:bg-[#F1F1F1]"
                         >
                             <MoreHorizontal size={16} />
                         </button>
                         {expanded && (
                             <>
                                 <div className="fixed inset-0 z-10" onClick={onToggleExpand} />
-                                <div className="absolute right-0 top-8 z-20 bg-white rounded-lg shadow-lg border border-gray-200 py-1 min-w-[140px]">
+                                <div className="absolute right-0 top-8 z-20 bg-white rounded-lg shadow-lg border border-[#C0C0C0] py-1 min-w-[140px]">
                                     <button
                                         onClick={() => { onStartEdit(); onToggleExpand(); }}
-                                        className="w-full flex items-center gap-2 px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50"
+                                        className="w-full flex items-center gap-2 px-3 py-1.5 text-sm text-[#1A1A1A] hover:bg-[#F1F1F1]"
                                     >
                                         <Pencil size={14} />
-                                        Edit all fields
+                                        Edit details
                                     </button>
                                     {task.status !== 'completed' && (
                                         <button
                                             onClick={() => { onUpdateStatus(task.id, task.status === 'pending' ? 'in_progress' : 'completed'); onToggleExpand(); }}
-                                            className="w-full flex items-center gap-2 px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50"
+                                            className="w-full flex items-center gap-2 px-3 py-1.5 text-sm text-[#1A1A1A] hover:bg-[#F1F1F1]"
                                         >
-                                            {task.status === 'pending' ? <PlayCircle size={14} /> : <CheckCircle2 size={14} />}
-                                            {task.status === 'pending' ? 'Start' : 'Complete'}
+                                            {task.status === 'pending' ? <PlayCircle size={14} className="text-[#1C9EFF]" /> : <CheckCircle2 size={14} className="text-[#3BB570]" />}
+                                            {task.status === 'pending' ? 'Mark in progress' : 'Mark complete'}
                                         </button>
                                     )}
                                     {task.status === 'completed' && (
                                         <button
                                             onClick={() => { onUpdateStatus(task.id, 'pending'); onToggleExpand(); }}
-                                            className="w-full flex items-center gap-2 px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50"
+                                            className="w-full flex items-center gap-2 px-3 py-1.5 text-sm text-[#1A1A1A] hover:bg-[#F1F1F1]"
                                         >
                                             <RotateCcw size={14} />
-                                            Reopen
+                                            Reopen task
                                         </button>
                                     )}
-                                    <hr className="my-1 border-gray-100" />
+                                    <hr className="my-1 border-[#F1F1F1]" />
                                     <button
                                         onClick={() => { onDeleteTask(task.id); onToggleExpand(); }}
-                                        className="w-full flex items-center gap-2 px-3 py-1.5 text-sm text-red-600 hover:bg-red-50"
+                                        className="w-full flex items-center gap-2 px-3 py-1.5 text-sm text-[#DF5B59] hover:bg-[#DF5B59]/5"
                                     >
                                         <Trash2 size={14} />
                                         Delete
@@ -668,13 +691,144 @@ const TaskRow = ({
             )}
             {/* Description row */}
             {!editing && task.description && expanded && (
-                <tr className="border-b border-gray-100 bg-gray-50/40">
-                    <td colSpan={9} className="px-5 py-2.5 pl-14">
-                        <p className="text-xs text-gray-500 leading-relaxed">{task.description}</p>
+                <tr className="border-b border-[#F1F1F1] bg-[#F1F1F1]/30">
+                    <td colSpan={5} className="px-5 py-2.5 pl-14">
+                        <p className="text-xs text-[#959595] leading-relaxed">{task.description}</p>
                     </td>
                 </tr>
             )}
         </>
+    );
+};
+
+// ── Urgency grouping ────────────────────────────────────────────────────────
+
+type UrgencyGroup = 'overdue' | 'today' | 'upcoming' | 'no_date' | 'completed';
+
+const URGENCY_CONFIG: Record<UrgencyGroup, { label: string; border: string; headerColor: string }> = {
+    overdue: { label: 'Overdue', border: 'border-l-[#DF5B59]', headerColor: 'text-[#DF5B59]' },
+    today: { label: 'Due Today', border: 'border-l-[#FA9E52]', headerColor: 'text-[#FA9E52]' },
+    upcoming: { label: 'Upcoming', border: 'border-l-[#1C9EFF]', headerColor: 'text-[#1C9EFF]' },
+    no_date: { label: 'No Due Date', border: 'border-l-[#C0C0C0]', headerColor: 'text-[#959595]' },
+    completed: { label: 'Completed', border: 'border-l-[#3BB570]', headerColor: 'text-[#3BB570]' },
+};
+
+function getUrgencyGroup(task: HumanTask): UrgencyGroup {
+    if (task.status === 'completed') return 'completed';
+    if (!task.dueDate) return 'no_date';
+
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const due = new Date(task.dueDate);
+    const dueDay = new Date(due.getFullYear(), due.getMonth(), due.getDate());
+
+    if (dueDay < today) return 'overdue';
+    if (dueDay.getTime() === today.getTime()) return 'today';
+    return 'upcoming';
+}
+
+function groupTasks(tasks: HumanTask[]): { group: UrgencyGroup; tasks: HumanTask[] }[] {
+    const groups: Record<UrgencyGroup, HumanTask[]> = {
+        overdue: [], today: [], upcoming: [], no_date: [], completed: [],
+    };
+    for (const t of tasks) groups[getUrgencyGroup(t)].push(t);
+    const order: UrgencyGroup[] = ['overdue', 'today', 'upcoming', 'no_date', 'completed'];
+    return order.filter(g => groups[g].length > 0).map(g => ({ group: g, tasks: groups[g] }));
+}
+
+// ── Inline task creation ────────────────────────────────────────────────────
+
+const InlineCreateRow = ({
+    onSave,
+    onCancel,
+    teamMembers,
+}: {
+    onSave: (task: Omit<HumanTask, 'id' | 'createdAt' | 'updatedAt' | 'status'>) => void;
+    onCancel: () => void;
+    teamMembers: TeamMember[];
+}) => {
+    const [title, setTitle] = useState('');
+    const [assignee, setAssignee] = useState('');
+    const [dueDate, setDueDate] = useState('');
+    const inputRef = useRef<HTMLInputElement>(null);
+
+    useEffect(() => { inputRef.current?.focus(); }, []);
+
+    const handleSubmit = () => {
+        if (!title.trim()) return;
+        const member = teamMembers.find(m => m.name === assignee);
+        onSave({
+            title: title.trim(),
+            priority: 'medium',
+            category: 'other',
+            assignee: assignee || undefined,
+            assignedToUserId: member?.userId,
+            dueDate: dueDate || undefined,
+        });
+        setTitle('');
+        setAssignee('');
+        setDueDate('');
+        inputRef.current?.focus();
+    };
+
+    return (
+        <tr className="border-b border-[#F1F1F1] bg-[#3BB570]/[0.03]">
+            <td className="pl-5 pr-2 py-2.5 w-10">
+                <div className="w-[18px] h-[18px] rounded-full border-2 border-dashed border-[#C0C0C0]" />
+            </td>
+            <td className="px-3 py-2.5">
+                <input
+                    ref={inputRef}
+                    value={title}
+                    onChange={(e) => setTitle(e.target.value)}
+                    onKeyDown={(e) => {
+                        if (e.key === 'Enter') handleSubmit();
+                        if (e.key === 'Escape') onCancel();
+                    }}
+                    placeholder="What needs to be done?"
+                    className="text-sm text-[#1A1A1A] bg-transparent w-full focus:outline-none placeholder:text-[#C0C0C0]"
+                />
+            </td>
+            <td className="px-3 py-2.5 hidden md:table-cell">
+                <select
+                    value={assignee}
+                    onChange={(e) => setAssignee(e.target.value)}
+                    className="text-sm text-[#959595] bg-transparent focus:outline-none cursor-pointer"
+                >
+                    <option value="">Assign</option>
+                    {teamMembers.map(m => (
+                        <option key={m.id} value={m.name}>{m.name}</option>
+                    ))}
+                </select>
+            </td>
+            <td className="px-3 py-2.5 hidden sm:table-cell">
+                <input
+                    type="date"
+                    value={dueDate}
+                    onChange={(e) => setDueDate(e.target.value)}
+                    className="text-sm text-[#959595] bg-transparent focus:outline-none"
+                />
+            </td>
+            <td className="pr-4 pl-2 py-2.5 w-10">
+                <div className="flex items-center gap-1">
+                    <button
+                        onClick={handleSubmit}
+                        disabled={!title.trim()}
+                        className="p-1 text-[#3BB570] hover:text-[#2a8f56] disabled:text-gray-200 transition-colors"
+                        title="Add task"
+                    >
+                        <Check size={16} />
+                    </button>
+                    <button
+                        onClick={onCancel}
+                        className="p-1 text-[#C0C0C0] hover:text-[#959595] transition-colors"
+                        title="Cancel"
+                    >
+                        <X size={14} />
+                    </button>
+                </div>
+            </td>
+        </tr>
     );
 };
 
@@ -687,6 +841,8 @@ export const TasksPanel = ({
     onUpdateStatus,
     onUpdateTask,
     onDeleteTask,
+    onCreateTask,
+    onNavigateToAI,
     pendingCount,
     loadError,
     onRetry,
@@ -702,6 +858,10 @@ export const TasksPanel = ({
     const [executingAction, setExecutingAction] = useState(false);
     const [sortField, setSortField] = useState<SortField | null>(null);
     const [sortDir, setSortDir] = useState<SortDir>('asc');
+    const [showCreateRow, setShowCreateRow] = useState(false);
+    const [collapsedGroups, setCollapsedGroups] = useState<Set<UrgencyGroup>>(new Set(['completed']));
+    const [pendingDelete, setPendingDelete] = useState<{ id: string; title: string } | null>(null);
+    const deleteTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const activeCategories = [...new Set(tasks.map(t => t.category))];
 
     // Build FilterToolbar definitions
@@ -755,7 +915,6 @@ export const TasksPanel = ({
         { value: 'assignee', label: 'Assignee' },
         { value: 'dueDate', label: 'Due date' },
         { value: 'priority', label: 'Priority' },
-        { value: 'category', label: 'Category' },
         { value: 'status', label: 'Status' },
     ];
 
@@ -835,7 +994,40 @@ export const TasksPanel = ({
         setPendingComplete(null);
     };
 
+    // Soft-delete with undo
+    const handleSoftDelete = (id: string) => {
+        const task = tasks.find(t => t.id === id);
+        if (!task) return;
+        // Cancel any existing pending delete
+        if (deleteTimerRef.current) clearTimeout(deleteTimerRef.current);
+        setPendingDelete({ id, title: task.title });
+        deleteTimerRef.current = setTimeout(() => {
+            onDeleteTask(id);
+            setPendingDelete(null);
+            deleteTimerRef.current = null;
+        }, 4000);
+    };
+
+    const handleUndoDelete = () => {
+        if (deleteTimerRef.current) {
+            clearTimeout(deleteTimerRef.current);
+            deleteTimerRef.current = null;
+        }
+        setPendingDelete(null);
+    };
+
+    const handleDismissDelete = () => {
+        if (pendingDelete) {
+            if (deleteTimerRef.current) clearTimeout(deleteTimerRef.current);
+            onDeleteTask(pendingDelete.id);
+            setPendingDelete(null);
+            deleteTimerRef.current = null;
+        }
+    };
+
     const filteredTasks = tasks.filter(t => {
+        // Hide task pending deletion (undo window)
+        if (pendingDelete && t.id === pendingDelete.id) return false;
         if (searchQuery) {
             const q = searchQuery.toLowerCase();
             if (!t.title.toLowerCase().includes(q) && !t.assignee?.toLowerCase().includes(q) && !t.location?.toLowerCase().includes(q)) {
@@ -863,7 +1055,7 @@ export const TasksPanel = ({
 
     const SortHeader = ({ field, children, className }: { field: SortField; children: React.ReactNode; className?: string }) => (
         <th
-            className={`px-3 py-3 text-xs font-medium uppercase tracking-wider cursor-pointer select-none group hover:text-gray-600 transition-colors ${className || ''} ${sortField === field ? 'text-emerald-600' : 'text-gray-400'}`}
+            className={`px-3 py-3 text-xs font-medium uppercase tracking-wide cursor-pointer select-none group hover:text-[#1A1A1A]/70 transition-colors ${className || ''} ${sortField === field ? 'text-[#3BB570]' : 'text-[#C0C0C0]'}`}
             onClick={() => toggleSort(field)}
         >
             <span className="inline-flex items-center gap-1">
@@ -877,20 +1069,77 @@ export const TasksPanel = ({
         </th>
     );
 
+    // Urgency counts for the summary (computed from unfiltered tasks to always show true state)
+    const overdueCount = tasks.filter(t => t.status !== 'completed' && t.dueDate && isOverdue(t.dueDate)).length;
+    const todayCount = tasks.filter(t => {
+        if (t.status === 'completed' || !t.dueDate) return false;
+        const now = new Date();
+        const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        const due = new Date(t.dueDate);
+        const dueDay = new Date(due.getFullYear(), due.getMonth(), due.getDate());
+        return dueDay.getTime() === today.getTime();
+    }).length;
+    const urgentCount = tasks.filter(t => t.status !== 'completed' && t.priority === 'urgent').length;
+
+    const toggleGroupCollapse = (group: UrgencyGroup) => {
+        setCollapsedGroups(prev => {
+            const next = new Set(prev);
+            if (next.has(group)) next.delete(group);
+            else next.add(group);
+            return next;
+        });
+    };
+
     return (
         <div className="flex flex-col h-full bg-white">
             {/* Header */}
             <div className="px-6 pt-6 pb-2">
                 <div className="flex items-center justify-between">
                     <div>
-                        <h1 className="text-2xl font-bold text-gray-900">Tasks</h1>
-                        <p className="text-sm text-gray-400 mt-0.5">
+                        <h1 className="text-2xl font-bold text-[#1A1A1A]">Tasks</h1>
+                        <p className="text-sm text-[#959595] mt-0.5">
                             {pendingCount > 0
                                 ? `${pendingCount} incomplete task${pendingCount !== 1 ? 's' : ''}`
                                 : 'No pending tasks'}
                         </p>
                     </div>
+                    {onCreateTask && (
+                        <button
+                            onClick={() => setShowCreateRow(true)}
+                            className="inline-flex items-center gap-1.5 px-3.5 py-2 text-sm font-medium text-white bg-[#3BB570] hover:bg-[#2a8f56] rounded-lg transition-colors"
+                        >
+                            <Plus size={15} />
+                            New task
+                        </button>
+                    )}
                 </div>
+
+                {/* Attention summary — only when there's something noteworthy */}
+                {(overdueCount > 0 || todayCount > 0 || urgentCount > 0) && (
+                    <div className="flex items-center gap-4 mt-3 py-2.5 px-3.5 bg-[#F1F1F1] rounded-lg">
+                        {overdueCount > 0 && (
+                            <div className="flex items-center gap-1.5 text-sm">
+                                <AlertTriangle size={14} className="text-[#DF5B59]" />
+                                <span className="font-semibold text-[#DF5B59]">{overdueCount}</span>
+                                <span className="text-[#959595]">overdue</span>
+                            </div>
+                        )}
+                        {todayCount > 0 && (
+                            <div className="flex items-center gap-1.5 text-sm">
+                                <Clock size={14} className="text-[#FA9E52]" />
+                                <span className="font-semibold text-[#FA9E52]">{todayCount}</span>
+                                <span className="text-[#959595]">due today</span>
+                            </div>
+                        )}
+                        {urgentCount > 0 && (
+                            <div className="flex items-center gap-1.5 text-sm">
+                                <Zap size={14} className="text-[#DF5B59]" />
+                                <span className="font-semibold text-[#DF5B59]">{urgentCount}</span>
+                                <span className="text-[#959595]">urgent</span>
+                            </div>
+                        )}
+                    </div>
+                )}
             </div>
 
             {/* Load error banner */}
@@ -907,7 +1156,7 @@ export const TasksPanel = ({
             )}
 
             {/* Search + Filters + Sort */}
-            <div className="px-6 py-3 border-b border-gray-100">
+            <div className="px-6 py-3 border-b border-[#F1F1F1]">
                 <FilterToolbar
                     search={searchQuery}
                     onSearchChange={setSearchQuery}
@@ -925,50 +1174,155 @@ export const TasksPanel = ({
 
             {/* Table */}
             <div className="flex-1 overflow-y-auto">
-                {sortedTasks.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center py-20 text-center">
-                        <div className="w-16 h-16 rounded-full bg-gray-50 flex items-center justify-center mb-4">
-                            <ClipboardList size={28} className="text-gray-300" />
-                        </div>
-                        <h3 className="text-sm font-medium text-gray-500 mb-1">
-                            {searchQuery ? 'No matching tasks' : 'No tasks yet'}
-                        </h3>
-                        <p className="text-xs text-gray-400 max-w-xs">
-                            {searchQuery
-                                ? 'Try adjusting your search or filters'
-                                : 'Tasks will appear here when you describe operational work to the AI assistant'}
-                        </p>
+                {sortedTasks.length === 0 && !showCreateRow ? (
+                    <div className="flex flex-col items-center justify-center py-16 text-center px-6">
+                        {searchQuery ? (
+                            <>
+                                <div className="w-14 h-14 rounded-full bg-[#F1F1F1] flex items-center justify-center mb-4">
+                                    <ClipboardList size={24} className="text-[#C0C0C0]" />
+                                </div>
+                                <h3 className="text-sm font-medium text-[#959595] mb-1">No matching tasks</h3>
+                                <p className="text-xs text-[#C0C0C0]">Try adjusting your search or filters</p>
+                            </>
+                        ) : (
+                            <>
+                                <h3 className="text-base font-semibold text-[#1A1A1A] mb-1">Get started with tasks</h3>
+                                <p className="text-sm text-[#959595] max-w-sm mb-6">
+                                    Track operational work across your facility. Create tasks manually or let the AI generate them from conversation.
+                                </p>
+
+                                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full max-w-md">
+                                    {onCreateTask && (
+                                        <button
+                                            onClick={() => setShowCreateRow(true)}
+                                            className="flex-1 flex items-center justify-center gap-2 px-4 py-3 text-sm font-medium text-white bg-[#3BB570] hover:bg-[#2a8f56] rounded-lg transition-colors"
+                                        >
+                                            <Plus size={16} />
+                                            Create a task
+                                        </button>
+                                    )}
+                                    {onNavigateToAI && (
+                                        <button
+                                            onClick={onNavigateToAI}
+                                            className="flex-1 flex items-center justify-center gap-2 px-4 py-3 text-sm font-medium text-[#1A1A1A] border border-[#C0C0C0] hover:border-[#959595] hover:bg-[#F1F1F1] rounded-lg transition-colors"
+                                        >
+                                            <MessageSquare size={16} />
+                                            Ask the AI
+                                        </button>
+                                    )}
+                                </div>
+
+                                {onNavigateToAI && (
+                                    <div className="mt-6 text-left w-full max-w-md">
+                                        <p className="text-xs font-medium text-[#959595] mb-2">Try saying:</p>
+                                        <div className="flex flex-wrap gap-2">
+                                            {[
+                                                'Create IPM tasks for this week',
+                                                'Remind me to calibrate scales Friday',
+                                                'Set up harvest day checklist',
+                                            ].map(prompt => (
+                                                <button
+                                                    key={prompt}
+                                                    onClick={onNavigateToAI}
+                                                    className="text-xs text-[#959595] bg-[#F1F1F1] hover:bg-[#e5e5e5] px-3 py-1.5 rounded-full transition-colors"
+                                                >
+                                                    "{prompt}"
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+                            </>
+                        )}
                     </div>
                 ) : (
                     <table className="w-full">
                         <thead>
-                            <tr className="border-b border-gray-100 text-left">
+                            <tr className="border-b border-[#F1F1F1] text-left">
                                 <SortHeader field="status" className="pl-5 pr-2 py-3 w-10"><span className="sr-only">Status</span></SortHeader>
                                 <SortHeader field="title">Task</SortHeader>
                                 <SortHeader field="assignee" className="hidden md:table-cell">Assignee</SortHeader>
-                                <SortHeader field="location" className="hidden md:table-cell">Location</SortHeader>
                                 <SortHeader field="dueDate" className="hidden sm:table-cell">Due</SortHeader>
-                                <SortHeader field="category" className="hidden sm:table-cell">Category</SortHeader>
-                                <SortHeader field="priority" className="hidden lg:table-cell">Priority</SortHeader>
                                 <th className="pr-4 pl-2 py-3 w-10" />
                             </tr>
                         </thead>
                         <tbody>
-                            {sortedTasks.map(task => (
-                                <TaskRow
-                                    key={task.id}
-                                    task={task}
-                                    onUpdateStatus={handleUpdateStatus}
-                                    onUpdateTask={onUpdateTask}
-                                    onDeleteTask={onDeleteTask}
-                                    expanded={expandedId === task.id}
-                                    onToggleExpand={() => setExpandedId(expandedId === task.id ? null : task.id)}
-                                    editing={editingId === task.id}
-                                    onStartEdit={() => { setEditingId(task.id); setExpandedId(null); }}
-                                    onStopEdit={() => setEditingId(null)}
+                            {/* Inline creation row */}
+                            {showCreateRow && onCreateTask && (
+                                <InlineCreateRow
                                     teamMembers={teamMembers}
+                                    onSave={async (task) => {
+                                        await onCreateTask(task);
+                                    }}
+                                    onCancel={() => setShowCreateRow(false)}
                                 />
-                            ))}
+                            )}
+
+                            {/* Grouped tasks when no sort is active, flat list when sorting */}
+                            {sortField ? (
+                                sortedTasks.map(task => (
+                                    <TaskRow
+                                        key={task.id}
+                                        task={task}
+                                        onUpdateStatus={handleUpdateStatus}
+                                        onUpdateTask={onUpdateTask}
+                                        onDeleteTask={handleSoftDelete}
+                                        expanded={expandedId === task.id}
+                                        onToggleExpand={() => setExpandedId(expandedId === task.id ? null : task.id)}
+                                        editing={editingId === task.id}
+                                        onStartEdit={() => { setEditingId(task.id); setExpandedId(null); }}
+                                        onStopEdit={() => setEditingId(null)}
+                                        teamMembers={teamMembers}
+                                        urgencyBorder={URGENCY_CONFIG[getUrgencyGroup(task)].border}
+                                    />
+                                ))
+                            ) : (
+                                groupTasks(sortedTasks).map(({ group, tasks: groupedTasks }) => {
+                                    const cfg = URGENCY_CONFIG[group];
+                                    const isCollapsed = collapsedGroups.has(group);
+                                    return (
+                                        <React.Fragment key={group}>
+                                            {/* Group header */}
+                                            <tr>
+                                                <td colSpan={5}>
+                                                    <button
+                                                        onClick={() => toggleGroupCollapse(group)}
+                                                        className="w-full flex items-center gap-2 px-5 py-2 bg-[#F1F1F1]/60 hover:bg-[#F1F1F1] transition-colors text-left"
+                                                    >
+                                                        <span className={`text-xs font-semibold uppercase tracking-wider ${cfg.headerColor}`}>
+                                                            {cfg.label}
+                                                        </span>
+                                                        <span className="text-xs text-[#959595] font-medium">
+                                                            {groupedTasks.length}
+                                                        </span>
+                                                        {isCollapsed
+                                                            ? <ChevronRight size={12} className="text-[#C0C0C0] ml-auto" />
+                                                            : <ChevronDown size={12} className="text-[#C0C0C0] ml-auto" />
+                                                        }
+                                                    </button>
+                                                </td>
+                                            </tr>
+                                            {/* Group tasks */}
+                                            {!isCollapsed && groupedTasks.map(task => (
+                                                <TaskRow
+                                                    key={task.id}
+                                                    task={task}
+                                                    onUpdateStatus={handleUpdateStatus}
+                                                    onUpdateTask={onUpdateTask}
+                                                    onDeleteTask={handleSoftDelete}
+                                                    expanded={expandedId === task.id}
+                                                    onToggleExpand={() => setExpandedId(expandedId === task.id ? null : task.id)}
+                                                    editing={editingId === task.id}
+                                                    onStartEdit={() => { setEditingId(task.id); setExpandedId(null); }}
+                                                    onStopEdit={() => setEditingId(null)}
+                                                    teamMembers={teamMembers}
+                                                    urgencyBorder={cfg.border}
+                                                />
+                                            ))}
+                                        </React.Fragment>
+                                    );
+                                })
+                            )}
                         </tbody>
                     </table>
                 )}
@@ -983,36 +1337,32 @@ export const TasksPanel = ({
                     .slice(0, 5);
                 return (
                     <Modal
-                        title="Mark Complete"
+                        title="Complete with linked action"
                         contentClassName="creation-modal"
                         onClose={() => setPendingComplete(null)}
                         footer={
                             <>
                                 <Button variant="secondary" onClick={completeWithoutAction} disabled={executingAction}>
-                                    Skip Action
+                                    Complete only
                                 </Button>
                                 <Button variant="primary" onClick={confirmCompleteWithAction} disabled={executingAction}>
-                                    {executingAction ? 'Running...' : 'Complete & Record'}
+                                    {executingAction ? 'Recording...' : 'Complete & record'}
                                 </Button>
                             </>
                         }
                     >
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-lg)' }}>
+                        <div className="flex flex-col gap-5">
                             {/* Task being completed */}
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                                <div style={{
-                                    width: 36, height: 36, borderRadius: '50%',
-                                    background: 'var(--primary-light)',
-                                    display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-                                }}>
-                                    <Check size={18} style={{ color: 'var(--primary-color)' }} />
+                            <div className="flex items-center gap-3">
+                                <div className="w-9 h-9 rounded-full bg-[#3BB570]/10 flex items-center justify-center shrink-0">
+                                    <Check size={18} className="text-[#3BB570]" />
                                 </div>
                                 <div>
-                                    <p className="text-sm font-medium" style={{ color: 'var(--text-color)' }}>
+                                    <p className="text-sm font-medium text-[#1A1A1A]">
                                         {pendingComplete.title}
                                     </p>
                                     {pendingComplete.location && (
-                                        <p className="text-xs" style={{ color: 'var(--text-secondary)', marginTop: 2 }}>
+                                        <p className="text-xs text-[#959595] mt-0.5">
                                             {pendingComplete.location}
                                         </p>
                                     )}
@@ -1020,34 +1370,26 @@ export const TasksPanel = ({
                             </div>
 
                             {/* Arrow connector */}
-                            <div style={{ display: 'flex', justifyContent: 'center' }}>
-                                <ArrowRight size={16} style={{ color: 'var(--border-color)', transform: 'rotate(90deg)' }} />
+                            <div className="flex justify-center">
+                                <ArrowRight size={16} className="text-[#C0C0C0] rotate-90" />
                             </div>
 
                             {/* Linked system action */}
-                            <div style={{
-                                border: '1px solid var(--border-color)',
-                                borderRadius: 10,
-                                overflow: 'hidden',
-                            }}>
-                                <div style={{
-                                    display: 'flex', alignItems: 'center', gap: 8,
-                                    padding: '10px 14px',
-                                    background: 'var(--primary-light)',
-                                }}>
-                                    <Zap size={14} style={{ color: 'var(--primary-color)' }} />
-                                    <span className="text-sm font-medium" style={{ color: 'var(--primary-dark)', textTransform: 'capitalize' }}>
+                            <div className="border border-[#C0C0C0] rounded-[10px] overflow-hidden">
+                                <div className="flex items-center gap-2 px-3.5 py-2.5 bg-[#3BB570]/10">
+                                    <Zap size={14} className="text-[#3BB570]" />
+                                    <span className="text-sm font-medium text-[#2a8f56] capitalize">
                                         {actionLabel}
                                     </span>
                                 </div>
                                 {details.length > 0 && (
-                                    <div style={{ padding: '10px 14px', display: 'flex', flexDirection: 'column', gap: 6 }}>
+                                    <div className="px-3.5 py-2.5 flex flex-col gap-1.5">
                                         {details.map(([k, v]) => (
-                                            <div key={k} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                                <span className="text-xs" style={{ color: 'var(--text-secondary)', textTransform: 'capitalize' }}>
+                                            <div key={k} className="flex justify-between items-center">
+                                                <span className="text-xs text-[#959595] capitalize">
                                                     {k.replace(/([A-Z])/g, ' $1').trim()}
                                                 </span>
-                                                <span className="text-xs font-medium" style={{ color: 'var(--text-color)' }}>
+                                                <span className="text-xs font-medium text-[#1A1A1A]">
                                                     {String(v)}
                                                 </span>
                                             </div>
@@ -1056,13 +1398,22 @@ export const TasksPanel = ({
                                 )}
                             </div>
 
-                            <p className="field-hint" style={{ textAlign: 'center' }}>
+                            <p className="text-xs text-[#959595] text-center">
                                 This will record the action in your system when you mark the task done.
                             </p>
                         </div>
                     </Modal>
                 );
             })()}
+
+            {/* Undo delete toast */}
+            {pendingDelete && (
+                <UndoToast
+                    message={`"${pendingDelete.title.length > 40 ? pendingDelete.title.slice(0, 40) + '…' : pendingDelete.title}" deleted`}
+                    onUndo={handleUndoDelete}
+                    onDismiss={handleDismissDelete}
+                />
+            )}
         </div>
     );
 };

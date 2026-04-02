@@ -2323,6 +2323,22 @@ select.field-input {
   }
 }
 
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translate(-50%, 12px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
+}
+
+.animate-slide-up {
+  animation: slideUp 0.2s ease-out;
+}
+
 @keyframes scaleIn {
   from {
     transform: scale(0.95);
@@ -5199,12 +5215,15 @@ select.field-input {
   left: 0;
   top: 0;
   bottom: 0;
-  width: 12px;
+  width: 16px;
   display: flex;
   align-items: center;
   justify-content: center;
-  cursor: col-resize;
-  color: #d1d5db;
+  cursor: pointer;
+  color: #C0C0C0;
+  background: none;
+  border: none;
+  padding: 0;
   transition: color 0.15s, background-color 0.15s;
   z-index: 10;
 }
@@ -5231,6 +5250,27 @@ select.field-input {
   border: 1px solid var(--border-color);
   border-right: none;
   box-shadow: -2px 0 8px rgba(0, 0, 0, 0.06);
+}
+
+.task-edge-btn-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.task-edge-tooltip {
+  position: absolute;
+  right: calc(100% + 8px);
+  white-space: nowrap;
+  font-size: 11px;
+  font-weight: 500;
+  color: white;
+  background: #1A1A1A;
+  padding: 3px 8px;
+  border-radius: 5px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s;
 }
 
 .task-edge-btn {

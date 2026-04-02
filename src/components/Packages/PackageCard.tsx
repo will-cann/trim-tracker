@@ -25,13 +25,13 @@ const STATUS_LABEL: Record<string, string> = {
 };
 
 const TYPE_CLASS: Record<string, string> = {
-    flower: 'bg-amber-50 text-amber-700',
-    trim: 'bg-emerald-50 text-emerald-700',
-    shake: 'bg-blue-50 text-blue-700',
-    fresh_frozen: 'bg-cyan-50 text-cyan-700',
-    bubble_hash: 'bg-orange-50 text-orange-700',
-    rosin: 'bg-amber-50 text-amber-700',
-    rosin_cart: 'bg-violet-50 text-violet-700',
+    flower: 'bg-[#FFF8E7] text-[#B8860B]',
+    trim: 'bg-[#ECFDF5] text-[#3BB570]',
+    shake: 'bg-[#EFF8FF] text-[#1C9EFF]',
+    fresh_frozen: 'bg-[#ECFEFF] text-[#0E7490]',
+    bubble_hash: 'bg-[#FFF7ED] text-[#FA9E52]',
+    rosin: 'bg-[#FFF8E7] text-[#B8860B]',
+    rosin_cart: 'bg-[#F5F3FF] text-[#7C6AE8]',
 };
 
 const TYPE_LABEL: Record<string, string> = {
@@ -52,10 +52,10 @@ const LAB_LABEL: Record<string, string> = {
 };
 
 const LAB_CLASS: Record<string, string> = {
-    not_submitted: 'text-gray-400',
-    submitted: 'text-amber-500',
-    passed: 'text-emerald-500',
-    failed: 'text-red-500',
+    not_submitted: 'text-[#C0C0C0]',
+    submitted: 'text-[#FA9E52]',
+    passed: 'text-[#3BB570]',
+    failed: 'text-[#DF5B59]',
 };
 
 const LAB_OPTIONS: { value: LabTestingState; label: string }[] = [
@@ -221,7 +221,7 @@ export const PackageCard: React.FC<PackageCardProps> = ({ pkg, onUpdate, onDelet
                             {pkg.wasteWeight > 0 && (
                                 <div className="summary-item">
                                     <span className="label">Waste</span>
-                                    <span className="value text-red-500">{pkg.wasteWeight.toFixed(0)}g</span>
+                                    <span className="value text-[#DF5B59]">{pkg.wasteWeight.toFixed(0)}g</span>
                                 </div>
                             )}
                             <div className="summary-item">
@@ -244,7 +244,7 @@ export const PackageCard: React.FC<PackageCardProps> = ({ pkg, onUpdate, onDelet
                 {isExpanded && (
                     <div className="trim-card-body" onClick={e => e.stopPropagation()}>
                         {/* Quantity / Waste / Net */}
-                        <div className="trim-card-summary border-b border-gray-200 pb-3 mb-3">
+                        <div className="trim-card-summary border-b border-[#F1F1F1] pb-3 mb-3">
                             {isEditing ? (
                                 <>
                                     <div className="summary-item">
@@ -277,7 +277,7 @@ export const PackageCard: React.FC<PackageCardProps> = ({ pkg, onUpdate, onDelet
                                     </div>
                                     <div className="summary-item">
                                         <span className="label">Net</span>
-                                        <span className={`value text-lg ${netWeight >= 0 ? 'text-emerald-500' : 'text-red-500'}`}>
+                                        <span className={`value text-lg ${netWeight >= 0 ? 'text-[#3BB570]' : 'text-[#DF5B59]'}`}>
                                             {netWeight.toFixed(1)}g
                                         </span>
                                     </div>
@@ -290,11 +290,11 @@ export const PackageCard: React.FC<PackageCardProps> = ({ pkg, onUpdate, onDelet
                                     </div>
                                     <div className="summary-item">
                                         <span className="label">Waste</span>
-                                        <span className="value text-lg text-red-500">{pkg.wasteWeight.toFixed(1)}g</span>
+                                        <span className="value text-lg text-[#DF5B59]">{pkg.wasteWeight.toFixed(1)}g</span>
                                     </div>
                                     <div className="summary-item">
                                         <span className="label">Net</span>
-                                        <span className="value text-lg text-emerald-500">
+                                        <span className="value text-lg text-[#3BB570]">
                                             {(pkg.quantity - pkg.wasteWeight).toFixed(1)}g
                                         </span>
                                     </div>
@@ -305,8 +305,8 @@ export const PackageCard: React.FC<PackageCardProps> = ({ pkg, onUpdate, onDelet
                         {/* Details */}
                         <div className="space-y-2 mb-4">
                             {pkg.tagNumber && (
-                                <div className="flex items-center gap-2 text-sm text-gray-600">
-                                    <Tag size={14} className="text-gray-400" />
+                                <div className="flex items-center gap-2 text-sm text-[#959595]">
+                                    <Tag size={14} className="text-[#C0C0C0]" />
                                     <span className="font-medium">Tag:</span> {pkg.tagNumber}
                                 </div>
                             )}
@@ -314,7 +314,7 @@ export const PackageCard: React.FC<PackageCardProps> = ({ pkg, onUpdate, onDelet
                             {/* Location */}
                             {isEditing ? (
                                 <div className="flex items-center gap-2 text-sm">
-                                    <MapPin size={14} className="text-gray-400 shrink-0" />
+                                    <MapPin size={14} className="text-[#C0C0C0] shrink-0" />
                                     <span className="font-medium shrink-0">Location:</span>
                                     <select
                                         className="field-input text-sm flex-1"
@@ -328,8 +328,8 @@ export const PackageCard: React.FC<PackageCardProps> = ({ pkg, onUpdate, onDelet
                                     </select>
                                 </div>
                             ) : pkg.location ? (
-                                <div className="flex items-center gap-2 text-sm text-gray-600">
-                                    <MapPin size={14} className="text-gray-400" />
+                                <div className="flex items-center gap-2 text-sm text-[#959595]">
+                                    <MapPin size={14} className="text-[#C0C0C0]" />
                                     <span className="font-medium">Location:</span> {pkg.location}
                                 </div>
                             ) : null}
@@ -337,7 +337,7 @@ export const PackageCard: React.FC<PackageCardProps> = ({ pkg, onUpdate, onDelet
                             {/* Lab Testing State */}
                             {isEditing ? (
                                 <div className="flex items-start gap-2 text-sm">
-                                    <FlaskConical size={14} className="text-gray-400 mt-1 shrink-0" />
+                                    <FlaskConical size={14} className="text-[#C0C0C0] mt-1 shrink-0" />
                                     <div>
                                         <span className="font-medium">Lab Testing:</span>
                                         <div className="chip-group mt-1">
@@ -355,7 +355,7 @@ export const PackageCard: React.FC<PackageCardProps> = ({ pkg, onUpdate, onDelet
                                     </div>
                                 </div>
                             ) : (
-                                <div className="flex items-center gap-2 text-sm text-gray-600">
+                                <div className="flex items-center gap-2 text-sm text-[#959595]">
                                     <FlaskConical size={14} className={LAB_CLASS[pkg.labTestingState]} />
                                     <span className="font-medium">Lab Testing:</span>
                                     <span className={LAB_CLASS[pkg.labTestingState]}>
@@ -377,7 +377,7 @@ export const PackageCard: React.FC<PackageCardProps> = ({ pkg, onUpdate, onDelet
                                     />
                                 </div>
                             ) : pkg.itemName ? (
-                                <div className="text-sm text-gray-600">
+                                <div className="text-sm text-[#959595]">
                                     <span className="font-medium">Item:</span> {pkg.itemName}
                                 </div>
                             ) : null}
@@ -385,7 +385,7 @@ export const PackageCard: React.FC<PackageCardProps> = ({ pkg, onUpdate, onDelet
                             {/* Notes */}
                             {isEditing ? (
                                 <div className="text-sm">
-                                    <span className="font-medium text-gray-600">Notes:</span>
+                                    <span className="font-medium text-[#959595]">Notes:</span>
                                     <textarea
                                         className="field-input text-sm w-full mt-1"
                                         rows={2}
@@ -395,12 +395,12 @@ export const PackageCard: React.FC<PackageCardProps> = ({ pkg, onUpdate, onDelet
                                     />
                                 </div>
                             ) : pkg.notes ? (
-                                <div className="text-sm text-gray-500 mt-2 italic">
+                                <div className="text-sm text-[#959595] mt-2 italic">
                                     {pkg.notes}
                                 </div>
                             ) : null}
 
-                            <div className="text-xs text-gray-400 mt-2">
+                            <div className="text-xs text-[#C0C0C0] mt-2">
                                 Packaged: {new Date(pkg.packagedDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
                                 {pkg.finishedDate && (
                                     <> &bull; Finished: {new Date(pkg.finishedDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}</>
@@ -410,14 +410,14 @@ export const PackageCard: React.FC<PackageCardProps> = ({ pkg, onUpdate, onDelet
 
                         {/* Error banner */}
                         {error && (
-                            <div className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2 mb-3">
+                            <div className="text-sm text-[#DF5B59] bg-[#FDF2F2] border border-[#F5C6C6] rounded-lg px-3 py-2 mb-3">
                                 {error}
                             </div>
                         )}
 
                         {/* Edit mode Save/Cancel */}
                         {isEditing && (
-                            <div className="flex gap-2 pt-3 border-t border-gray-200 mb-2">
+                            <div className="flex gap-2 pt-3 border-t border-[#F1F1F1] mb-2">
                                 <button
                                     className="btn-start-batch"
                                     onClick={handleSave}
@@ -439,7 +439,7 @@ export const PackageCard: React.FC<PackageCardProps> = ({ pkg, onUpdate, onDelet
 
                         {/* Status Actions */}
                         {!isEditing && pkg.status !== 'archived' && (
-                            <div className="flex gap-2 flex-wrap pt-3 border-t border-gray-200">
+                            <div className="flex gap-2 flex-wrap pt-3 border-t border-[#F1F1F1]">
                                 {pkg.status === 'active' && (
                                     <>
                                         <button
