@@ -13,6 +13,25 @@ export const handler: Handler = async (event) => {
             return { statusCode: 401, body: JSON.stringify({ error: 'Unauthorized' }) };
         }
 
+        // Ensure the current user has a trimmer_profile (covers admin who created the company)
+        const { rows: existingLink } = await sql`
+            SELECT id FROM trimmer_profiles
+            WHERE company_id = ${context.companyId} AND user_id = ${context.userId}
+            LIMIT 1
+        `;
+
+        if (existingLink.length === 0) {
+            const { rows: [currentUser] } = await sql`
+                SELECT name, email, role FROM users WHERE id = ${context.userId}
+            `;
+            if (currentUser) {
+                await sql`
+                    INSERT INTO trimmer_profiles (id, company_id, name, status, role, email, user_id, invite_status)
+                    VALUES (gen_random_uuid(), ${context.companyId}, ${currentUser.name || currentUser.email}, 'active', ${currentUser.role}, ${currentUser.email}, ${context.userId}, 'accepted')
+                `;
+            }
+        }
+
         const result = await sql`
             SELECT id, name, status, role, email, user_id, invited_at, invite_status, created_at
             FROM trimmer_profiles

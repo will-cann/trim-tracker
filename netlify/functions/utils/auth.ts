@@ -160,6 +160,12 @@ export async function resolveContext(authHeader?: string): Promise<Authenticated
             RETURNING id, company_id, role
         `;
 
+        // Auto-create a trimmer_profile so the admin appears in the team roster
+        await sql`
+            INSERT INTO trimmer_profiles (id, company_id, name, status, role, email, user_id, invite_status)
+            VALUES (gen_random_uuid(), ${newCompany.id}, ${name}, 'active', 'admin', ${email}, ${newUser.id}, 'accepted')
+        `;
+
         return {
             userId: newUser.id,
             companyId: newUser.company_id,
