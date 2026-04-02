@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import {
     Users, UserCheck, UserX, Mail, Plus, Check, Trash2,
-    ArrowUp, ArrowDown, ChevronsUpDown, Send,
+    ArrowUp, ArrowDown, ChevronsUpDown, Send, Copy, CheckCircle,
 } from 'lucide-react';
 import type { TrimmerProfile, TeamRole } from '../types/definitions';
 import { apiService } from '../services/apiService';
@@ -154,21 +154,31 @@ const MemberRow = ({
 }: {
     profile: TrimmerProfile;
     onUpdate: (id: string, updates: Partial<TrimmerProfile>) => Promise<void>;
-    onSendInvite: (id: string) => Promise<void>;
+    onSendInvite: (id: string) => Promise<string | undefined>;
     onDelete: (id: string) => Promise<void>;
 }) => {
     const [showActions, setShowActions] = useState(false);
     const [inviting, setInviting] = useState(false);
     const [confirmDelete, setConfirmDelete] = useState(false);
+    const [inviteUrl, setInviteUrl] = useState<string | null>(null);
+    const [copied, setCopied] = useState(false);
     const isInactive = profile.status === 'inactive';
 
     const handleInvite = async () => {
         setInviting(true);
         try {
-            await onSendInvite(profile.id);
+            const url = await onSendInvite(profile.id);
+            if (url) setInviteUrl(url);
         } finally {
             setInviting(false);
         }
+    };
+
+    const handleCopyLink = async () => {
+        if (!inviteUrl) return;
+        await navigator.clipboard.writeText(inviteUrl);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
     };
 
     const handleDelete = async () => {
@@ -305,6 +315,39 @@ const MemberRow = ({
                             <p className="text-sm text-gray-600">
                                 Are you sure you want to remove <strong>{profile.name}</strong> from the team? This action cannot be undone.
                             </p>
+                        </Modal>
+                    </td>
+                </tr>
+            )}
+
+            {inviteUrl && (
+                <tr>
+                    <td colSpan={6}>
+                        <Modal
+                            title="Invite Link"
+                            titleIcon={<Mail size={20} className="text-emerald-500" />}
+                            contentClassName="creation-modal"
+                            onClose={() => setInviteUrl(null)}
+                            footer={
+                                <div className="flex items-center gap-2 justify-end">
+                                    <button className="btn-cancel" onClick={() => setInviteUrl(null)}>Done</button>
+                                    <button className="btn-primary" onClick={handleCopyLink}>
+                                        {copied ? <><CheckCircle size={14} /> Copied</> : <><Copy size={14} /> Copy Link</>}
+                                    </button>
+                                </div>
+                            }
+                        >
+                            <div className="space-y-3">
+                                <p className="text-sm text-gray-600">
+                                    Share this link with <strong>{profile.name}</strong> to let them set up their account. The link expires in 7 days.
+                                </p>
+                                <div
+                                    onClick={handleCopyLink}
+                                    className="text-xs text-gray-500 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2.5 break-all cursor-pointer hover:bg-gray-100 transition-colors select-all"
+                                >
+                                    {inviteUrl}
+                                </div>
+                            </div>
                         </Modal>
                     </td>
                 </tr>
@@ -567,9 +610,10 @@ export const TeamDashboard: React.FC<TeamDashboardProps> = ({ profiles, onReload
         onReload();
     };
 
-    const handleSendInvite = async (id: string) => {
-        await apiService.sendTeamInvite(id);
+    const handleSendInvite = async (id: string): Promise<string | undefined> => {
+        const result = await apiService.sendTeamInvite(id);
         onReload();
+        return result.inviteUrl;
     };
 
     const handleDelete = async (id: string) => {

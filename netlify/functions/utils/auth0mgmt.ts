@@ -47,7 +47,7 @@ async function getMgmtToken(): Promise<string> {
  * Send an invitation to join the app via Auth0.
  * Creates a password change ticket that acts as an invite link.
  */
-export async function sendInvitation(email: string, name?: string): Promise<{ success: boolean; error?: string }> {
+export async function sendInvitation(email: string, name?: string): Promise<{ success: boolean; error?: string; inviteUrl?: string }> {
     if (!AUTH0_DOMAIN || !AUTH0_CLIENT_ID) {
         return { success: false, error: 'Auth0 not configured' };
     }
@@ -113,7 +113,8 @@ export async function sendInvitation(email: string, name?: string): Promise<{ su
             return { success: false, error: 'Failed to send invitation' };
         }
 
-        return { success: true };
+        const ticket = await ticketRes.json();
+        return { success: true, inviteUrl: ticket.ticket };
     } catch (error) {
         console.error('Error sending invitation:', error);
         return { success: false, error: 'Failed to send invitation' };

@@ -157,7 +157,7 @@ export const deleteTrimmerProfile = async (id: string): Promise<TrimmerProfile[]
     return await getTrimmerProfiles();
 };
 
-export const sendTeamInvite = async (profileId: string): Promise<{ success: boolean; invitedAt: string }> => {
+export const sendTeamInvite = async (profileId: string): Promise<{ success: boolean; invitedAt: string; inviteUrl?: string }> => {
     const response = await fetchWithAuth(`${API_BASE}/send-team-invite`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

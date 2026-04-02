@@ -64,6 +64,7 @@ export const handler: Handler = async (event) => {
             body: JSON.stringify({
                 success: true,
                 invitedAt: updated.rows[0].invited_at,
+                inviteUrl: result.inviteUrl || undefined,
             }),
         };
     } catch (error) {
