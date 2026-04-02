@@ -40,7 +40,18 @@ export const handler: Handler = async (event) => {
             RETURNING id, name, status, role, email, user_id, invited_at, invite_status, created_at
         `;
 
+        // If this profile is linked to a user, keep the users table in sync
         const row = result.rows[0];
+        if (row?.user_id && (name || email !== undefined)) {
+            await sql`
+                UPDATE users SET
+                    name = COALESCE(${name ?? null}, name),
+                    email = COALESCE(${email ?? null}, email),
+                    updated_at = NOW()
+                WHERE id = ${row.user_id}
+            `;
+        }
+
         return {
             statusCode: 200,
             headers: { 'Content-Type': 'application/json' },
