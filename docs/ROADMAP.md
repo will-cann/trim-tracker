@@ -2,6 +2,8 @@
 
 Planned features, integrations, and improvements. Updated as priorities evolve.
 
+> Last updated: 2026-04-02
+
 ---
 
 ## Product Catalog & Custom Categories
@@ -30,9 +32,11 @@ Planned features, integrations, and improvements. Updated as priorities evolve.
 
 - **Needs SME input (Brian or similar)** before implementation
 - Audit current status workflow (`planning → active → submitted → drying → ready → completed`) against real operations
-- Rethink tab/filter UX — current drying vs. planning vs. ready view isn't well structured
+- ~~Rethink tab/filter UX — current drying vs. planning vs. ready view isn't well structured~~ **Done** — 4-stage pipeline built: upcoming, in progress, drying, finished
 - Better sorting and filtering throughout
 - Ensure status transitions reflect what actually happens on the floor
+- **Harvest Day cockpit built** — live weighing ops tool with allocation-type mode switching (flower/frozen/both)
+- **Moisture loss tracking built** — `moisture_loss_pct` on harvests (default 75%), estimated dry weight calculated for trim entries, progress bars use dry weight baseline
 
 ---
 
@@ -44,6 +48,25 @@ Planned features, integrations, and improvements. Updated as priorities evolve.
 - On batch creation, system auto-generates tasks from the SOP template with estimated dates
 - SOPs can be adjusted post-creation via individual task edits
 - Templates are reusable across batches (e.g., "8-week flower cycle with weekly IPM")
+- **Design note:** physical task completion should auto-queue AI to execute METRC compliance equivalent (physical→compliance chain)
+- **Data model sketch:** `sop_templates` → `sop_task_definitions` → `scheduled_tasks`; design before METRC integration
+
+### Plant Tagging & Compliance
+- Physical tags from printed rolls with sequential METRC numbers
+- Users select a starting tag from available inventory; system assigns sequentially
+- **Current state:** silent auto-tagging placeholder — needs starting tag selector UI before METRC goes live
+- Tag assignment UI belongs on phase promotion flow (nursery→veg, veg→flower), not on plant creation
+- Batch tags vs. individual plant tags follow METRC lifecycle model
+
+### License Scoping
+- Plants need `license_number` column (currently missing)
+- Rooms are NOT license-scoped — a single room can hold plants from multiple licenses (e.g., med + rec in Colorado)
+- Future: add license to plants table, auto-fill harvest license from selected plants, group plant pickers by license within rooms
+
+### Strain Custom Fields
+- Strains need a "stretch" trait (low/medium/high) for canopy planning
+- Future: user-defined custom columns (feeding schedule, IPM schedule, plant orders)
+- Recommend flexible schema (JSONB or key-value table) over individual columns
 
 ### Room Types
 - Rooms get a type label that drives behavior throughout the app:
@@ -59,6 +82,14 @@ Planned features, integrations, and improvements. Updated as priorities evolve.
   - **Nutrient Mixing Room** — feed preparation
 - Room type constrains location selection contextually (drying plants → only drying rooms, freezing packages → only cold storage)
 - Room type informs what UI/actions are relevant when viewing that room
+
+### Room Capacity & Movement Planning
+- `rooms.capacity` column and `Room.capacity` type already exist — needs to be surfaced in UI
+- **Room cards (RoomCard.tsx):** show `12 / 50 plants` instead of just `12 plants` when capacity is set
+- **Plant movement modal (PlantActionModal.tsx):** room selection grid should display current count vs. capacity for each target room, with visual indicator (green/yellow/red) for available space
+- **Warn on over-capacity:** soft warning when a move would exceed capacity (don't block — real ops sometimes overfill temporarily)
+- **Room creation/edit:** capacity field already accepted by `manage-room.ts`, ensure it's prominent in room setup UI
+- Applies to grow rooms (nursery, veg, flower) — not relevant for storage/equipment rooms
 
 ### Plant Map — Full Facility View
 - Show all rooms across all phases in a single view
@@ -77,9 +108,30 @@ Planned features, integrations, and improvements. Updated as priorities evolve.
 - Explore specialized sub-agents for different domains (extraction, cultivation, compliance)
 - TBD on architecture and scope
 
+### Assign-to-AI Tasks
+- Planned "Assign to AI" button for bot-executable tasks from ambient voice transcription
+- **Build order before UI:** (1) bot service account / audit identity, (2) action type allowlist (safe-only: record_wet_weight, etc.; never destructive), (3) new task statuses `ai_pending` / `ai_failed`, (4) pre-flight validation, (5) UI button only for allowlisted actions
+- Alternative path: AI-assisted confirmation (one-tap human approval) for non-allowlisted actions
+
+### Eval Framework
+- **Built:** Python + pytest suite at `tests/eval/` — 103 test cases across 5 areas (silence chunking, intent classification, entity extraction, edge cases, end-to-end)
+- 40 chunking tests pass without fixtures
+- **Next:** record fixtures via `pytest --eval-mode=record` against live netlify dev (~$1.70 in Sonnet tokens), then run freely with `pytest --eval-mode=mock`
+
 ---
 
 ## UX & Interface
+
+### Meeting Mode (Executive Engagement)
+- Dedicated mode for leadership meetings — AI-powered note taker with task extraction
+- Ambient voice transcription captures discussion in real time (reuses existing Deepgram infrastructure)
+- AI parses meeting transcript into structured meeting notes + actionable tasks
+- Tasks auto-created and assigned to team members mentioned in conversation
+- Post-meeting summary: decisions made, tasks generated, follow-ups with due dates
+- Designed for executives who don't touch day-to-day ops but need visibility and accountability
+- Increases platform stickiness at the leadership level — not just a floor-ops tool
+- Could tie into department lead structure (tasks route to the right lead automatically)
+- Potential: recurring meeting templates (weekly cultivation review, harvest planning, etc.)
 
 ### Keyboard Shortcuts
 - Navigation hotkeys for switching views
@@ -100,9 +152,20 @@ Planned features, integrations, and improvements. Updated as priorities evolve.
 - Expanded room responsive improvements for smaller screens
 - Strain name truncation — consider expandable cells or tooltip
 
+### Package Inventory
+- **Backend CRUD built** (2026-03-29)
+- **Next:** mutation UI (inline editing, modals for location/notes/lab testing/quantity), status transition UX (Hold/Release/Finish)
+
 ---
 
 ## Team & Delegation
+
+### Current State (built)
+- Team dashboard with inline editing (name, role, email, status)
+- Auth0 invite flow with copy-to-clipboard modal
+- Role hierarchy: admin, manager, lead, worker
+- Admin auto-provisioned into team roster
+- Task assignment to any team member including self
 
 ### Department Leads
 - Each department (cultivation, harvest, extraction, trim, packaging, etc.) can have a designated lead
@@ -111,8 +174,7 @@ Planned features, integrations, and improvements. Updated as priorities evolve.
 - Reduces bottleneck on admins/owners — leads manage their own crew's workload
 - Lead gets a view of all tasks in their department and who's assigned to what
 
-### Role Hierarchy
-- Current roles: admin, user — may need a "lead" role or per-department lead designation
+### Role Hierarchy (expansion)
 - Leads have permission to assign/reassign tasks within their department but not facility-wide settings
 - Consider: can a person lead multiple departments? (common in smaller ops)
 
@@ -128,11 +190,14 @@ Planned features, integrations, and improvements. Updated as priorities evolve.
 - Batch tracking with yield % (input weight → output weight)
 - Ambient/voice input at natural stopping points in extraction workflow
 - METRC package creation & adjustment for extraction batches
+- **Basic extraction logging built** — `record-extraction` endpoint, extraction_logs table, package creation from extraction output
+- **SME guidance (2026-03-30):** hash making and METRC concentrate packages are universal — build now, refine with feedback. "Don't build on hypotheticals" — SME wants to run batches first.
 
 ### P1: Supply Chain & Reorder Alerts
 - Recipe / Bill of Materials (e.g., 1 cart = 0.5g rosin + 1 empty cart)
 - Smart reorder alerts with lead time learning
 - Lab tech reorder permissions with spend limits
+- Track consumables (bags, screens, carts, hardware) with smart reorder
 
 ### P2: Analytics & Optimization
 - Strain-level economics (yield %, cost per gram over time)
@@ -147,6 +212,7 @@ Planned features, integrations, and improvements. Updated as priorities evolve.
 - Bidirectional sync for package creation, adjustments, transfers
 - Manufacturing/processing API endpoints
 - Goal: operators never log into METRC directly
+- **Prerequisite:** plant tagging starting-tag selector, SOP workflow templates designed
 
 ### BioTrack
 - Evaluate API availability and feature parity with METRC integration
@@ -163,6 +229,16 @@ Planned features, integrations, and improvements. Updated as priorities evolve.
 ### Barcode Scanning
 - Scan fresh frozen bags, packages, plant tags
 - USB scanner or phone camera support
+
+---
+
+## Infrastructure & Brand
+
+### NeuroCann Domain Migration
+- Domain: neurocann.ai (purchased ~2026-03-29)
+- Code changes: HTML title, Auth0 audience URLs, Auth0 namespace, IndexedDB name, package.json name
+- Infrastructure: Auth0 callback URLs, Netlify custom domain, DNS config
+- SSL handled by Netlify automatically
 
 ---
 
