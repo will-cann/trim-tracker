@@ -2,6 +2,9 @@ import { Handler } from '@netlify/functions';
 import { sql, pool } from './utils/db';
 import { resolveContext } from './utils/auth';
 
+const WEIGHT_FIELDS = ['flowerWeight', 'shakeWeight', 'trimWeight', 'wasteWeight'];
+const VALID_TOOLS = ['scissors', 'machine'];
+
 export const handler: Handler = async (event) => {
   if (event.httpMethod !== 'PUT') {
     return { statusCode: 405, body: 'Method Not Allowed' };
@@ -23,6 +26,31 @@ export const handler: Handler = async (event) => {
       return {
         statusCode: 400,
         body: JSON.stringify({ error: 'Trimmer ID and Entry ID are required' }),
+      };
+    }
+
+    if (!updates || typeof updates !== 'object') {
+      return {
+        statusCode: 400,
+        body: JSON.stringify({ error: 'updates object is required' }),
+      };
+    }
+
+    // Validate weight fields are non-negative numbers
+    for (const field of WEIGHT_FIELDS) {
+      if (updates[field] !== undefined && (typeof updates[field] !== 'number' || updates[field] < 0)) {
+        return {
+          statusCode: 400,
+          body: JSON.stringify({ error: `${field} must be a non-negative number` }),
+        };
+      }
+    }
+
+    // Validate tool enum
+    if (updates.tool !== undefined && updates.tool !== null && !VALID_TOOLS.includes(updates.tool)) {
+      return {
+        statusCode: 400,
+        body: JSON.stringify({ error: `tool must be one of: ${VALID_TOOLS.join(', ')}` }),
       };
     }
 

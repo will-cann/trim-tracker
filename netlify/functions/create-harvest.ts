@@ -1,6 +1,7 @@
 import { Handler } from '@netlify/functions';
 import { pool } from './utils/db';
-import { resolveContext } from './utils/auth';
+import { captureError } from './utils/sentry';
+import { resolveContext, authorize } from './utils/auth';
 import { createHarvestBatchId } from './utils/harvest';
 
 export const handler: Handler = async (event) => {
@@ -13,6 +14,9 @@ export const handler: Handler = async (event) => {
         if (!context) {
             return { statusCode: 401, body: JSON.stringify({ error: 'Unauthorized' }) };
         }
+
+        const denied = authorize(context, 'lead');
+        if (denied) return denied;
 
         const data = JSON.parse(event.body || '{}');
         const {

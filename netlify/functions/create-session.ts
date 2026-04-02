@@ -1,6 +1,7 @@
 import { Handler } from '@netlify/functions';
 import { sql, pool } from './utils/db';
-import { resolveContext } from './utils/auth';
+import { resolveContext, authorize } from './utils/auth';
+import { captureError } from './utils/sentry';
 
 export const handler: Handler = async (event) => {
     if (event.httpMethod !== 'POST') {
@@ -17,7 +18,17 @@ export const handler: Handler = async (event) => {
             };
         }
 
+        const denied = authorize(context, 'lead');
+        if (denied) return denied;
+
         const data = JSON.parse(event.body || '{}');
+
+        if (!data.harvestName || !data.strain || !data.licenseNumber || data.startWeight == null) {
+            return {
+                statusCode: 400,
+                body: JSON.stringify({ error: 'harvestName, strain, licenseNumber, and startWeight are required' }),
+            };
+        }
 
         const client = await pool.connect();
         try {
@@ -118,6 +129,7 @@ export const handler: Handler = async (event) => {
         }
     } catch (error) {
         console.error('Error creating session:', error);
+        captureError(error, { function: 'create-session' });
         return {
             statusCode: 500,
             body: JSON.stringify({ error: 'Failed to create session' }),

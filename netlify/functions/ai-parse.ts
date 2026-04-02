@@ -1,6 +1,8 @@
 import { Handler } from '@netlify/functions';
 import { resolveContext } from './utils/auth';
 import { sql } from './utils/db';
+import { checkRateLimit } from './utils/rateLimit';
+import { withSentry, captureError } from './utils/sentry';
 
 const ANTHROPIC_API_URL = 'https://api.anthropic.com/v1/messages';
 
@@ -907,6 +909,19 @@ export const handler: Handler = async (event) => {
             return { statusCode: 401, body: JSON.stringify({ error: 'Unauthorized' }) };
         }
 
+        // Rate limit: 60 requests per company per 60 seconds
+        const rateLimit = await checkRateLimit(authContext.companyId, 'ai-parse', 60, 60);
+        if (!rateLimit.allowed) {
+            return {
+                statusCode: 429,
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Retry-After': String(rateLimit.retryAfterSeconds || 60),
+                },
+                body: JSON.stringify({ error: 'Rate limit exceeded. Please try again shortly.' }),
+            };
+        }
+
         const request: AIParseRequest = JSON.parse(event.body || '{}');
 
         if (!request.message && !request.csvData && !request.transcriptChunks?.length) {
@@ -1672,6 +1687,7 @@ export const handler: Handler = async (event) => {
         };
     } catch (error) {
         console.error('Error in ai-parse:', error);
+        captureError(error, { function: 'ai-parse' });
         return {
             statusCode: 500,
             body: JSON.stringify({ error: 'Failed to parse input' }),

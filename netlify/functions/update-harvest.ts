@@ -1,6 +1,8 @@
 import { Handler } from '@netlify/functions';
 import { pool } from './utils/db';
-import { resolveContext } from './utils/auth';
+import { resolveContext, authorize } from './utils/auth';
+
+const VALID_STATUSES = ['planning', 'active', 'submitted', 'drying', 'ready', 'completed'];
 
 export const handler: Handler = async (event) => {
     if (event.httpMethod !== 'PUT') {
@@ -13,10 +15,27 @@ export const handler: Handler = async (event) => {
             return { statusCode: 401, body: JSON.stringify({ error: 'Unauthorized' }) };
         }
 
+        const denied = authorize(context, 'lead');
+        if (denied) return denied;
+
         const { harvestId, ...updates } = JSON.parse(event.body || '{}');
 
         if (!harvestId) {
             return { statusCode: 400, body: JSON.stringify({ error: 'harvestId is required' }) };
+        }
+
+        // Validate field types before processing
+        if (updates.plantCount !== undefined && (typeof updates.plantCount !== 'number' || updates.plantCount < 0)) {
+            return { statusCode: 400, body: JSON.stringify({ error: 'plantCount must be a non-negative number' }) };
+        }
+        if (updates.dryWeight !== undefined && (typeof updates.dryWeight !== 'number' || updates.dryWeight < 0)) {
+            return { statusCode: 400, body: JSON.stringify({ error: 'dryWeight must be a non-negative number' }) };
+        }
+        if (updates.moistureLossPct !== undefined && (typeof updates.moistureLossPct !== 'number' || updates.moistureLossPct < 0 || updates.moistureLossPct > 100)) {
+            return { statusCode: 400, body: JSON.stringify({ error: 'moistureLossPct must be between 0 and 100' }) };
+        }
+        if (updates.status !== undefined && !VALID_STATUSES.includes(updates.status)) {
+            return { statusCode: 400, body: JSON.stringify({ error: `status must be one of: ${VALID_STATUSES.join(', ')}` }) };
         }
 
         // Allowlisted fields

@@ -1,12 +1,18 @@
 import { Handler } from '@netlify/functions';
 import { sql } from './utils/db';
-import { resolveContext } from './utils/auth';
+import { resolveContext, authorize } from './utils/auth';
 
 export const handler: Handler = async (event) => {
     try {
         const context = await resolveContext(event.headers.authorization);
         if (!context) {
             return { statusCode: 401, body: JSON.stringify({ error: 'Unauthorized' }) };
+        }
+
+        // Write operations require manager+; reads are open to all authenticated users
+        if (event.httpMethod !== 'GET') {
+            const denied = authorize(context, 'manager');
+            if (denied) return denied;
         }
 
         // GET — list tags or stats

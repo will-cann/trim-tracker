@@ -1,6 +1,6 @@
 import { Handler } from '@netlify/functions';
 import { pool } from './utils/db';
-import { resolveContext } from './utils/auth';
+import { resolveContext, authorize } from './utils/auth';
 
 export const handler: Handler = async (event) => {
     if (event.httpMethod !== 'DELETE') {
@@ -16,6 +16,9 @@ export const handler: Handler = async (event) => {
                 body: JSON.stringify({ error: 'Unauthorized' })
             };
         }
+
+        const denied = authorize(context, 'manager');
+        if (denied) return denied;
 
         const id = event.queryStringParameters?.id;
 

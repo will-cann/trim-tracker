@@ -1,6 +1,7 @@
 import { Handler } from '@netlify/functions';
 import { sql } from './utils/db';
-import { resolveContext } from './utils/auth';
+import { captureError } from './utils/sentry';
+import { resolveContext, authorize } from './utils/auth';
 
 type ActionType = 'destroy' | 'change-phase' | 'change-room' | 'plant-health';
 
@@ -32,6 +33,9 @@ export const handler: Handler = async (event) => {
         if (!context) {
             return { statusCode: 401, body: JSON.stringify({ error: 'Unauthorized' }) };
         }
+
+        const denied = authorize(context, 'lead');
+        if (denied) return denied;
 
         const payload: ActionPayload = JSON.parse(event.body || '{}');
         const { action, plantIds, entityType } = payload;

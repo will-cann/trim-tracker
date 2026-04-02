@@ -20,10 +20,33 @@ export interface Auth0User {
     [key: string]: any;
 }
 
+export type Role = 'admin' | 'manager' | 'lead' | 'worker';
+
 export interface AuthenticatedContext {
     userId: string;
     companyId: string;
-    role: string;
+    role: Role;
+}
+
+const ROLE_LEVEL: Record<Role, number> = {
+    admin: 40,
+    manager: 30,
+    lead: 20,
+    worker: 10,
+};
+
+/**
+ * Check if a user's role meets the minimum required level.
+ * Returns null if authorized, or an HTTP response object if not.
+ */
+export function authorize(context: AuthenticatedContext, minRole: Role) {
+    const userLevel = ROLE_LEVEL[context.role] ?? 0;
+    const requiredLevel = ROLE_LEVEL[minRole];
+    if (userLevel >= requiredLevel) return null;
+    return {
+        statusCode: 403,
+        body: JSON.stringify({ error: 'Forbidden: insufficient permissions' }),
+    };
 }
 
 export async function verifyToken(authHeader?: string): Promise<Auth0User | null> {

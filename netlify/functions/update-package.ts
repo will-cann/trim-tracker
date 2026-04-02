@@ -1,6 +1,9 @@
 import { Handler } from '@netlify/functions';
 import { pool } from './utils/db';
-import { resolveContext } from './utils/auth';
+import { resolveContext, authorize } from './utils/auth';
+
+const VALID_STATUSES = ['active', 'on_hold', 'finished', 'archived'];
+const VALID_LAB_STATES = ['not_submitted', 'submitted', 'passed', 'failed'];
 
 export const handler: Handler = async (event) => {
     if (event.httpMethod !== 'PUT') {
@@ -13,11 +16,28 @@ export const handler: Handler = async (event) => {
             return { statusCode: 401, body: JSON.stringify({ error: 'Unauthorized' }) };
         }
 
+        const denied = authorize(context, 'lead');
+        if (denied) return denied;
+
         const data = JSON.parse(event.body || '{}');
         const { packageId, ...updates } = data;
 
         if (!packageId) {
             return { statusCode: 400, body: JSON.stringify({ error: 'packageId is required' }) };
+        }
+
+        // Validate field types
+        if (updates.status !== undefined && !VALID_STATUSES.includes(updates.status)) {
+            return { statusCode: 400, body: JSON.stringify({ error: `status must be one of: ${VALID_STATUSES.join(', ')}` }) };
+        }
+        if (updates.labTestingState !== undefined && !VALID_LAB_STATES.includes(updates.labTestingState)) {
+            return { statusCode: 400, body: JSON.stringify({ error: `labTestingState must be one of: ${VALID_LAB_STATES.join(', ')}` }) };
+        }
+        if (updates.quantity !== undefined && (typeof updates.quantity !== 'number' || updates.quantity < 0)) {
+            return { statusCode: 400, body: JSON.stringify({ error: 'quantity must be a non-negative number' }) };
+        }
+        if (updates.wasteWeight !== undefined && (typeof updates.wasteWeight !== 'number' || updates.wasteWeight < 0)) {
+            return { statusCode: 400, body: JSON.stringify({ error: 'wasteWeight must be a non-negative number' }) };
         }
 
         const allowedFields: Record<string, string> = {

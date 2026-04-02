@@ -1,5 +1,7 @@
 import { Handler } from '@netlify/functions';
 import { resolveContext } from './utils/auth';
+import { captureError } from './utils/sentry';
+import { checkRateLimit } from './utils/rateLimit';
 
 export const handler: Handler = async (event) => {
     if (event.httpMethod !== 'POST') {
@@ -10,6 +12,16 @@ export const handler: Handler = async (event) => {
         const authContext = await resolveContext(event.headers.authorization);
         if (!authContext) {
             return { statusCode: 401, body: JSON.stringify({ error: 'Unauthorized' }) };
+        }
+
+        // Rate limit: 10 token requests per company per 60 seconds
+        const rateLimit = await checkRateLimit(authContext.companyId, 'deepgram-token', 10, 60);
+        if (!rateLimit.allowed) {
+            return {
+                statusCode: 429,
+                headers: { 'Retry-After': String(rateLimit.retryAfterSeconds || 60) },
+                body: JSON.stringify({ error: 'Rate limit exceeded' }),
+            };
         }
 
         const apiKey = process.env.DEEPGRAM_API_KEY;

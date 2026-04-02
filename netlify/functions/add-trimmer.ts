@@ -26,6 +26,13 @@ export const handler: Handler = async (event) => {
             };
         }
 
+        if (tool && !['scissors', 'machine'].includes(tool)) {
+            return {
+                statusCode: 400,
+                body: JSON.stringify({ error: 'tool must be scissors or machine' }),
+            };
+        }
+
         // Verify ownership of the entry
         const ownershipResult = await sql`
           SELECT ts.company_id 

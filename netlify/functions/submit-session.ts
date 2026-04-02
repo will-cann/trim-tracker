@@ -1,6 +1,7 @@
 import { Handler } from '@netlify/functions';
 import { pool } from './utils/db';
-import { resolveContext } from './utils/auth';
+import { captureError } from './utils/sentry';
+import { resolveContext, authorize } from './utils/auth';
 
 export const handler: Handler = async (event) => {
     if (event.httpMethod !== 'POST') {
@@ -16,6 +17,9 @@ export const handler: Handler = async (event) => {
                 body: JSON.stringify({ error: 'Unauthorized' })
             };
         }
+
+        const denied = authorize(context, 'lead');
+        if (denied) return denied;
 
         const { sessionId } = JSON.parse(event.body || '{}');
 
