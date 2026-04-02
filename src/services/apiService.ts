@@ -157,6 +157,16 @@ export const deleteTrimmerProfile = async (id: string): Promise<TrimmerProfile[]
     return await getTrimmerProfiles();
 };
 
+export const sendTeamInvite = async (profileId: string): Promise<{ success: boolean; invitedAt: string }> => {
+    const response = await fetchWithAuth(`${API_BASE}/send-team-invite`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ profileId }),
+    });
+    if (!response.ok) throw new Error('Failed to send invite');
+    return await response.json();
+};
+
 export const deleteBatch = async (entryId: string): Promise<TrimSession> => {
     const response = await fetchWithAuth(`${API_BASE}/delete-batch?id=${entryId}`, {
         method: 'DELETE',
@@ -825,6 +835,7 @@ export const apiService = {
     addTrimmerProfile,
     updateTrimmerProfile,
     deleteTrimmerProfile,
+    sendTeamInvite,
     deleteBatch,
     submitBatch,
     startBatch,

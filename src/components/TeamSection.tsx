@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
-import { Plus, Trash2, Users, Pencil, Check, X } from 'lucide-react';
+import { Plus, Trash2, Users, Pencil, Check, X, ArrowRight } from 'lucide-react';
 import type { TrimmerProfile, TeamRole } from '../types/definitions';
 import { apiService } from '../services/apiService';
 
 interface TeamSectionProps {
     profiles: TrimmerProfile[];
     onReload: () => void;
+    onNavigateToTeam?: () => void;
 }
 
 const ROLE_LABELS: Record<TeamRole, string> = {
@@ -22,7 +23,7 @@ const ROLE_COLORS: Record<TeamRole, string> = {
     worker: 'bg-gray-100 text-gray-600',
 };
 
-export const TeamSection: React.FC<TeamSectionProps> = ({ profiles, onReload }) => {
+export const TeamSection: React.FC<TeamSectionProps> = ({ profiles, onReload, onNavigateToTeam }) => {
     const [isAdding, setIsAdding] = useState(false);
     const [newName, setNewName] = useState('');
     const [newRole, setNewRole] = useState<TeamRole>('worker');
@@ -74,15 +75,25 @@ export const TeamSection: React.FC<TeamSectionProps> = ({ profiles, onReload }) 
                     <h3 className="text-sm font-semibold text-gray-700">Team Members</h3>
                     <span className="text-xs text-gray-400">{activeProfiles.length} active</span>
                 </div>
-                {!isAdding && (
-                    <button
-                        onClick={() => setIsAdding(true)}
-                        className="btn-new-batch text-sm px-3 py-1.5"
-                    >
-                        <Plus size={14} />
-                        Add Member
-                    </button>
-                )}
+                <div className="flex items-center gap-2">
+                    {onNavigateToTeam && (
+                        <button
+                            onClick={onNavigateToTeam}
+                            className="inline-flex items-center gap-1 text-xs font-medium text-emerald-600 hover:text-emerald-700 transition-colors"
+                        >
+                            Manage Team <ArrowRight size={12} />
+                        </button>
+                    )}
+                    {!isAdding && (
+                        <button
+                            onClick={() => setIsAdding(true)}
+                            className="btn-new-batch text-sm px-3 py-1.5"
+                        >
+                            <Plus size={14} />
+                            Add Member
+                        </button>
+                    )}
+                </div>
             </div>
 
             {/* Add form */}

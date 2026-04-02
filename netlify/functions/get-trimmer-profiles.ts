@@ -14,7 +14,7 @@ export const handler: Handler = async (event) => {
         }
 
         const result = await sql`
-            SELECT id, name, status, role, email, user_id, created_at
+            SELECT id, name, status, role, email, user_id, invited_at, invite_status, created_at
             FROM trimmer_profiles
             WHERE company_id = ${context.companyId}
             ORDER BY name ASC
@@ -27,6 +27,8 @@ export const handler: Handler = async (event) => {
             role: row.role || 'worker',
             email: row.email || undefined,
             userId: row.user_id || undefined,
+            invitedAt: row.invited_at || undefined,
+            inviteStatus: row.invite_status || 'none',
             createdAt: row.created_at,
         }));
 

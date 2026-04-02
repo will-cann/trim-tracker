@@ -38,7 +38,7 @@ export const handler: Handler = async (event) => {
                 ${assignedRole},
                 ${email || null}
             )
-            RETURNING id, name, status, role, email, user_id, created_at
+            RETURNING id, name, status, role, email, user_id, invited_at, invite_status, created_at
         `;
 
         const row = rows[0];
@@ -48,7 +48,13 @@ export const handler: Handler = async (event) => {
         if (email) {
             const result = await sendInvitation(email, name);
             invited = result.success;
-            if (!result.success) {
+            if (result.success) {
+                await sql`
+                    UPDATE trimmer_profiles
+                    SET invited_at = NOW(), invite_status = 'pending'
+                    WHERE id = ${row.id}
+                `;
+            } else {
                 console.warn(`Profile created but invite failed for ${email}: ${result.error}`);
             }
         }
@@ -63,6 +69,8 @@ export const handler: Handler = async (event) => {
                 role: row.role,
                 email: row.email || undefined,
                 userId: row.user_id || undefined,
+                invitedAt: invited ? new Date().toISOString() : undefined,
+                inviteStatus: invited ? 'pending' : 'none',
                 createdAt: row.created_at,
                 invited,
             }),

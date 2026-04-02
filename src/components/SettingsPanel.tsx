@@ -61,7 +61,11 @@ const StrainRow = ({ strain, onUpdate, onDelete }: {
     );
 };
 
-export const SettingsPanel: React.FC = () => {
+interface SettingsPanelProps {
+    onViewChange?: (view: any) => void;
+}
+
+export const SettingsPanel: React.FC<SettingsPanelProps> = ({ onViewChange }) => {
     const [licenses, setLicenses] = useState<License[]>([]);
     const [strains, setStrains] = useState<Strain[]>([]);
     const [profiles, setProfiles] = useState<TrimmerProfile[]>([]);
@@ -950,7 +954,7 @@ export const SettingsPanel: React.FC = () => {
 
             {/* Team Management */}
             <div className="mt-6">
-                <TeamSection profiles={profiles} onReload={loadProfiles} />
+                <TeamSection profiles={profiles} onReload={loadProfiles} onNavigateToTeam={onViewChange ? () => onViewChange('team') : undefined} />
             </div>
         </div>
         </>

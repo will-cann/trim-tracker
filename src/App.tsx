@@ -19,9 +19,10 @@ import { useHumanTasks } from './hooks/useHumanTasks';
 import { PlantMapDashboard } from './components/PlantMap/PlantMapDashboard';
 import { PackageDashboard } from './components/Packages/PackageDashboard';
 import { HarvestDayCockpit } from './components/HarvestDay/HarvestDayCockpit';
+import { TeamDashboard } from './components/TeamDashboard';
 import { usePlantMapSummary } from './hooks/usePlantMapSummary';
 
-type ViewType = 'ai' | 'dashboard' | 'reports' | 'harvests' | 'harvest-day' | 'settings' | 'tasks' | 'plant-map' | 'packages';
+type ViewType = 'ai' | 'dashboard' | 'reports' | 'harvests' | 'harvest-day' | 'settings' | 'tasks' | 'plant-map' | 'packages' | 'team';
 
 const VIEW_SCREEN_CONTEXT: Record<ViewType, string> = {
   'ai': 'neurocann home — general conversation, no specific module focused',
@@ -33,6 +34,7 @@ const VIEW_SCREEN_CONTEXT: Record<ViewType, string> = {
   'plant-map': 'Plant Map — viewing rooms, plants by growth phase (veg, flower, dry, cure), and plant locations. Operations here involve moving plants between rooms, updating plant health, and managing room assignments',
   'harvest-day': 'Harvest Day Cockpit — active harvest session with plant weighing, allocation, fresh frozen packaging, and batch submission',
   'packages': 'Package Inventory — managing packaged product (flower, trim, shake) with weights, lab testing status, and compliance tracking',
+  'team': 'Team Management — managing employees, roles, and invitations',
 };
 
 function AppContent() {
@@ -333,8 +335,10 @@ function AppContent() {
             onRetry={retryLoadTasks}
             teamMembers={trimmerProfiles.filter(p => p.status === 'active').map(p => ({ id: p.id, name: p.name, userId: p.userId }))}
           />
+        ) : currentView === 'team' ? (
+          <TeamDashboard profiles={trimmerProfiles} onReload={loadTrimmerProfiles} />
         ) : currentView === 'settings' ? (
-          <SettingsPanel />
+          <SettingsPanel onViewChange={setCurrentView} />
         ) : currentView === 'harvest-day' ? (
           <HarvestDayCockpit onExit={() => setCurrentView('harvests')} />
         ) : currentView === 'harvests' ? (

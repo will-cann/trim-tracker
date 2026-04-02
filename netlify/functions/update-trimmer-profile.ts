@@ -37,7 +37,7 @@ export const handler: Handler = async (event) => {
                 email = CASE WHEN ${email !== undefined} THEN ${email ?? null} ELSE email END,
                 status = COALESCE(${status ?? null}, status)
             WHERE id = ${profileId} AND company_id = ${context.companyId}
-            RETURNING id, name, status, role, email, user_id, created_at
+            RETURNING id, name, status, role, email, user_id, invited_at, invite_status, created_at
         `;
 
         const row = result.rows[0];
@@ -51,6 +51,8 @@ export const handler: Handler = async (event) => {
                 role: row.role,
                 email: row.email || undefined,
                 userId: row.user_id || undefined,
+                invitedAt: row.invited_at || undefined,
+                inviteStatus: row.invite_status || 'none',
                 createdAt: row.created_at,
             }),
         };
