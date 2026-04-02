@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Scale, Plus, Loader2 } from 'lucide-react';
+import { Scale, Plus, Loader2, Check } from 'lucide-react';
 import type { Harvest, HarvestPlantWeight } from '../../types/definitions';
 import { apiService } from '../../services/apiService';
 import { PlantWeightList } from './PlantWeightList';
@@ -21,14 +21,27 @@ export const HarvestCenterColumn: React.FC<HarvestCenterColumnProps> = ({
     const [weightInput, setWeightInput] = useState('');
     const [bulkInput, setBulkInput] = useState('');
     const [saving, setSaving] = useState(false);
+    const [justSaved, setJustSaved] = useState(false);
     const [newestId, setNewestId] = useState<string | undefined>();
     const inputRef = useRef<HTMLInputElement>(null);
+    const savedTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
 
     const dryRooms = rooms.filter(r => r.room_type === 'dry' || r.room_type === 'general');
 
     useEffect(() => {
         if (!saving) inputRef.current?.focus();
     }, [plantWeights.length, saving]);
+
+    // Cleanup saved timer
+    useEffect(() => {
+        return () => { if (savedTimerRef.current) clearTimeout(savedTimerRef.current); };
+    }, []);
+
+    const showSaved = () => {
+        setJustSaved(true);
+        if (savedTimerRef.current) clearTimeout(savedTimerRef.current);
+        savedTimerRef.current = setTimeout(() => setJustSaved(false), 2500);
+    };
 
     const handleAddPlant = async () => {
         const val = Number(weightInput);
@@ -39,6 +52,7 @@ export const HarvestCenterColumn: React.FC<HarvestCenterColumnProps> = ({
             setNewestId(result.id);
             setWeightInput('');
             await onUpdate();
+            showSaved();
         } finally {
             setSaving(false);
             inputRef.current?.focus();
@@ -53,6 +67,7 @@ export const HarvestCenterColumn: React.FC<HarvestCenterColumnProps> = ({
             await apiService.recordWetWeight(harvest.id, val);
             setBulkInput('');
             await onUpdate();
+            showSaved();
         } finally {
             setSaving(false);
         }
@@ -103,9 +118,9 @@ export const HarvestCenterColumn: React.FC<HarvestCenterColumnProps> = ({
                     className="field-input"
                     value={harvest.dryingLocation || ''}
                     onChange={e => handleRoomChange(e.target.value)}
-                    style={{ fontSize: '0.8125rem', padding: '6px 10px' }}
+                    style={{ fontSize: '0.8125rem', padding: '8px 10px' }}
                 >
-                    <option value="">Drying room...</option>
+                    <option value="">Select drying room...</option>
                     {dryRooms.map(r => (
                         <option key={r.id} value={r.name}>{r.name}</option>
                     ))}
@@ -129,9 +144,15 @@ export const HarvestCenterColumn: React.FC<HarvestCenterColumnProps> = ({
                     </div>
                 )}
                 {saving && (
-                    <span className="hd-saving">
+                    <span className="hd-save-status hd-save-status--saving">
                         <span className="hd-saving-dot" />
                         saving
+                    </span>
+                )}
+                {!saving && justSaved && (
+                    <span className="hd-save-status hd-save-status--saved">
+                        <Check size={12} />
+                        saved
                     </span>
                 )}
             </div>
@@ -147,6 +168,7 @@ export const HarvestCenterColumn: React.FC<HarvestCenterColumnProps> = ({
                 <button
                     className={`chip ${mode === 'bulk' ? 'chip-active' : ''}`}
                     onClick={() => setMode('bulk')}
+                    title="Weigh a rack or group of plants at once"
                 >
                     Bulk
                 </button>
@@ -173,10 +195,9 @@ export const HarvestCenterColumn: React.FC<HarvestCenterColumnProps> = ({
                             <span className="hd-weight-unit">g</span>
                         </div>
                         <button
-                            className="btn-start-batch"
+                            className="hd-add-btn"
                             onClick={handleAddPlant}
                             disabled={!weightInput || Number(weightInput) <= 0 || saving}
-                            style={{ padding: '12px 20px', fontSize: '0.9375rem' }}
                         >
                             {saving ? <Loader2 size={16} className="animate-spin" /> : <Plus size={16} />}
                             Add
@@ -194,6 +215,7 @@ export const HarvestCenterColumn: React.FC<HarvestCenterColumnProps> = ({
                         <div className="hd-weight-input-wrap">
                             <Scale size={18} style={{ color: 'var(--text-secondary)', flexShrink: 0 }} />
                             <input
+                                ref={inputRef}
                                 type="number"
                                 className="hd-weight-input"
                                 value={bulkInput}
@@ -202,14 +224,14 @@ export const HarvestCenterColumn: React.FC<HarvestCenterColumnProps> = ({
                                 placeholder="Total wet weight"
                                 min="1"
                                 disabled={saving}
+                                autoFocus
                             />
                             <span className="hd-weight-unit">g</span>
                         </div>
                         <button
-                            className="btn-start-batch"
+                            className="hd-add-btn"
                             onClick={handleBulkSubmit}
                             disabled={!bulkInput || Number(bulkInput) <= 0 || saving}
-                            style={{ padding: '12px 20px', fontSize: '0.9375rem' }}
                         >
                             {saving ? <Loader2 size={16} className="animate-spin" /> : null}
                             Save

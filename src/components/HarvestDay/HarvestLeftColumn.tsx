@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Flower2, Snowflake, ArrowRightLeft } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Flower2, Snowflake, ArrowRightLeft, ChevronDown } from 'lucide-react';
 import type { Harvest, HarvestWasteType, ContaminantFlag, AllocationChoice } from '../../types/definitions';
 import { apiService } from '../../services/apiService';
 import { WasteEntryForm } from '../Harvest/WasteEntryForm';
@@ -16,10 +16,10 @@ const CONTAMINANTS: { value: ContaminantFlag; label: string }[] = [
     { value: 'other', label: 'Other' },
 ];
 
-const ALLOCATIONS: { value: AllocationChoice; label: string; icon: typeof Flower2 }[] = [
-    { value: 'Flower', label: 'Flower', icon: Flower2 },
-    { value: 'Frozen', label: 'Frozen', icon: Snowflake },
-    { value: 'Both', label: 'Both', icon: ArrowRightLeft },
+const ALLOCATIONS: { value: AllocationChoice; label: string; icon: typeof Flower2; hint: string }[] = [
+    { value: 'Flower', label: 'Flower', icon: Flower2, hint: 'All weight goes to drying' },
+    { value: 'Frozen', label: 'Frozen', icon: Snowflake, hint: 'All weight to fresh frozen packaging' },
+    { value: 'Both', label: 'Both', icon: ArrowRightLeft, hint: 'Split between drying and frozen' },
 ];
 
 export const HarvestLeftColumn: React.FC<HarvestLeftColumnProps> = ({ harvest, onUpdate }) => {
@@ -32,6 +32,7 @@ export const HarvestLeftColumn: React.FC<HarvestLeftColumnProps> = ({ harvest, o
             ? 'Both'
             : flowerAlloc ? 'Flower' : 'Frozen';
 
+    const hasFrozen = dbAllocation === 'Frozen' || dbAllocation === 'Both';
     const available = harvest.totalWetWeight - harvest.totalWasteWeight;
 
     const [optimisticChoice, setOptimisticChoice] = useState<AllocationChoice | null>(dbAllocation);
@@ -40,6 +41,15 @@ export const HarvestLeftColumn: React.FC<HarvestLeftColumnProps> = ({ harvest, o
         frozenAlloc ? String(frozenAlloc.targetWeight) : ''
     );
     const [allocating, setAllocating] = useState(false);
+
+    // Collapsible sections — waste auto-open when frozen involved
+    const [wasteOpen, setWasteOpen] = useState(hasFrozen || harvest.waste.length > 0);
+    const [contamOpen, setContamOpen] = useState(harvest.contaminants.length > 0);
+
+    // Auto-open waste when allocation changes to frozen
+    useEffect(() => {
+        if (hasFrozen) setWasteOpen(true);
+    }, [hasFrozen]);
 
     // Sync optimistic state when harvest data updates from server
     const currentAllocation = dbAllocation || optimisticChoice;
@@ -111,7 +121,7 @@ export const HarvestLeftColumn: React.FC<HarvestLeftColumnProps> = ({ harvest, o
 
     return (
         <div className="hd-column hd-left">
-            {/* Allocation */}
+            {/* Allocation — always visible */}
             <div className="hd-section">
                 <h3 className="hd-section-title">Allocation</h3>
                 <div className="hd-alloc-chips">
@@ -125,6 +135,7 @@ export const HarvestLeftColumn: React.FC<HarvestLeftColumnProps> = ({ harvest, o
                                 data-type={a.value.toLowerCase()}
                                 onClick={() => handleAllocate(a.value)}
                                 disabled={allocating}
+                                title={a.hint}
                             >
                                 <Icon size={16} />
                                 <span>{a.label}</span>
@@ -152,10 +163,9 @@ export const HarvestLeftColumn: React.FC<HarvestLeftColumnProps> = ({ harvest, o
                             />
                             <span style={{ fontSize: '0.8125rem', color: 'var(--text-secondary)' }}>g</span>
                             <button
-                                className="btn-start-batch"
+                                className="hd-action-btn"
                                 onClick={handleBothAllocate}
                                 disabled={!frozenTarget || Number(frozenTarget) <= 0 || Number(frozenTarget) >= available}
-                                style={{ padding: '6px 12px', fontSize: '0.8125rem' }}
                             >
                                 Split
                             </button>
@@ -185,33 +195,65 @@ export const HarvestLeftColumn: React.FC<HarvestLeftColumnProps> = ({ harvest, o
                 )}
             </div>
 
-            {/* Waste */}
+            {/* Waste — collapsible, auto-open when frozen */}
             <div className="hd-section">
-                <h3 className="hd-section-title">Waste</h3>
-                <WasteEntryForm
-                    wasteEntries={harvest.waste}
-                    totalWasteWeight={harvest.totalWasteWeight}
-                    onAdd={handleWaste}
-                />
+                <div className="hd-section-toggle" onClick={() => setWasteOpen(!wasteOpen)}>
+                    <h3 className="hd-section-title">
+                        Waste
+                        {harvest.totalWasteWeight > 0 && (
+                            <span style={{ fontWeight: 700, color: 'var(--danger-color)', marginLeft: 6, fontSize: '0.6875rem' }}>
+                                {harvest.totalWasteWeight.toFixed(0)}g
+                            </span>
+                        )}
+                    </h3>
+                    <ChevronDown
+                        size={14}
+                        className={`hd-section-toggle-icon ${wasteOpen ? 'hd-section-toggle-icon--open' : ''}`}
+                    />
+                </div>
+                <div className={`hd-section-body ${wasteOpen ? 'hd-section-body--open' : ''}`}>
+                    <div>
+                        <WasteEntryForm
+                            wasteEntries={harvest.waste}
+                            totalWasteWeight={harvest.totalWasteWeight}
+                            onAdd={handleWaste}
+                        />
+                    </div>
+                </div>
             </div>
 
-            {/* Contamination flags */}
+            {/* Contamination flags — collapsible */}
             <div className="hd-section">
-                <h3 className="hd-section-title">Contamination</h3>
-                <div className="hd-contaminant-checks">
-                    {CONTAMINANTS.map(c => {
-                        const isChecked = (harvest.contaminants || []).includes(c.value);
-                        return (
-                            <label key={c.value} className="hd-contaminant-check">
-                                <input
-                                    type="checkbox"
-                                    checked={isChecked}
-                                    onChange={() => handleContaminantToggle(c.value)}
-                                />
-                                <span>{c.label}</span>
-                            </label>
-                        );
-                    })}
+                <div className="hd-section-toggle" onClick={() => setContamOpen(!contamOpen)}>
+                    <h3 className="hd-section-title">
+                        Contamination
+                        {harvest.contaminants.length > 0 && (
+                            <span className="hd-contaminant-dot" style={{ marginLeft: 6 }} />
+                        )}
+                    </h3>
+                    <ChevronDown
+                        size={14}
+                        className={`hd-section-toggle-icon ${contamOpen ? 'hd-section-toggle-icon--open' : ''}`}
+                    />
+                </div>
+                <div className={`hd-section-body ${contamOpen ? 'hd-section-body--open' : ''}`}>
+                    <div>
+                        <div className="hd-contaminant-checks">
+                            {CONTAMINANTS.map(c => {
+                                const isChecked = (harvest.contaminants || []).includes(c.value);
+                                return (
+                                    <label key={c.value} className="hd-contaminant-check">
+                                        <input
+                                            type="checkbox"
+                                            checked={isChecked}
+                                            onChange={() => handleContaminantToggle(c.value)}
+                                        />
+                                        <span>{c.label}</span>
+                                    </label>
+                                );
+                            })}
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>

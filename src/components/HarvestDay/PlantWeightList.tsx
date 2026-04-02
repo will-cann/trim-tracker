@@ -1,4 +1,4 @@
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useState, useCallback } from 'react';
 import { Trash2 } from 'lucide-react';
 import type { HarvestPlantWeight } from '../../types/definitions';
 
@@ -10,12 +10,25 @@ interface PlantWeightListProps {
 
 export const PlantWeightList: React.FC<PlantWeightListProps> = ({ weights, onDelete, newestId }) => {
     const bottomRef = useRef<HTMLDivElement>(null);
+    const rowsRef = useRef<HTMLDivElement>(null);
+    const [atBottom, setAtBottom] = useState(false);
 
     useEffect(() => {
         if (newestId) {
             bottomRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
         }
     }, [newestId]);
+
+    const checkScroll = useCallback(() => {
+        const el = rowsRef.current;
+        if (!el) return;
+        const isAtBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 4;
+        setAtBottom(isAtBottom);
+    }, []);
+
+    useEffect(() => {
+        checkScroll();
+    }, [weights.length, checkScroll]);
 
     if (weights.length === 0) return null;
 
@@ -24,7 +37,11 @@ export const PlantWeightList: React.FC<PlantWeightListProps> = ({ weights, onDel
 
     return (
         <div className="plant-weight-list">
-            <div className="plant-weight-rows">
+            <div
+                ref={rowsRef}
+                className={`plant-weight-rows ${atBottom ? 'plant-weight-rows--at-bottom' : ''}`}
+                onScroll={checkScroll}
+            >
                 {weights.map(w => (
                     <div
                         key={w.id}

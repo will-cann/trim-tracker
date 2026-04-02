@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Plus, X, CheckCircle, ListChecks, ArrowLeft, Loader2 } from 'lucide-react';
 import type { Harvest, HarvestPlantWeight, CreateHarvestDTO } from '../../types/definitions';
 import { apiService } from '../../services/apiService';
@@ -67,14 +67,33 @@ export const HarvestDayCockpit: React.FC<HarvestDayCockpitProps> = ({ onExit }) 
         setPlantWeights(prev => ({ ...prev, [activeTabId]: weights }));
     }, [activeTabId]);
 
+    const cockpitRef = useRef<HTMLDivElement>(null);
+
     const activeHarvest = harvests.find(h => h.id === activeTabId);
     const hasFrozen = activeHarvest?.allocations.some(a => a.allocationType === 'frozen');
     const submittedHarvests = harvests.filter(h => h.status === 'submitted');
+    const nonSubmitted = harvests.filter(h => h.status !== 'submitted');
 
     const canSubmit = activeHarvest
         && activeHarvest.totalWetWeight > 0
         && activeHarvest.allocations.length > 0
         && activeHarvest.status !== 'submitted';
+
+    // Keyboard nav: Tab/Shift+Tab to cycle batches (when not in an input)
+    useEffect(() => {
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if (e.key !== 'Tab' || !e.altKey) return;
+            const idx = nonSubmitted.findIndex(h => h.id === activeTabId);
+            if (idx === -1) return;
+            e.preventDefault();
+            const next = e.shiftKey
+                ? (idx - 1 + nonSubmitted.length) % nonSubmitted.length
+                : (idx + 1) % nonSubmitted.length;
+            setActiveTabId(nonSubmitted[next].id);
+        };
+        document.addEventListener('keydown', handleKeyDown);
+        return () => document.removeEventListener('keydown', handleKeyDown);
+    }, [activeTabId, nonSubmitted]);
 
     const handleCreate = async (data: CreateHarvestDTO) => {
         const newHarvest = await apiService.createHarvest(data);
@@ -123,7 +142,7 @@ export const HarvestDayCockpit: React.FC<HarvestDayCockpitProps> = ({ onExit }) 
     }
 
     return (
-        <div className="hd-cockpit">
+        <div className="hd-cockpit" ref={cockpitRef}>
             {/* Tab bar */}
             <div className="hd-tab-bar">
                 <div className="hd-tabs">
@@ -131,7 +150,7 @@ export const HarvestDayCockpit: React.FC<HarvestDayCockpitProps> = ({ onExit }) 
                         className="icon-btn"
                         onClick={onExit}
                         title="Back to Harvests"
-                        style={{ marginRight: 'var(--space-sm)' }}
+                        style={{ marginRight: 'var(--space-xs)' }}
                     >
                         <ArrowLeft size={18} />
                     </button>
@@ -140,7 +159,7 @@ export const HarvestDayCockpit: React.FC<HarvestDayCockpitProps> = ({ onExit }) 
                         onClick={() => setShowCreateModal(true)}
                         title="Add harvest batch"
                     >
-                        <Plus size={16} />
+                        <Plus size={18} />
                     </button>
                     {harvests.map(h => (
                         <button
@@ -148,14 +167,20 @@ export const HarvestDayCockpit: React.FC<HarvestDayCockpitProps> = ({ onExit }) 
                             className={`hd-tab ${h.id === activeTabId ? 'hd-tab-active' : ''} ${h.status === 'submitted' ? 'hd-tab-submitted' : ''}`}
                             onClick={() => setActiveTabId(h.id)}
                         >
-                            {h.status === 'submitted' && <CheckCircle size={13} />}
+                            {h.status === 'submitted' && <CheckCircle size={14} />}
                             <span>{h.batchId}</span>
                             {h.status === 'planning' && (
                                 <span
                                     className="hd-tab-close"
-                                    onClick={e => { e.stopPropagation(); handleRemoveTab(h.id); }}
+                                    onClick={e => {
+                                        e.stopPropagation();
+                                        if (confirm(`Remove ${h.batchId}? This cannot be undone.`)) {
+                                            handleRemoveTab(h.id);
+                                        }
+                                    }}
+                                    title="Remove batch"
                                 >
-                                    <X size={13} />
+                                    <X size={14} />
                                 </span>
                             )}
                         </button>
@@ -164,11 +189,11 @@ export const HarvestDayCockpit: React.FC<HarvestDayCockpitProps> = ({ onExit }) 
                 <div className="hd-tab-actions">
                     {submittedHarvests.length > 0 && (
                         <button
-                            className="btn-start-batch"
+                            className="hd-review-btn"
                             onClick={() => setPhase('summary')}
                         >
                             <ListChecks size={16} />
-                            Review ({submittedHarvests.length})
+                            Review {submittedHarvests.length} batch{submittedHarvests.length !== 1 ? 'es' : ''}
                         </button>
                     )}
                 </div>
@@ -201,12 +226,14 @@ export const HarvestDayCockpit: React.FC<HarvestDayCockpitProps> = ({ onExit }) 
                 </div>
             ) : (
                 <div className="hd-empty">
-                    <p style={{ color: 'var(--text-secondary)' }}>No harvest batches yet.</p>
+                    <p style={{ color: 'var(--text-secondary)', fontSize: '0.9375rem' }}>
+                        No batches yet — add flowering plants to start weighing.
+                    </p>
                     <button
-                        className="btn-new-batch"
+                        className="hd-add-btn"
                         onClick={() => setShowCreateModal(true)}
                     >
-                        <Plus size={16} />
+                        <Plus size={18} />
                         Add First Batch
                     </button>
                 </div>
@@ -222,12 +249,14 @@ export const HarvestDayCockpit: React.FC<HarvestDayCockpitProps> = ({ onExit }) 
                         <span className={activeHarvest.allocations.length > 0 ? 'hd-check-pass' : 'hd-check-fail'}>
                             {activeHarvest.allocations.length > 0 ? '\u2713' : '\u2717'} Allocation
                         </span>
+                        {hasFrozen && activeHarvest.dryingLocation && (
+                            <span className="hd-check-pass">{'\u2713'} Drying room</span>
+                        )}
                     </div>
                     <button
-                        className="btn-start-batch"
+                        className="hd-submit-btn"
                         onClick={() => setShowSubmitConfirm(true)}
                         disabled={!canSubmit}
-                        style={{ padding: '0.625rem 1.5rem' }}
                     >
                         Submit Batch
                     </button>

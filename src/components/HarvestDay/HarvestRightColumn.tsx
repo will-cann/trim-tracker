@@ -153,7 +153,7 @@ export const HarvestRightColumn: React.FC<HarvestRightColumnProps> = ({
                         <span className="hd-weight-unit">g</span>
                     </div>
                     <button
-                        className="btn-start-batch"
+                        className="hd-action-btn"
                         onClick={handleCreatePackage}
                         disabled={!weight || Number(weight) <= 0}
                     >

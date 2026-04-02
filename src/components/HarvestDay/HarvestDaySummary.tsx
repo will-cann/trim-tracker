@@ -116,10 +116,13 @@ export const HarvestDaySummary: React.FC<HarvestDaySummaryProps> = ({
             )}
 
             <div className="hd-summary-actions">
-                <button className="btn-cancel" onClick={onBack}>Back</button>
-                <button className="btn-start-batch" onClick={onApprove} style={{ padding: '0.75rem 2rem' }}>
+                <button className="hd-action-btn" onClick={onBack}>Back</button>
+                <button className="hd-submit-btn" onClick={onApprove}>
                     <CheckCircle2 size={18} />
-                    Approve All
+                    Approve {harvests.length} Batch{harvests.length !== 1 ? 'es' : ''}
+                    <span style={{ opacity: 0.7, fontWeight: 400, marginLeft: 4 }}>
+                        ({batchStats.reduce((sum, b) => sum + b.plantCount, 0)} plants, {harvests.reduce((sum, h) => sum + h.totalWetWeight, 0).toFixed(0)}g)
+                    </span>
                 </button>
             </div>
         </div>
