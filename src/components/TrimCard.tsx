@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import type { TrimEntry, Trimmer, TrimmerProfile, CreatePackageDTO } from '../types/definitions';
 import { TrimmerList } from './TrimmerList';
 import { StackedProgressBar, buildSegments } from './StackedProgressBar';
-import { ChevronDown, Pencil, Check, X, Trash2, CheckCircle, Clock, Undo2, PackagePlus } from 'lucide-react';
+import { ChevronDown, Pencil, Check, X, Trash2, CheckCircle, Clock, Undo2, PackagePlus, Droplets } from 'lucide-react';
 import { DeleteConfirmationModal } from './DeleteConfirmationModal';
 import { CreatePackageModal } from './Packages/CreatePackageModal';
 import { calculateDuration, formatDuration } from '../utils/timeUtils';
@@ -260,27 +260,51 @@ export const TrimCard: React.FC<TrimCardProps> = ({
                         <div className="trim-card-summary">
                             {entry.status === 'upcoming' ? (
                                 <>
-                                    <div className="summary-item">
-                                        <span className="label">Est. Dry Weight</span>
-                                        <span className="value">{Math.round(entry.startWeight)}g</span>
-                                    </div>
                                     {hasWetWeight && (
                                         <div className="summary-item">
-                                            <span className="label">Wet</span>
-                                            <span className="value" style={{ color: 'var(--color-elephant-400)' }}>{Math.round(entry.wetWeight!)}g</span>
+                                            <span className="label">Allocation</span>
+                                            <span className="value">{Math.round(entry.wetWeight!).toLocaleString()}g wet</span>
                                         </div>
                                     )}
                                     <div className="summary-item">
-                                        <span className="label">Status</span>
-                                        <span className="value">Ready to Start</span>
+                                        <span className="label">Est. Dry</span>
+                                        <span className="value">{Math.round(entry.startWeight).toLocaleString()}g</span>
                                     </div>
+                                    {hasWetWeight && (
+                                        <div className="summary-item">
+                                            <span className="label" style={{ display: 'flex', alignItems: 'center', gap: '3px' }}>
+                                                <Droplets size={11} style={{ color: 'var(--color-dolphin, #3b82f6)' }} />
+                                                Moisture
+                                            </span>
+                                            <span className="value" style={{ color: 'var(--color-dolphin, #3b82f6)' }}>
+                                                -{Math.round(entry.wetWeight! - entry.startWeight).toLocaleString()}g
+                                            </span>
+                                        </div>
+                                    )}
                                 </>
                             ) : (
                                 <>
+                                    {hasWetWeight && (
+                                        <div className="summary-item">
+                                            <span className="label">Allocation</span>
+                                            <span className="value">{Math.round(entry.wetWeight!).toLocaleString()}g wet</span>
+                                        </div>
+                                    )}
                                     <div className="summary-item">
                                         <span className="label">Start</span>
-                                        <span className="value">{Math.round(entry.startWeight)}g</span>
+                                        <span className="value">{Math.round(entry.startWeight).toLocaleString()}g</span>
                                     </div>
+                                    {hasWetWeight && (
+                                        <div className="summary-item">
+                                            <span className="label" style={{ display: 'flex', alignItems: 'center', gap: '3px' }}>
+                                                <Droplets size={11} style={{ color: 'var(--color-dolphin, #3b82f6)' }} />
+                                                Moisture
+                                            </span>
+                                            <span className="value" style={{ color: 'var(--color-dolphin, #3b82f6)' }}>
+                                                -{Math.round(entry.wetWeight! - entry.startWeight).toLocaleString()}g
+                                            </span>
+                                        </div>
+                                    )}
                                     <div className="summary-item">
                                         <span className="label">Completed</span>
                                         <span className="value">{totalWeight.toFixed(0)}g</span>
@@ -338,6 +362,17 @@ export const TrimCard: React.FC<TrimCardProps> = ({
                                     <span className="label text-waste">Waste</span>
                                     <span className="value text-waste">{Math.round(entry.wasteWeight)}g</span>
                                 </div>
+                                {hasWetWeight && (
+                                    <div className="weight-stat">
+                                        <span className="label" style={{ display: 'flex', alignItems: 'center', gap: '3px', color: 'var(--color-dolphin, #3b82f6)' }}>
+                                            <Droplets size={11} />
+                                            Moisture
+                                        </span>
+                                        <span className="value" style={{ color: 'var(--color-dolphin, #3b82f6)' }}>
+                                            {Math.round(entry.wetWeight! - entry.startWeight).toLocaleString()}g
+                                        </span>
+                                    </div>
+                                )}
                                 <div className="weight-stat">
                                     <span className="label">Remaining</span>
                                     <span className="value">{Math.max(0, entry.startWeight - totalWeight).toFixed(0)}g</span>

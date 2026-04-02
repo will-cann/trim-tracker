@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Loader2, Package, PenLine } from 'lucide-react';
+import { Loader2, Package, PenLine, Droplets } from 'lucide-react';
 import type { CreateTrimSessionDTO, Strain, License, Harvest } from '../types/definitions';
 import { apiService } from '../services/apiService';
 
@@ -33,14 +33,20 @@ export const StartSession: React.FC<StartSessionProps> = ({ onStart }) => {
     }, []);
 
     // Harvests that have flower allocations ready for trim
-    const trimmableHarvests = harvests.filter(h => {
-        const hasFlowerAllocation = h.allocations?.some(
-            a => a.allocationType === 'flower' && a.status !== 'completed'
-        );
-        // Show harvests that are active/drying/ready and have a flower allocation,
-        // or any harvest not yet completed (user may want to start trim early)
-        return h.status !== 'completed' && (hasFlowerAllocation || !h.allocations?.length);
-    });
+    const trimmableHarvests = harvests
+        .filter(h => {
+            const hasFlowerAllocation = h.allocations?.some(
+                a => a.allocationType === 'flower' && a.status !== 'completed'
+            );
+            // Show harvests that are active/drying/ready and have a flower allocation,
+            // or any harvest not yet completed (user may want to start trim early)
+            return h.status !== 'completed' && (hasFlowerAllocation || !h.allocations?.length);
+        })
+        // Sort: "ready" first, then "drying", then everything else
+        .sort((a, b) => {
+            const priority: Record<string, number> = { ready: 0, drying: 1, submitted: 2, active: 3, planning: 4 };
+            return (priority[a.status] ?? 5) - (priority[b.status] ?? 5);
+        });
 
     const selectedHarvest = harvests.find(h => h.id === selectedHarvestId);
 
@@ -143,7 +149,27 @@ export const StartSession: React.FC<StartSessionProps> = ({ onStart }) => {
                                 const wetWeight = flowerAlloc?.targetWeight ?? h.totalWetWeight;
                                 const moisturePct = h.moistureLossPct ?? 75;
                                 const estDryWeight = h.dryWeight ?? Math.round(wetWeight * (1 - moisturePct / 100));
+                                const moistureLossG = wetWeight - estDryWeight;
                                 const isSelected = selectedHarvestId === h.id;
+                                const isReady = h.status === 'ready';
+                                const isDrying = h.status === 'drying';
+
+                                const statusLabel: Record<string, string> = {
+                                    ready: 'Ready for Trim',
+                                    drying: 'Drying',
+                                    active: 'Active',
+                                    submitted: 'Submitted',
+                                    planning: 'Planning',
+                                };
+
+                                const statusColor: Record<string, string> = {
+                                    ready: 'var(--color-chameleon)',
+                                    drying: 'var(--color-lion)',
+                                    active: 'var(--color-dolphin, #3b82f6)',
+                                    submitted: 'var(--color-elephant-400)',
+                                    planning: 'var(--color-elephant-300)',
+                                };
+
                                 return (
                                     <button
                                         key={h.id}
@@ -158,10 +184,14 @@ export const StartSession: React.FC<StartSessionProps> = ({ onStart }) => {
                                             borderRadius: '10px',
                                             border: isSelected
                                                 ? '2px solid var(--color-chameleon)'
-                                                : '1.5px solid var(--color-elephant-200)',
+                                                : isReady
+                                                    ? '1.5px solid var(--color-chameleon-300, rgba(76,175,80,0.4))'
+                                                    : '1.5px solid var(--color-elephant-200)',
                                             background: isSelected
                                                 ? 'var(--color-chameleon-50, rgba(76,175,80,0.06))'
-                                                : 'var(--color-elephant-50)',
+                                                : isReady
+                                                    ? 'rgba(76,175,80,0.03)'
+                                                    : 'var(--color-elephant-50)',
                                             cursor: 'pointer',
                                             textAlign: 'left',
                                             width: '100%',
@@ -171,11 +201,29 @@ export const StartSession: React.FC<StartSessionProps> = ({ onStart }) => {
                                     >
                                         <div>
                                             <div style={{
-                                                fontWeight: 600,
-                                                fontSize: '14px',
-                                                color: 'var(--color-elephant-800)',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                gap: '8px',
                                             }}>
-                                                {h.batchId}
+                                                <span style={{
+                                                    fontWeight: 600,
+                                                    fontSize: '14px',
+                                                    color: 'var(--color-elephant-800)',
+                                                }}>
+                                                    {h.batchId}
+                                                </span>
+                                                <span style={{
+                                                    fontSize: '10px',
+                                                    fontWeight: 600,
+                                                    textTransform: 'uppercase',
+                                                    letterSpacing: '0.04em',
+                                                    padding: '2px 6px',
+                                                    borderRadius: '4px',
+                                                    background: `${statusColor[h.status] ?? 'var(--color-elephant-300)'}20`,
+                                                    color: statusColor[h.status] ?? 'var(--color-elephant-500)',
+                                                }}>
+                                                    {statusLabel[h.status] ?? h.status}
+                                                </span>
                                             </div>
                                             <div style={{
                                                 fontSize: '12px',
@@ -194,7 +242,10 @@ export const StartSession: React.FC<StartSessionProps> = ({ onStart }) => {
                                                 fontWeight: 500,
                                                 color: 'var(--color-elephant-600)',
                                             }}>
-                                                ~{estDryWeight.toLocaleString()}g dry
+                                                {h.dryWeight
+                                                    ? `${h.dryWeight.toLocaleString()}g dry`
+                                                    : `~${estDryWeight.toLocaleString()}g dry`
+                                                }
                                             </div>
                                             <div style={{
                                                 fontSize: '11px',
@@ -202,6 +253,20 @@ export const StartSession: React.FC<StartSessionProps> = ({ onStart }) => {
                                             }}>
                                                 {wetWeight.toLocaleString()}g wet
                                             </div>
+                                            {(isDrying || isReady) && moistureLossG > 0 && (
+                                                <div style={{
+                                                    fontSize: '10px',
+                                                    color: 'var(--color-dolphin, #3b82f6)',
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    justifyContent: 'flex-end',
+                                                    gap: '3px',
+                                                    marginTop: '1px',
+                                                }}>
+                                                    <Droplets size={10} />
+                                                    -{moistureLossG.toLocaleString()}g ({moisturePct}%)
+                                                </div>
+                                            )}
                                         </div>
                                     </button>
                                 );
