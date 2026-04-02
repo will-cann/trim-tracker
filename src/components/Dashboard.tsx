@@ -68,14 +68,14 @@ export const Dashboard: React.FC<DashboardProps> = ({
             <div className="dashboard-top-section">
                 <div className="stats-grid">
                     {/* Row 1 */}
-                    <StatCard icon={<Package size={18} />} iconClassName="start-icon" label="Est. Dry Weight" value={`${totalStartWeight.toFixed(0)}g`} />
-                    <StatCard icon={<Scale size={18} />} iconClassName="output-icon" label="Total Output" value={`${totalOutput.toFixed(0)}g`} />
-                    <StatCard icon={<Hourglass size={18} />} iconClassName="remaining-icon" label="Remaining" value={`${remainingWeight.toFixed(0)}g`} />
+                    <StatCard icon={<Package size={18} />} iconClassName="start-icon" label="Est. Dry Weight" value={`${Math.round(totalStartWeight).toLocaleString()}g`} />
+                    <StatCard icon={<Scale size={18} />} iconClassName="output-icon" label="Total Output" value={`${Math.round(totalOutput).toLocaleString()}g`} />
+                    <StatCard icon={<Hourglass size={18} />} iconClassName="remaining-icon" label="Remaining" value={`${Math.round(remainingWeight).toLocaleString()}g`} />
                     <StatCard icon={<Users size={18} />} iconStyle={{ backgroundColor: 'rgba(28, 158, 255, 0.1)', color: '#1C9EFF' }} label="Trimmers" value={activeTrimmerCount} />
                     {/* Row 2 */}
-                    <StatCard icon={<Cannabis size={18} />} iconClassName="flower-icon" label="Total Flower" value={`${session.totalFlower.toFixed(0)}g`} />
-                    <StatCard icon={<Cannabis size={18} />} iconClassName="shake-icon" label="Total Shake" value={`${session.totalShake.toFixed(0)}g`} />
-                    <StatCard icon={<Trash2 size={18} />} iconClassName="waste-icon" label="Total Waste" value={`${session.totalWaste.toFixed(0)}g`} />
+                    <StatCard icon={<Cannabis size={18} />} iconClassName="flower-icon" label="Total Flower" value={`${Math.round(session.totalFlower).toLocaleString()}g`} />
+                    <StatCard icon={<Cannabis size={18} />} iconClassName="shake-icon" label="Total Shake" value={`${Math.round(session.totalShake).toLocaleString()}g`} />
+                    <StatCard icon={<Trash2 size={18} />} iconClassName="waste-icon" label="Total Waste" value={`${Math.round(session.totalWaste).toLocaleString()}g`} />
                 </div>
 
                 <div className="dashboard-bar-wrapper">

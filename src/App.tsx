@@ -42,7 +42,15 @@ function AppContent() {
   const [session, setSession] = useState<TrimSession | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshKey, setRefreshKey] = useState(0);
-  const [currentView, setCurrentView] = useState<ViewType>('ai');
+  const [currentView, setCurrentView] = useState<ViewType>(() => {
+    const saved = sessionStorage.getItem('currentView');
+    return saved && saved in VIEW_SCREEN_CONTEXT ? saved as ViewType : 'ai';
+  });
+  // Persist view across reloads
+  const handleViewChange = (view: ViewType) => {
+    sessionStorage.setItem('currentView', view);
+    setCurrentView(view);
+  };
   const [trimmerProfiles, setTrimmerProfiles] = useState<TrimmerProfile[]>([]);
   const [harvests, setHarvests] = useState<Harvest[]>([]);
   const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
@@ -125,7 +133,7 @@ function AppContent() {
   // Action voice: inject text into AIHome input
   const handleActionVoiceText = useCallback((text: string) => {
     setVoiceInjectedText(text);
-    if (currentView !== 'ai') setCurrentView('ai');
+    if (currentView !== 'ai') handleViewChange('ai');
   }, [currentView]);
 
   const loadSession = useCallback(async () => {
@@ -264,12 +272,12 @@ function AppContent() {
 
   const handleNewConversation = () => {
     setActiveConversationId(null);
-    setCurrentView('ai');
+    handleViewChange('ai');
   };
 
   const handleSelectConversation = (id: string) => {
     setActiveConversationId(id);
-    setCurrentView('ai');
+    handleViewChange('ai');
   };
 
   const handleConversationStarted = (id: string) => {
@@ -282,7 +290,7 @@ function AppContent() {
     <div className="app-container">
       <Sidebar
         currentView={currentView}
-        onViewChange={setCurrentView}
+        onViewChange={handleViewChange}
         conversations={conversations}
         activeConversationId={activeConversationId}
         onSelectConversation={handleSelectConversation}
@@ -313,7 +321,7 @@ function AppContent() {
             licenses={myLicenses}
             activeLicenseId={activeLicenseId}
             onLicenseChange={setActiveLicenseId}
-            onViewChange={setCurrentView}
+            onViewChange={handleViewChange}
             onCreateHumanTasks={handleCreateHumanTasks}
             onUpdateHumanTask={updateHumanTask}
             onDeleteHumanTask={deleteHumanTask}
@@ -332,7 +340,7 @@ function AppContent() {
             onUpdateTask={updateHumanTask}
             onDeleteTask={deleteHumanTask}
             onCreateTask={addHumanTask}
-            onNavigateToAI={() => setCurrentView('ai')}
+            onNavigateToAI={() => handleViewChange('ai')}
             pendingCount={taskPendingCount}
             loadError={taskLoadError}
             onRetry={retryLoadTasks}
@@ -341,11 +349,11 @@ function AppContent() {
         ) : currentView === 'team' ? (
           <TeamDashboard profiles={trimmerProfiles} onReload={loadTrimmerProfiles} />
         ) : currentView === 'settings' ? (
-          <SettingsPanel onViewChange={setCurrentView} />
+          <SettingsPanel onViewChange={handleViewChange} />
         ) : currentView === 'harvest-day' ? (
-          <HarvestDayCockpit onExit={() => setCurrentView('harvests')} />
+          <HarvestDayCockpit onExit={() => handleViewChange('harvests')} />
         ) : currentView === 'harvests' ? (
-          <HarvestDashboard onStartHarvestDay={() => setCurrentView('harvest-day')} />
+          <HarvestDashboard onStartHarvestDay={() => handleViewChange('harvest-day')} />
         ) : currentView === 'plant-map' ? (
           <PlantMapDashboard refreshKey={refreshKey} />
         ) : currentView === 'packages' ? (
@@ -418,7 +426,7 @@ function AppContent() {
             onDeleteTask={deleteHumanTask}
             onCreateHumanTasks={handleCreateHumanTasks}
             taskPendingCount={taskPendingCount}
-            onViewAllTasks={() => setCurrentView('tasks')}
+            onViewAllTasks={() => handleViewChange('tasks')}
           />
         )}
 
@@ -443,7 +451,7 @@ function AppContent() {
             onUpdateStatus={updateTaskStatus}
             onDeleteTask={deleteHumanTask}
             pendingCount={taskPendingCount}
-            onViewAll={() => setCurrentView('tasks')}
+            onViewAll={() => handleViewChange('tasks')}
             onActionVoiceText={handleActionVoiceText}
             onAmbientAnalyze={handleAmbientAnalyze}
             onCreateTask={addHumanTask}
