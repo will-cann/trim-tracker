@@ -141,7 +141,15 @@ export const StartSession: React.FC<StartSessionProps> = ({ onStart }) => {
                             </button>
                         </div>
                     ) : (
-                        <div className="flex flex-col gap-2">
+                        <div style={{
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: '8px',
+                            background: 'var(--card-bg)',
+                            border: '1px solid var(--border-color)',
+                            borderRadius: '12px',
+                            padding: '10px',
+                        }}>
                             {trimmableHarvests.map(h => {
                                 const flowerAlloc = h.allocations?.find(
                                     a => a.allocationType === 'flower' && a.status !== 'completed'
@@ -292,7 +300,15 @@ export const StartSession: React.FC<StartSessionProps> = ({ onStart }) => {
                 </div>
             ) : (
                 /* ── Manual Entry ── */
-                <>
+                <div style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '16px',
+                    background: 'var(--card-bg)',
+                    border: '1px solid var(--border-color)',
+                    borderRadius: '12px',
+                    padding: '16px',
+                }}>
                     <div className="field">
                         <label className="field-label">Harvest Batch</label>
                         <input
@@ -357,7 +373,7 @@ export const StartSession: React.FC<StartSessionProps> = ({ onStart }) => {
                             </div>
                         )}
                     </div>
-                </>
+                </div>
             )}
 
             <button

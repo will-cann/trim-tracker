@@ -502,6 +502,10 @@ body {
   display: flex;
   min-height: 100vh;
   background-color: var(--bg-color);
+  background-image:
+    linear-gradient(rgba(26, 26, 26, 0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(26, 26, 26, 0.03) 1px, transparent 1px);
+  background-size: 64px 64px;
 }
 
 .main-content {
@@ -2703,20 +2707,21 @@ select.field-input {
 .hd-tabs {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 6px;
   overflow-x: auto;
   flex: 1;
   min-width: 0;
+  -webkit-overflow-scrolling: touch;
 }
 
 .hd-tab-add {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 32px;
-  height: 32px;
-  border-radius: 6px;
-  border: 1px dashed var(--border-color);
+  width: 40px;
+  height: 40px;
+  border-radius: 8px;
+  border: 2px dashed var(--border-color);
   background: transparent;
   color: var(--text-secondary);
   cursor: pointer;
@@ -2732,16 +2737,17 @@ select.field-input {
 .hd-tab {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 6px 14px;
-  border-radius: 6px;
+  gap: 8px;
+  padding: 10px 16px;
+  border-radius: 8px;
   border: 1px solid var(--border-color);
   background: var(--card-bg);
   color: var(--text-color);
-  font-size: 0.8125rem;
+  font-size: 0.875rem;
   font-weight: 500;
   cursor: pointer;
   white-space: nowrap;
+  min-height: 40px;
   transition: border-color 0.15s, background 0.15s;
 }
 
@@ -2762,10 +2768,14 @@ select.field-input {
 
 .hd-tab-close {
   display: inline-flex;
-  padding: 1px;
-  border-radius: 3px;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 4px;
   color: var(--text-secondary);
   cursor: pointer;
+  transition: color 0.15s, background 0.15s;
 }
 
 .hd-tab-close:hover {
@@ -2780,7 +2790,7 @@ select.field-input {
 /* Column layout */
 .hd-columns {
   display: grid;
-  gap: var(--space-lg);
+  gap: var(--space-md);
   flex: 1;
   min-height: 0;
   overflow-y: auto;
@@ -2788,16 +2798,16 @@ select.field-input {
 }
 
 .hd-columns-2 {
-  grid-template-columns: 300px 1fr;
+  grid-template-columns: 260px 1fr;
 }
 
 .hd-columns-3 {
-  grid-template-columns: 300px 1fr 340px;
+  grid-template-columns: 260px 1fr 300px;
 }
 
 @media (max-width: 1024px) {
   .hd-columns-3 {
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: 240px 1fr;
   }
   .hd-right {
     grid-column: 1 / -1;
@@ -2809,6 +2819,18 @@ select.field-input {
   .hd-columns-3 {
     grid-template-columns: 1fr;
   }
+
+  /* On mobile, center column (weighing) comes first visually */
+  .hd-center { order: -1; }
+
+  /* Sticky weight input on mobile */
+  .hd-weight-entry {
+    position: sticky;
+    top: 0;
+    z-index: 5;
+    background: var(--card-bg);
+    padding-bottom: var(--space-sm);
+  }
 }
 
 .hd-column {
@@ -2816,7 +2838,7 @@ select.field-input {
   background: var(--card-bg);
   border: 1px solid var(--border-color);
   border-radius: var(--border-radius);
-  padding: var(--space-lg);
+  padding: var(--space-md);
   box-shadow: var(--shadow-sm);
 }
 
@@ -2868,7 +2890,7 @@ select.field-input {
 
 /* Sections */
 .hd-section {
-  margin-bottom: var(--space-lg);
+  margin-bottom: var(--space-md);
 }
 
 .hd-section-title {
@@ -2880,6 +2902,45 @@ select.field-input {
   margin: 0 0 var(--space-sm);
 }
 
+/* Collapsible section header */
+.hd-section-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+  padding: var(--space-xs) 0;
+  margin-bottom: var(--space-xs);
+  user-select: none;
+}
+
+.hd-section-toggle .hd-section-title {
+  margin: 0;
+}
+
+.hd-section-toggle-icon {
+  color: var(--color-dolphin);
+  transition: transform 0.2s;
+}
+
+.hd-section-toggle-icon--open {
+  transform: rotate(180deg);
+}
+
+/* Smooth collapse animation */
+.hd-section-body {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 0.25s ease-out;
+}
+
+.hd-section-body--open {
+  grid-template-rows: 1fr;
+}
+
+.hd-section-body > div {
+  overflow: hidden;
+}
+
 .hd-field-row {
   margin-bottom: var(--space-md);
 }
@@ -2887,9 +2948,9 @@ select.field-input {
 /* Live stats */
 .hd-live-stats {
   display: flex;
-  gap: var(--space-xl);
-  padding: var(--space-md) 0;
-  margin-bottom: var(--space-md);
+  gap: var(--space-lg);
+  padding: var(--space-sm) 0;
+  margin-bottom: var(--space-sm);
   border-top: 1px solid var(--background-color);
   border-bottom: 1px solid var(--background-color);
 }
@@ -2937,9 +2998,10 @@ select.field-input {
   flex: 1;
   border: 2px solid var(--border-color);
   border-radius: 10px;
-  padding: 12px 16px;
+  padding: 14px 16px;
   background: white;
   transition: border-color 0.15s, box-shadow 0.15s;
+  min-height: 52px;
 }
 
 .hd-weight-input-wrap:focus-within {
@@ -2956,10 +3018,11 @@ select.field-input {
   color: var(--text-color);
   background: transparent;
   min-width: 0;
+  font-variant-numeric: tabular-nums;
 }
 
 .hd-weight-input::placeholder {
-  color: var(--border-color);
+  color: var(--color-dolphin);
   font-weight: 400;
 }
 
@@ -2969,14 +3032,39 @@ select.field-input {
   font-weight: 500;
 }
 
+/* Primary weight Add button — big green, most important action */
+.hd-add-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 14px 20px;
+  font-size: 0.9375rem;
+  font-weight: 700;
+  border-radius: 10px;
+  border: none;
+  background: var(--primary-color);
+  color: white;
+  cursor: pointer;
+  min-height: 52px;
+  transition: background 0.15s, transform 0.1s;
+}
+
+.hd-add-btn:hover:not(:disabled) {
+  background: var(--primary-dark);
+}
+
+.hd-add-btn:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+.hd-add-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
 /* Plant weight list */
 .plant-weight-list {
   margin-top: var(--space-md);
-}
-
-.plant-weight-rows {
-  max-height: 300px;
-  overflow-y: auto;
 }
 
 .plant-weight-row {
@@ -3186,16 +3274,28 @@ select.field-input {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: var(--space-md) 0;
-  border-top: 1px solid var(--border-color);
+  padding: var(--space-md);
+  border-top: 2px solid var(--border-color);
   margin-top: var(--space-md);
   flex-shrink: 0;
+  background: var(--card-bg);
+  border-radius: 0 0 var(--border-radius) var(--border-radius);
+}
+
+@media (max-width: 768px) {
+  .hd-submit-bar {
+    position: sticky;
+    bottom: 0;
+    z-index: 5;
+    box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.06);
+  }
 }
 
 .hd-submit-checks {
   display: flex;
   gap: var(--space-lg);
-  font-size: 0.8125rem;
+  font-size: 0.875rem;
+  font-weight: 500;
 }
 
 .hd-check-pass {
@@ -3203,7 +3303,82 @@ select.field-input {
 }
 
 .hd-check-fail {
-  color: var(--text-secondary);
+  color: var(--color-dolphin);
+}
+
+/* Distinct submit button — larger, bolder than other actions */
+.hd-submit-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 24px;
+  font-size: 0.9375rem;
+  font-weight: 700;
+  border-radius: 10px;
+  border: none;
+  background: var(--primary-color);
+  color: white;
+  cursor: pointer;
+  transition: background 0.15s, transform 0.1s;
+}
+
+.hd-submit-btn:hover:not(:disabled) {
+  background: var(--primary-dark);
+}
+
+.hd-submit-btn:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+.hd-submit-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+/* Review button — outlined, visually distinct from primary actions */
+.hd-review-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  border-radius: 8px;
+  border: 2px solid var(--primary-color);
+  background: var(--primary-light);
+  color: var(--primary-dark);
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.hd-review-btn:hover {
+  background: rgba(59, 181, 112, 0.25);
+}
+
+/* Secondary action button — ghost/outlined style for Split, Package, etc */
+.hd-action-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  border-radius: 8px;
+  border: 1px solid var(--border-color);
+  background: var(--card-bg);
+  color: var(--text-color);
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.hd-action-btn:hover:not(:disabled) {
+  border-color: var(--primary-color);
+  background: var(--primary-light);
+}
+
+.hd-action-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
 }
 
 /* Empty state */
@@ -3383,14 +3558,23 @@ select.field-input {
   color: var(--text-color);
 }
 
-/* Saving indicator */
-.hd-saving {
+/* Save status indicator */
+.hd-save-status {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: 5px;
   font-size: 0.75rem;
-  color: var(--text-secondary);
+  font-weight: 600;
   animation: fadeIn 0.15s ease-out;
+}
+
+.hd-save-status--saving {
+  color: var(--text-secondary);
+}
+
+.hd-save-status--saved {
+  color: var(--primary-color);
+  animation: fadeIn 0.15s ease-out, fadeOut 1.5s 1s ease-out forwards;
 }
 
 .hd-saving-dot {
@@ -3399,6 +3583,25 @@ select.field-input {
   border-radius: 50%;
   background: var(--primary-color);
   animation: pulse-small 1s ease-in-out infinite;
+}
+
+@keyframes fadeOut {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+
+/* Scroll fade on plant weight list */
+.plant-weight-rows {
+  max-height: 300px;
+  overflow-y: auto;
+  position: relative;
+  mask-image: linear-gradient(to bottom, black calc(100% - 24px), transparent 100%);
+  -webkit-mask-image: linear-gradient(to bottom, black calc(100% - 24px), transparent 100%);
+}
+
+.plant-weight-rows--at-bottom {
+  mask-image: none;
+  -webkit-mask-image: none;
 }
 
 /* Allocation weight inputs in "Both" mode */
