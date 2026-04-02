@@ -1,6 +1,7 @@
 import { Handler } from '@netlify/functions';
 import { sql } from './utils/db';
-import { resolveContext } from './utils/auth';
+import { resolveContext, authorize } from './utils/auth';
+import { sendInvitation } from './utils/auth0mgmt';
 
 export const handler: Handler = async (event) => {
     if (event.httpMethod !== 'POST') {
@@ -19,19 +20,39 @@ export const handler: Handler = async (event) => {
             return { statusCode: 400, body: JSON.stringify({ error: 'Name is required' }) };
         }
 
+        // Inviting users (with email) requires manager+; adding roster-only profiles is open
+        if (email) {
+            const denied = authorize(context, 'manager');
+            if (denied) return denied;
+        }
+
+        const validRoles = ['admin', 'manager', 'lead', 'worker'];
+        const assignedRole = validRoles.includes(role) ? role : 'worker';
+
         const { rows } = await sql`
             INSERT INTO trimmer_profiles (company_id, name, status, role, email)
             VALUES (
                 ${context.companyId},
                 ${name},
                 'active',
-                ${role || 'worker'},
+                ${assignedRole},
                 ${email || null}
             )
             RETURNING id, name, status, role, email, user_id, created_at
         `;
 
         const row = rows[0];
+
+        // Send Auth0 invitation if email was provided
+        let invited = false;
+        if (email) {
+            const result = await sendInvitation(email, name);
+            invited = result.success;
+            if (!result.success) {
+                console.warn(`Profile created but invite failed for ${email}: ${result.error}`);
+            }
+        }
+
         return {
             statusCode: 201,
             headers: { 'Content-Type': 'application/json' },
@@ -43,6 +64,7 @@ export const handler: Handler = async (event) => {
                 email: row.email || undefined,
                 userId: row.user_id || undefined,
                 createdAt: row.created_at,
+                invited,
             }),
         };
     } catch (error) {

@@ -98,18 +98,17 @@ export async function resolveContext(authHeader?: string): Promise<Authenticated
             };
         }
 
-        // Auto-provision: create company + user on first login
+        // Auto-provision on first login
         console.log(`Auto-provisioning user for external_id ${auth0User.sub}`);
         const email = auth0User.email || `${auth0User.sub}@unknown.com`;
         const name = auth0User.name || auth0User.nickname || email.split('@')[0];
 
-        // Check if a user with this email already exists (link to existing account)
+        // Check if a user with this email already exists (link Auth0 sub to existing account)
         const { rows: existingByEmail } = await sql`
             SELECT id, company_id, role FROM users WHERE email = ${email}
         `;
 
         if (existingByEmail.length > 0) {
-            // Link Auth0 sub to existing user
             await sql`
                 UPDATE users SET external_id = ${auth0User.sub} WHERE id = ${existingByEmail[0].id}
             `;
@@ -120,7 +119,36 @@ export async function resolveContext(authHeader?: string): Promise<Authenticated
             };
         }
 
-        // Create new company and user
+        // Check if this email was pre-registered as a team member (invited via trimmer_profiles)
+        const { rows: invitedProfiles } = await sql`
+            SELECT tp.id AS profile_id, tp.company_id, tp.role, tp.name AS profile_name
+            FROM trimmer_profiles tp
+            WHERE LOWER(tp.email) = LOWER(${email})
+              AND tp.user_id IS NULL
+            LIMIT 1
+        `;
+
+        if (invitedProfiles.length > 0) {
+            const profile = invitedProfiles[0];
+            // Create user in the invited company with the assigned role
+            const { rows: [newUser] } = await sql`
+                INSERT INTO users (id, company_id, external_id, email, name, role)
+                VALUES (gen_random_uuid(), ${profile.company_id}, ${auth0User.sub}, ${email}, ${name || profile.profile_name}, ${profile.role})
+                RETURNING id, company_id, role
+            `;
+            // Link the profile to the new user
+            await sql`
+                UPDATE trimmer_profiles SET user_id = ${newUser.id} WHERE id = ${profile.profile_id}
+            `;
+            console.log(`Linked invited user ${email} to company ${profile.company_id} as ${profile.role}`);
+            return {
+                userId: newUser.id,
+                companyId: newUser.company_id,
+                role: newUser.role
+            };
+        }
+
+        // No invite found — create new company and user as admin
         const { rows: [newCompany] } = await sql`
             INSERT INTO companies (id, name) VALUES (gen_random_uuid(), ${name || 'My Company'})
             RETURNING id
