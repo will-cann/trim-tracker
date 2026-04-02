@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Loader2, Plus, Minus, AlertCircle } from 'lucide-react';
+import { Spinner } from '../Spinner';
 import type { PlantPhase, Room } from '../../types/plantMap';
 import type { Strain } from '../../types/definitions';
 import { apiService } from '../../services/apiService';
@@ -182,7 +183,7 @@ export const CreatePlantingModal: React.FC<CreatePlantingModalProps> = ({
                 </label>
                 {strains.length === 0 ? (
                     <div className="field-loading-inline">
-                        <Loader2 size={14} className="animate-spin" /> Loading...
+                        <Spinner size="sm" label="Loading strains…" />
                     </div>
                 ) : (
                     <select
@@ -203,7 +204,7 @@ export const CreatePlantingModal: React.FC<CreatePlantingModalProps> = ({
                 </label>
                 {rooms.length === 0 ? (
                     <div className="field-loading-inline">
-                        <Loader2 size={14} className="animate-spin" /> Loading...
+                        <Spinner size="sm" label="Loading rooms…" />
                     </div>
                 ) : (
                     <>

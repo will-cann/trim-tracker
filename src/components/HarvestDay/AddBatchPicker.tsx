@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Loader2, ChevronRight, Leaf, CheckSquare, Square, MapPin, Calendar } from 'lucide-react';
+import { CenteredSpinner } from '../Spinner';
 import type { FloweringBatchGroup, CreateHarvestDTO } from '../../types/definitions';
 import { apiService } from '../../services/apiService';
 import { Modal, Button } from '../ui';
@@ -110,9 +111,7 @@ export const AddBatchPicker: React.FC<AddBatchPickerProps> = ({ onClose, onSubmi
             }
         >
             {loading ? (
-                <div className="field-loading">
-                    <Loader2 size={16} className="animate-spin" /> Loading flowering plants...
-                </div>
+                <CenteredSpinner label="Loading flowering plants…" height="py-12" />
             ) : groups.length === 0 ? (
                 <div style={{ textAlign: 'center', padding: 'var(--space-xl) 0', color: 'var(--text-secondary)' }}>
                     <Leaf size={32} style={{ color: 'var(--color-dolphin)', marginBottom: 'var(--space-sm)' }} />

@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Plus, Trash2, Shield, KeyRound, Leaf, Tag as TagIcon, Upload, XCircle, Loader2, LayoutGrid, ChevronDown, ChevronRight } from 'lucide-react';
+import { CenteredSpinner } from './Spinner';
 import type { License, Strain, TrimmerProfile, Tag, TagSettings, TagStats } from '../types/definitions';
 import type { Room, EquipmentType } from '../types/plantMap';
 import { apiService } from '../services/apiService';
@@ -367,9 +368,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ onViewChange }) =>
 
                 {/* License list */}
                 {loading ? (
-                    <div className="flex items-center justify-center py-12">
-                        <div className="animate-spin rounded-full h-6 w-6 border-2 border-gray-200 border-t-emerald-500"></div>
-                    </div>
+                    <CenteredSpinner label="Loading licenses…" height="py-12" />
                 ) : licenses.length === 0 ? (
                     <div className="p-8 text-center text-gray-400">
                         <KeyRound size={32} className="text-gray-300 mx-auto mb-3" />
@@ -480,9 +479,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ onViewChange }) =>
                 )}
 
                 {loading ? (
-                    <div className="flex items-center justify-center py-12">
-                        <div className="animate-spin rounded-full h-6 w-6 border-2 border-gray-200" style={{ borderTopColor: 'var(--primary-color)' }}></div>
-                    </div>
+                    <CenteredSpinner label="Loading strains…" height="py-12" />
                 ) : strains.length === 0 ? (
                     <div className="p-8 text-center text-gray-400">
                         <Leaf size={32} className="text-gray-300 mx-auto mb-3" />
@@ -564,9 +561,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ onViewChange }) =>
                 )}
 
                 {loading ? (
-                    <div className="flex items-center justify-center py-12">
-                        <div className="animate-spin rounded-full h-6 w-6 border-2 border-gray-200" style={{ borderTopColor: 'var(--primary-color)' }}></div>
-                    </div>
+                    <CenteredSpinner label="Loading rooms…" height="py-12" />
                 ) : rooms.length === 0 ? (
                     <div className="p-8 text-center text-gray-400">
                         <LayoutGrid size={32} className="text-gray-300 mx-auto mb-3" />

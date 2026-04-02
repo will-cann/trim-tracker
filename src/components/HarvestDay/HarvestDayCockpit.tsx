@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Plus, X, CheckCircle, ListChecks, ArrowLeft, Loader2 } from 'lucide-react';
+import { CenteredSpinner } from '../Spinner';
 import type { Harvest, HarvestPlantWeight, CreateHarvestDTO } from '../../types/definitions';
 import { apiService } from '../../services/apiService';
 import { HarvestCenterColumn } from './HarvestCenterColumn';
@@ -202,7 +203,7 @@ export const HarvestDayCockpit: React.FC<HarvestDayCockpitProps> = ({ onExit }) 
             {/* Cockpit body */}
             {loading ? (
                 <div className="hd-empty">
-                    <Loader2 size={24} className="animate-spin" style={{ color: 'var(--text-secondary)' }} />
+                    <CenteredSpinner size="lg" label="Loading harvest…" />
                 </div>
             ) : activeHarvest ? (
                 <div className={`hd-columns ${hasFrozen ? 'hd-columns-3' : 'hd-columns-2'}`}>

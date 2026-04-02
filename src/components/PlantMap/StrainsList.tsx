@@ -1,5 +1,7 @@
 import React, { useState, useMemo, useCallback } from 'react';
-import { ChevronDown, ChevronUp, AlertCircle, RefreshCw } from 'lucide-react';
+import { ChevronDown, ChevronUp } from 'lucide-react';
+import { CenteredSpinner } from '../Spinner';
+import { ErrorRetry } from '../ErrorRetry';
 import type { RoomMapData, PlantPhase } from '../../types/plantMap';
 import { getHealthColor, HEALTH_COLOR_MAP, abbreviateContaminants } from '../../types/plantMap';
 import { DialogDrawer } from './DialogDrawer';
@@ -129,26 +131,11 @@ export const StrainsList: React.FC<StrainsListProps> = ({
     }, [onRevalidate]);
 
     if (loading) {
-        return (
-            <div className="flex items-center justify-center h-full">
-                <div className="animate-spin rounded-full h-6 w-6 border-2 border-gray-200 border-t-emerald-500" />
-            </div>
-        );
+        return <CenteredSpinner label="Loading strains…" height="h-full" />;
     }
 
     if (error) {
-        return (
-            <div className="flex flex-col items-center justify-center h-full gap-2 text-center px-4">
-                <AlertCircle size={20} className="text-red-400" />
-                <p className="text-xs text-gray-500">{error}</p>
-                <button
-                    onClick={onRevalidate}
-                    className="flex items-center gap-1.5 text-xs text-emerald-600 hover:text-emerald-700 font-medium mt-1"
-                >
-                    <RefreshCw size={12} /> Retry
-                </button>
-            </div>
-        );
+        return <ErrorRetry message={error} onRetry={onRevalidate} />;
     }
 
     if (rows.length === 0) {

@@ -1,8 +1,9 @@
 import React from 'react';
+import { CenteredSpinner } from './Spinner';
 
 /** A single pulsing bar. Width/height via className or style. */
 const Bar: React.FC<{ className?: string }> = ({ className = '' }) => (
-    <div className={`animate-pulse rounded bg-gray-200 ${className}`} />
+    <div className={`animate-pulse rounded bg-gray-100 ${className}`} />
 );
 
 /** Skeleton for a stat card row (4 cards). */
@@ -87,7 +88,7 @@ export const ListSkeleton: React.FC<{ count?: number }> = ({ count = 4 }) => (
     <div className="flex flex-col gap-1">
         {Array.from({ length: count }).map((_, i) => (
             <div key={i} className="flex items-center gap-3 px-2 py-2.5 animate-pulse">
-                <div className="w-4 h-4 rounded bg-gray-200" />
+                <div className="w-4 h-4 rounded bg-gray-100" />
                 <div className="flex-1 flex flex-col gap-1.5">
                     <Bar className="h-3 w-3/4" />
                     <Bar className="h-2.5 w-1/2" />
@@ -98,15 +99,6 @@ export const ListSkeleton: React.FC<{ count?: number }> = ({ count = 4 }) => (
 );
 
 /** Full-page centered skeleton with a spinner (for top-level views). */
-export const PageSkeleton: React.FC = () => (
-    <div className="flex items-center justify-center h-64">
-        <div className="flex flex-col items-center gap-3">
-            <div className="animate-spin rounded-full h-8 w-8 border-2 border-gray-200 border-t-emerald-500" />
-            <div className="animate-pulse flex gap-1">
-                <div className="w-1.5 h-1.5 rounded-full bg-gray-300" />
-                <div className="w-1.5 h-1.5 rounded-full bg-gray-200" />
-                <div className="w-1.5 h-1.5 rounded-full bg-gray-100" />
-            </div>
-        </div>
-    </div>
+export const PageSkeleton: React.FC<{ label?: string }> = ({ label }) => (
+    <CenteredSpinner size="lg" label={label} />
 );

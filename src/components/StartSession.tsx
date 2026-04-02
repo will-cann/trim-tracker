@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Loader2, Package, PenLine, Droplets } from 'lucide-react';
+import { Package, PenLine, Droplets } from 'lucide-react';
+import { CenteredSpinner } from './Spinner';
 import type { CreateTrimSessionDTO, Strain, License, Harvest } from '../types/definitions';
 import { apiService } from '../services/apiService';
 
@@ -85,11 +86,7 @@ export const StartSession: React.FC<StartSessionProps> = ({ onStart }) => {
     };
 
     if (loading) {
-        return (
-            <div className="field-loading">
-                <Loader2 size={16} className="animate-spin" /> Loading...
-            </div>
-        );
+        return <CenteredSpinner label="Loading session data…" height="py-12" />;
     }
 
     return (

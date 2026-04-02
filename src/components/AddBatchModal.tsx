@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Mic, Loader2, Package, PenLine, Droplets } from 'lucide-react';
+import { Mic, Package, PenLine, Droplets } from 'lucide-react';
+import { CenteredSpinner } from './Spinner';
 import type { CreateTrimSessionDTO, Strain, License, Harvest } from '../types/definitions';
 import { useSpeechRecognition } from '../hooks/useSpeechRecognition';
 import { apiService } from '../services/apiService';
@@ -105,9 +106,7 @@ export const AddBatchModal: React.FC<AddBatchModalProps> = ({ onClose, onSubmit 
             </>
         }>
             {loading ? (
-                <div className="field-loading">
-                    <Loader2 size={16} className="animate-spin" /> Loading...
-                </div>
+                <CenteredSpinner label="Loading batch data…" height="py-12" />
             ) : (
                 <form id="add-batch-form" onSubmit={handleSubmit}>
                     {/* Mode toggle */}

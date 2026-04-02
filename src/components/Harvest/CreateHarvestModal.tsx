@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Flower2, Snowflake, ArrowRightLeft, Loader2 } from 'lucide-react';
+import { Flower2, Snowflake, ArrowRightLeft } from 'lucide-react';
+import { CenteredSpinner } from '../Spinner';
 import type { AllocationChoice, CreateHarvestDTO, Strain, License } from '../../types/definitions';
 import { apiService } from '../../services/apiService';
 import { Modal, Button } from '../ui';
@@ -65,9 +66,7 @@ export const CreateHarvestModal: React.FC<CreateHarvestModalProps> = ({ onClose,
             </>
         }>
             {loading ? (
-                <div className="field-loading">
-                    <Loader2 size={16} className="animate-spin" /> Loading...
-                </div>
+                <CenteredSpinner label="Loading harvest data…" height="py-12" />
             ) : (
                 <form id="create-harvest-form" onSubmit={handleSubmit}>
                     {/* Core info */}

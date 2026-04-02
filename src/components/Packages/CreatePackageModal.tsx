@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Loader2, Trash2 } from 'lucide-react';
+import { Trash2 } from 'lucide-react';
+import { CenteredSpinner } from '../Spinner';
 import type { CreatePackageDTO, PackageType, Strain, License } from '../../types/definitions';
 import { apiService } from '../../services/apiService';
 import { Modal, Button } from '../ui';
@@ -184,9 +185,7 @@ export const CreatePackageModal: React.FC<CreatePackageModalProps> = ({ onClose,
             </>
         }>
             {loading ? (
-                <div className="field-loading">
-                    <Loader2 size={16} className="animate-spin" /> Loading...
-                </div>
+                <CenteredSpinner label="Loading package data…" height="py-12" />
             ) : (
                 <form id="create-package-form" onSubmit={handleSubmit}>
                     {/* Strain + License (shared for all packages) */}

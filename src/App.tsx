@@ -21,6 +21,7 @@ import { PackageDashboard } from './components/Packages/PackageDashboard';
 import { HarvestDayCockpit } from './components/HarvestDay/HarvestDayCockpit';
 import { TeamDashboard } from './components/TeamDashboard';
 import { usePlantMapSummary } from './hooks/usePlantMapSummary';
+import logo from './assets/logo.png';
 
 type ViewType = 'ai' | 'dashboard' | 'reports' | 'harvests' | 'harvest-day' | 'settings' | 'tasks' | 'plant-map' | 'packages' | 'team';
 
@@ -177,8 +178,9 @@ function AppContent() {
 
   if (authLoading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-2 border-gray-200 border-t-emerald-500"></div>
+      <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center gap-5">
+        <img src={logo} alt="" className="w-8 h-8 object-contain opacity-40 animate-pulse" />
+        <p className="text-xs text-gray-300 tracking-wide">Loading</p>
       </div>
     );
   }

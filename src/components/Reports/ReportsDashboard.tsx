@@ -44,7 +44,7 @@ export const ReportsDashboard: React.FC = () => {
     if (loading) {
         return (
             <div className="reports-dashboard p-8 max-w-7xl mx-auto">
-                <PageSkeleton />
+                <PageSkeleton label="Loading reports…" />
             </div>
         );
     }
