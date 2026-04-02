@@ -167,15 +167,13 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ onViewChange }) =>
                     onCancel={() => setDeleteTarget(null)}
                 />
             )}
-            <div className="dashboard settings-container">
-                {/* Header */}
-                <div className="settings-header">
-                    <h2 className="settings-title">Settings</h2>
-                    <p className="settings-subtitle">Manage your facility configuration</p>
-                </div>
-
-                {/* Layout: Nav + Content */}
-                <div className="settings-layout">
+            <div className="settings-layout">
+                {/* Fixed left panel: header + nav */}
+                <aside className="settings-sidebar">
+                    <div className="settings-header">
+                        <h2 className="settings-title">Settings</h2>
+                        <p className="settings-subtitle">Manage your facility configuration</p>
+                    </div>
                     <SettingsNav
                         active={activeSection}
                         onChange={setActiveSection}
@@ -187,10 +185,12 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ onViewChange }) =>
                         }}
                         onNavigateToTeam={onViewChange ? () => onViewChange('team') : undefined}
                     />
-                    <main className="settings-content">
-                        {renderSection()}
-                    </main>
-                </div>
+                </aside>
+
+                {/* Content area */}
+                <main className="settings-content">
+                    {renderSection()}
+                </main>
             </div>
         </>
     );

@@ -5033,43 +5033,49 @@ select.field-input {
 /* right panel is now an overlay — no margin needed */
 
 /* ── Settings Layout ── */
-.settings-container {
-  max-width: 72rem;
-  margin: 0 auto;
+.settings-layout {
+  display: flex;
+  min-height: 100vh;
+}
+
+.settings-sidebar {
+  width: 240px;
+  flex-shrink: 0;
+  position: fixed;
+  top: 0;
+  left: 68px; /* matches icon rail width */
+  bottom: 0;
+  background: #FAFAFA;
+  border-right: 1px solid #E8E8E8;
+  padding: 2rem 1.25rem;
+  display: flex;
+  flex-direction: column;
+  z-index: 10;
+  overflow-y: auto;
 }
 
 .settings-header {
-  margin-bottom: 2rem;
+  margin-bottom: 1.75rem;
 }
 
 .settings-title {
-  font-size: 1.5rem;
+  font-size: 1.375rem;
   font-weight: 700;
   color: #1A1A1A;
   line-height: 1.2;
 }
 
 .settings-subtitle {
-  font-size: 0.875rem;
+  font-size: 0.8125rem;
   color: #959595;
   margin-top: 0.25rem;
 }
 
-.settings-layout {
-  display: flex;
-  gap: 2.5rem;
-  align-items: flex-start;
-}
-
 .settings-nav {
-  width: 200px;
-  flex-shrink: 0;
-  position: sticky;
-  top: 1.5rem;
-  align-self: flex-start;
   display: flex;
   flex-direction: column;
   gap: 0.25rem;
+  flex: 1;
 }
 
 .settings-nav-list {
@@ -5097,13 +5103,13 @@ select.field-input {
 
 .settings-nav-item:hover {
   color: #1A1A1A;
-  background: #F8F8F8;
+  background: #F0F0F0;
 }
 
 .settings-nav-item.active {
   color: #1A1A1A;
   font-weight: 700;
-  background: #F1F1F1;
+  background: #EAEAEA;
 }
 
 .settings-nav-label {
@@ -5143,11 +5149,9 @@ select.field-input {
 .settings-content {
   flex: 1;
   min-width: 0;
-  max-width: 42rem;
-  background: white;
-  border: 1px solid #E8E8E8;
-  border-radius: 10px;
-  padding: 1.75rem 2rem;
+  max-width: 48rem;
+  margin-left: 240px; /* offset for fixed sidebar */
+  padding: 2rem 2.5rem;
 }
 
 .settings-section-header {
@@ -5212,7 +5216,7 @@ select.field-input {
 }
 
 @media (max-width: 768px) {
-  .settings-nav {
+  .settings-sidebar {
     display: none;
   }
 
@@ -5255,10 +5259,13 @@ select.field-input {
   .settings-layout {
     flex-direction: column;
     gap: 0;
+    min-height: auto;
   }
 
   .settings-content {
+    margin-left: 0;
     max-width: 100%;
+    padding: 1rem;
   }
 }
 
