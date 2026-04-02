@@ -35,6 +35,24 @@ export const handler: Handler = async (event) => {
             throw new Error('Forbidden: You do not have access to this resource');
         }
 
+        // If linked to a harvest, calculate dry start weight from moisture loss
+        let finalStartWeight = startWeight;
+        let wetWeight: number | null = null;
+
+        if (harvestId) {
+            const { rows: [harvest] } = await sql`
+                SELECT moisture_loss_pct, dry_weight FROM harvests WHERE id = ${harvestId}
+            `;
+            if (harvest) {
+                const moistureLossPct = parseFloat(harvest.moisture_loss_pct) || 75;
+                wetWeight = startWeight;
+                const dryWeight = parseFloat(harvest.dry_weight);
+                finalStartWeight = dryWeight > 0
+                    ? dryWeight
+                    : Math.round(wetWeight * (1 - moistureLossPct / 100) * 100) / 100;
+            }
+        }
+
         const { rows: [newEntry] } = await sql`
       INSERT INTO trim_entries (
         session_id,
@@ -42,6 +60,7 @@ export const handler: Handler = async (event) => {
         license_number,
         strain,
         start_weight,
+        wet_weight,
         status,
         planned_trim_date,
         planned_method,
@@ -52,7 +71,8 @@ export const handler: Handler = async (event) => {
         ${harvestName},
         ${licenseNumber},
         ${strain},
-        ${startWeight},
+        ${finalStartWeight},
+        ${wetWeight},
         ${status || 'active'},
         ${plannedTrimDate || null},
         ${plannedMethod || null},

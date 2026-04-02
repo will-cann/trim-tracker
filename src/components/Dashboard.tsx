@@ -68,7 +68,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
             <div className="dashboard-top-section">
                 <div className="stats-grid">
                     {/* Row 1 */}
-                    <StatCard icon={<Package size={18} />} iconClassName="start-icon" label="Total Start" value={`${totalStartWeight.toFixed(0)}g`} />
+                    <StatCard icon={<Package size={18} />} iconClassName="start-icon" label="Est. Dry Weight" value={`${totalStartWeight.toFixed(0)}g`} />
                     <StatCard icon={<Scale size={18} />} iconClassName="output-icon" label="Total Output" value={`${totalOutput.toFixed(0)}g`} />
                     <StatCard icon={<Hourglass size={18} />} iconClassName="remaining-icon" label="Remaining" value={`${remainingWeight.toFixed(0)}g`} />
                     <StatCard icon={<Users size={18} />} iconStyle={{ backgroundColor: 'rgba(28, 158, 255, 0.1)', color: '#1C9EFF' }} label="Trimmers" value={activeTrimmerCount} />

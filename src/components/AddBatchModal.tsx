@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Mic, Loader2, Package, PenLine } from 'lucide-react';
+import { Mic, Loader2, Package, PenLine, Droplets } from 'lucide-react';
 import type { CreateTrimSessionDTO, Strain, License, Harvest } from '../types/definitions';
 import { useSpeechRecognition } from '../hooks/useSpeechRecognition';
 import { apiService } from '../services/apiService';
@@ -164,7 +164,9 @@ export const AddBatchModal: React.FC<AddBatchModalProps> = ({ onClose, onSubmit 
                                         const flowerAlloc = h.allocations?.find(
                                             a => a.allocationType === 'flower' && a.status !== 'completed'
                                         );
-                                        const weight = flowerAlloc?.targetWeight ?? h.totalWetWeight;
+                                        const wetWeight = flowerAlloc?.targetWeight ?? h.totalWetWeight;
+                                        const moisturePct = h.moistureLossPct ?? 75;
+                                        const estDryWeight = h.dryWeight ?? Math.round(wetWeight * (1 - moisturePct / 100));
                                         const isSelected = selectedHarvestId === h.id;
                                         return (
                                             <button
@@ -207,12 +209,28 @@ export const AddBatchModal: React.FC<AddBatchModalProps> = ({ onClose, onSubmit 
                                                     </div>
                                                 </div>
                                                 <div style={{
-                                                    fontSize: '13px',
-                                                    fontWeight: 500,
-                                                    color: 'var(--color-elephant-600)',
+                                                    textAlign: 'right',
                                                     whiteSpace: 'nowrap',
                                                 }}>
-                                                    {weight.toLocaleString()}g
+                                                    <div style={{
+                                                        fontSize: '13px',
+                                                        fontWeight: 600,
+                                                        color: 'var(--color-elephant-800)',
+                                                    }}>
+                                                        ~{estDryWeight.toLocaleString()}g
+                                                    </div>
+                                                    <div style={{
+                                                        fontSize: '11px',
+                                                        color: 'var(--color-elephant-400)',
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        justifyContent: 'flex-end',
+                                                        gap: '3px',
+                                                        marginTop: '1px',
+                                                    }}>
+                                                        <Droplets size={10} />
+                                                        {wetWeight.toLocaleString()}g wet
+                                                    </div>
                                                 </div>
                                             </button>
                                         );
