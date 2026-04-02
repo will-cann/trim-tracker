@@ -20,16 +20,25 @@ export const handler: Handler = async (event) => {
             LIMIT 1
         `;
 
+        // Fetch current user info from users table
+        const { rows: [currentUser] } = await sql`
+            SELECT name, email, role FROM users WHERE id = ${context.userId}
+        `;
+
         if (existingLink.length === 0) {
-            const { rows: [currentUser] } = await sql`
-                SELECT name, email, role FROM users WHERE id = ${context.userId}
-            `;
             if (currentUser) {
                 await sql`
                     INSERT INTO trimmer_profiles (id, company_id, name, status, role, email, user_id, invite_status)
                     VALUES (gen_random_uuid(), ${context.companyId}, ${currentUser.name || currentUser.email}, 'active', ${currentUser.role}, ${currentUser.email}, ${context.userId}, 'accepted')
                 `;
             }
+        } else if (currentUser) {
+            // Sync profile with latest user info (fixes stale auth0|... names)
+            await sql`
+                UPDATE trimmer_profiles
+                SET name = ${currentUser.name || currentUser.email}, email = ${currentUser.email}
+                WHERE id = ${existingLink[0].id}
+            `;
         }
 
         const result = await sql`

@@ -91,10 +91,26 @@ export async function resolveContext(authHeader?: string): Promise<Authenticated
         `;
 
         if (rows.length > 0) {
+            // Refresh name/email from Auth0 if they were previously missing
+            const freshEmail = auth0User.email;
+            const freshName = auth0User.name || auth0User.nickname;
+            const currentRow = rows[0];
+            const needsUpdate =
+                (freshEmail && currentRow.email?.includes('@unknown.com')) ||
+                (freshName && currentRow.name?.startsWith('auth0|'));
+            if (needsUpdate) {
+                await sql`
+                    UPDATE users SET
+                        email = COALESCE(${freshEmail || null}, email),
+                        name = COALESCE(${freshName || null}, name),
+                        updated_at = NOW()
+                    WHERE id = ${currentRow.id}
+                `;
+            }
             return {
-                userId: rows[0].id,
-                companyId: rows[0].company_id,
-                role: rows[0].role
+                userId: currentRow.id,
+                companyId: currentRow.company_id,
+                role: currentRow.role
             };
         }
 

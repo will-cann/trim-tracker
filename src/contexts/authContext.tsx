@@ -134,6 +134,7 @@ export const Auth0Wrapper: React.FC<{ children: ReactNode }> = ({ children }) =>
             authorizationParams={{
                 redirect_uri: window.location.origin,
                 audience: audience,
+                scope: 'openid profile email',
             }}
         >
             <AuthProvider>
