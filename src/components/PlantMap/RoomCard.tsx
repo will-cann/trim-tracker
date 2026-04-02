@@ -1,9 +1,7 @@
 import React from 'react';
 import { Maximize2 } from 'lucide-react';
 import type { LocationMeta, PlantPhase } from '../../types/plantMap';
-import { getHealthColor, HEALTH_COLOR_MAP, buildWeekRatioString, buildPhaseProgress, abbreviateContaminants } from '../../types/plantMap';
-import { PlantHealthCircle } from './PlantHealthCircle';
-import { PlantHealthCode } from './PlantHealthCode';
+import { getHealthColor, HEALTH_COLOR_MAP, buildWeekRatioString, buildPhaseProgress, contaminantAbbrev } from '../../types/plantMap';
 
 interface RoomCardProps {
     name: string;
@@ -14,15 +12,13 @@ interface RoomCardProps {
 }
 
 export const RoomCard: React.FC<RoomCardProps> = ({ name, room, phase, phaseLabel, onClick }) => {
-    const healthColor = getHealthColor(room.plantHealth);
-    const borderColor = HEALTH_COLOR_MAP[healthColor];
+    const healthColorKey = getHealthColor(room.plantHealth);
+    const healthHex = HEALTH_COLOR_MAP[healthColorKey];
+    const healthLabel = `Code ${healthColorKey.charAt(0).toUpperCase() + healthColorKey.slice(1)}`;
 
     const isFlowering = phase === 'flowering';
     const isVeg = phase === 'vegetative';
 
-    // Flowering rooms show week ratio + harvest date
-    // Veg rooms show flip date
-    // Nursery rooms show no milestone date
     const weekRatio = isFlowering && room.phaseDates[0] && room.harvestDates[0]
         ? buildWeekRatioString(room.phaseDates[0], room.harvestDates[0])
         : undefined;
@@ -42,8 +38,6 @@ export const RoomCard: React.FC<RoomCardProps> = ({ name, room, phase, phaseLabe
         extraDates = room.flipDates.length - 1;
     }
 
-    const contaminantStr = abbreviateContaminants(room.contaminants);
-
     // Flowering progress: % through the flowering cycle
     const flowerProgress = isFlowering && room.phaseDates[0] && room.harvestDates[0]
         ? buildPhaseProgress(room.phaseDates[0], room.harvestDates[0])
@@ -52,19 +46,18 @@ export const RoomCard: React.FC<RoomCardProps> = ({ name, room, phase, phaseLabe
     return (
         <button
             onClick={onClick}
-            className="plant-map-room-card group"
-            style={{ borderColor }}
+            className="plant-map-room-card group relative"
+            style={{ borderColor: healthHex }}
         >
+            <Maximize2
+                size={13}
+                className="absolute top-3 right-3 text-gray-300 group-hover:text-emerald-500 transition-colors"
+            />
+
             {/* Header */}
-            <div className="flex items-start justify-between mb-3">
-                <div className="min-w-0">
-                    <h3 className="text-sm font-semibold text-gray-900 truncate">{name}</h3>
-                    <p className="text-[11px] text-gray-400 mt-0.5">{subtitle}</p>
-                </div>
-                <Maximize2
-                    size={14}
-                    className="text-gray-300 group-hover:text-emerald-500 transition-colors shrink-0 mt-0.5"
-                />
+            <div className="mb-3 pr-6">
+                <h3 className="text-sm font-semibold text-gray-900 truncate">{name}</h3>
+                <p className="text-[11px] text-gray-400 mt-0.5">{subtitle}</p>
             </div>
 
             {/* Metrics row */}
@@ -72,7 +65,7 @@ export const RoomCard: React.FC<RoomCardProps> = ({ name, room, phase, phaseLabe
                 {dateLabel && primaryDate && (
                     <div>
                         <span className="text-gray-400">{dateLabel} </span>
-                        <span className={`font-medium tabular-nums ${isFlowering ? 'text-amber-600' : 'text-blue-500'}`}>
+                        <span className="font-medium tabular-nums text-gray-700">
                             ~{primaryDate.slice(5).replace('-', '/')}
                         </span>
                         {extraDates > 0 && (
@@ -98,9 +91,7 @@ export const RoomCard: React.FC<RoomCardProps> = ({ name, room, phase, phaseLabe
                             className="h-full rounded-full transition-all"
                             style={{
                                 width: `${flowerProgress}%`,
-                                background: flowerProgress >= 90
-                                    ? '#f59e0b'
-                                    : 'var(--color-chameleon, #3BB570)',
+                                background: healthHex,
                             }}
                         />
                     </div>
@@ -109,15 +100,39 @@ export const RoomCard: React.FC<RoomCardProps> = ({ name, room, phase, phaseLabe
             )}
 
             {/* Health section */}
-            <div className="flex items-center justify-between pt-3 border-t border-gray-100">
-                <div className="space-y-1">
-                    <p className="text-[10px] text-gray-400 uppercase tracking-wider">Plant Health</p>
-                    <PlantHealthCode health={room.plantHealth} />
+            <div className="pt-4 mt-1 border-t border-gray-100">
+                <p className="text-[10px] text-gray-400 uppercase tracking-wider mb-1.5">Plant Health</p>
+                <div className="flex items-baseline flex-wrap gap-x-1.5 gap-y-1">
+                    <span
+                        className="text-xs font-semibold uppercase tracking-wide"
+                        style={{ color: healthHex }}
+                    >
+                        {healthLabel}
+                    </span>
+                    <span className="text-[10px] text-gray-300">·</span>
+                    <span
+                        className="text-xs font-semibold tabular-nums"
+                        style={{ color: healthHex }}
+                    >
+                        {room.plantHealth}%
+                    </span>
                     {room.contaminants.length > 0 && (
-                        <p className="text-[10px] text-gray-400">{contaminantStr}</p>
+                        <>
+                            <span className="text-[10px] text-gray-300">·</span>
+                            {[...new Set(room.contaminants)].map((c, i) => (
+                                <React.Fragment key={c}>
+                                    {i > 0 && <span className="text-[10px] text-gray-300">·</span>}
+                                    <span
+                                        className="text-[10px] font-medium"
+                                        style={{ color: healthHex }}
+                                    >
+                                        {contaminantAbbrev(c)}
+                                    </span>
+                                </React.Fragment>
+                            ))}
+                        </>
                     )}
                 </div>
-                <PlantHealthCircle health={room.plantHealth} size="lg" />
             </div>
         </button>
     );

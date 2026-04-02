@@ -67,7 +67,7 @@ export const getHealthColor = (health: number): HealthColor => {
 
 export const HEALTH_COLOR_MAP: Record<HealthColor, string> = {
   green: '#3BB570',
-  yellow: '#FA9E52',
+  yellow: '#F0BF00',
   red: '#DF5B59',
 };
 

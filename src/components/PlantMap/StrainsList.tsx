@@ -244,6 +244,7 @@ export const StrainsList: React.FC<StrainsListProps> = ({
                                                     type="checkbox"
                                                     checked={isSelected}
                                                     onChange={() => toggleRow(row.id)}
+                                                    onClick={e => e.stopPropagation()}
                                                     className="rounded border-gray-300 text-emerald-500 focus:ring-emerald-500 h-3.5 w-3.5"
                                                 />
                                             </td>

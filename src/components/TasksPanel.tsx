@@ -6,7 +6,7 @@ import {
     CheckCircle2, PlayCircle, CalendarClock, Zap, ArrowRight,
     MapPin, User, MoreHorizontal, RotateCcw, Pencil, X, Check,
     ArrowUp, ArrowDown, ChevronsUpDown, ChevronDown, ChevronRight, Plus, AlertTriangle, Clock,
-    MessageSquare, Mic,
+    MessageSquare,
 } from 'lucide-react';
 import type { HumanTask, HumanTaskStatus, HumanTaskCategory, HumanTaskPriority } from '../types/definitions';
 import { executeAction } from '../services/actionExecutor';

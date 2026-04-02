@@ -3,8 +3,6 @@ import { Minimize2 } from 'lucide-react';
 import type { LocationMeta, PlantPhase } from '../../types/plantMap';
 import { getHealthColor, HEALTH_COLOR_MAP, contaminantLabel } from '../../types/plantMap';
 import { useRoomMap } from '../../hooks/useRoomMap';
-import { PlantHealthCircle } from './PlantHealthCircle';
-import { PlantHealthCode } from './PlantHealthCode';
 import { StrainsList } from './StrainsList';
 
 interface ExpandedRoomProps {
@@ -44,68 +42,63 @@ export const ExpandedRoom: React.FC<ExpandedRoomProps> = ({
         containerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     }, []);
 
+    const healthColorKey = getHealthColor(room.plantHealth);
+    const healthHex = HEALTH_COLOR_MAP[healthColorKey];
+    const healthLabel = `Code ${healthColorKey.charAt(0).toUpperCase() + healthColorKey.slice(1)}`;
+
     return (
         <div
             ref={containerRef}
             className="plant-map-expanded-room"
             style={{ borderColor }}
         >
-            {/* Left column */}
-            <div className="expanded-room-left">
-                {/* Room Summary */}
-                <div
-                    className="expanded-room-summary"
-                    style={{ backgroundColor: `${borderColor}0D` }}
+            {/* Header bar */}
+            <div className="expanded-room-header relative" style={{ backgroundColor: `${borderColor}0D` }}>
+                <button
+                    onClick={onCollapse}
+                    className="absolute top-3 right-3 p-1 rounded hover:bg-black/5 transition-colors"
                 >
-                    <div className="flex items-start justify-between mb-3">
-                        <div className="min-w-0">
-                            <h3 className="text-sm font-semibold text-gray-900 truncate">{name}</h3>
-                            <p className="text-[11px] text-gray-400 mt-0.5">{phaseLabel} Phase</p>
-                        </div>
-                        <button
-                            onClick={onCollapse}
-                            className="p-1 rounded hover:bg-black/5 transition-colors shrink-0"
-                        >
-                            <Minimize2 size={14} className="text-gray-400" />
-                        </button>
-                    </div>
-
-                    <div className="space-y-2.5 text-xs">
+                    <Minimize2 size={14} className="text-gray-400" />
+                </button>
+                <div className="flex items-baseline flex-wrap gap-x-4 gap-y-1 pr-8">
+                    <h3 className="text-sm font-semibold text-gray-900">{name}</h3>
+                    <div className="flex items-baseline gap-3 text-xs text-gray-500">
                         {showHarvestDate && (
-                            <div className="flex items-center justify-between">
-                                <span className="text-gray-400">Harvest</span>
-                                <span className="font-medium text-gray-700 tabular-nums">
-                                    {formatDate(room.harvestDates[0])}
-                                </span>
-                            </div>
+                            <span>
+                                <span className="text-gray-400">Harvest </span>
+                                <span className="font-medium text-gray-700 tabular-nums">{formatDate(room.harvestDates[0])}</span>
+                            </span>
                         )}
-                        <div className="flex items-center justify-between">
-                            <span className="text-gray-400">Strains</span>
+                        <span>
                             <span className="font-semibold text-gray-900 tabular-nums">{room.totalStrains}</span>
-                        </div>
-                        <div className="flex items-center justify-between">
-                            <span className="text-gray-400">Plants</span>
+                            <span className="text-gray-400"> strain{room.totalStrains !== 1 ? 's' : ''}</span>
+                        </span>
+                        <span>
                             <span className="font-semibold text-gray-900 tabular-nums">{room.totalPlants}</span>
-                        </div>
+                            <span className="text-gray-400"> plant{room.totalPlants !== 1 ? 's' : ''}</span>
+                        </span>
                     </div>
-                </div>
-
-                {/* Health Summary */}
-                <div className="expanded-room-health">
-                    <p className="text-[10px] text-gray-400 uppercase tracking-wider mb-2">Plant Health</p>
-                    <div className="flex items-center justify-between mb-3">
-                        <PlantHealthCode health={room.plantHealth} />
-                        <PlantHealthCircle health={room.plantHealth} size="sm" />
-                    </div>
-                    <div>
-                        <p className="text-[10px] text-gray-400 uppercase tracking-wider mb-1">Contamination</p>
-                        <p className="text-xs text-gray-600 font-medium">{contaminantStr}</p>
+                    <div className="flex items-baseline flex-wrap gap-x-1.5 gap-y-1 text-xs">
+                        <span className="text-gray-400">Health</span>
+                        <span className="font-semibold uppercase tracking-wide" style={{ color: healthHex }}>
+                            {healthLabel}
+                        </span>
+                        <span className="text-gray-300">·</span>
+                        <span className="font-semibold tabular-nums" style={{ color: healthHex }}>
+                            {room.plantHealth}%
+                        </span>
+                        {room.contaminants.length > 0 && (
+                            <>
+                                <span className="text-gray-300">·</span>
+                                <span className="text-gray-500 font-medium">{contaminantStr}</span>
+                            </>
+                        )}
                     </div>
                 </div>
             </div>
 
-            {/* Right column — Strains List */}
-            <div className="expanded-room-right">
+            {/* Full-width strains list */}
+            <div className="expanded-room-body">
                 <StrainsList
                     data={roomMapData}
                     loading={roomMapLoading}
