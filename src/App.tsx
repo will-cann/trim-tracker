@@ -13,7 +13,7 @@ import { RightPanel } from './components/RightPanel';
 import { TaskRightPanel } from './components/TaskRightPanel';
 import { SettingsPanel } from './components/SettingsPanel';
 import { Auth0Wrapper, useAuth } from './contexts/authContext';
-import { Login } from './components/Login';
+import { LandingPage } from './components/LandingPage';
 import { useConversationHistory } from './hooks/useConversationHistory';
 import { useHumanTasks } from './hooks/useHumanTasks';
 import { PlantMapDashboard } from './components/PlantMap/PlantMapDashboard';
@@ -173,7 +173,7 @@ function AppContent() {
   }
 
   if (!user) {
-    return <Login />;
+    return <LandingPage />;
   }
 
   const handleStartSession = async (data: CreateTrimSessionDTO) => {
