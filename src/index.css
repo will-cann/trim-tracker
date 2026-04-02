@@ -5065,7 +5065,8 @@ select.field-input {
   width: 200px;
   flex-shrink: 0;
   position: sticky;
-  top: 1rem;
+  top: 1.5rem;
+  align-self: flex-start;
   display: flex;
   flex-direction: column;
   gap: 0.25rem;
@@ -5143,6 +5144,10 @@ select.field-input {
   flex: 1;
   min-width: 0;
   max-width: 42rem;
+  background: white;
+  border: 1px solid #E8E8E8;
+  border-radius: 10px;
+  padding: 1.75rem 2rem;
 }
 
 .settings-section-header {
@@ -5169,16 +5174,15 @@ select.field-input {
 .settings-add-form {
   padding: 1rem;
   margin-bottom: 1rem;
-  background: #FAFAFA;
-  border: 1px solid #E8E8E8;
+  background: #F7F7F7;
+  border: 1px solid #EBEBEB;
   border-radius: 8px;
 }
 
 .settings-table-wrap {
-  border: 1px solid #E0E0E0;
+  border: 1px solid #EBEBEB;
   border-radius: 8px;
   overflow: hidden;
-  background: white;
 }
 
 .settings-empty {
