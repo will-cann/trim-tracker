@@ -373,6 +373,19 @@ const tools = [
         },
     },
     {
+        name: 'update_batch_weight',
+        description: 'Update a weight value on a batch entry. Can update flower, shake, trim, or waste weight.',
+        input_schema: {
+            type: 'object' as const,
+            properties: {
+                entryIdentifier: { type: 'string', description: 'Harvest name or strain to identify the batch' },
+                weightType: { type: 'string', enum: ['flower', 'shake', 'trim', 'waste'], description: 'Which weight to update' },
+                value: { type: 'number', description: 'New weight value in grams' },
+            },
+            required: ['entryIdentifier', 'weightType', 'value'],
+        },
+    },
+    {
         name: 'submit_session',
         description: 'Submit/close the current active trim session.',
         input_schema: {
@@ -393,12 +406,16 @@ const tools = [
         },
     },
     {
-        name: 'delete_trimmer_profile',
-        description: 'Remove a trimmer from the company roster.',
+        name: 'update_trimmer_profile',
+        description: 'Update a trimmer profile on the company roster. Can change name, role, email, or status.',
         input_schema: {
             type: 'object' as const,
             properties: {
-                profileName: { type: 'string', description: 'Name of the trimmer profile to delete' },
+                profileName: { type: 'string', description: 'Current name of the trimmer profile to update (used to find the profile)' },
+                name: { type: 'string', description: 'New name for the trimmer' },
+                role: { type: 'string', enum: ['trimmer', 'manager', 'admin'], description: 'New role' },
+                email: { type: 'string', description: 'New email address' },
+                status: { type: 'string', enum: ['active', 'inactive'], description: 'New status' },
             },
             required: ['profileName'],
         },
@@ -656,15 +673,15 @@ const tools = [
         },
     },
     {
-        name: 'delete_license',
-        description: 'Remove a license from the system.',
+        name: 'update_license',
+        description: 'Update the label/friendly name for an existing license.',
         input_schema: {
             type: 'object' as const,
             properties: {
-                licenseId: { type: 'string', description: 'License ID to delete' },
-                licenseNumber: { type: 'string', description: 'License number to match if ID not known' },
+                licenseNumber: { type: 'string', description: 'License number to identify which license to update' },
+                label: { type: 'string', description: 'New friendly label for the license (e.g. "Facility A")' },
             },
-            required: [],
+            required: ['licenseNumber', 'label'],
         },
     },
     // ── Room Management ──
@@ -1293,6 +1310,22 @@ IMPORTANT: If the user is correcting or updating a previous statement (e.g. "act
                         });
                         break;
                     }
+                    case 'update_batch_weight': {
+                        const matchedBW = request.context.existingEntries.find(
+                            e => e.harvestName.toLowerCase().includes(input.entryIdentifier.toLowerCase()) ||
+                                e.strain.toLowerCase().includes(input.entryIdentifier.toLowerCase())
+                        );
+                        actions.push({
+                            type: 'update_batch_weight',
+                            data: {
+                                entryId: matchedBW?.id || null,
+                                entryName: matchedBW?.harvestName || input.entryIdentifier,
+                                weightType: input.weightType,
+                                value: input.value,
+                            },
+                        });
+                        break;
+                    }
                     case 'submit_session':
                         actions.push({ type: 'submit_session', data: {} });
                         break;
@@ -1311,15 +1344,19 @@ IMPORTANT: If the user is correcting or updating a previous statement (e.g. "act
                         });
                         break;
                     }
-                    case 'delete_trimmer_profile': {
-                        const matchedDP = request.context.trimmerProfiles.find(
+                    case 'update_trimmer_profile': {
+                        const matchedUTP = request.context.trimmerProfiles.find(
                             p => p.name.toLowerCase().includes(input.profileName.toLowerCase())
                         );
                         actions.push({
-                            type: 'delete_trimmer_profile',
+                            type: 'update_trimmer_profile',
                             data: {
-                                profileId: matchedDP?.id || null,
-                                profileName: matchedDP?.name || input.profileName,
+                                profileId: matchedUTP?.id || null,
+                                profileName: matchedUTP?.name || input.profileName,
+                                name: input.name,
+                                role: input.role,
+                                email: input.email,
+                                status: input.status,
                             },
                         });
                         break;
@@ -1458,12 +1495,12 @@ IMPORTANT: If the user is correcting or updating a previous statement (e.g. "act
                             },
                         });
                         break;
-                    case 'delete_license':
+                    case 'update_license':
                         actions.push({
-                            type: 'delete_license',
+                            type: 'update_license',
                             data: {
-                                licenseId: input.licenseId,
                                 licenseNumber: input.licenseNumber,
+                                label: input.label,
                             },
                         });
                         break;

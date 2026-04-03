@@ -27,6 +27,9 @@ const ACTION_CONFIG: Record<string, { icon: typeof Package; label: string; color
     move_harvest: { icon: MapPin, label: 'Move Harvest', color: 'text-blue-600', bgColor: 'bg-blue-50' },
     create_human_task: { icon: ClipboardList, label: 'Task', color: 'text-emerald-600', bgColor: 'bg-emerald-50' },
     record_extraction: { icon: ArrowRightLeft, label: 'Extraction', color: 'text-amber-600', bgColor: 'bg-amber-50' },
+    update_trimmer_profile: { icon: User, label: 'Update Profile', color: 'text-blue-600', bgColor: 'bg-blue-50' },
+    update_batch_weight: { icon: Scale, label: 'Update Weight', color: 'text-blue-600', bgColor: 'bg-blue-50' },
+    update_license: { icon: ArrowRightLeft, label: 'Update License', color: 'text-blue-600', bgColor: 'bg-blue-50' },
 };
 
 const FIELD_LABELS: Record<string, string> = {

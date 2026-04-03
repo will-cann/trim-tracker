@@ -25,6 +25,9 @@ const RESULT_ICONS: Record<string, typeof Package> = {
     move_plants: MapPin,
     change_plant_phase: Sprout,
     record_extraction: Thermometer,
+    update_trimmer_profile: User,
+    update_batch_weight: Scale,
+    update_license: Scissors,
 };
 
 const NAV_LABELS: Record<string, string> = {

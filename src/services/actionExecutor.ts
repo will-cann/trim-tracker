@@ -133,6 +133,10 @@ export async function executeAction(action: ProposedAction): Promise<ActionOutco
                 else if (status === 'upcoming') await apiService.revertBatch(action.data.entryId);
             }
             return OK('Status changed');
+        case 'update_batch_weight':
+            if (!action.data.entryId) return SKIPPED('no batch ID');
+            await apiService.updateEntryWeight(action.data.entryId, action.data.weightType, action.data.value);
+            return OK(`${action.data.weightType} weight → ${action.data.value}g`);
         case 'submit_session':
             await apiService.submitSession();
             return OK('Session submitted');
@@ -153,9 +157,16 @@ export async function executeAction(action: ProposedAction): Promise<ActionOutco
             }
             return OK('Trimmer removed');
         case 'delete_trimmer_profile':
+            return SKIPPED('Deleting team members is admin-only — use Settings');
+        case 'update_trimmer_profile':
             if (!action.data.profileId) return SKIPPED('no profile ID');
-            await apiService.deleteTrimmerProfile(action.data.profileId);
-            return OK('Profile deleted');
+            await apiService.updateTrimmerProfile(action.data.profileId, {
+                name: action.data.name,
+                role: action.data.role,
+                email: action.data.email,
+                status: action.data.status,
+            });
+            return OK(`Profile updated${action.data.name ? ` → ${action.data.name}` : ''}`);
         case 'update_trimmer':
             if (!action.data.entryId || !action.data.trimmerId) return SKIPPED('no batch or trimmer ID');
             await apiService.updateTrimmer(action.data.entryId, action.data.trimmerId, action.data.updates);
@@ -302,16 +313,15 @@ export async function executeAction(action: ProposedAction): Promise<ActionOutco
         case 'create_license':
             await apiService.createLicense(action.data.licenseNumber, action.data.label);
             return OK('License created');
-        case 'delete_license': {
-            let licenseId = action.data.licenseId;
-            if (!licenseId && action.data.licenseNumber) {
-                const allLicenses = await apiService.getAllLicenses();
-                const match = allLicenses.find(l => l.licenseNumber === action.data.licenseNumber);
-                licenseId = match?.id;
-            }
-            if (!licenseId) return SKIPPED('license not found');
-            await apiService.deleteLicense(licenseId);
-            return OK('License deleted');
+        case 'delete_license':
+            return SKIPPED('Deleting licenses is admin-only — use Settings');
+        case 'update_license': {
+            if (!action.data.licenseNumber) return SKIPPED('no license number');
+            const allLicenses = await apiService.getAllLicenses();
+            const matchLic = allLicenses.find(l => l.licenseNumber === action.data.licenseNumber);
+            if (!matchLic) return SKIPPED('license not found');
+            await apiService.updateLicenseLabel(matchLic.id, action.data.label);
+            return OK(`License label → "${action.data.label}"`);
         }
         case 'import_tags':
             await apiService.importTags(action.data.tagNumbers, action.data.tagType || 'plant');

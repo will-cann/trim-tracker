@@ -30,6 +30,8 @@ const ACTION_CONFIG: Record<string, { icon: typeof Package; label: string; color
     submit_session: { icon: Send, label: 'Submit Session', color: 'text-emerald-600', bgColor: 'bg-emerald-50' },
     remove_trimmer: { icon: UserMinus, label: 'Remove Trimmer', color: 'text-red-600', bgColor: 'bg-red-50' },
     delete_trimmer_profile: { icon: UserMinus, label: 'Remove from Roster', color: 'text-red-600', bgColor: 'bg-red-50' },
+    update_trimmer_profile: { icon: User, label: 'Update Profile', color: 'text-blue-600', bgColor: 'bg-blue-50' },
+    update_batch_weight: { icon: Scale, label: 'Update Weight', color: 'text-blue-600', bgColor: 'bg-blue-50' },
     create_human_task: { icon: ClipboardList, label: 'Create Task', color: 'text-emerald-600', bgColor: 'bg-emerald-50' },
     update_human_task: { icon: ClipboardList, label: 'Update Task', color: 'text-blue-600', bgColor: 'bg-blue-50' },
     delete_human_task: { icon: Trash2, label: 'Delete Task', color: 'text-red-600', bgColor: 'bg-red-50' },
@@ -44,6 +46,7 @@ const ACTION_CONFIG: Record<string, { icon: typeof Package; label: string; color
     delete_strain: { icon: Trash2, label: 'Delete Strain', color: 'text-red-600', bgColor: 'bg-red-50' },
     create_license: { icon: KeyRound, label: 'Add License', color: 'text-blue-600', bgColor: 'bg-blue-50' },
     delete_license: { icon: Trash2, label: 'Delete License', color: 'text-red-600', bgColor: 'bg-red-50' },
+    update_license: { icon: KeyRound, label: 'Update License', color: 'text-blue-600', bgColor: 'bg-blue-50' },
     // Tags
     import_tags: { icon: Upload, label: 'Import Tags', color: 'text-blue-600', bgColor: 'bg-blue-50' },
     assign_tag: { icon: Tag, label: 'Assign Tag', color: 'text-blue-600', bgColor: 'bg-blue-50' },
@@ -165,6 +168,9 @@ const KEY_FIELDS: Record<string, string[]> = {
     delete_strain: ['strainName'],
     create_license: ['licenseNumber'],
     delete_license: ['licenseNumber'],
+    update_license: ['licenseNumber', 'label'],
+    update_trimmer_profile: ['profileName', 'name', 'role', 'status'],
+    update_batch_weight: ['entryName', 'weightType', 'value'],
     import_tags: ['tagNumbers'],
     assign_tag: ['tagNumber', 'plantIdentifier'],
     auto_assign_tags: ['strain', 'roomName'],
@@ -230,6 +236,12 @@ function summarizeAction(action: ProposedAction): string {
                 d.inputQuantity && `${d.inputQuantity}g ${d.inputPackageType?.replace('_', ' ')}`,
                 d.outputQuantity ? `→ ${d.outputQuantity}g ${d.outputPackageType?.replace('_', ' ')}` : `→ ${d.outputPackageType?.replace('_', ' ')} (pending)`,
             ].filter(Boolean).join(' ');
+        case 'update_trimmer_profile':
+            return [d.profileName, d.name && `→ ${d.name}`, d.role, d.status].filter(Boolean).join(' · ');
+        case 'update_batch_weight':
+            return [d.entryName, `${d.weightType} → ${d.value}g`].filter(Boolean).join(' · ');
+        case 'update_license':
+            return [d.licenseNumber, `label → "${d.label}"`].filter(Boolean).join(' · ');
         default:
             return Object.values(d).filter(v => v && !HIDDEN_FIELDS.has(String(v))).slice(0, 3).join(' · ');
     }

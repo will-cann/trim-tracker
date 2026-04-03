@@ -245,6 +245,121 @@ export interface TagStats {
 export type PackageType = 'flower' | 'trim' | 'shake' | 'fresh_frozen' | 'bubble_hash' | 'rosin' | 'rosin_cart';
 export type PackageStatus = 'active' | 'on_hold' | 'finished' | 'archived';
 export type LabTestingState = 'not_submitted' | 'submitted' | 'passed' | 'failed';
+export type ExtractionType = 'ice_water' | 'rosin_press' | 'cart_fill' | 'other';
+
+export interface ExtractionLog {
+  id: string;
+  sourcePackageId: string | null;
+  sourceLabel: string | null;
+  inputPackageType: string;
+  inputQuantity: number | null;
+  outputPackageId: string | null;
+  outputLabel: string | null;
+  outputPackageType: string;
+  outputQuantity: number | null;
+  strain: string;
+  licenseNumber: string | null;
+  extractionType: ExtractionType;
+  yieldPercentage: number | null;
+  wasteWeight: number;
+  notes: string | null;
+  createdAt: string;
+}
+
+export type EquipmentStatus = 'available' | 'in_use' | 'maintenance' | 'retired';
+export type ProcessType = 'solventless' | 'bho' | 'distillate' | 'custom';
+
+export interface ExtractionEquipment {
+  id: string;
+  name: string;
+  equipmentType: string;
+  capacityGrams: number | null;
+  capacityUnit: string;
+  notes: string | null;
+  status: EquipmentStatus;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ProcessStep {
+  id: string;
+  templateId: string;
+  stepOrder: number;
+  name: string;
+  description: string | null;
+  inputType: string | null;
+  outputType: string | null;
+  equipmentType: string | null;
+  expectedYieldPct: number | null;
+  estDurationHours: number | null;
+  isOptional: boolean;
+}
+
+export interface ProcessTemplate {
+  id: string;
+  name: string;
+  description: string | null;
+  processType: ProcessType;
+  isPreset: boolean;
+  isActive: boolean;
+  steps: ProcessStep[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+// ── Extraction Runs ─────────────────────────────────────────────────────────
+
+export type RunStatus = 'planned' | 'active' | 'completed' | 'cancelled';
+export type RunStepStatus = 'pending' | 'active' | 'completed' | 'skipped';
+
+export interface ExtractionRunStep {
+  id: string;
+  runId: string;
+  templateStepId: string | null;
+  stepOrder: number;
+  name: string;
+  status: RunStepStatus;
+  inputWeightG: number | null;
+  outputWeightG: number | null;
+  yieldPct: number | null;
+  equipmentId: string | null;
+  isOptional: boolean;
+  startedAt: string | null;
+  completedAt: string | null;
+  notes: string | null;
+}
+
+export interface RunSourcePackage {
+  packageId: string;
+  label: string;
+  packageType: string;
+  strain: string;
+  quantity: number | null;
+  unit: string;
+  quantityUsed: number | null;
+}
+
+export interface ExtractionRun {
+  id: string;
+  companyId: string;
+  templateId: string | null;
+  templateName?: string;
+  processType?: ProcessType;
+  name: string;
+  strain: string | null;
+  inputMaterial: string | null;
+  status: RunStatus;
+  sourcePackageId: string | null;
+  sourcePackages: RunSourcePackage[];
+  parentRunId: string | null;
+  plannedStart: string | null;
+  startedAt: string | null;
+  completedAt: string | null;
+  notes: string | null;
+  steps: ExtractionRunStep[];
+  createdAt: string;
+  updatedAt: string;
+}
 
 export interface Package {
   id: string;
@@ -299,9 +414,9 @@ export type ProposedActionType =
   | 'move_harvest' | 'convert_to_trim' | 'create_human_task' | 'update_human_task' | 'delete_human_task'
   | 'delete_harvest' | 'update_harvest' | 'delete_batch' | 'change_batch_status'
   | 'submit_session' | 'remove_trimmer' | 'delete_trimmer_profile'
-  | 'update_trimmer' | 'update_plant_health'
+  | 'update_trimmer' | 'update_trimmer_profile' | 'update_batch_weight' | 'update_plant_health'
   | 'create_planting' | 'move_plants' | 'change_plant_phase' | 'destroy_plants'
-  | 'create_strain' | 'delete_strain' | 'create_license' | 'delete_license'
+  | 'create_strain' | 'delete_strain' | 'create_license' | 'delete_license' | 'update_license'
   | 'import_tags' | 'assign_tag' | 'auto_assign_tags'
   | 'create_package' | 'update_package' | 'finish_package' | 'delete_package'
   | 'record_extraction'

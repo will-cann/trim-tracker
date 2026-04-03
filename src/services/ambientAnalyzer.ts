@@ -31,9 +31,11 @@ function actionLabel(action: ProposedAction): string {
         case 'update_harvest': return `Update harvest`;
         case 'delete_batch': return `Delete batch`;
         case 'change_batch_status': return `Change status → ${d.newStatus || ''}`;
+        case 'update_batch_weight': return `Update ${d.weightType || ''} weight${d.value ? ` → ${d.value}g` : ''}`;
         case 'submit_session': return `Submit session`;
         case 'remove_trimmer': return `Remove ${d.trimmerName || 'trimmer'}`;
         case 'delete_trimmer_profile': return `Remove profile`;
+        case 'update_trimmer_profile': return `Update profile${d.name ? ` → ${d.name}` : ''}`;
         case 'update_trimmer': return `Update ${d.trimmerName || 'trimmer'}`;
         case 'update_plant_health': return `Health ${d.strain || d.plantIdentifier || d.roomName || ''}${d.health != null ? ` → ${d.health}%` : ''}`;
         case 'create_planting': return `Create ${d.count || ''} ${d.plantingType || 'planting'}${d.strainName ? ` — ${d.strainName}` : ''}`;
@@ -45,6 +47,7 @@ function actionLabel(action: ProposedAction): string {
         case 'delete_strain': return `Delete strain`;
         case 'create_license': return `Create license`;
         case 'delete_license': return `Delete license`;
+        case 'update_license': return `Update license${d.label ? ` → "${d.label}"` : ''}`;
         case 'import_tags': return `Import tags`;
         case 'assign_tag': return `Assign tag`;
         case 'auto_assign_tags': return `Auto-assign tags`;
