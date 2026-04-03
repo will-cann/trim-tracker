@@ -6,3 +6,7 @@ export { StatCard } from './StatCard';
 export { FilterToolbar } from './FilterToolbar';
 export type { FilterDef, FilterOption, SortOption, FilterToolbarProps } from './FilterToolbar';
 export { UndoToast } from './UndoToast';
+export { DataTable } from './DataTable';
+export type { Column, DataTableProps } from './DataTable';
+export { ViewToggle, useViewMode } from './ViewToggle';
+export type { ViewMode } from './ViewToggle';

@@ -300,6 +300,7 @@ export interface ProcessTemplate {
   name: string;
   description: string | null;
   processType: ProcessType;
+  acceptedInputs: string[];
   isPreset: boolean;
   isActive: boolean;
   steps: ProcessStep[];
@@ -327,6 +328,7 @@ export interface ExtractionRunStep {
   startedAt: string | null;
   completedAt: string | null;
   notes: string | null;
+  description: string | null;
 }
 
 export interface RunSourcePackage {
@@ -348,6 +350,7 @@ export interface ExtractionRun {
   name: string;
   strain: string | null;
   inputMaterial: string | null;
+  targetProduct: string | null;
   status: RunStatus;
   sourcePackageId: string | null;
   sourcePackages: RunSourcePackage[];

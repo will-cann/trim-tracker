@@ -840,6 +840,135 @@ export const recordExtraction = async (data: {
     return await response.json();
 };
 
+export const getExtractionLogs = async (params?: { type?: string; strain?: string }): Promise<any[]> => {
+    const query = new URLSearchParams();
+    if (params?.type) query.set('type', params.type);
+    if (params?.strain) query.set('strain', params.strain);
+    const qs = query.toString();
+    const response = await fetchWithAuth(`${API_BASE}/get-extraction-logs${qs ? `?${qs}` : ''}`);
+    if (!response.ok) throw new Error('Failed to fetch extraction logs');
+    return await response.json();
+};
+
+// ── Extraction Equipment ────────────────────────────────────────────────────
+
+export const getExtractionEquipment = async (): Promise<any[]> => {
+    const response = await fetchWithAuth(`${API_BASE}/get-extraction-equipment`);
+    if (!response.ok) throw new Error('Failed to fetch equipment');
+    return await response.json();
+};
+
+export const createExtractionEquipment = async (data: {
+    name: string; equipmentType: string; capacityGrams?: number; capacityUnit?: string; notes?: string;
+}): Promise<any> => {
+    const response = await fetchWithAuth(`${API_BASE}/create-extraction-equipment`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+    });
+    if (!response.ok) throw new Error('Failed to create equipment');
+    return await response.json();
+};
+
+export const updateExtractionEquipment = async (id: string, updates: Record<string, any>): Promise<any> => {
+    const response = await fetchWithAuth(`${API_BASE}/update-extraction-equipment`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, ...updates }),
+    });
+    if (!response.ok) throw new Error('Failed to update equipment');
+    return await response.json();
+};
+
+export const deleteExtractionEquipment = async (id: string): Promise<void> => {
+    const response = await fetchWithAuth(`${API_BASE}/delete-extraction-equipment`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id }),
+    });
+    if (!response.ok) throw new Error('Failed to delete equipment');
+};
+
+// ── Process Templates ───────────────────────────────────────────────────────
+
+export const getProcessTemplates = async (): Promise<any[]> => {
+    const response = await fetchWithAuth(`${API_BASE}/get-process-templates`);
+    if (!response.ok) throw new Error('Failed to fetch process templates');
+    return await response.json();
+};
+
+export const saveProcessTemplate = async (data: {
+    id?: string; name: string; description?: string; processType: string;
+    steps: { stepOrder: number; name: string; description?: string; inputType?: string; outputType?: string; equipmentType?: string; expectedYieldPct?: number; estDurationHours?: number; isOptional?: boolean; }[];
+}): Promise<{ id: string }> => {
+    const response = await fetchWithAuth(`${API_BASE}/save-process-template`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+    });
+    if (!response.ok) throw new Error('Failed to save process template');
+    return await response.json();
+};
+
+export const deleteProcessTemplate = async (id: string): Promise<void> => {
+    const response = await fetchWithAuth(`${API_BASE}/delete-process-template`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id }),
+    });
+    if (!response.ok) throw new Error('Failed to delete process template');
+};
+
+// ── Extraction Runs ─────────────────────────────────────────────────────────
+
+export const getExtractionRuns = async (status?: string): Promise<any[]> => {
+    const params = new URLSearchParams();
+    if (status) params.set('status', status);
+    const response = await fetchWithAuth(`${API_BASE}/get-extraction-runs?${params}`);
+    if (!response.ok) throw new Error('Failed to fetch extraction runs');
+    return response.json();
+};
+
+export const createExtractionRun = async (data: {
+    templateId: string;
+    name: string;
+    strain?: string;
+    targetProduct?: string;
+    sourcePackageIds?: string[];
+    sourcePackageQuantities?: Record<string, number>;
+    plannedStart?: string;
+    stepEquipment?: Record<number, string>;
+    notes?: string;
+}): Promise<any> => {
+    const response = await fetchWithAuth(`${API_BASE}/create-extraction-run`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+    });
+    if (!response.ok) throw new Error('Failed to create extraction run');
+    return response.json();
+};
+
+export const updateExtractionRun = async (id: string, data: Record<string, any>): Promise<any> => {
+    const response = await fetchWithAuth(`${API_BASE}/update-extraction-run`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, ...data }),
+    });
+    if (!response.ok) throw new Error('Failed to update extraction run');
+    return response.json();
+};
+
+export const updateRunStep = async (id: string, data: Record<string, any>): Promise<any> => {
+    const response = await fetchWithAuth(`${API_BASE}/update-run-step`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, ...data }),
+    });
+    if (!response.ok) throw new Error('Failed to update run step');
+    return response.json();
+};
+
 export const syncUser = async (data: { name?: string; email?: string }): Promise<void> => {
     await fetchWithAuth(`${API_BASE}/sync-user`, {
         method: 'POST',
@@ -940,6 +1069,21 @@ export const apiService = {
     deletePackage,
     // Extraction
     recordExtraction,
+    getExtractionLogs,
+    // Extraction equipment
+    getExtractionEquipment,
+    createExtractionEquipment,
+    updateExtractionEquipment,
+    deleteExtractionEquipment,
+    // Process templates
+    getProcessTemplates,
+    saveProcessTemplate,
+    deleteProcessTemplate,
+    // Extraction runs
+    getExtractionRuns,
+    createExtractionRun,
+    updateExtractionRun,
+    updateRunStep,
     // User sync
     syncUser,
 };

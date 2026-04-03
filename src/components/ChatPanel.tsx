@@ -2,21 +2,21 @@ import React, { useState, useRef, useEffect, useCallback } from 'react';
 import ReactMarkdown from 'react-markdown';
 import {
     X, Mic, MicOff, Radio, Upload, ArrowRight, Loader2,
-    MessageSquare, ListTodo, FileText,
-    CheckCircle2, Circle, Clock, Trash2,
+    MessageSquare, FileText,
+    CheckCircle2, Circle,
 } from 'lucide-react';
 import { useDeepgram } from '../hooks/useDeepgram';
 import { useAIChat } from '../hooks/useAIChat';
 import { ActionPreview } from './ActionPreview';
-import { ExtractionRunCard, isCardReady } from './ExtractionRunCard';
+import { isCardReady } from './ExtractionRunCard';
 import type { ExtractionRunCardData } from './ExtractionRunCard';
 import { analyzeAmbientChunk as analyzeChunk } from '../services/ambientAnalyzer';
 import type { ActionItemState } from '../services/ambientAnalyzer';
 import { apiService } from '../services/apiService';
-import type { TrimSession, TrimmerProfile, Harvest, HumanTask, HumanTaskStatus, SpeechMode, ProposedAction } from '../types/definitions';
+import type { TrimSession, TrimmerProfile, Harvest, SpeechMode, ProposedAction } from '../types/definitions';
 import logo from '../assets/logo.png';
 
-type PanelTab = 'chat' | 'tasks' | 'transcript';
+type PanelTab = 'chat' | 'transcript';
 
 interface ActionItem {
     label: string;
@@ -45,13 +45,8 @@ interface ChatPanelProps {
     onSessionUpdate: () => Promise<void>;
     screenContext?: string;
     plantMapSummary?: Array<{ roomName: string; roomId: string; strains: string[]; plantIds: string[]; entityType: 'plants' | 'plantbatches'; plantHealth: number; contaminants: string[] }>;
-    // Task props
-    tasks?: HumanTask[];
-    onUpdateTaskStatus?: (id: string, status: HumanTaskStatus) => void;
-    onDeleteTask?: (id: string) => void;
+    // Task creation (used by ambient mode)
     onCreateHumanTasks?: (tasks: Array<{ title: string; description?: string; priority: string; category: string; dueDate?: string; assignee?: string; location?: string }>) => Promise<void>;
-    taskPendingCount?: number;
-    onViewAllTasks?: () => void;
 }
 
 // --- Context-aware suggestions per screen ---
@@ -101,28 +96,6 @@ function getSuggestions(screenContext?: string): string[] {
     return DEFAULT_SUGGESTIONS;
 }
 
-// --- Task list helpers ---
-const PRIORITY_DOT: Record<string, string> = {
-    urgent: 'chatpanel-dot-urgent',
-    high: 'chatpanel-dot-high',
-    medium: 'chatpanel-dot-medium',
-    low: 'chatpanel-dot-low',
-};
-
-const STATUS_ICON: Record<string, React.ReactNode> = {
-    pending: <Circle size={14} style={{ color: 'var(--text-secondary)' }} />,
-    in_progress: <Clock size={14} style={{ color: 'var(--color-shake)' }} />,
-    completed: <CheckCircle2 size={14} style={{ color: 'var(--color-flower)' }} />,
-};
-
-function nextStatus(current: HumanTaskStatus): HumanTaskStatus {
-    switch (current) {
-        case 'pending': return 'in_progress';
-        case 'in_progress': return 'completed';
-        case 'completed': return 'pending';
-        default: return 'pending';
-    }
-}
 
 export const ChatPanel: React.FC<ChatPanelProps> = ({
     session,
@@ -131,12 +104,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
     onSessionUpdate,
     screenContext,
     plantMapSummary,
-    tasks = [],
-    onUpdateTaskStatus,
-    onDeleteTask,
     onCreateHumanTasks,
-    taskPendingCount = 0,
-    onViewAllTasks,
 }) => {
     const [isOpen, setIsOpen] = useState(false);
     const [activeTab, setActiveTab] = useState<PanelTab>('chat');
@@ -155,9 +123,8 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
     const [transcriptEntries, setTranscriptEntries] = useState<TranscriptEntry[]>([]);
     const transcriptEntriesRef = useRef<TranscriptEntry[]>([]);
     transcriptEntriesRef.current = transcriptEntries;
-    const [activeActionGroups, setActiveActionGroups] = useState<ActiveActionGroup[]>([]);
+    const [, setActiveActionGroups] = useState<ActiveActionGroup[]>([]);
     const [extractionRunCards, setExtractionRunCards] = useState<ExtractionRunCardData[]>([]);
-    const prevTabRef = useRef<PanelTab>('chat');
 
     // --- Action mic deepgram ---
     const handleActionTranscript = useCallback((text: string, isFinal: boolean) => {
@@ -209,9 +176,6 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
     // --- Extraction card intercept ---
     const handleInterceptAction = useCallback((action: ProposedAction): boolean => {
         if (action.type !== 'record_extraction') return false;
-
-        // Auto-switch to tasks tab to show the card
-        setActiveTab('tasks');
 
         const d = action.data;
         setExtractionRunCards(prev => {
@@ -277,22 +241,19 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
         return true; // intercepted
     }, []);
 
-    const handleExtractionSubmit = useCallback(async (cardId: string) => {
+    // Extraction run card handlers (extraction cards rendered externally)
+    const _handleExtractionSubmit = useCallback(async (cardId: string) => {
         const card = extractionRunCards.find(c => c.id === cardId);
         if (!card) return;
-
-        // Guard: don't submit incomplete cards
         if (!isCardReady(card)) {
             setExtractionRunCards(prev => prev.map(c =>
                 c.id === cardId ? { ...c, status: 'filling' as const } : c
             ));
             return;
         }
-
         setExtractionRunCards(prev => prev.map(c =>
             c.id === cardId ? { ...c, status: 'submitting' as const } : c
         ));
-
         try {
             await apiService.recordExtraction({
                 sourcePackageId: card.sourcePackageId || undefined,
@@ -306,16 +267,12 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
                 wasteWeight: card.wasteWeight || undefined,
                 notes: card.notes || undefined,
             });
-
             setExtractionRunCards(prev => prev.map(c =>
                 c.id === cardId ? { ...c, status: 'submitted' as const } : c
             ));
-
-            // Auto-dismiss after 3s
             setTimeout(() => {
                 setExtractionRunCards(prev => prev.filter(c => c.id !== cardId));
             }, 3000);
-
             await onSessionUpdate();
         } catch {
             setExtractionRunCards(prev => prev.map(c =>
@@ -323,19 +280,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
             ));
         }
     }, [extractionRunCards, onSessionUpdate]);
-
-    const handleExtractionDismiss = useCallback((cardId: string) => {
-        setExtractionRunCards(prev => prev.filter(c => c.id !== cardId));
-    }, []);
-
-    const handleExtractionCardUpdate = useCallback((cardId: string, updates: Partial<ExtractionRunCardData>) => {
-        setExtractionRunCards(prev => prev.map(c => {
-            if (c.id !== cardId) return c;
-            const updated = { ...c, ...updates };
-            if (isCardReady(updated) && updated.status === 'filling') updated.status = 'ready';
-            return updated;
-        }));
-    }, []);
+    void _handleExtractionSubmit;
 
     const analyzeAmbientChunk = useCallback(async (text: string, existingEntryId?: string) => {
         if (!text.trim()) return;
@@ -475,9 +420,6 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
         } else {
             ambientTranscriptRef.current = '';
             setAmbientActive(true);
-            // Auto-switch to tasks tab so user sees actions populating
-            prevTabRef.current = activeTab;
-            setActiveTab('tasks');
             await ambientStart();
         }
     }, [ambientListening, ambientStart, ambientStop, flushAmbientTranscript, activeTab]);
@@ -534,15 +476,6 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
         };
         reader.readAsText(file);
     };
-
-    // Task list — sorted
-    const sortedTasks = [...tasks].sort((a, b) => {
-        const order: Record<string, number> = { pending: 0, in_progress: 1, completed: 2 };
-        const diff = (order[a.status] ?? 4) - (order[b.status] ?? 4);
-        if (diff !== 0) return diff;
-        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
-    });
-    const visibleTasks = sortedTasks.slice(0, 30);
 
     const showTranscriptTab = ambientActive || transcriptEntries.length > 0;
 
@@ -605,16 +538,6 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
                     >
                         <MessageSquare size={14} />
                         Chat
-                    </button>
-                    <button
-                        className={`chatpanel-tab ${activeTab === 'tasks' ? 'active' : ''}`}
-                        onClick={() => setActiveTab('tasks')}
-                    >
-                        <ListTodo size={14} />
-                        Tasks
-                        {taskPendingCount > 0 && (
-                            <span className="chatpanel-tab-badge">{taskPendingCount}</span>
-                        )}
                     </button>
                     {showTranscriptTab && (
                         <button
@@ -696,133 +619,6 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
                         </div>
                     )}
 
-                    {/* === TASKS TAB === */}
-                    {activeTab === 'tasks' && (
-                        <div className="px-4 py-3">
-                            <div className="flex items-center justify-between mb-3">
-                                <div className="flex items-center gap-2">
-                                    <h3 className="text-sm font-semibold" style={{ color: 'var(--text-color)' }}>Tasks</h3>
-                                    {taskPendingCount > 0 && (
-                                        <span className="chatpanel-task-badge">
-                                            {taskPendingCount}
-                                        </span>
-                                    )}
-                                </div>
-                                {onViewAllTasks && (
-                                    <button
-                                        onClick={onViewAllTasks}
-                                        className="chatpanel-view-all"
-                                    >
-                                        View all
-                                    </button>
-                                )}
-                            </div>
-
-                            {/* Live action checklist from ambient mode */}
-                            {activeActionGroups.length > 0 && (
-                                <div className="mb-3 space-y-2">
-                                    {activeActionGroups.map(group => (
-                                        <div key={group.id} className="chatpanel-action-group">
-                                            <div className="flex flex-col gap-1">
-                                                {group.items.map((item, idx) => (
-                                                    <div key={idx} className="chatpanel-action-item">
-                                                        {item.status === 'pending' && (
-                                                            <Loader2 size={12} className="animate-spin shrink-0" style={{ color: 'var(--color-shake)' }} />
-                                                        )}
-                                                        {item.status === 'done' && (
-                                                            <CheckCircle2 size={12} className="shrink-0" style={{ color: 'var(--color-flower)' }} />
-                                                        )}
-                                                        {item.status === 'skipped' && (
-                                                            <Circle size={12} className="shrink-0" style={{ color: 'var(--color-shake)' }} />
-                                                        )}
-                                                        {item.status === 'error' && (
-                                                            <Circle size={12} className="shrink-0" style={{ color: 'var(--color-waste)' }} />
-                                                        )}
-                                                        <span className={`text-xs ${
-                                                            item.status === 'done' ? 'chatpanel-status-done' :
-                                                            item.status === 'skipped' ? 'chatpanel-status-skipped' :
-                                                            item.status === 'error' ? 'chatpanel-status-error' :
-                                                            'chatpanel-status-pending'
-                                                        }`}>
-                                                            {item.label}
-                                                            {item.detail && item.status !== 'done' && (
-                                                                <span style={{ color: 'var(--text-secondary)', marginLeft: '0.25rem' }}>— {item.detail}</span>
-                                                            )}
-                                                        </span>
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        </div>
-                                    ))}
-                                </div>
-                            )}
-
-                            {/* Extraction run cards */}
-                            {extractionRunCards.length > 0 && (
-                                <div className="mb-3 space-y-2">
-                                    <div className="flex items-center gap-2 mb-1">
-                                        <span className="text-xs font-medium text-gray-400 uppercase tracking-wider">
-                                            Extraction Runs
-                                        </span>
-                                        <span className="text-xs text-gray-300">({extractionRunCards.length})</span>
-                                    </div>
-                                    {extractionRunCards.map(card => (
-                                        <ExtractionRunCard
-                                            key={card.id}
-                                            card={card}
-                                            onSubmit={handleExtractionSubmit}
-                                            onDismiss={handleExtractionDismiss}
-                                            onUpdateCard={handleExtractionCardUpdate}
-                                        />
-                                    ))}
-                                </div>
-                            )}
-
-                            {visibleTasks.length === 0 && activeActionGroups.length === 0 && extractionRunCards.length === 0 && (
-                                <div className="chatpanel-tasks-empty">
-                                    <ListTodo size={24} />
-                                    <p>No tasks yet</p>
-                                    <span>Try ambient mode — tasks are created from speech automatically</span>
-                                </div>
-                            )}
-                            {visibleTasks.length > 0 && (
-                                <div className="space-y-0.5">
-                                    {visibleTasks.map(task => (
-                                        <div
-                                            key={task.id}
-                                            className={`chatpanel-task-row ${task.status === 'completed' ? 'chatpanel-task-done' : ''}`}
-                                        >
-                                            <button
-                                                onClick={() => onUpdateTaskStatus?.(task.id, nextStatus(task.status))}
-                                                className="chatpanel-task-status-btn"
-                                                title={`Status: ${task.status} — click to advance`}
-                                            >
-                                                {STATUS_ICON[task.status]}
-                                            </button>
-                                            <div className="flex-1 min-w-0">
-                                                <p className={`chatpanel-task-title ${task.status === 'completed' ? 'chatpanel-task-title-done' : ''}`}>
-                                                    {task.title}
-                                                </p>
-                                                <div className="chatpanel-task-meta">
-                                                    <span className={`chatpanel-priority-dot ${PRIORITY_DOT[task.priority] || PRIORITY_DOT.medium}`} />
-                                                    <span className="chatpanel-task-category">
-                                                        {task.category}{task.assignee ? ` · ${task.assignee}` : ''}
-                                                    </span>
-                                                </div>
-                                            </div>
-                                            <button
-                                                onClick={() => onDeleteTask?.(task.id)}
-                                                className="chatpanel-task-delete"
-                                                title="Delete task"
-                                            >
-                                                <Trash2 size={12} />
-                                            </button>
-                                        </div>
-                                    ))}
-                                </div>
-                            )}
-                        </div>
-                    )}
 
                     {/* === TRANSCRIPT TAB === */}
                     {activeTab === 'transcript' && (

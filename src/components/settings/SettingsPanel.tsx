@@ -10,6 +10,7 @@ import { StrainSection } from './StrainSection';
 import { RoomSection } from './RoomSection';
 import { TagSection } from './TagSection';
 import { TeamSettingsSection } from './TeamSettingsSection';
+import { EquipmentSection } from './EquipmentSection';
 
 interface SettingsPanelProps {
     onViewChange?: (view: any) => void;
@@ -144,8 +145,11 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ onViewChange }) =>
                         tagSettings={tagSettings}
                         onSaveSettings={handleSaveTagSettings}
                         loading={false}
+                        onBrowseTags={onViewChange ? () => onViewChange('tag-list') : undefined}
                     />
                 );
+            case 'equipment':
+                return <EquipmentSection loading={false} />;
             case 'team':
                 return (
                     <TeamSettingsSection

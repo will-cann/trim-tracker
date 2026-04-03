@@ -20,10 +20,12 @@ import { PlantMapDashboard } from './components/PlantMap/PlantMapDashboard';
 import { PackageDashboard } from './components/Packages/PackageDashboard';
 import { HarvestDayCockpit } from './components/HarvestDay/HarvestDayCockpit';
 import { TeamDashboard } from './components/TeamDashboard';
+import { TagListView } from './components/TagList/TagListView';
+import { ExtractionDashboard } from './components/Extraction/ExtractionDashboard';
 import { usePlantMapSummary } from './hooks/usePlantMapSummary';
 import logo from './assets/logo.png';
 
-type ViewType = 'ai' | 'dashboard' | 'reports' | 'harvests' | 'harvest-day' | 'settings' | 'tasks' | 'plant-map' | 'packages' | 'team';
+type ViewType = 'ai' | 'dashboard' | 'reports' | 'harvests' | 'harvest-day' | 'settings' | 'tasks' | 'plant-map' | 'packages' | 'extractions' | 'team' | 'tag-list';
 
 const VIEW_SCREEN_CONTEXT: Record<ViewType, string> = {
   'ai': 'neurocann home — general conversation, no specific module focused',
@@ -35,7 +37,9 @@ const VIEW_SCREEN_CONTEXT: Record<ViewType, string> = {
   'plant-map': 'Plant Map — viewing rooms, plants by growth phase (veg, flower, dry, cure), and plant locations. Operations here involve moving plants between rooms, updating plant health, and managing room assignments',
   'harvest-day': 'Harvest Day Cockpit — active harvest session with plant weighing, allocation, fresh frozen packaging, and batch submission',
   'packages': 'Package Inventory — managing packaged product (flower, trim, shake) with weights, lab testing status, and compliance tracking',
+  'extractions': 'Extraction Log — viewing processing history: ice water washes, rosin presses, cart fills with yield tracking',
   'team': 'Team Management — managing employees, roles, and invitations',
+  'tag-list': 'Tag Browser — browsing and searching all plant and batch tags',
 };
 
 function AppContent() {
@@ -55,11 +59,10 @@ function AppContent() {
   const [trimmerProfiles, setTrimmerProfiles] = useState<TrimmerProfile[]>([]);
   const [harvests, setHarvests] = useState<Harvest[]>([]);
   const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
-  const [, setIsPanelOpen] = useState(true);
   const [completedSessions, setCompletedSessions] = useState<TrimSession[]>([]);
   const [isRightPanelOpen, setIsRightPanelOpen] = useState(false);
   const [isTaskPanelOpen, setIsTaskPanelOpen] = useState(false);
-  const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
+  const [selectedSessionId] = useState<string | null>(null);
   const [myLicenses, setMyLicenses] = useState<License[]>([]);
   const [voiceInjectedText, setVoiceInjectedText] = useState<string | null>(null);
   const [activeLicenseId, setActiveLicenseId] = useState<string | null>(null);
@@ -293,16 +296,7 @@ function AppContent() {
       <Sidebar
         currentView={currentView}
         onViewChange={handleViewChange}
-        conversations={conversations}
-        activeConversationId={activeConversationId}
-        onSelectConversation={handleSelectConversation}
         onNewConversation={handleNewConversation}
-        onDeleteConversation={deleteConversation}
-        onPanelOpenChange={setIsPanelOpen}
-        activeSession={session}
-        completedSessions={completedSessions}
-        selectedSessionId={selectedSessionId}
-        onSelectSession={setSelectedSessionId}
         taskCount={taskPendingCount}
       />
       <div className="main-content">
@@ -319,7 +313,6 @@ function AppContent() {
             onSaveConversation={saveConversation}
             onLoadConversation={loadConversation}
             onConversationStarted={handleConversationStarted}
-            onStart={handleStartSession}
             licenses={myLicenses}
             activeLicenseId={activeLicenseId}
             onLicenseChange={setActiveLicenseId}
@@ -332,6 +325,9 @@ function AppContent() {
             injectedVoiceText={voiceInjectedText}
             onClearInjectedText={() => setVoiceInjectedText(null)}
             screenContext={VIEW_SCREEN_CONTEXT[currentView]}
+            conversations={conversations}
+            onSelectConversation={handleSelectConversation}
+            onDeleteConversation={deleteConversation}
           />
         ) : currentView === 'tasks' ? (
           <TasksPanel
@@ -350,6 +346,8 @@ function AppContent() {
           />
         ) : currentView === 'team' ? (
           <TeamDashboard profiles={trimmerProfiles} onReload={loadTrimmerProfiles} />
+        ) : currentView === 'tag-list' ? (
+          <TagListView onBack={() => handleViewChange('settings')} />
         ) : currentView === 'settings' ? (
           <SettingsPanel onViewChange={handleViewChange} />
         ) : currentView === 'harvest-day' ? (
@@ -360,6 +358,8 @@ function AppContent() {
           <PlantMapDashboard refreshKey={refreshKey} />
         ) : currentView === 'packages' ? (
           <PackageDashboard />
+        ) : currentView === 'extractions' ? (
+          <ExtractionDashboard />
         ) : currentView === 'reports' ? (
           <ReportsDashboard />
         ) : !session && !selectedSessionId ? (
@@ -423,12 +423,7 @@ function AppContent() {
             onSessionUpdate={refreshAll}
             screenContext={VIEW_SCREEN_CONTEXT[currentView]}
             plantMapSummary={plantMapSummary}
-            tasks={humanTasks}
-            onUpdateTaskStatus={updateTaskStatus}
-            onDeleteTask={deleteHumanTask}
             onCreateHumanTasks={handleCreateHumanTasks}
-            taskPendingCount={taskPendingCount}
-            onViewAllTasks={() => handleViewChange('tasks')}
           />
         )}
 

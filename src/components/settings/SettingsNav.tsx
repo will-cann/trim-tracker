@@ -1,7 +1,8 @@
 import React from 'react';
-import { KeyRound, Leaf, LayoutGrid, Tag, Users, ArrowRight } from 'lucide-react';
+import { KeyRound, Leaf, LayoutGrid, Tag, Users, ArrowRight, Wrench } from 'lucide-react';
+import { ff } from '../../utils/featureFlags';
 
-export type SettingsSection = 'licenses' | 'strains' | 'rooms' | 'tags' | 'team';
+export type SettingsSection = 'licenses' | 'strains' | 'rooms' | 'tags' | 'equipment' | 'team';
 
 interface SettingsNavProps {
     active: SettingsSection;
@@ -15,11 +16,12 @@ interface SettingsNavProps {
     onNavigateToTeam?: () => void;
 }
 
-const NAV_ITEMS: { id: SettingsSection; label: string; icon: React.ElementType; countKey?: keyof SettingsNavProps['counts'] }[] = [
+const NAV_ITEMS: { id: SettingsSection; label: string; icon: React.ElementType; countKey?: keyof SettingsNavProps['counts']; flag?: boolean }[] = [
     { id: 'licenses', label: 'Licenses', icon: KeyRound, countKey: 'licenses' },
     { id: 'strains', label: 'Strains', icon: Leaf, countKey: 'strains' },
     { id: 'rooms', label: 'Rooms', icon: LayoutGrid, countKey: 'rooms' },
     { id: 'tags', label: 'Plant Tags', icon: Tag },
+    { id: 'equipment', label: 'Equipment', icon: Wrench, flag: ff.extractionWorkspace },
     { id: 'team', label: 'Team', icon: Users, countKey: 'team' },
 ];
 
@@ -29,7 +31,7 @@ export const SettingsNav: React.FC<SettingsNavProps> = ({ active, onChange, coun
             {/* Desktop sidebar */}
             <nav className="settings-nav">
                 <div className="settings-nav-list">
-                    {NAV_ITEMS.map(item => {
+                    {NAV_ITEMS.filter(n => n.flag !== false).map(item => {
                         const Icon = item.icon;
                         const count = item.countKey ? counts[item.countKey] : undefined;
                         return (
@@ -60,7 +62,7 @@ export const SettingsNav: React.FC<SettingsNavProps> = ({ active, onChange, coun
 
             {/* Mobile pill bar */}
             <div className="settings-pills">
-                {NAV_ITEMS.map(item => {
+                {NAV_ITEMS.filter(n => n.flag !== false).map(item => {
                     const Icon = item.icon;
                     return (
                         <button

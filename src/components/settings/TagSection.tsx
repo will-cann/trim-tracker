@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useEffect } from 'react';
-import { Upload, Trash2, XCircle, Loader2 } from 'lucide-react';
+import { Upload, Trash2, XCircle, Loader2, ExternalLink } from 'lucide-react';
 import { CenteredSpinner } from '../Spinner';
 import type { Tag, TagSettings, TagStats } from '../../types/definitions';
 import { apiService } from '../../services/apiService';
@@ -8,9 +8,10 @@ interface TagSectionProps {
     tagSettings: TagSettings;
     onSaveSettings: (updates: Partial<TagSettings>) => Promise<void>;
     loading: boolean;
+    onBrowseTags?: () => void;
 }
 
-export const TagSection: React.FC<TagSectionProps> = ({ tagSettings, onSaveSettings, loading }) => {
+export const TagSection: React.FC<TagSectionProps> = ({ tagSettings, onSaveSettings, loading, onBrowseTags }) => {
     const [tagStats, setTagStats] = useState<TagStats>({ total: 0, available: 0, assigned: 0, voided: 0 });
     const [tags, setTags] = useState<Tag[]>([]);
     const [tagFilter, setTagFilter] = useState<'all' | 'available' | 'assigned' | 'voided'>('all');
@@ -78,6 +79,16 @@ export const TagSection: React.FC<TagSectionProps> = ({ tagSettings, onSaveSetti
                     />
                 </label>
             </div>
+
+            {tagSettings.useTags && onBrowseTags && (
+                <button
+                    onClick={onBrowseTags}
+                    className="flex items-center gap-1.5 text-sm font-medium mt-1 mb-3 transition-colors"
+                    style={{ color: 'var(--color-trim)' }}
+                >
+                    Browse all tags <ExternalLink size={13} />
+                </button>
+            )}
 
             {!tagSettings.useTags ? (
                 <div className="settings-empty">

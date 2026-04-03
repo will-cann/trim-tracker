@@ -5,8 +5,104 @@ import { apiService } from '../../services/apiService';
 import { PackageCard } from './PackageCard';
 import { CreatePackageModal } from './CreatePackageModal';
 import { CardsSkeleton } from '../Skeleton';
-import { FilterToolbar } from '../ui';
-import type { FilterDef, SortOption } from '../ui';
+import { FilterToolbar, DataTable, ViewToggle, useViewMode } from '../ui';
+import type { FilterDef, SortOption, Column } from '../ui';
+
+// ── Helpers ──────────────────────────────────────────────────────────────────
+
+const STATUS_COLORS: Record<string, string> = {
+    active: '#3BB570',
+    on_hold: '#FA9E52',
+    finished: '#959595',
+};
+
+const LAB_COLORS: Record<string, string> = {
+    not_submitted: '#959595',
+    submitted: '#1C9EFF',
+    passed: '#3BB570',
+    failed: '#DF5B59',
+};
+
+const TYPE_LABELS: Record<PkgType, string> = {
+    flower: 'Flower', trim: 'Trim', shake: 'Shake', fresh_frozen: 'Fresh Frozen',
+    bubble_hash: 'Bubble Hash', rosin: 'Rosin', rosin_cart: 'Rosin Carts',
+};
+
+const formatDate = (d: string | null) =>
+    d ? new Date(d).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) : '—';
+
+const formatWeight = (qty: number, unit?: string) => {
+    const u = unit || 'g';
+    if (u === 'g' || u === 'grams' || u === 'Grams') {
+        if (qty >= 1000) {
+            const kg = qty / 1000;
+            return `${kg.toLocaleString(undefined, { maximumFractionDigits: 2 })} kg`;
+        }
+        return `${qty.toLocaleString(undefined, { maximumFractionDigits: 2 })} g`;
+    }
+    return `${qty.toLocaleString(undefined, { maximumFractionDigits: 2 })} ${u}`;
+};
+
+// ── Column definitions ───────────────────────────────────────────────────────
+
+const PACKAGE_COLUMNS: Column<PackageType>[] = [
+    {
+        key: 'label', label: 'Label', sortable: true,
+        render: (r) => (
+            <span style={{ fontFamily: 'monospace', fontWeight: 500, fontSize: '0.8125rem' }}>
+                {r.label || '—'}
+            </span>
+        ),
+    },
+    {
+        key: 'packageType', label: 'Type', sortable: true, width: 110,
+        render: (r) => (
+            <span className="data-table-badge data-table-badge--muted">
+                {TYPE_LABELS[r.packageType] || r.packageType}
+            </span>
+        ),
+    },
+    { key: 'strain', label: 'Strain', sortable: true },
+    {
+        key: 'quantity', label: 'Weight', sortable: true, width: 100, align: 'right',
+        render: (r) => (
+            <span style={{ fontVariantNumeric: 'tabular-nums', fontWeight: 500, whiteSpace: 'nowrap' }}>
+                {formatWeight(r.quantity, r.unit)}
+            </span>
+        ),
+    },
+    {
+        key: 'status', label: 'Status', sortable: true, width: 90,
+        render: (r) => (
+            <span className="data-table-badge" style={{ background: STATUS_COLORS[r.status] || '#959595' }}>
+                {r.status === 'on_hold' ? 'On Hold' : r.status.charAt(0).toUpperCase() + r.status.slice(1)}
+            </span>
+        ),
+    },
+    {
+        key: 'labTestingState', label: 'Lab', sortable: true, width: 100,
+        render: (r) => {
+            const state = r.labTestingState || 'not_submitted';
+            const label = state === 'not_submitted' ? 'Not Sent' : state.charAt(0).toUpperCase() + state.slice(1);
+            return (
+                <span className="flex items-center gap-1.5">
+                    <span className="data-table-dot" style={{ background: LAB_COLORS[state] || '#959595' }} />
+                    <span style={{ color: '#959595', fontSize: '0.8125rem' }}>{label}</span>
+                </span>
+            );
+        },
+    },
+    {
+        key: 'location', label: 'Location', sortable: true,
+        render: (r) => <span style={{ color: '#959595' }}>{r.location || '—'}</span>,
+    },
+    {
+        key: 'packagedDate', label: 'Packaged', sortable: true, width: 120,
+        render: (r) => <span style={{ color: '#959595' }}>{formatDate(r.packagedDate)}</span>,
+    },
+];
+
+// ── Main Component ──────────────────────────────────────────────────────────
 
 export const PackageDashboard: React.FC = () => {
     const [packages, setPackages] = useState<PackageType[]>([]);
@@ -16,6 +112,7 @@ export const PackageDashboard: React.FC = () => {
     const [activeFilters, setActiveFilters] = useState<Record<string, string[]>>({ type: [], strain: [], status: [] });
     const [sortField, setSortField] = useState<string | null>(null);
     const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
+    const [viewMode, setViewMode] = useViewMode('packages');
 
     const loadPackages = useCallback(async () => {
         setLoading(true);
@@ -29,10 +126,6 @@ export const PackageDashboard: React.FC = () => {
     }, [loadPackages]);
 
     const PRODUCT_TYPES: PkgType[] = ['flower', 'trim', 'shake', 'fresh_frozen', 'bubble_hash', 'rosin', 'rosin_cart'];
-    const TYPE_LABELS: Record<PkgType, string> = {
-        flower: 'Flower', trim: 'Trim', shake: 'Shake', fresh_frozen: 'Fresh Frozen',
-        bubble_hash: 'Bubble Hash', rosin: 'Rosin', rosin_cart: 'Rosin Carts',
-    };
 
     // Filter definitions for toolbar
     const typeFilterDef: FilterDef = {
@@ -88,10 +181,7 @@ export const PackageDashboard: React.FC = () => {
 
     // Apply filters
     const filteredPackages = packages.filter(p => {
-        // Exclude archived always
         if (p.status === 'archived') return false;
-
-        // Search
         if (searchQuery) {
             const q = searchQuery.toLowerCase();
             const tag = p.label?.toLowerCase() || '';
@@ -99,22 +189,13 @@ export const PackageDashboard: React.FC = () => {
             const loc = p.location?.toLowerCase() || '';
             if (!tag.includes(q) && !strain.includes(q) && !loc.includes(q)) return false;
         }
-
-        // Type filter
         const typeFilter = activeFilters.type || [];
         if (typeFilter.length > 0 && !typeFilter.includes(p.packageType)) return false;
-
-        // Strain filter
         const strainFilter = activeFilters.strain || [];
         if (strainFilter.length > 0 && !strainFilter.includes(p.strain)) return false;
-
-        // Status filter
         const statusFilter = activeFilters.status || [];
         if (statusFilter.length > 0 && !statusFilter.includes(p.status)) return false;
-
-        // Default: hide finished if no status filter is active
         if (statusFilter.length === 0 && p.status === 'finished') return false;
-
         return true;
     });
 
@@ -152,11 +233,27 @@ export const PackageDashboard: React.FC = () => {
         await loadPackages();
     };
 
+    // Table sort handler
+    const handleTableSort = (key: string) => {
+        // Map column keys to existing sort field names
+        const sortMap: Record<string, string> = { label: 'tag', packageType: 'type' };
+        const mapped = sortMap[key] || key;
+        if (sortField === mapped) {
+            if (sortDir === 'asc') setSortDir('desc');
+            else { setSortField(null); setSortDir('asc'); }
+        } else {
+            setSortField(mapped);
+            setSortDir('asc');
+        }
+    };
+
     // Stats
     const activePackages = packages.filter(p => p.status === 'active');
     const totalActiveWeight = activePackages.reduce((sum, p) => sum + p.quantity, 0);
     const onHoldCount = packages.filter(p => p.status === 'on_hold').length;
     const finishedCount = packages.filter(p => p.status === 'finished').length;
+
+    const hasFilters = searchQuery || activeFilters.type.length > 0 || activeFilters.status.length > 0;
 
     return (
         <div className="dashboard">
@@ -202,7 +299,7 @@ export const PackageDashboard: React.FC = () => {
                 </div>
             </div>
 
-            {/* Search + Filters + Sort + New Package */}
+            {/* Search + Filters + Sort + Toggle + New Package */}
             <FilterToolbar
                 search={searchQuery}
                 onSearchChange={setSearchQuery}
@@ -211,19 +308,22 @@ export const PackageDashboard: React.FC = () => {
                 activeFilters={activeFilters}
                 onFilterChange={handleFilterChange}
                 onClearFilters={handleClearFilters}
-                sortOptions={pkgSortOptions}
-                activeSort={sortField}
+                sortOptions={viewMode === 'cards' ? pkgSortOptions : undefined}
+                activeSort={viewMode === 'cards' ? sortField : undefined}
                 sortDir={sortDir}
-                onSortChange={handleSortChange}
+                onSortChange={viewMode === 'cards' ? handleSortChange : undefined}
                 trailing={
-                    <button
-                        type="button"
-                        className="btn-new-batch"
-                        onClick={() => setShowCreateModal(true)}
-                    >
-                        <Plus size={20} />
-                        New Package
-                    </button>
+                    <div className="flex items-center gap-2">
+                        <ViewToggle mode={viewMode} onChange={setViewMode} />
+                        <button
+                            type="button"
+                            className="btn-new-batch"
+                            onClick={() => setShowCreateModal(true)}
+                        >
+                            <Plus size={20} />
+                            New Package
+                        </button>
+                    </div>
                 }
             />
 
@@ -236,16 +336,14 @@ export const PackageDashboard: React.FC = () => {
                         <Package size={24} className="text-[#C0C0C0]" />
                     </div>
                     <h3 className="text-base font-semibold text-[#1A1A1A] mb-1">
-                        {searchQuery || activeFilters.type.length > 0 || activeFilters.status.length > 0
-                            ? 'No matching packages'
-                            : 'No packages yet'}
+                        {hasFilters ? 'No matching packages' : 'No packages yet'}
                     </h3>
                     <p className="text-sm text-[#959595] max-w-xs mb-4">
-                        {searchQuery || activeFilters.type.length > 0 || activeFilters.status.length > 0
+                        {hasFilters
                             ? 'Try adjusting your search or filters.'
                             : 'Create packages from your completed trim entries to track inventory.'}
                     </p>
-                    {!searchQuery && activeFilters.type.length === 0 && activeFilters.status.length === 0 && (
+                    {!hasFilters && (
                         <button
                             onClick={() => setShowCreateModal(true)}
                             className="btn-new-batch px-4 py-2 text-sm"
@@ -254,6 +352,17 @@ export const PackageDashboard: React.FC = () => {
                             Create First Package
                         </button>
                     )}
+                </div>
+            ) : viewMode === 'table' ? (
+                <div className="mt-4">
+                    <DataTable
+                        columns={PACKAGE_COLUMNS}
+                        data={sortedPackages}
+                        emptyMessage={hasFilters ? 'No packages match your filters.' : 'No packages found.'}
+                        sortKey={sortField === 'tag' ? 'label' : sortField === 'type' ? 'packageType' : sortField}
+                        sortDir={sortDir}
+                        onSort={handleTableSort}
+                    />
                 </div>
             ) : (
                 <div className="entry-grid">
