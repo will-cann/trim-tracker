@@ -77,10 +77,12 @@ export async function analyzeAmbientChunk(
         onProgress?: (items: ActionItemState[]) => void;
         onInterceptAction?: (action: ProposedAction) => boolean;
     },
+    recentTranscriptHistory?: string[],
 ): Promise<AmbientResult> {
     const result = await apiService.aiParse({
         transcriptChunks: [text],
         context,
+        recentTranscriptHistory,
     });
 
     if (result.actions.length === 0) {

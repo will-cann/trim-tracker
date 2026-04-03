@@ -222,6 +222,7 @@ export const aiParse = async (request: {
     message?: string;
     csvData?: string;
     transcriptChunks?: string[];
+    recentTranscriptHistory?: string[];
     history?: Array<{ role: string; content: string }>;
     context: {
         hasActiveSession: boolean;
@@ -552,6 +553,19 @@ export const getPlantMap = async (phase: string): Promise<Record<string, any>> =
         return await response.json();
     } catch {
         return {};
+    }
+};
+
+export const getPlantsList = async (phase?: string): Promise<any[]> => {
+    try {
+        const url = phase
+            ? `${API_BASE}/get-plants-list?phase=${encodeURIComponent(phase)}`
+            : `${API_BASE}/get-plants-list`;
+        const response = await fetchWithAuth(url);
+        if (!response.ok) return [];
+        return await response.json();
+    } catch {
+        return [];
     }
 };
 
@@ -898,6 +912,7 @@ export const apiService = {
     // Plant Map
     getFloweringPlants,
     getPlantMap,
+    getPlantsList,
     getRoomMap,
     getRooms,
     createRoom,

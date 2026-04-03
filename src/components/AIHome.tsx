@@ -245,7 +245,7 @@ export const AIHome: React.FC<AIHomeProps> = ({
                     setInputText('');
                     analyzeAmbientChunk(text);
                 }
-            }, 3000);
+            }, 5000);
         }
         // Action mode: do nothing — user sends manually
     }, [analyzeAmbientChunk]);

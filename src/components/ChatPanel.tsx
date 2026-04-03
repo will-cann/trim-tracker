@@ -153,6 +153,8 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
     const [ambientActive, setAmbientActive] = useState(false);
     const ambientTranscriptRef = useRef('');
     const [transcriptEntries, setTranscriptEntries] = useState<TranscriptEntry[]>([]);
+    const transcriptEntriesRef = useRef<TranscriptEntry[]>([]);
+    transcriptEntriesRef.current = transcriptEntries;
     const [activeActionGroups, setActiveActionGroups] = useState<ActiveActionGroup[]>([]);
     const [extractionRunCards, setExtractionRunCards] = useState<ExtractionRunCardData[]>([]);
     const prevTabRef = useRef<PanelTab>('chat');
@@ -239,8 +241,9 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
                     const incoming = d[key];
                     if (incoming === null || incoming === undefined) continue;
                     const existing = (match as any)[key];
-                    // Only write if the card's field is empty, or this is notes (append)
-                    if (existing === null || existing === undefined || existing === '' || key === 'notes') {
+                    // Write if the card's field is empty, this is notes (append),
+                    // or the incoming value differs (correction/update)
+                    if (existing === null || existing === undefined || existing === '' || key === 'notes' || existing !== incoming) {
                         (updated as any)[key] = incoming;
                         lastField = key;
                     }
@@ -353,6 +356,12 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
             }]);
         }
 
+        // Gather recent transcript history (last 5 entries, excluding current) for AI context
+        const recentHistory = transcriptEntriesRef.current
+            .filter(e => e.id !== entryId && e.text.trim())
+            .slice(-5)
+            .map(e => e.text);
+
         try {
             const { status } = await analyzeChunk(text, buildAmbientContext(), {
                 onCreateHumanTasks,
@@ -372,7 +381,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
                             : [...prev, group];
                     });
                 },
-            });
+            }, recentHistory);
 
             // Update transcript status
             setTranscriptEntries(prev =>
@@ -395,7 +404,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
     // Track the live transcript entry ID so we can update it as words arrive
     const liveEntryIdRef = useRef<string | null>(null);
     const silenceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-    const SILENCE_FLUSH_MS = 4000; // Flush after 4s of silence
+    const SILENCE_FLUSH_MS = 5000; // Flush after 5s of silence
 
     const flushAmbientTranscript = useCallback(() => {
         if (ambientTranscriptRef.current.trim()) {
@@ -436,12 +445,11 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
     }, [flushAmbientTranscript]);
 
     const handleAmbientUtteranceEnd = useCallback(() => {
-        // Clear the silence timer since VAD fired first
-        if (silenceTimerRef.current) {
-            clearTimeout(silenceTimerRef.current);
-            silenceTimerRef.current = null;
-        }
-        flushAmbientTranscript();
+        // Don't flush immediately — reset the silence timer so we wait for
+        // the full pause. This prevents mid-thought pauses from splitting
+        // the transcript into incomplete chunks.
+        if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
+        silenceTimerRef.current = setTimeout(flushAmbientTranscript, SILENCE_FLUSH_MS);
     }, [flushAmbientTranscript]);
 
     const {

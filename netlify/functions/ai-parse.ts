@@ -881,6 +881,7 @@ interface AIParseRequest {
     csvData?: string;
     transcriptChunks?: string[];
     history?: Array<{ role: string; content: string }>;
+    recentTranscriptHistory?: string[];
     context: {
         hasActiveSession: boolean;
         sessionId?: string;
@@ -933,7 +934,16 @@ export const handler: Handler = async (event) => {
 
         if (request.transcriptChunks?.length) {
             const fullTranscript = request.transcriptChunks.join('\n');
-            userMessage = `Analyze this voice transcript of someone describing their cannabis operations. Extract ALL actionable tasks you can identify — these might include creating sessions, adding batches, assigning trimmers, creating harvests, recording weights, moving harvests, or any other trackable operation. Be thorough — capture every actionable item mentioned, even if briefly. Here is the transcript:\n\n"${fullTranscript}"`;
+            let transcriptPrompt = `Analyze this voice transcript of someone describing their cannabis operations. Extract ALL actionable items — these might include creating sessions, adding batches, assigning trimmers, creating harvests, recording weights, moving harvests, recording extractions, updating extraction quantities, correcting mistakes, updating packages, or any other trackable operation. Be thorough — capture every actionable item mentioned, even if briefly.
+
+IMPORTANT: If the user is correcting or updating a previous statement (e.g. "actually the input was 20,000 grams", "sorry I misspoke, the yield was 2,340"), treat it as an actionable update. Use the record_extraction tool with the corrected values — it will update the existing extraction card. Also handle follow-up statements like "and the yield is 2,340 grams" as part of the most recent extraction context.`;
+
+            if (request.recentTranscriptHistory?.length) {
+                transcriptPrompt += `\n\nRecent transcript history (previous chunks from this session, for context — the user may be continuing or correcting these):\n${request.recentTranscriptHistory.map((t, i) => `  [${i + 1}] "${t}"`).join('\n')}`;
+            }
+
+            transcriptPrompt += `\n\nCurrent transcript to analyze:\n"${fullTranscript}"`;
+            userMessage = transcriptPrompt;
         } else if (request.csvData) {
             userMessage = `Parse this CSV data into batch entries for the trim tracker. Map the columns to harvest name, strain, license number, and start weight fields. Here is the CSV data:\n\n${request.csvData}`;
         } else {
@@ -996,6 +1006,19 @@ export const handler: Handler = async (event) => {
         if ((request.context as any).activeLicenseNumber) {
             contextInfo.push(`- Active license number: ${(request.context as any).activeLicenseNumber} (use this automatically for any new batches, harvests, extractions, and packages unless the user specifies a different one)`);
         }
+
+        // Add recent extraction logs for context (so AI can handle corrections/follow-ups)
+        try {
+            const { rows: extRows } = await sql`
+                SELECT id, strain, input_package_type, input_quantity, output_package_type, output_quantity,
+                       yield_percentage, extraction_type, created_at
+                FROM extraction_logs WHERE company_id = ${authContext.companyId}
+                ORDER BY created_at DESC LIMIT 10
+            `;
+            if (extRows.length > 0) {
+                contextInfo.push(`- Recent extractions: ${extRows.map((e: any) => `${e.strain} ${e.input_package_type}→${e.output_package_type} input=${e.input_quantity ? parseFloat(e.input_quantity) + 'g' : '?'} output=${e.output_quantity ? parseFloat(e.output_quantity) + 'g' : 'pending'} yield=${e.yield_percentage ? parseFloat(e.yield_percentage) + '%' : '?'} (ID: ${e.id}, ${e.created_at})`).join('; ')}`);
+            }
+        } catch { /* proceed without extraction context */ }
 
         // Add packages context
         try {
