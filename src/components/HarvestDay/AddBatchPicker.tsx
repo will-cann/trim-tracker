@@ -209,6 +209,9 @@ export const AddBatchPicker: React.FC<AddBatchPickerProps> = ({ onClose, onSubmi
                                                             : <Square size={16} style={{ color: 'var(--color-dolphin)' }} />
                                                         }
                                                         <span className="hd-picker-plant-label">{plant.label}</span>
+                                                        {plant.harvestId && (
+                                                            <span className="hd-picker-plant-planned">Planned</span>
+                                                        )}
                                                         {plant.contaminants.length > 0 && (
                                                             <span className="hd-contaminant-dot" title={plant.contaminants.join(', ')} />
                                                         )}

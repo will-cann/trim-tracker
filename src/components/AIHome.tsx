@@ -3,8 +3,10 @@ import { useDeepgram } from '../hooks/useDeepgram';
 import { useAIChat } from '../hooks/useAIChat';
 import { AIEmptyState } from './AIEmptyState';
 import { AIChat } from './AIChat';
+import { isCardReady } from './ExtractionRunCard';
+import type { ExtractionRunCardData } from './ExtractionRunCard';
 import { apiService } from '../services/apiService';
-import type { TrimSession, TrimmerProfile, Harvest, ChatMessage, License, HumanTask, SpeechMode, ConversationSummary } from '../types/definitions';
+import type { TrimSession, TrimmerProfile, Harvest, ChatMessage, License, HumanTask, SpeechMode, ConversationSummary, ProposedAction } from '../types/definitions';
 
 interface AIHomeProps {
     conversationId: string | null;
@@ -64,6 +66,9 @@ export const AIHome: React.FC<AIHomeProps> = ({
     const textareaRef = useRef<HTMLTextAreaElement>(null);
     const conversationIdRef = useRef<string | null>(null);
 
+    // ── Extraction run cards ──
+    const [extractionRunCards, setExtractionRunCards] = useState<ExtractionRunCardData[]>([]);
+
     // ── Voice state ──
     const [voiceMode, setVoiceMode] = useState<SpeechMode>('action');
     const inlineTranscriptRef = useRef('');
@@ -91,23 +96,127 @@ export const AIHome: React.FC<AIHomeProps> = ({
         })),
     }), [session, trimmerProfiles, harvests, activeLicenseId, licenses, humanTasks]);
 
+    // ── Extraction card intercept ──
+    const handleInterceptAction = useCallback((action: ProposedAction): boolean => {
+        if (action.type !== 'record_extraction') return false;
+        const d = action.data;
+        setExtractionRunCards(prev => {
+            let match = d.strain
+                ? prev.find(c => c.status === 'filling' && c.strain?.toLowerCase() === d.strain.toLowerCase())
+                : null;
+            if (!match) {
+                const filling = prev.filter(c => c.status === 'filling');
+                if (filling.length === 1) match = filling[0];
+            }
+            const now = Date.now();
+            if (match) {
+                const updated = { ...match, lastUpdatedAt: now };
+                const fieldsToMerge: (keyof ExtractionRunCardData)[] = [
+                    'strain', 'inputPackageType', 'inputQuantity', 'outputPackageType',
+                    'outputQuantity', 'licenseNumber', 'sourcePackageId', 'outputLabel',
+                    'wasteWeight', 'notes',
+                ];
+                let lastField: string | null = null;
+                for (const key of fieldsToMerge) {
+                    const incoming = d[key];
+                    if (incoming === null || incoming === undefined) continue;
+                    const existing = (match as any)[key];
+                    if (existing === null || existing === undefined || existing === '' || key === 'notes' || existing !== incoming) {
+                        (updated as any)[key] = incoming;
+                        lastField = key;
+                    }
+                }
+                updated.lastUpdatedField = lastField;
+                if (isCardReady(updated)) updated.status = 'ready';
+                return prev.map(c => c.id === match!.id ? updated : c);
+            } else {
+                const card: ExtractionRunCardData = {
+                    id: crypto.randomUUID(), createdAt: new Date(),
+                    strain: d.strain || null, inputPackageType: d.inputPackageType || null,
+                    inputQuantity: d.inputQuantity || null, outputPackageType: d.outputPackageType || null,
+                    outputQuantity: d.outputQuantity || null, licenseNumber: d.licenseNumber || null,
+                    sourcePackageId: d.sourcePackageId || null, outputLabel: d.outputLabel || null,
+                    wasteWeight: d.wasteWeight || null, notes: d.notes || null,
+                    status: 'filling', lastUpdatedField: 'strain', lastUpdatedAt: now,
+                };
+                if (isCardReady(card)) card.status = 'ready';
+                return [...prev, card];
+            }
+        });
+        return true;
+    }, []);
+
+    const handleExtractionSubmit = useCallback(async (cardId: string) => {
+        const card = extractionRunCards.find(c => c.id === cardId);
+        if (!card) return;
+        if (!isCardReady(card)) {
+            setExtractionRunCards(prev => prev.map(c =>
+                c.id === cardId ? { ...c, status: 'filling' as const } : c
+            ));
+            return;
+        }
+        setExtractionRunCards(prev => prev.map(c =>
+            c.id === cardId ? { ...c, status: 'submitting' as const } : c
+        ));
+        try {
+            await apiService.recordExtraction({
+                sourcePackageId: card.sourcePackageId || undefined,
+                inputPackageType: card.inputPackageType!,
+                inputQuantity: card.inputQuantity!,
+                outputPackageType: card.outputPackageType!,
+                outputQuantity: card.outputQuantity!,
+                outputLabel: card.outputLabel || undefined,
+                strain: card.strain!,
+                licenseNumber: card.licenseNumber || undefined,
+                wasteWeight: card.wasteWeight || undefined,
+                notes: card.notes || undefined,
+            });
+            setExtractionRunCards(prev => prev.map(c =>
+                c.id === cardId ? { ...c, status: 'submitted' as const } : c
+            ));
+            setTimeout(() => {
+                setExtractionRunCards(prev => prev.filter(c => c.id !== cardId));
+            }, 3000);
+            await onSessionUpdate();
+        } catch {
+            setExtractionRunCards(prev => prev.map(c =>
+                c.id === cardId ? { ...c, status: 'error' as const } : c
+            ));
+        }
+    }, [extractionRunCards, onSessionUpdate]);
+
+    const handleExtractionDismiss = useCallback((cardId: string) => {
+        setExtractionRunCards(prev => prev.filter(c => c.id !== cardId));
+    }, []);
+
+    const handleExtractionCardUpdate = useCallback((cardId: string, updates: Partial<ExtractionRunCardData>) => {
+        setExtractionRunCards(prev => prev.map(c => {
+            if (c.id !== cardId) return c;
+            const updated = { ...c, ...updates };
+            if (isCardReady(updated) && updated.status === 'filling') updated.status = 'ready';
+            return updated;
+        }));
+    }, []);
+
     const analyzeAmbientChunk = useCallback(async (text: string) => {
-        if (!text.trim() || !onCreateHumanTasks) return;
+        if (!text.trim()) return;
         try {
             const result = await apiService.aiParse({
                 transcriptChunks: [text],
                 context: buildAmbientContext(),
             });
             if (result.actions.length > 0) {
-                const taskActions = result.actions.filter(a => a.type === 'create_human_task');
-                if (taskActions.length > 0) {
-                    await onCreateHumanTasks(taskActions.map(a => a.data as any));
+                for (const action of result.actions) {
+                    if (handleInterceptAction(action as ProposedAction)) continue;
+                    if (action.type === 'create_human_task' && onCreateHumanTasks) {
+                        await onCreateHumanTasks([action.data as any]);
+                    }
                 }
             }
         } catch {
             // Silent fail for ambient
         }
-    }, [buildAmbientContext, onCreateHumanTasks]);
+    }, [buildAmbientContext, onCreateHumanTasks, handleInterceptAction]);
 
     // ── Deepgram voice hooks ──
     const handleInlineTranscript = useCallback((text: string, isFinal: boolean) => {
@@ -236,6 +345,7 @@ export const AIHome: React.FC<AIHomeProps> = ({
     } = useAIChat({
         session, trimmerProfiles, harvests, onSessionUpdate, conversationId, onSaveConversation,
         activeLicense: licenses.find(l => l.id === activeLicenseId)?.licenseNumber || null,
+        onInterceptAction: handleInterceptAction,
         onCreateHumanTasks, onUpdateHumanTask, onDeleteHumanTask,
         humanTasks: humanTasks?.map(t => ({
             id: t.id, title: t.title, status: t.status, priority: t.priority,
@@ -390,6 +500,10 @@ export const AIHome: React.FC<AIHomeProps> = ({
                     micError={combinedError}
                     licenseSelector={licenseSelector}
                     onFocusInput={() => textareaRef.current?.focus()}
+                    extractionRunCards={extractionRunCards}
+                    onExtractionSubmit={handleExtractionSubmit}
+                    onExtractionDismiss={handleExtractionDismiss}
+                    onExtractionCardUpdate={handleExtractionCardUpdate}
                 />
             )}
         </div>

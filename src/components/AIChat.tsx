@@ -4,6 +4,8 @@ import remarkGfm from 'remark-gfm';
 import { Loader2, ArrowRight, Upload, Pencil } from 'lucide-react';
 import { ActionPreview } from './ActionPreview';
 import { ActionResult } from './ActionResult';
+import { ExtractionRunCard } from './ExtractionRunCard';
+import type { ExtractionRunCardData } from './ExtractionRunCard';
 import { VoicePill } from './VoicePill';
 import type { ChatMessage, ProposedAction, SpeechMode } from '../types/definitions';
 import logo from '../assets/logo.png';
@@ -36,6 +38,11 @@ interface AIChatProps {
     licenseSelector?: React.ReactNode;
     // Focus input
     onFocusInput: () => void;
+    // Extraction cards
+    extractionRunCards?: ExtractionRunCardData[];
+    onExtractionSubmit?: (cardId: string) => void;
+    onExtractionDismiss?: (cardId: string) => void;
+    onExtractionCardUpdate?: (cardId: string, updates: Partial<ExtractionRunCardData>) => void;
 }
 
 export const AIChat: React.FC<AIChatProps> = ({
@@ -61,6 +68,10 @@ export const AIChat: React.FC<AIChatProps> = ({
     micError,
     licenseSelector,
     onFocusInput,
+    extractionRunCards = [],
+    onExtractionSubmit,
+    onExtractionDismiss,
+    onExtractionCardUpdate,
 }) => {
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
@@ -68,7 +79,7 @@ export const AIChat: React.FC<AIChatProps> = ({
     // Auto-scroll
     useEffect(() => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-    }, [messages, pendingActions]);
+    }, [messages, pendingActions, extractionRunCards]);
 
     const isCommandMode = !!(pendingActions && pendingActions.length > 0);
 
@@ -150,6 +161,20 @@ export const AIChat: React.FC<AIChatProps> = ({
                             onEditAction={onEditAction}
                             isExecuting={isExecuting}
                         />
+                    </div>
+                )}
+
+                {extractionRunCards.length > 0 && (
+                    <div className="ai-cmd-row space-y-2">
+                        {extractionRunCards.map(card => (
+                            <ExtractionRunCard
+                                key={card.id}
+                                card={card}
+                                onSubmit={onExtractionSubmit || (() => {})}
+                                onDismiss={onExtractionDismiss || (() => {})}
+                                onUpdateCard={onExtractionCardUpdate || (() => {})}
+                            />
+                        ))}
                     </div>
                 )}
 

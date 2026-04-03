@@ -9,7 +9,7 @@ import {
 import { useDeepgram } from '../hooks/useDeepgram';
 import { useAIChat } from '../hooks/useAIChat';
 import { ActionPreview } from './ActionPreview';
-import { isCardReady } from './ExtractionRunCard';
+import { ExtractionRunCard, isCardReady } from './ExtractionRunCard';
 import type { ExtractionRunCardData } from './ExtractionRunCard';
 import { analyzeAmbientChunk as analyzeChunk } from '../services/ambientAnalyzer';
 import type { ActionItemState } from '../services/ambientAnalyzer';
@@ -242,8 +242,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
         return true; // intercepted
     }, []);
 
-    // Extraction run card handlers (extraction cards rendered externally)
-    const _handleExtractionSubmit = useCallback(async (cardId: string) => {
+    const handleExtractionSubmit = useCallback(async (cardId: string) => {
         const card = extractionRunCards.find(c => c.id === cardId);
         if (!card) return;
         if (!isCardReady(card)) {
@@ -281,7 +280,19 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
             ));
         }
     }, [extractionRunCards, onSessionUpdate]);
-    void _handleExtractionSubmit;
+
+    const handleExtractionDismiss = useCallback((cardId: string) => {
+        setExtractionRunCards(prev => prev.filter(c => c.id !== cardId));
+    }, []);
+
+    const handleExtractionCardUpdate = useCallback((cardId: string, updates: Partial<ExtractionRunCardData>) => {
+        setExtractionRunCards(prev => prev.map(c => {
+            if (c.id !== cardId) return c;
+            const updated = { ...c, ...updates };
+            if (isCardReady(updated) && updated.status === 'filling') updated.status = 'ready';
+            return updated;
+        }));
+    }, []);
 
     const analyzeAmbientChunk = useCallback(async (text: string, existingEntryId?: string) => {
         if (!text.trim()) return;
@@ -614,6 +625,20 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
                                     onEditAction={editAction}
                                     isExecuting={isExecuting}
                                 />
+                            )}
+
+                            {extractionRunCards.length > 0 && (
+                                <div className="space-y-2">
+                                    {extractionRunCards.map(card => (
+                                        <ExtractionRunCard
+                                            key={card.id}
+                                            card={card}
+                                            onSubmit={handleExtractionSubmit}
+                                            onDismiss={handleExtractionDismiss}
+                                            onUpdateCard={handleExtractionCardUpdate}
+                                        />
+                                    ))}
+                                </div>
                             )}
 
                             <div ref={messagesEndRef} />

@@ -26,13 +26,15 @@ export const handler: Handler = async (event) => {
                 p.harvest_id,
                 r.id AS room_id,
                 r.name AS room_name,
-                pb.name AS batch_name
+                pb.name AS batch_name,
+                h.batch_id AS harvest_batch_id,
+                h.status AS harvest_status
             FROM plants p
             JOIN rooms r ON r.id = p.room_id
             LEFT JOIN plant_batches pb ON pb.id = p.plant_batch_id
+            LEFT JOIN harvests h ON h.id = p.harvest_id
             WHERE p.company_id = $1
                 AND p.growth_phase = 'flowering'
-                AND p.harvest_id IS NULL
             ORDER BY r.name, p.strain_name, p.label
         `, [context.companyId]);
 
@@ -74,6 +76,8 @@ export const handler: Handler = async (event) => {
                 plantHealth: row.plant_health,
                 contaminants: row.contaminants || [],
                 harvestId: row.harvest_id,
+                harvestBatchId: row.harvest_batch_id || null,
+                harvestStatus: row.harvest_status || null,
             });
             batch.healthSum += (row.plant_health || 100);
             if (row.target_harvest_date && !batch.targetHarvestDate) {

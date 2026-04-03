@@ -1,11 +1,11 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { X, AlertTriangle, Loader2, Calendar } from 'lucide-react';
+import { X, AlertTriangle, Loader2, Calendar, Flower2, Snowflake, ArrowRightLeft } from 'lucide-react';
 import type { PlantPhase, PlantGroup } from '../../types/plantMap';
 import { CONTAMINANT_MAP } from '../../types/plantMap';
-import type { Strain } from '../../types/definitions';
+import type { Strain, AllocationChoice, License } from '../../types/definitions';
 import { apiService } from '../../services/apiService';
 
-export type PlantActionType = 'destroy' | 'change-phase' | 'change-room' | 'plant-health';
+export type PlantActionType = 'destroy' | 'change-phase' | 'change-room' | 'plant-health' | 'create-harvest';
 
 interface PlantActionModalProps {
     action: PlantActionType;
@@ -22,7 +22,14 @@ const ACTION_TITLES: Record<PlantActionType, string> = {
     'change-phase': 'Change Growth Phase',
     'change-room': 'Change Room',
     'plant-health': 'Plant Health Report',
+    'create-harvest': 'Create Harvest',
 };
+
+const ALLOCATION_OPTIONS: { value: AllocationChoice; label: string; sub: string; icon: typeof Flower2 }[] = [
+    { value: 'Flower', label: 'Flower', sub: 'Dry Trim', icon: Flower2 },
+    { value: 'Frozen', label: 'Fresh Frozen', sub: 'Extraction', icon: Snowflake },
+    { value: 'Both', label: 'Both', sub: 'Split batch', icon: ArrowRightLeft },
+];
 
 const PHASE_OPTIONS = [
     { value: 'vegetative', label: 'Vegetative' },
@@ -61,6 +68,23 @@ export const PlantActionModal: React.FC<PlantActionModalProps> = ({
     const [strains, setStrains] = useState<Strain[]>([]);
     const [targetHarvestDate, setTargetHarvestDate] = useState('');
 
+    // Create harvest state
+    const [licenses, setLicenses] = useState<License[]>([]);
+    const [harvestLicenseId, setHarvestLicenseId] = useState('');
+    const [harvestAllocation, setHarvestAllocation] = useState<AllocationChoice>('Flower');
+    const [harvestDryingLocation, setHarvestDryingLocation] = useState('');
+    const [harvestTargetWeight, setHarvestTargetWeight] = useState('');
+    const [harvestManicureLocation, setHarvestManicureLocation] = useState('');
+    const [plannedHarvestDate, setPlannedHarvestDate] = useState(() => {
+        // Pre-fill from the earliest harvestDate in the selection
+        if (action !== 'create-harvest') return '';
+        const dates = selectedGroups
+            .map(g => g.harvestDate)
+            .filter((d): d is string => !!d)
+            .sort();
+        return dates[0] || '';
+    });
+
     // Plant health state
     const [health, setHealth] = useState(100);
     const [selectedContaminants, setSelectedContaminants] = useState<Set<string>>(new Set());
@@ -79,6 +103,16 @@ export const PlantActionModal: React.FC<PlantActionModalProps> = ({
     useEffect(() => {
         if (action === 'change-room' || action === 'change-phase') {
             apiService.getRooms().then(setRooms);
+        }
+    }, [action]);
+
+    // Fetch licenses for create-harvest
+    useEffect(() => {
+        if (action === 'create-harvest') {
+            apiService.getMyLicenses().then(lics => {
+                setLicenses(lics);
+                if (lics.length === 1) setHarvestLicenseId(lics[0].id);
+            });
         }
     }, [action]);
 
@@ -197,6 +231,53 @@ export const PlantActionModal: React.FC<PlantActionModalProps> = ({
                         contaminants: [...selectedContaminants],
                     });
                     break;
+
+                case 'create-harvest': {
+                    const selectedLicense = licenses.find(l => l.id === harvestLicenseId);
+                    if (!selectedLicense) {
+                        setError('Select a license.');
+                        setSubmitting(false);
+                        return;
+                    }
+                    if (harvestAllocation === 'Both' && !harvestTargetWeight) {
+                        setError('Frozen target weight is required for split allocation.');
+                        setSubmitting(false);
+                        return;
+                    }
+                    // One harvest per strain group — each with its own plant IDs
+                    const harvestsByStrain = selectedGroups.reduce((acc, g) => {
+                        if (!acc[g.strain]) acc[g.strain] = [];
+                        acc[g.strain].push(...g.plants);
+                        return acc;
+                    }, {} as Record<string, string[]>);
+
+                    const results = await Promise.allSettled(
+                        Object.entries(harvestsByStrain).map(([strain, ids]) =>
+                            apiService.createHarvest({
+                                strain,
+                                licenseNumber: selectedLicense.licenseNumber,
+                                allocation: harvestAllocation,
+                                plantIds: ids,
+                                plantCount: ids.length,
+                                dryingLocation: harvestDryingLocation || undefined,
+                                targetWeight: harvestTargetWeight ? Number(harvestTargetWeight) : undefined,
+                                manicureLocation: harvestManicureLocation || undefined,
+                                plannedHarvestDate: plannedHarvestDate || undefined,
+                            })
+                        )
+                    );
+
+                    const failed = results.filter(r => r.status === 'rejected');
+                    if (failed.length > 0 && failed.length < results.length) {
+                        setError(`${results.length - failed.length} of ${results.length} harvests created. ${failed.length} failed.`);
+                        setSubmitting(false);
+                        return;
+                    }
+                    if (failed.length === results.length) {
+                        throw new Error('All harvest creations failed');
+                    }
+                    break;
+                }
             }
 
             onSuccess();
@@ -441,6 +522,145 @@ export const PlantActionModal: React.FC<PlantActionModalProps> = ({
                         </div>
                     )}
 
+                    {action === 'create-harvest' && (
+                        <div>
+                            {/* Strain summary */}
+                            <div className="harvest-plan-summary">
+                                {selectedStrainNames.length > 1 ? (
+                                    <>
+                                        <p className="harvest-plan-title">
+                                            Creating {selectedStrainNames.length} harvests
+                                        </p>
+                                        {selectedStrainNames.map(name => {
+                                            const count = selectedGroups
+                                                .filter(g => g.strain === name)
+                                                .reduce((sum, g) => sum + g.totalPlants, 0);
+                                            return (
+                                                <p key={name} className="harvest-plan-line">{name} — {count} plant{count !== 1 ? 's' : ''}</p>
+                                            );
+                                        })}
+                                    </>
+                                ) : (
+                                    <p className="harvest-plan-title">
+                                        Harvesting {selectedStrainNames[0]} — {totalPlants} plant{totalPlants !== 1 ? 's' : ''}
+                                    </p>
+                                )}
+                                <p className="harvest-plan-room">from {roomName}</p>
+                                <p className="harvest-plan-note">Plants will be reserved for this harvest plan</p>
+                            </div>
+
+                            {/* Planned harvest date */}
+                            <div className="field">
+                                <label className="field-label">
+                                    Planned Harvest Date
+                                </label>
+                                <input
+                                    type="date"
+                                    className="field-input"
+                                    value={plannedHarvestDate}
+                                    onChange={e => setPlannedHarvestDate(e.target.value)}
+                                />
+                            </div>
+
+                            {/* License selector */}
+                            <div className="field">
+                                <label className="field-label">
+                                    License <span className="required">*</span>
+                                </label>
+                                {licenses.length === 0 ? (
+                                    <div className="field-loading">
+                                        <Loader2 size={14} className="animate-spin" /> Loading licenses...
+                                    </div>
+                                ) : (
+                                    <div className="chip-group">
+                                        {licenses.map(lic => (
+                                            <button
+                                                key={lic.id}
+                                                type="button"
+                                                onClick={() => setHarvestLicenseId(lic.id)}
+                                                className={`ai-license-pill ${harvestLicenseId === lic.id ? 'active' : ''}`}
+                                            >
+                                                {lic.label || lic.licenseNumber}
+                                            </button>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Allocation picker */}
+                            <div className="field">
+                                <label className="field-label">
+                                    Allocation <span className="required">*</span>
+                                </label>
+                                <div className="chip-group">
+                                    {ALLOCATION_OPTIONS.map(a => {
+                                        const Icon = a.icon;
+                                        return (
+                                            <button
+                                                key={a.value}
+                                                type="button"
+                                                onClick={() => setHarvestAllocation(a.value)}
+                                                className={`chip chip-flex ${harvestAllocation === a.value ? 'chip-active' : ''}`}
+                                            >
+                                                <span className="chip-label-row">
+                                                    <Icon size={14} />
+                                                    {a.label}
+                                                </span>
+                                                <span className="chip-sub">{a.sub}</span>
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+
+                            {/* Conditional fields for Both */}
+                            {harvestAllocation === 'Both' && (
+                                <div className="field-row">
+                                    <div className="field">
+                                        <label className="field-label">
+                                            Frozen Target Weight <span className="required">*</span>
+                                        </label>
+                                        <div className="field-input-wrap">
+                                            <input
+                                                type="number"
+                                                className="field-input"
+                                                value={harvestTargetWeight}
+                                                onChange={e => setHarvestTargetWeight(e.target.value)}
+                                                placeholder="0"
+                                                min="1"
+                                            />
+                                            <span className="field-input-unit">g</span>
+                                        </div>
+                                    </div>
+                                    <div className="field">
+                                        <label className="field-label">
+                                            Frozen Storage Location <span className="required">*</span>
+                                        </label>
+                                        <input
+                                            type="text"
+                                            className="field-input"
+                                            value={harvestManicureLocation}
+                                            onChange={e => setHarvestManicureLocation(e.target.value)}
+                                            placeholder="Freezer 1"
+                                        />
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Drying location */}
+                            <div className="field">
+                                <label className="field-label">Drying Location</label>
+                                <input
+                                    type="text"
+                                    className="field-input"
+                                    value={harvestDryingLocation}
+                                    onChange={e => setHarvestDryingLocation(e.target.value)}
+                                    placeholder="Drying Room 1"
+                                />
+                            </div>
+                        </div>
+                    )}
+
                     {action === 'plant-health' && (
                         <div className="space-y-4">
                             <div>
@@ -508,6 +728,10 @@ export const PlantActionModal: React.FC<PlantActionModalProps> = ({
                             <Loader2 size={14} className="animate-spin" />
                         ) : isDestructive ? (
                             `Destroy ${totalPlants} Plant${totalPlants !== 1 ? 's' : ''}`
+                        ) : action === 'create-harvest' ? (
+                            selectedStrainNames.length > 1
+                                ? `Harvest ${selectedStrainNames.length} Strains (${totalPlants} plants)`
+                                : `Harvest ${totalPlants} Plant${totalPlants !== 1 ? 's' : ''}`
                         ) : (
                             'Apply'
                         )}

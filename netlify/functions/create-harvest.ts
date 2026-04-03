@@ -22,7 +22,7 @@ export const handler: Handler = async (event) => {
         const {
             licenseNumber, strain, allocation, name,
             plantCount, dryingLocation, targetWeight, manicureLocation,
-            plantIds, sourceBatchId,
+            plantIds, sourceBatchId, plannedHarvestDate,
         } = data;
 
         if (!strain || !allocation) {
@@ -69,22 +69,21 @@ export const handler: Handler = async (event) => {
                     company_id, created_by, batch_id, name, license_number, strain,
                     plant_count, drying_location, manicure_location, source_batch_id,
                     status, harvest_start_date
-                ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 'planning', NOW())
+                ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 'planning', $11)
                 RETURNING *
             `, [
                 context.companyId, context.userId, batchId, name || null,
                 licenseNumber, strain, resolvedPlantCount,
                 dryingLocation || null, manicureLocation || null,
                 sourceBatchId || null,
+                plannedHarvestDate || null,
             ]);
 
-            // Link plants to this harvest and transition them to 'harvested'
+            // Link plants to this harvest plan (plants stay flowering until harvest day)
             if (plantIds && plantIds.length > 0) {
                 await client.query(`
                     UPDATE plants
-                    SET harvest_id = $1,
-                        growth_phase = 'harvested',
-                        harvested_date = NOW()
+                    SET harvest_id = $1
                     WHERE id = ANY($2::uuid[])
                         AND company_id = $3
                         AND growth_phase = 'flowering'

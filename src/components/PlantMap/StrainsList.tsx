@@ -26,7 +26,7 @@ const ACTION_TYPE_MAP: Record<string, PlantActionType | null> = {
     'change-phase': 'change-phase',
     'change-room': 'change-room',
     'plant-health': 'plant-health',
-    'create-harvest': null,    // Future sprint
+    'create-harvest': 'create-harvest',
     'split-plantings': null,   // Future sprint
     'create-packages': null,   // Future sprint
 };
@@ -247,6 +247,14 @@ export const StrainsList: React.FC<StrainsListProps> = ({
                                             </td>
                                             <td className="px-2 py-2 w-16 tabular-nums text-gray-700 font-medium">
                                                 {row.totalPlants}
+                                                {row.plannedCount ? (
+                                                    <span
+                                                        className="planned-badge"
+                                                        title={`${row.plannedCount} of ${row.totalPlants} planned for harvest`}
+                                                    >
+                                                        {row.plannedCount === row.totalPlants ? 'P' : `${row.plannedCount}P`}
+                                                    </span>
+                                                ) : null}
                                             </td>
                                             <td className="px-2 py-2 w-24 text-gray-500">
                                                 {contam}

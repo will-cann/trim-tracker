@@ -42,6 +42,7 @@ export type RoomMapData = Record<string, PlantGroup>;
 
 export type PlantGroup = {
   totalPlants: number;
+  plannedCount?: number;
   plantHealth: number;
   plants: string[];
   contamination: string[];

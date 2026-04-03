@@ -110,6 +110,7 @@ export const handler: Handler = async (event) => {
                     p.flowering_date::text AS phase_date,
                     p.target_harvest_date::text AS target_harvest_date,
                     p.tag,
+                    p.harvest_id,
                     'plants' AS entity_type
                 FROM plants p
                 JOIN rooms r ON r.id = p.room_id AND r.company_id = p.company_id
@@ -124,6 +125,7 @@ export const handler: Handler = async (event) => {
         // Group by strain + phase_date into PlantGroup records
         const groupMap = new Map<string, {
             totalPlants: number;
+            plannedCount: number;
             plantHealth: number;
             healthSum: number;
             plants: string[];
@@ -143,6 +145,7 @@ export const handler: Handler = async (event) => {
             if (!group) {
                 group = {
                     totalPlants: 0,
+                    plannedCount: 0,
                     plantHealth: 0,
                     healthSum: 0,
                     plants: [],
@@ -159,6 +162,7 @@ export const handler: Handler = async (event) => {
             }
 
             group.totalPlants += row.plant_count;
+            if (row.harvest_id) group.plannedCount += row.plant_count;
             group.healthSum += row.plant_health * row.plant_count;
             group.plants.push(row.id);
             if (row.tag) group.tags.push(row.tag);
@@ -181,6 +185,7 @@ export const handler: Handler = async (event) => {
         for (const [key, group] of groupMap) {
             roomMapData[key] = {
                 totalPlants: group.totalPlants,
+                plannedCount: group.plannedCount,
                 plantHealth: group.totalPlants > 0 ? Math.round(group.healthSum / group.totalPlants) : 100,
                 plants: group.plants,
                 contamination: [...group.contamination].sort(),

@@ -145,8 +145,9 @@ export interface CreateHarvestDTO {
   allocation: AllocationChoice;
   targetWeight?: number;       // required when allocation is 'Both'
   manicureLocation?: string;   // required when allocation is 'Both'
-  plantIds?: string[];          // flowering plant IDs to harvest
+  plantIds?: string[];          // flowering plant IDs to plan for harvest
   sourceBatchId?: string;       // source plant batch ID
+  plannedHarvestDate?: string;  // ISO date for planned harvest
 }
 
 export interface FloweringPlant {
@@ -161,6 +162,8 @@ export interface FloweringPlant {
   plantHealth: number;
   contaminants: string[];
   harvestId?: string;
+  harvestBatchId?: string | null;
+  harvestStatus?: string | null;
 }
 
 export interface FloweringBatchGroup {
