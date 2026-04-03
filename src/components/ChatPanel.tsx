@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import {
     X, Mic, MicOff, Radio, Upload, ArrowRight, Loader2,
     MessageSquare, FileText,
@@ -592,7 +593,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
                                                 : 'ai-msg-bubble-assistant'
                                         }`}
                                     >
-                                        <ReactMarkdown>{msg.content}</ReactMarkdown>
+                                        <ReactMarkdown remarkPlugins={[remarkGfm]}>{msg.content}</ReactMarkdown>
                                     </div>
                                 </div>
                             ))}

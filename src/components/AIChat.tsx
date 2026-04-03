@@ -1,5 +1,6 @@
 import React, { useRef, useEffect } from 'react';
 import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import { Loader2, ArrowRight, Upload, Pencil } from 'lucide-react';
 import { ActionPreview } from './ActionPreview';
 import { ActionResult } from './ActionResult';
@@ -103,7 +104,7 @@ export const AIChat: React.FC<AIChatProps> = ({
                                 </div>
                             ) : (
                                 <div className="ai-cmd-response">
-                                    <ReactMarkdown>{msg.content}</ReactMarkdown>
+                                    <ReactMarkdown remarkPlugins={[remarkGfm]}>{msg.content}</ReactMarkdown>
                                 </div>
                             )}
 
