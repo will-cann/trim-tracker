@@ -21,7 +21,7 @@ interface AIChatProps {
     onEditMessage: (id: string) => string | null;
     onSend: (text: string) => void;
     onFileUpload: (file: File) => void;
-    onViewChange?: (view: 'dashboard' | 'harvests' | 'reports' | 'tasks') => void;
+    onViewChange?: (view: string) => void;
     // Input state (managed by parent)
     inputText: string;
     onInputChange: (text: string) => void;

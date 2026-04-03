@@ -494,7 +494,7 @@ export interface ActionResultItem {
   type: string;
   label: string;
   summary: string;
-  navigateTo?: 'dashboard' | 'harvests' | 'reports' | 'tasks' | 'plant-map' | 'packages';
+  navigateTo?: 'dashboard' | 'harvests' | 'reports' | 'tasks' | 'plant-map' | 'packages' | 'extractions' | 'settings' | 'tag-list';
 }
 
 export interface ChatMessage {

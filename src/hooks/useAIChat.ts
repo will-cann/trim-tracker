@@ -372,6 +372,54 @@ export const useAIChat = ({
                         return { type: action.type, label: 'Trimmer updated', summary: [d.trimmerName, d.entryName].filter(Boolean).join(' on '), navigateTo: 'dashboard' as const };
                     case 'update_plant_health':
                         return { type: action.type, label: 'Plant health updated', summary: [d.strain, d.health !== undefined && `health: ${d.health}`].filter(Boolean).join(' · '), navigateTo: 'plant-map' as const };
+                    case 'create_planting':
+                        return { type: action.type, label: 'Planting created', summary: [d.strainName, d.count && `${d.count} plants`].filter(Boolean).join(' · '), navigateTo: 'plant-map' as const };
+                    case 'move_plants':
+                        return { type: action.type, label: 'Plants moved', summary: [d.strain, d.targetRoomName].filter(Boolean).join(' → '), navigateTo: 'plant-map' as const };
+                    case 'change_plant_phase':
+                        return { type: action.type, label: 'Phase changed', summary: [d.strain, d.targetPhase].filter(Boolean).join(' → '), navigateTo: 'plant-map' as const };
+                    case 'destroy_plants':
+                        return { type: action.type, label: 'Plants destroyed', summary: d.strain || '', navigateTo: 'plant-map' as const };
+                    case 'record_extraction':
+                        return { type: action.type, label: 'Extraction recorded', summary: [d.strain, d.inputPackageType?.replace('_', ' '), '→', d.outputPackageType?.replace('_', ' ')].filter(Boolean).join(' '), navigateTo: 'extractions' as const };
+                    case 'create_package':
+                        return { type: action.type, label: 'Package created', summary: [d.strain, d.packageType?.replace('_', ' ')].filter(Boolean).join(' · '), navigateTo: 'packages' as const };
+                    case 'update_package':
+                        return { type: action.type, label: 'Package updated', summary: d.label || '', navigateTo: 'packages' as const };
+                    case 'finish_package':
+                        return { type: action.type, label: 'Package finished', summary: d.label || '', navigateTo: 'packages' as const };
+                    case 'delete_package':
+                        return { type: action.type, label: 'Package deleted', summary: d.label || '', navigateTo: 'packages' as const };
+                    case 'record_plant_weight':
+                        return { type: action.type, label: 'Weight recorded', summary: `${d.weights?.length || 0} plant(s)`, navigateTo: 'harvests' as const };
+                    case 'flag_contamination':
+                        return { type: action.type, label: 'Contamination flagged', summary: d.contaminants?.join(', ') || '', navigateTo: 'harvests' as const };
+                    case 'create_strain':
+                        return { type: action.type, label: 'Strain created', summary: d.name || '', navigateTo: 'settings' as const };
+                    case 'delete_strain':
+                        return { type: action.type, label: 'Strain deleted', summary: d.strainName || '', navigateTo: 'settings' as const };
+                    case 'create_license':
+                        return { type: action.type, label: 'License created', summary: d.licenseNumber || '', navigateTo: 'settings' as const };
+                    case 'update_license':
+                        return { type: action.type, label: 'License updated', summary: [d.licenseNumber, d.label].filter(Boolean).join(' → '), navigateTo: 'settings' as const };
+                    case 'import_tags':
+                        return { type: action.type, label: 'Tags imported', summary: `${d.tagNumbers?.length || 0} tag(s)`, navigateTo: 'tag-list' as const };
+                    case 'assign_tag':
+                        return { type: action.type, label: 'Tag assigned', summary: d.tagNumber || '', navigateTo: 'tag-list' as const };
+                    case 'auto_assign_tags':
+                        return { type: action.type, label: 'Tags auto-assigned', summary: [d.strain, d.count && `${d.count} tags`].filter(Boolean).join(' · '), navigateTo: 'tag-list' as const };
+                    case 'create_room':
+                        return { type: action.type, label: 'Room created', summary: d.name || '', navigateTo: 'settings' as const };
+                    case 'update_room':
+                        return { type: action.type, label: 'Room updated', summary: d.roomName || '', navigateTo: 'settings' as const };
+                    case 'delete_room':
+                        return { type: action.type, label: 'Room deleted', summary: d.roomName || '', navigateTo: 'settings' as const };
+                    case 'convert_to_trim':
+                        return { type: action.type, label: 'Converted to trim', summary: '', navigateTo: 'dashboard' as const };
+                    case 'update_trimmer_profile':
+                        return { type: action.type, label: 'Profile updated', summary: d.name || '', navigateTo: 'dashboard' as const };
+                    case 'update_batch_weight':
+                        return { type: action.type, label: 'Weight updated', summary: [d.weightType, d.value && `${d.value}g`].filter(Boolean).join(' → '), navigateTo: 'dashboard' as const };
                     default:
                         return { type: action.type, label: 'Action applied', summary: '' };
                 }

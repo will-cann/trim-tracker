@@ -20,7 +20,7 @@ interface AIHomeProps {
     licenses?: License[];
     activeLicenseId?: string | null;
     onLicenseChange?: (id: string) => void;
-    onViewChange?: (view: 'dashboard' | 'harvests' | 'reports' | 'tasks') => void;
+    onViewChange?: (view: string) => void;
     onCreateHumanTasks?: (tasks: Array<{ title: string; description?: string; priority: string; category: string; dueDate?: string; assignee?: string; location?: string }>) => Promise<void>;
     onUpdateHumanTask?: (id: string, updates: Partial<HumanTask>) => Promise<void>;
     onDeleteHumanTask?: (id: string) => Promise<void>;

@@ -1,9 +1,9 @@
-import { Check, ArrowRight, Package, Plus, UserPlus, Sprout, Scale, ArrowRightLeft, Trash2, MapPin, User, Scissors, ClipboardList, Leaf, Thermometer } from 'lucide-react';
+import { Check, ArrowRight, Package, Plus, UserPlus, Sprout, Scale, ArrowRightLeft, Trash2, MapPin, User, Scissors, ClipboardList, Leaf, Thermometer, Tag, FlaskConical, Home, Pencil } from 'lucide-react';
 import type { ActionResultItem } from '../types/definitions';
 
 interface ActionResultProps {
     results: ActionResultItem[];
-    onNavigate?: (view: 'dashboard' | 'harvests' | 'reports' | 'tasks') => void;
+    onNavigate?: (view: string) => void;
 }
 
 const RESULT_ICONS: Record<string, typeof Package> = {
@@ -27,7 +27,28 @@ const RESULT_ICONS: Record<string, typeof Package> = {
     record_extraction: Thermometer,
     update_trimmer_profile: User,
     update_batch_weight: Scale,
-    update_license: Scissors,
+    update_license: Pencil,
+    create_planting: Sprout,
+    move_plants: MapPin,
+    change_plant_phase: Sprout,
+    destroy_plants: Trash2,
+    create_package: Package,
+    update_package: Pencil,
+    finish_package: Package,
+    delete_package: Trash2,
+    record_plant_weight: Scale,
+    create_strain: Plus,
+    delete_strain: Trash2,
+    create_license: Plus,
+    delete_license: Trash2,
+    import_tags: Tag,
+    assign_tag: Tag,
+    auto_assign_tags: Tag,
+    create_room: Home,
+    update_room: Pencil,
+    delete_room: Trash2,
+    convert_to_trim: Scissors,
+    flag_contamination: Thermometer,
 };
 
 const NAV_LABELS: Record<string, string> = {
@@ -36,6 +57,10 @@ const NAV_LABELS: Record<string, string> = {
     reports: 'View Reports',
     tasks: 'View Tasks',
     'plant-map': 'View Plant Map',
+    packages: 'View Packages',
+    extractions: 'View Extraction',
+    settings: 'Open Settings',
+    'tag-list': 'View Tags',
 };
 
 export const ActionResult = ({ results, onNavigate }: ActionResultProps) => {
