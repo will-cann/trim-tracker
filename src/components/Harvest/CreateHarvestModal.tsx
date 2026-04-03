@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Flower2, Snowflake, ArrowRightLeft, Loader2, ChevronRight, MapPin, Calendar, CheckSquare, Square, Sprout, X } from 'lucide-react';
+import { Flower2, Snowflake, ArrowRightLeft, ChevronRight, MapPin, Calendar, CheckSquare, Square, Sprout, X } from 'lucide-react';
 import { CenteredSpinner } from '../Spinner';
 import type { AllocationChoice, CreateHarvestDTO, Strain, License, FloweringBatchGroup } from '../../types/definitions';
 import { apiService } from '../../services/apiService';
