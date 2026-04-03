@@ -177,6 +177,9 @@ export const AIHome: React.FC<AIHomeProps> = ({
         })),
     }), [session, trimmerProfiles, harvests, activeLicenseId, licenses, humanTasks]);
 
+    // Debounce timer for ambient mode — waits for a longer pause before sending
+    const ambientDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
     // Ambient mode: auto-analyze transcript chunks into tasks
     const analyzeAmbientChunk = useCallback(async (text: string) => {
         if (!text.trim() || !onCreateHumanTasks) return;
@@ -232,11 +235,17 @@ export const AIHome: React.FC<AIHomeProps> = ({
 
     const handleUtteranceEnd = useCallback(() => {
         if (voiceModeRef.current === 'ambient' && inlineTranscriptRef.current.trim()) {
-            // Auto-analyze the accumulated transcript
-            const text = inlineTranscriptRef.current;
-            inlineTranscriptRef.current = '';
-            setInputText('');
-            analyzeAmbientChunk(text);
+            // Debounce: wait 3s after last pause before sending, so the speaker
+            // can breathe mid-thought without splitting the transcript
+            if (ambientDebounceRef.current) clearTimeout(ambientDebounceRef.current);
+            ambientDebounceRef.current = setTimeout(() => {
+                const text = inlineTranscriptRef.current;
+                if (text.trim()) {
+                    inlineTranscriptRef.current = '';
+                    setInputText('');
+                    analyzeAmbientChunk(text);
+                }
+            }, 3000);
         }
         // Action mode: do nothing — user sends manually
     }, [analyzeAmbientChunk]);
@@ -256,7 +265,11 @@ export const AIHome: React.FC<AIHomeProps> = ({
     const handleVoiceToggle = useCallback(async () => {
         setMicError(null);
         if (inlineListening) {
-            // If ambient and there's remaining transcript, analyze it
+            // Cancel any pending debounce and flush remaining transcript immediately
+            if (ambientDebounceRef.current) {
+                clearTimeout(ambientDebounceRef.current);
+                ambientDebounceRef.current = null;
+            }
             if (voiceModeRef.current === 'ambient' && inlineTranscriptRef.current.trim()) {
                 analyzeAmbientChunk(inlineTranscriptRef.current);
                 inlineTranscriptRef.current = '';
@@ -276,6 +289,10 @@ export const AIHome: React.FC<AIHomeProps> = ({
     }, [inlineListening, inlineStart, inlineStop, inputText, voiceMode, analyzeAmbientChunk]);
 
     const handleModeSwitch = useCallback((mode: SpeechMode) => {
+        if (ambientDebounceRef.current) {
+            clearTimeout(ambientDebounceRef.current);
+            ambientDebounceRef.current = null;
+        }
         if (inlineListening) {
             inlineStop();
         }
@@ -290,7 +307,11 @@ export const AIHome: React.FC<AIHomeProps> = ({
 
     const handleStartAmbient = useCallback(() => {
         if (inlineListening && voiceMode === 'ambient') {
-            // Already ambient — stop
+            // Already ambient — stop; cancel debounce and flush immediately
+            if (ambientDebounceRef.current) {
+                clearTimeout(ambientDebounceRef.current);
+                ambientDebounceRef.current = null;
+            }
             if (inlineTranscriptRef.current.trim()) {
                 analyzeAmbientChunk(inlineTranscriptRef.current);
                 inlineTranscriptRef.current = '';
