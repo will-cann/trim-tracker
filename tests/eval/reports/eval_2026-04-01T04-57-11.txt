@@ -1,0 +1,5 @@
+NeuroCann Eval Report — 2026-04-01T04-57-11
+Mode: mock
+Total: 40  Passed: 34  Failed: 6  Rate: 85%
+
+  chunking................ 34/40 (avg score: 0.86)

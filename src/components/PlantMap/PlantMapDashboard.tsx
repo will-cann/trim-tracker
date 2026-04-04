@@ -96,9 +96,12 @@ export const PlantMapDashboard: React.FC<PlantMapDashboardProps> = ({ refreshKey
     const [sortKey, setSortKey] = useState<string | null>(null);
     const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
 
+    // Rooms list (shared between schedule and "all" phase detection)
+    const [allRooms, setAllRooms] = useState<Array<{ id: string; name: string; room_type: string }>>([]);
+    const [roomsLoaded, setRoomsLoaded] = useState(false);
+
     // Schedule mode state
     const [schedulePlants, setSchedulePlants] = useState<PlantListItem[]>([]);
-    const [scheduleRooms, setScheduleRooms] = useState<Array<{ id: string; name: string; room_type: string }>>([]);
     const [scheduleLoading, setScheduleLoading] = useState(false);
     const [scheduleLoaded, setScheduleLoaded] = useState(false);
 
@@ -124,18 +127,24 @@ export const PlantMapDashboard: React.FC<PlantMapDashboardProps> = ({ refreshKey
         if (viewMode === 'table') loadPlantList();
     }, [viewMode, loadPlantList]);
 
+    // Load rooms when needed (for "all" phase detection or schedule view)
+    useEffect(() => {
+        if (roomsLoaded) return;
+        if (activePhase !== 'all' && viewMode !== 'schedule') return;
+        apiService.getRooms().then(rooms => {
+            setAllRooms(rooms as Array<{ id: string; name: string; room_type: string }>);
+            setRoomsLoaded(true);
+        });
+    }, [activePhase, viewMode, roomsLoaded]);
+
     // Load schedule data lazily
     useEffect(() => {
         if (viewMode !== 'schedule' || scheduleLoaded) return;
         let cancelled = false;
         setScheduleLoading(true);
-        Promise.all([
-            apiService.getPlantsList(),
-            apiService.getRooms(),
-        ]).then(([plants, rooms]) => {
+        apiService.getPlantsList().then(plants => {
             if (cancelled) return;
             setSchedulePlants(plants as PlantListItem[]);
-            setScheduleRooms(rooms as Array<{ id: string; name: string; room_type: string }>);
             setScheduleLoaded(true);
             setScheduleLoading(false);
         }).catch(() => {
@@ -145,12 +154,19 @@ export const PlantMapDashboard: React.FC<PlantMapDashboardProps> = ({ refreshKey
     }, [viewMode, scheduleLoaded]);
 
     const scheduleData = useMemo(
-        () => buildCultivationSchedule(schedulePlants, scheduleRooms),
-        [schedulePlants, scheduleRooms],
+        () => buildCultivationSchedule(schedulePlants, allRooms),
+        [schedulePlants, allRooms],
     );
 
     const currentTab = PHASE_TABS.find(t => t.key === activePhase) || { key: 'all' as const, label: 'All', entity: 'plants' as const };
     const rooms = data ? Object.entries(data) : [];
+
+    // Room name → room type lookup for phase detection in "all" mode
+    const roomTypeByName = useMemo(() => {
+        const map = new Map<string, string>();
+        for (const r of allRooms) map.set(r.name, r.room_type || '');
+        return map;
+    }, [allRooms]);
 
     // Filter rooms by search (name or strain)
     const filteredRooms = cardSearch
@@ -301,14 +317,15 @@ export const PlantMapDashboard: React.FC<PlantMapDashboardProps> = ({ refreshKey
                         <div className="plant-map-grid">
                             <PlantMapSummary data={data!} />
                             {filteredRooms.map(([name, room]) => {
-                                // For expanded room in "all" view, derive phase from room data
+                                // For expanded room in "all" view, derive phase from room type
+                                const rt = roomTypeByName.get(name) || '';
                                 const roomPhase: PlantPhase = activePhase === 'all'
-                                    ? ((room as any).harvestDates?.length > 0 ? 'flowering'
-                                        : (room as any).flipDates?.length > 0 ? 'vegetative'
-                                        : 'nursery')
+                                    ? (rt === 'nursery' ? 'nursery'
+                                        : rt === 'veg' || rt === 'vegetative' ? 'vegetative'
+                                        : 'flowering')
                                     : activePhase;
                                 const roomPhaseLabel = activePhase === 'all'
-                                    ? (roomPhase === 'flowering' ? 'Flowering' : roomPhase === 'vegetative' ? 'Vegetative' : 'Nursery')
+                                    ? (roomPhase === 'nursery' ? 'Nursery' : roomPhase === 'vegetative' ? 'Vegetative' : 'Flowering')
                                     : currentTab.label;
 
                                 return expandedRoom === name ? (

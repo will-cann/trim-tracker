@@ -1,0 +1,945 @@
+{
+  "timestamp": "2026-04-01T00:53:11.064940+00:00",
+  "mode": "mock",
+  "summary": {
+    "total_cases": 40,
+    "passed": 34,
+    "failed": 6,
+    "pass_rate": 0.85,
+    "areas": {
+      "chunking": {
+        "count": 40,
+        "passed": 34,
+        "avg_score": 0.8616666666666667
+      }
+    }
+  },
+  "regression": {
+    "vs_baseline": "no baseline",
+    "regressions": []
+  },
+  "details": [
+    {
+      "test_id": "chunk_single_action_01@500ms",
+      "area": "chunking",
+      "passed": true,
+      "score": 1.0,
+      "details": {
+        "threshold_ms": 500,
+        "expected_chunks": 1,
+        "predicted_chunks": 1,
+        "chunks": [
+          "I just harvested the GMO 12 plants total"
+        ],
+        "expected_boundaries": [],
+        "predicted_boundaries": [],
+        "boundary_f1": 1.0,
+        "split_errors": 0,
+        "merge_errors": 0,
+        "count_match": true
+      }
+    },
+    {
+      "test_id": "chunk_single_action_01@750ms",
+      "area": "chunking",
+      "passed": true,
+      "score": 1.0,
+      "details": {
+        "threshold_ms": 750,
+        "expected_chunks": 1,
+        "predicted_chunks": 1,
+        "chunks": [
+          "I just harvested the GMO 12 plants total"
+        ],
+        "expected_boundaries": [],
+        "predicted_boundaries": [],
+        "boundary_f1": 1.0,
+        "split_errors": 0,
+        "merge_errors": 0,
+        "count_match": true
+      }
+    },
+    {
+      "test_id": "chunk_single_action_01@1000ms",
+      "area": "chunking",
+      "passed": true,
+      "score": 1.0,
+      "details": {
+        "threshold_ms": 1000,
+        "expected_chunks": 1,
+        "predicted_chunks": 1,
+        "chunks": [
+          "I just harvested the GMO 12 plants total"
+        ],
+        "expected_boundaries": [],
+        "predicted_boundaries": [],
+        "boundary_f1": 1.0,
+        "split_errors": 0,
+        "merge_errors": 0,
+        "count_match": true
+      }
+    },
+    {
+      "test_id": "chunk_single_action_01@1500ms",
+      "area": "chunking",
+      "passed": true,
+      "score": 1.0,
+      "details": {
+        "threshold_ms": 1500,
+        "expected_chunks": 1,
+        "predicted_chunks": 1,
+        "chunks": [
+          "I just harvested the GMO 12 plants total"
+        ],
+        "expected_boundaries": [],
+        "predicted_boundaries": [],
+        "boundary_f1": 1.0,
+        "split_errors": 0,
+        "merge_errors": 0,
+        "count_match": true
+      }
+    },
+    {
+      "test_id": "chunk_single_action_01@2000ms",
+      "area": "chunking",
+      "passed": true,
+      "score": 1.0,
+      "details": {
+        "threshold_ms": 2000,
+        "expected_chunks": 1,
+        "predicted_chunks": 1,
+        "chunks": [
+          "I just harvested the GMO 12 plants total"
+        ],
+        "expected_boundaries": [],
+        "predicted_boundaries": [],
+        "boundary_f1": 1.0,
+        "split_errors": 0,
+        "merge_errors": 0,
+        "count_match": true
+      }
+    },
+    {
+      "test_id": "chunk_two_actions_01@500ms",
+      "area": "chunking",
+      "passed": true,
+      "score": 1.0,
+      "details": {
+        "threshold_ms": 500,
+        "expected_chunks": 2,
+        "predicted_chunks": 2,
+        "chunks": [
+          "I just harvested the GMO, 12 plants",
+          "put Maria and Carlos on the Wi Fi OG at 8am"
+        ],
+        "expected_boundaries": [
+          1500
+        ],
+        "predicted_boundaries": [
+          1500
+        ],
+        "boundary_f1": 1.0,
+        "split_errors": 0,
+        "merge_errors": 0,
+        "count_match": true
+      }
+    },
+    {
+      "test_id": "chunk_two_actions_01@750ms",
+      "area": "chunking",
+      "passed": true,
+      "score": 1.0,
+      "details": {
+        "threshold_ms": 750,
+        "expected_chunks": 2,
+        "predicted_chunks": 2,
+        "chunks": [
+          "I just harvested the GMO, 12 plants",
+          "put Maria and Carlos on the Wi Fi OG at 8am"
+        ],
+        "expected_boundaries": [
+          1500
+        ],
+        "predicted_boundaries": [
+          1500
+        ],
+        "boundary_f1": 1.0,
+        "split_errors": 0,
+        "merge_errors": 0,
+        "count_match": true
+      }
+    },
+    {
+      "test_id": "chunk_two_actions_01@1000ms",
+      "area": "chunking",
+      "passed": true,
+      "score": 1.0,
+      "details": {
+        "threshold_ms": 1000,
+        "expected_chunks": 2,
+        "predicted_chunks": 2,
+        "chunks": [
+          "I just harvested the GMO, 12 plants",
+          "put Maria and Carlos on the Wi Fi OG at 8am"
+        ],
+        "expected_boundaries": [
+          1500
+        ],
+        "predicted_boundaries": [
+          1500
+        ],
+        "boundary_f1": 1.0,
+        "split_errors": 0,
+        "merge_errors": 0,
+        "count_match": true
+      }
+    },
+    {
+      "test_id": "chunk_two_actions_01@1500ms",
+      "area": "chunking",
+      "passed": true,
+      "score": 1.0,
+      "details": {
+        "threshold_ms": 1500,
+        "expected_chunks": 2,
+        "predicted_chunks": 2,
+        "chunks": [
+          "I just harvested the GMO, 12 plants",
+          "put Maria and Carlos on the Wi Fi OG at 8am"
+        ],
+        "expected_boundaries": [
+          1500
+        ],
+        "predicted_boundaries": [
+          1500
+        ],
+        "boundary_f1": 1.0,
+        "split_errors": 0,
+        "merge_errors": 0,
+        "count_match": true
+      }
+    },
+    {
+      "test_id": "chunk_two_actions_01@2000ms",
+      "area": "chunking",
+      "passed": false,
+      "score": 0.2,
+      "details": {
+        "threshold_ms": 2000,
+        "expected_chunks": 2,
+        "predicted_chunks": 1,
+        "chunks": [
+          "I just harvested the GMO, 12 plants put Maria and Carlos on the Wi Fi OG at 8am"
+        ],
+        "expected_boundaries": [
+          1500
+        ],
+        "predicted_boundaries": [],
+        "boundary_f1": 0.0,
+        "split_errors": 0,
+        "merge_errors": 1,
+        "count_match": false
+      }
+    },
+    {
+      "test_id": "chunk_two_actions_02@500ms",
+      "area": "chunking",
+      "passed": true,
+      "score": 1.0,
+      "details": {
+        "threshold_ms": 500,
+        "expected_chunks": 2,
+        "predicted_chunks": 2,
+        "chunks": [
+          "wet weight on the GMO was 38 pounds",
+          "move it to dry room 2"
+        ],
+        "expected_boundaries": [
+          800
+        ],
+        "predicted_boundaries": [
+          800
+        ],
+        "boundary_f1": 1.0,
+        "split_errors": 0,
+        "merge_errors": 0,
+        "count_match": true
+      }
+    },
+    {
+      "test_id": "chunk_two_actions_02@750ms",
+      "area": "chunking",
+      "passed": true,
+      "score": 1.0,
+      "details": {
+        "threshold_ms": 750,
+        "expected_chunks": 2,
+        "predicted_chunks": 2,
+        "chunks": [
+          "wet weight on the GMO was 38 pounds",
+          "move it to dry room 2"
+        ],
+        "expected_boundaries": [
+          800
+        ],
+        "predicted_boundaries": [
+          800
+        ],
+        "boundary_f1": 1.0,
+        "split_errors": 0,
+        "merge_errors": 0,
+        "count_match": true
+      }
+    },
+    {
+      "test_id": "chunk_two_actions_02@1000ms",
+      "area": "chunking",
+      "passed": false,
+      "score": 0.2,
+      "details": {
+        "threshold_ms": 1000,
+        "expected_chunks": 2,
+        "predicted_chunks": 1,
+        "chunks": [
+          "wet weight on the GMO was 38 pounds move it to dry room 2"
+        ],
+        "expected_boundaries": [
+          800
+        ],
+        "predicted_boundaries": [],
+        "boundary_f1": 0.0,
+        "split_errors": 0,
+        "merge_errors": 1,
+        "count_match": false
+      }
+    },
+    {
+      "test_id": "chunk_two_actions_02@1500ms",
+      "area": "chunking",
+      "passed": false,
+      "score": 0.2,
+      "details": {
+        "threshold_ms": 1500,
+        "expected_chunks": 2,
+        "predicted_chunks": 1,
+        "chunks": [
+          "wet weight on the GMO was 38 pounds move it to dry room 2"
+        ],
+        "expected_boundaries": [
+          800
+        ],
+        "predicted_boundaries": [],
+        "boundary_f1": 0.0,
+        "split_errors": 0,
+        "merge_errors": 1,
+        "count_match": false
+      }
+    },
+    {
+      "test_id": "chunk_two_actions_02@2000ms",
+      "area": "chunking",
+      "passed": false,
+      "score": 0.2,
+      "details": {
+        "threshold_ms": 2000,
+        "expected_chunks": 2,
+        "predicted_chunks": 1,
+        "chunks": [
+          "wet weight on the GMO was 38 pounds move it to dry room 2"
+        ],
+        "expected_boundaries": [
+          800
+        ],
+        "predicted_boundaries": [],
+        "boundary_f1": 0.0,
+        "split_errors": 0,
+        "merge_errors": 1,
+        "count_match": false
+      }
+    },
+    {
+      "test_id": "chunk_three_actions_01@500ms",
+      "area": "chunking",
+      "passed": true,
+      "score": 1.0,
+      "details": {
+        "threshold_ms": 500,
+        "expected_chunks": 3,
+        "predicted_chunks": 3,
+        "chunks": [
+          "harvested the Wedding Cake, 14 plants",
+          "wet weight was 42 pounds",
+          "and moved it to dry room 1"
+        ],
+        "expected_boundaries": [
+          2000,
+          3500
+        ],
+        "predicted_boundaries": [
+          2000,
+          3500
+        ],
+        "boundary_f1": 1.0,
+        "split_errors": 0,
+        "merge_errors": 0,
+        "count_match": true
+      }
+    },
+    {
+      "test_id": "chunk_three_actions_01@750ms",
+      "area": "chunking",
+      "passed": true,
+      "score": 1.0,
+      "details": {
+        "threshold_ms": 750,
+        "expected_chunks": 3,
+        "predicted_chunks": 3,
+        "chunks": [
+          "harvested the Wedding Cake, 14 plants",
+          "wet weight was 42 pounds",
+          "and moved it to dry room 1"
+        ],
+        "expected_boundaries": [
+          2000,
+          3500
+        ],
+        "predicted_boundaries": [
+          2000,
+          3500
+        ],
+        "boundary_f1": 1.0,
+        "split_errors": 0,
+        "merge_errors": 0,
+        "count_match": true
+      }
+    },
+    {
+      "test_id": "chunk_three_actions_01@1000ms",
+      "area": "chunking",
+      "passed": true,
+      "score": 1.0,
+      "details": {
+        "threshold_ms": 1000,
+        "expected_chunks": 3,
+        "predicted_chunks": 3,
+        "chunks": [
+          "harvested the Wedding Cake, 14 plants",
+          "wet weight was 42 pounds",
+          "and moved it to dry room 1"
+        ],
+        "expected_boundaries": [
+          2000,
+          3500
+        ],
+        "predicted_boundaries": [
+          2000,
+          3500
+        ],
+        "boundary_f1": 1.0,
+        "split_errors": 0,
+        "merge_errors": 0,
+        "count_match": true
+      }
+    },
+    {
+      "test_id": "chunk_three_actions_01@1500ms",
+      "area": "chunking",
+      "passed": true,
+      "score": 1.0,
+      "details": {
+        "threshold_ms": 1500,
+        "expected_chunks": 3,
+        "predicted_chunks": 3,
+        "chunks": [
+          "harvested the Wedding Cake, 14 plants",
+          "wet weight was 42 pounds",
+          "and moved it to dry room 1"
+        ],
+        "expected_boundaries": [
+          2000,
+          3500
+        ],
+        "predicted_boundaries": [
+          2000,
+          3500
+        ],
+        "boundary_f1": 1.0,
+        "split_errors": 0,
+        "merge_errors": 0,
+        "count_match": true
+      }
+    },
+    {
+      "test_id": "chunk_three_actions_01@2000ms",
+      "area": "chunking",
+      "passed": true,
+      "score": 0.6666666666666667,
+      "details": {
+        "threshold_ms": 2000,
+        "expected_chunks": 3,
+        "predicted_chunks": 2,
+        "chunks": [
+          "harvested the Wedding Cake, 14 plants",
+          "wet weight was 42 pounds and moved it to dry room 1"
+        ],
+        "expected_boundaries": [
+          2000,
+          3500
+        ],
+        "predicted_boundaries": [
+          2000
+        ],
+        "boundary_f1": 0.6666666666666666,
+        "split_errors": 0,
+        "merge_errors": 1,
+        "count_match": false
+      }
+    },
+    {
+      "test_id": "chunk_no_split_01@500ms",
+      "area": "chunking",
+      "passed": false,
+      "score": 0.0,
+      "details": {
+        "threshold_ms": 500,
+        "expected_chunks": 1,
+        "predicted_chunks": 2,
+        "chunks": [
+          "I just harvested the",
+          "GMO, about 12 plants"
+        ],
+        "expected_boundaries": [],
+        "predicted_boundaries": [
+          600
+        ],
+        "boundary_f1": 0.0,
+        "split_errors": 1,
+        "merge_errors": 0,
+        "count_match": false
+      }
+    },
+    {
+      "test_id": "chunk_no_split_01@750ms",
+      "area": "chunking",
+      "passed": true,
+      "score": 1.0,
+      "details": {
+        "threshold_ms": 750,
+        "expected_chunks": 1,
+        "predicted_chunks": 1,
+        "chunks": [
+          "I just harvested the GMO, about 12 plants"
+        ],
+        "expected_boundaries": [],
+        "predicted_boundaries": [],
+        "boundary_f1": 1.0,
+        "split_errors": 0,
+        "merge_errors": 0,
+        "count_match": true
+      }
+    },
+    {
+      "test_id": "chunk_no_split_01@1000ms",
+      "area": "chunking",
+      "passed": true,
+      "score": 1.0,
+      "details": {
+        "threshold_ms": 1000,
+        "expected_chunks": 1,
+        "predicted_chunks": 1,
+        "chunks": [
+          "I just harvested the GMO, about 12 plants"
+        ],
+        "expected_boundaries": [],
+        "predicted_boundaries": [],
+        "boundary_f1": 1.0,
+        "split_errors": 0,
+        "merge_errors": 0,
+        "count_match": true
+      }
+    },
+    {
+      "test_id": "chunk_no_split_01@1500ms",
+      "area": "chunking",
+      "passed": true,
+      "score": 1.0,
+      "details": {
+        "threshold_ms": 1500,
+        "expected_chunks": 1,
+        "predicted_chunks": 1,
+        "chunks": [
+          "I just harvested the GMO, about 12 plants"
+        ],
+        "expected_boundaries": [],
+        "predicted_boundaries": [],
+        "boundary_f1": 1.0,
+        "split_errors": 0,
+        "merge_errors": 0,
+        "count_match": true
+      }
+    },
+    {
+      "test_id": "chunk_no_split_01@2000ms",
+      "area": "chunking",
+      "passed": true,
+      "score": 1.0,
+      "details": {
+        "threshold_ms": 2000,
+        "expected_chunks": 1,
+        "predicted_chunks": 1,
+        "chunks": [
+          "I just harvested the GMO, about 12 plants"
+        ],
+        "expected_boundaries": [],
+        "predicted_boundaries": [],
+        "boundary_f1": 1.0,
+        "split_errors": 0,
+        "merge_errors": 0,
+        "count_match": true
+      }
+    },
+    {
+      "test_id": "chunk_merge_risk_01@500ms",
+      "area": "chunking",
+      "passed": true,
+      "score": 1.0,
+      "details": {
+        "threshold_ms": 500,
+        "expected_chunks": 1,
+        "predicted_chunks": 1,
+        "chunks": [
+          "GMO was 450 from the wash blackberry was 600 mad fruit was 525"
+        ],
+        "expected_boundaries": [],
+        "predicted_boundaries": [],
+        "boundary_f1": 1.0,
+        "split_errors": 0,
+        "merge_errors": 0,
+        "count_match": true
+      }
+    },
+    {
+      "test_id": "chunk_merge_risk_01@750ms",
+      "area": "chunking",
+      "passed": true,
+      "score": 1.0,
+      "details": {
+        "threshold_ms": 750,
+        "expected_chunks": 1,
+        "predicted_chunks": 1,
+        "chunks": [
+          "GMO was 450 from the wash blackberry was 600 mad fruit was 525"
+        ],
+        "expected_boundaries": [],
+        "predicted_boundaries": [],
+        "boundary_f1": 1.0,
+        "split_errors": 0,
+        "merge_errors": 0,
+        "count_match": true
+      }
+    },
+    {
+      "test_id": "chunk_merge_risk_01@1000ms",
+      "area": "chunking",
+      "passed": true,
+      "score": 1.0,
+      "details": {
+        "threshold_ms": 1000,
+        "expected_chunks": 1,
+        "predicted_chunks": 1,
+        "chunks": [
+          "GMO was 450 from the wash blackberry was 600 mad fruit was 525"
+        ],
+        "expected_boundaries": [],
+        "predicted_boundaries": [],
+        "boundary_f1": 1.0,
+        "split_errors": 0,
+        "merge_errors": 0,
+        "count_match": true
+      }
+    },
+    {
+      "test_id": "chunk_merge_risk_01@1500ms",
+      "area": "chunking",
+      "passed": true,
+      "score": 1.0,
+      "details": {
+        "threshold_ms": 1500,
+        "expected_chunks": 1,
+        "predicted_chunks": 1,
+        "chunks": [
+          "GMO was 450 from the wash blackberry was 600 mad fruit was 525"
+        ],
+        "expected_boundaries": [],
+        "predicted_boundaries": [],
+        "boundary_f1": 1.0,
+        "split_errors": 0,
+        "merge_errors": 0,
+        "count_match": true
+      }
+    },
+    {
+      "test_id": "chunk_merge_risk_01@2000ms",
+      "area": "chunking",
+      "passed": true,
+      "score": 1.0,
+      "details": {
+        "threshold_ms": 2000,
+        "expected_chunks": 1,
+        "predicted_chunks": 1,
+        "chunks": [
+          "GMO was 450 from the wash blackberry was 600 mad fruit was 525"
+        ],
+        "expected_boundaries": [],
+        "predicted_boundaries": [],
+        "boundary_f1": 1.0,
+        "split_errors": 0,
+        "merge_errors": 0,
+        "count_match": true
+      }
+    },
+    {
+      "test_id": "chunk_self_correction_01@500ms",
+      "area": "chunking",
+      "passed": false,
+      "score": 0.0,
+      "details": {
+        "threshold_ms": 500,
+        "expected_chunks": 1,
+        "predicted_chunks": 2,
+        "chunks": [
+          "wet weight was 38 pounds",
+          "no wait, it was 36 pounds"
+        ],
+        "expected_boundaries": [],
+        "predicted_boundaries": [
+          700
+        ],
+        "boundary_f1": 0.0,
+        "split_errors": 1,
+        "merge_errors": 0,
+        "count_match": false
+      }
+    },
+    {
+      "test_id": "chunk_self_correction_01@750ms",
+      "area": "chunking",
+      "passed": true,
+      "score": 1.0,
+      "details": {
+        "threshold_ms": 750,
+        "expected_chunks": 1,
+        "predicted_chunks": 1,
+        "chunks": [
+          "wet weight was 38 pounds no wait, it was 36 pounds"
+        ],
+        "expected_boundaries": [],
+        "predicted_boundaries": [],
+        "boundary_f1": 1.0,
+        "split_errors": 0,
+        "merge_errors": 0,
+        "count_match": true
+      }
+    },
+    {
+      "test_id": "chunk_self_correction_01@1000ms",
+      "area": "chunking",
+      "passed": true,
+      "score": 1.0,
+      "details": {
+        "threshold_ms": 1000,
+        "expected_chunks": 1,
+        "predicted_chunks": 1,
+        "chunks": [
+          "wet weight was 38 pounds no wait, it was 36 pounds"
+        ],
+        "expected_boundaries": [],
+        "predicted_boundaries": [],
+        "boundary_f1": 1.0,
+        "split_errors": 0,
+        "merge_errors": 0,
+        "count_match": true
+      }
+    },
+    {
+      "test_id": "chunk_self_correction_01@1500ms",
+      "area": "chunking",
+      "passed": true,
+      "score": 1.0,
+      "details": {
+        "threshold_ms": 1500,
+        "expected_chunks": 1,
+        "predicted_chunks": 1,
+        "chunks": [
+          "wet weight was 38 pounds no wait, it was 36 pounds"
+        ],
+        "expected_boundaries": [],
+        "predicted_boundaries": [],
+        "boundary_f1": 1.0,
+        "split_errors": 0,
+        "merge_errors": 0,
+        "count_match": true
+      }
+    },
+    {
+      "test_id": "chunk_self_correction_01@2000ms",
+      "area": "chunking",
+      "passed": true,
+      "score": 1.0,
+      "details": {
+        "threshold_ms": 2000,
+        "expected_chunks": 1,
+        "predicted_chunks": 1,
+        "chunks": [
+          "wet weight was 38 pounds no wait, it was 36 pounds"
+        ],
+        "expected_boundaries": [],
+        "predicted_boundaries": [],
+        "boundary_f1": 1.0,
+        "split_errors": 0,
+        "merge_errors": 0,
+        "count_match": true
+      }
+    },
+    {
+      "test_id": "chunk_long_monologue_01@500ms",
+      "area": "chunking",
+      "passed": true,
+      "score": 1.0,
+      "details": {
+        "threshold_ms": 500,
+        "expected_chunks": 3,
+        "predicted_chunks": 3,
+        "chunks": [
+          "we harvested the Gelato this morning, 10 plants",
+          "oh and we need to do an IPM spray in flower room 2",
+          "also remind me to order more nutrients"
+        ],
+        "expected_boundaries": [
+          2500,
+          5500
+        ],
+        "predicted_boundaries": [
+          2500,
+          5500
+        ],
+        "boundary_f1": 1.0,
+        "split_errors": 0,
+        "merge_errors": 0,
+        "count_match": true
+      }
+    },
+    {
+      "test_id": "chunk_long_monologue_01@750ms",
+      "area": "chunking",
+      "passed": true,
+      "score": 1.0,
+      "details": {
+        "threshold_ms": 750,
+        "expected_chunks": 3,
+        "predicted_chunks": 3,
+        "chunks": [
+          "we harvested the Gelato this morning, 10 plants",
+          "oh and we need to do an IPM spray in flower room 2",
+          "also remind me to order more nutrients"
+        ],
+        "expected_boundaries": [
+          2500,
+          5500
+        ],
+        "predicted_boundaries": [
+          2500,
+          5500
+        ],
+        "boundary_f1": 1.0,
+        "split_errors": 0,
+        "merge_errors": 0,
+        "count_match": true
+      }
+    },
+    {
+      "test_id": "chunk_long_monologue_01@1000ms",
+      "area": "chunking",
+      "passed": true,
+      "score": 1.0,
+      "details": {
+        "threshold_ms": 1000,
+        "expected_chunks": 3,
+        "predicted_chunks": 3,
+        "chunks": [
+          "we harvested the Gelato this morning, 10 plants",
+          "oh and we need to do an IPM spray in flower room 2",
+          "also remind me to order more nutrients"
+        ],
+        "expected_boundaries": [
+          2500,
+          5500
+        ],
+        "predicted_boundaries": [
+          2500,
+          5500
+        ],
+        "boundary_f1": 1.0,
+        "split_errors": 0,
+        "merge_errors": 0,
+        "count_match": true
+      }
+    },
+    {
+      "test_id": "chunk_long_monologue_01@1500ms",
+      "area": "chunking",
+      "passed": true,
+      "score": 1.0,
+      "details": {
+        "threshold_ms": 1500,
+        "expected_chunks": 3,
+        "predicted_chunks": 3,
+        "chunks": [
+          "we harvested the Gelato this morning, 10 plants",
+          "oh and we need to do an IPM spray in flower room 2",
+          "also remind me to order more nutrients"
+        ],
+        "expected_boundaries": [
+          2500,
+          5500
+        ],
+        "predicted_boundaries": [
+          2500,
+          5500
+        ],
+        "boundary_f1": 1.0,
+        "split_errors": 0,
+        "merge_errors": 0,
+        "count_match": true
+      }
+    },
+    {
+      "test_id": "chunk_long_monologue_01@2000ms",
+      "area": "chunking",
+      "passed": true,
+      "score": 1.0,
+      "details": {
+        "threshold_ms": 2000,
+        "expected_chunks": 3,
+        "predicted_chunks": 3,
+        "chunks": [
+          "we harvested the Gelato this morning, 10 plants",
+          "oh and we need to do an IPM spray in flower room 2",
+          "also remind me to order more nutrients"
+        ],
+        "expected_boundaries": [
+          2500,
+          5500
+        ],
+        "predicted_boundaries": [
+          2500,
+          5500
+        ],
+        "boundary_f1": 1.0,
+        "split_errors": 0,
+        "merge_errors": 0,
+        "count_match": true
+      }
+    }
+  ]
+}
