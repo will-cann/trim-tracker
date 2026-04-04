@@ -10,7 +10,6 @@ import { HarvestDashboard } from './components/Harvest/HarvestDashboard';
 import { TasksPanel } from './components/TasksPanel';
 import { Sidebar } from './components/Sidebar';
 import { RightPanel } from './components/RightPanel';
-import { TaskRightPanel } from './components/TaskRightPanel';
 import { SettingsPanel } from './components/SettingsPanel';
 import { Auth0Wrapper, useAuth } from './contexts/authContext';
 import { LandingPage } from './components/LandingPage';
@@ -66,7 +65,7 @@ function AppContent() {
   const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
   const [completedSessions, setCompletedSessions] = useState<TrimSession[]>([]);
   const [isRightPanelOpen, setIsRightPanelOpen] = useState(false);
-  const [isTaskPanelOpen, setIsTaskPanelOpen] = useState(false);
+
   const [selectedSessionId] = useState<string | null>(null);
   const [myLicenses, setMyLicenses] = useState<License[]>([]);
   const [voiceInjectedText, setVoiceInjectedText] = useState<string | null>(null);
@@ -107,43 +106,6 @@ function AppContent() {
       onCompleteAction: t.onCompleteAction as any,
     })));
   }, [addHumanTasks]);
-
-  // Ambient voice: analyze transcript and auto-create tasks
-  const handleAmbientAnalyze = useCallback(async (text: string) => {
-    if (!text.trim()) return;
-    try {
-      const result = await apiService.aiParse({
-        transcriptChunks: [text],
-        context: {
-          hasActiveSession: !!session,
-          sessionId: session?.id,
-          trimmerProfiles: trimmerProfiles.map(p => ({ id: p.id, name: p.name })),
-          existingEntries: (session?.entries || []).map(e => ({
-            id: e.id, harvestName: e.harvestName, strain: e.strain, status: e.status,
-          })),
-          harvests: harvests.map(h => ({
-            id: h.id, batchId: h.batchId, strain: h.strain, status: h.status,
-          })),
-          humanTasks: humanTasks.map(t => ({
-            id: t.id, title: t.title, status: t.status, priority: t.priority,
-            category: t.category, assignee: t.assignee, location: t.location,
-          })),
-        },
-      });
-      const taskActions = result.actions.filter(a => a.type === 'create_human_task');
-      if (taskActions.length > 0) {
-        await handleCreateHumanTasks(taskActions.map(a => a.data as any));
-      }
-    } catch {
-      // Silent fail for ambient mode
-    }
-  }, [session, trimmerProfiles, harvests, humanTasks, handleCreateHumanTasks]);
-
-  // Action voice: inject text into AIHome input
-  const handleActionVoiceText = useCallback((text: string) => {
-    setVoiceInjectedText(text);
-    if (currentView !== 'ai') handleViewChange('ai');
-  }, [currentView]);
 
   const loadSession = useCallback(async () => {
     const data = await apiService.getSession();

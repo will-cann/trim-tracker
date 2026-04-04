@@ -100,7 +100,7 @@ export function CultivationSOPBuilder({ initialTemplate, onBack, onSaved }: Prop
     const [editContext, setEditContext] = useState<{ track: SOPTrack; phase: SOPPhase; week: number } | null>(null);
 
     // Quick-add popover state
-    const [quickAdd, setQuickAdd] = useState<{ track: string; phase: string; week: number; x: number; y: number } | null>(null);
+    const [quickAdd, setQuickAdd] = useState<{ track: string; phase: string; week: number; x: number; y: number; anchor: 'above' | 'below' } | null>(null);
     const quickAddRef = useRef<HTMLDivElement>(null);
 
     // Close quick-add on outside click
@@ -138,8 +138,8 @@ export function CultivationSOPBuilder({ initialTemplate, onBack, onSaved }: Prop
 
     // ── Handle cell click → quick-add ───────────────────────────────────────
     const handleCellClick = useCallback((track: string, phase: string, week: number, e: React.MouseEvent) => {
-        // If environment track and span already exists, edit the span
-        if (track === 'environment') {
+        // If environment/ipm track and span already exists, edit the span
+        if (track === 'environment' || track === 'ipm') {
             const span = getSpanStep(track, phase, week);
             if (span) {
                 setEditingStep(span);
@@ -147,8 +147,13 @@ export function CultivationSOPBuilder({ initialTemplate, onBack, onSaved }: Prop
                 return;
             }
         }
-        const rect = (e.target as HTMLElement).getBoundingClientRect();
-        setQuickAdd({ track, phase, week, x: rect.left, y: rect.bottom + 4 });
+        const cell = (e.currentTarget as HTMLElement);
+        const rect = cell.getBoundingClientRect();
+        // If near the bottom of the viewport, position above the cell
+        const spaceBelow = window.innerHeight - rect.bottom;
+        const y = spaceBelow < 260 ? rect.top - 4 : rect.bottom + 4;
+        const anchor = spaceBelow < 260 ? 'above' : 'below';
+        setQuickAdd({ track, phase, week, x: rect.left, y, anchor });
     }, [getSpanStep]);
 
     // ── Quick-add a preset ──────────────────────────────────────────────────
@@ -375,7 +380,7 @@ export function CultivationSOPBuilder({ initialTemplate, onBack, onSaved }: Prop
                                     Array.from({ length: col.weeks }, (_, i) => {
                                         const week = i + 1;
                                         const cellSteps = getStepsAt(track, col.phase, week);
-                                        const spanStep = track === 'environment' ? getSpanStep(track, col.phase, week) : null;
+                                        const spanStep = (track === 'environment' || track === 'ipm') ? getSpanStep(track, col.phase, week) : null;
                                         const isSpanStart = spanStep && spanStep.phaseWeek === week;
                                         const isSpanMiddle = spanStep && spanStep.phaseWeek !== week;
 
@@ -386,7 +391,7 @@ export function CultivationSOPBuilder({ initialTemplate, onBack, onSaved }: Prop
                                                 onClick={(e) => handleCellClick(track, col.phase, week, e)}
                                                 title={`${TRACK_LABELS[track]} — ${col.label} W${week}`}
                                             >
-                                                {/* Environment span block */}
+                                                {/* Span block (environment targets, no-spray zones, etc.) */}
                                                 {isSpanStart && spanStep && (
                                                     <div
                                                         className="sop-event sop-event-span"
@@ -398,12 +403,14 @@ export function CultivationSOPBuilder({ initialTemplate, onBack, onSaved }: Prop
                                                         onClick={(e) => handleEventClick(spanStep as EditableStep, e)}
                                                     >
                                                         <span className="sop-event-label">{spanStep.name}</span>
-                                                        {spanStep.envTargets && (
+                                                        {spanStep.envTargets ? (
                                                             <span className="sop-event-sub">
                                                                 {spanStep.envTargets.tempDay && `${spanStep.envTargets.tempDay}F`}
                                                                 {spanStep.envTargets.humidity && ` / ${spanStep.envTargets.humidity}%`}
                                                             </span>
-                                                        )}
+                                                        ) : spanStep.description ? (
+                                                            <span className="sop-event-sub">{spanStep.description}</span>
+                                                        ) : null}
                                                     </div>
                                                 )}
                                                 {/* Point events */}
@@ -442,7 +449,14 @@ export function CultivationSOPBuilder({ initialTemplate, onBack, onSaved }: Prop
                 <div
                     ref={quickAddRef}
                     className="sop-quick-add"
-                    style={{ position: 'fixed', left: quickAdd.x, top: quickAdd.y, zIndex: 1100 }}
+                    style={{
+                        position: 'fixed',
+                        left: quickAdd.x,
+                        ...(quickAdd.anchor === 'above'
+                            ? { bottom: window.innerHeight - quickAdd.y, top: 'auto' }
+                            : { top: quickAdd.y }),
+                        zIndex: 1100,
+                    }}
                 >
                     <div className="sop-quick-add-header">
                         {TRACK_LABELS[quickAdd.track]} — {PHASE_LABELS[quickAdd.phase] || quickAdd.phase} W{quickAdd.week}
