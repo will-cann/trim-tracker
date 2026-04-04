@@ -1701,8 +1701,17 @@ body {
   border-radius: 8px;
   width: 100%;
   max-width: 480px;
+  max-height: calc(100vh - 48px);
+  display: flex;
+  flex-direction: column;
   box-shadow: var(--shadow-lg);
   animation: scaleIn 0.2s ease-out;
+}
+
+.modal-body {
+  overflow-y: auto;
+  flex: 1;
+  min-height: 0;
 }
 
 .modal-header {
@@ -7680,82 +7689,286 @@ select.field-input {
   line-height: 1.5;
 }
 
-/* ── Run Steps ───────────────────────────────────────────────────────────── */
+/* ── Extraction Cockpit ─────────────────────────────────────────────────── */
 
-.run-step-list {
+/* Done steps (collapsed summary lines) */
+.cockpit-done-zone {
   display: flex;
   flex-direction: column;
   gap: 0;
-  padding-top: 0.5rem;
+  padding: 0.25rem 0;
 }
 
-.run-step {
+.cockpit-done-step {
   display: flex;
-  gap: 0.75rem;
-  padding: 0.625rem 0;
-  position: relative;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.375rem 0;
+  font-size: 0.75rem;
+  color: #959595;
+  font-variant-numeric: tabular-nums;
 }
 
-.run-step + .run-step {
-  border-top: 1px solid #F1F1F1;
+.cockpit-done-step + .cockpit-done-step {
+  border-top: 1px solid #F5F5F5;
 }
 
-.run-step--active {
-  background: #F8FBFF;
-  margin: 0 -1rem;
-  padding: 0.75rem 1rem;
-  border-radius: 8px;
-}
-
-.run-step--active + .run-step {
-  border-top: none;
-}
-
-.run-step--skipped {
-  opacity: 0.5;
-}
-
-.run-step-indicator {
-  width: 24px;
-  height: 24px;
-  border-radius: 6px;
+.cockpit-done-check {
+  width: 18px;
+  height: 18px;
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  margin-top: 1px;
 }
 
-.run-step-number {
-  font-size: 0.625rem;
+.cockpit-done-name {
+  font-weight: 600;
+  color: #1A1A1A;
+}
+
+.cockpit-done-weights {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  margin-left: auto;
+}
+
+.cockpit-done-yield {
   font-weight: 700;
-  color: #fff;
+  font-variant-numeric: tabular-nums;
 }
 
-.run-step-content {
+.cockpit-done-skipped {
+  font-size: 0.625rem;
+  font-weight: 600;
+  color: #C0C0C0;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-left: auto;
+}
+
+.cockpit-done-toggle {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: none;
+  border: none;
+  color: #959595;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 0.25rem 0;
+  transition: color 0.15s;
+}
+
+.cockpit-done-toggle:hover {
+  color: #1A1A1A;
+}
+
+/* Active step — dominant cockpit center */
+.cockpit-active {
+  background: #F8FBFF;
+  margin: 0.5rem -1rem;
+  padding: 1rem;
+  border-radius: 8px;
+  border: 1px solid #E3EFFC;
+}
+
+.cockpit-active-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.625rem;
+  margin-bottom: 0.5rem;
+}
+
+.cockpit-active-indicator {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #1C9EFF;
+  margin-top: 6px;
+  flex-shrink: 0;
+  animation: cockpit-pulse 2s ease-in-out infinite;
+}
+
+@keyframes cockpit-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+.cockpit-active-title {
   flex: 1;
   min-width: 0;
 }
 
-.run-step-header {
-  display: flex;
-  flex-direction: column;
-  gap: 0.375rem;
+.cockpit-active-step-num {
+  font-size: 0.625rem;
+  font-weight: 700;
+  color: #1C9EFF;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
 }
 
-.run-step-name-row {
+.cockpit-active-name {
+  font-size: 0.9375rem;
+  font-weight: 700;
+  color: #1A1A1A;
+  margin: 0.125rem 0 0;
+}
+
+.cockpit-active-timer {
   display: flex;
   align-items: center;
+  gap: 4px;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  color: #959595;
+  flex-shrink: 0;
+  margin-top: 2px;
+  font-variant-numeric: tabular-nums;
+}
+
+.cockpit-active-desc {
+  font-size: 0.75rem;
+  color: #959595;
+  line-height: 1.4;
+  margin: 0 0 0.5rem;
+}
+
+/* Weight inputs */
+.cockpit-active-inputs {
+  display: flex;
+  flex-direction: column;
   gap: 0.5rem;
 }
 
-.run-step-name {
+.cockpit-weight-pair {
+  display: flex;
+  align-items: flex-end;
+  gap: 0.5rem;
+}
+
+.cockpit-weight-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1;
+  max-width: 160px;
+}
+
+.cockpit-weight-field label {
+  font-size: 0.625rem;
+  font-weight: 600;
+  color: #959595;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.cockpit-weight-input-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.cockpit-weight-input {
+  flex: 1;
+  min-width: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+.cockpit-weight-unit {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  color: #C0C0C0;
+  flex-shrink: 0;
+}
+
+.cockpit-weight-arrow {
+  display: flex;
+  align-items: center;
+  padding-bottom: 6px;
+  flex-shrink: 0;
+}
+
+.cockpit-live-yield {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding-bottom: 4px;
+  flex-shrink: 0;
+  margin-left: 0.25rem;
+}
+
+.cockpit-live-yield-value {
+  font-size: 1rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.cockpit-live-yield-label {
+  font-size: 0.5625rem;
+  font-weight: 600;
+  color: #959595;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.cockpit-notes-input {
+  font-size: 0.75rem;
+}
+
+.cockpit-active-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+
+.cockpit-btn-complete {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* Pending steps */
+.cockpit-pending {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.375rem 0;
+  opacity: 0.5;
+}
+
+.cockpit-pending + .cockpit-pending {
+  border-top: 1px solid #F5F5F5;
+}
+
+.cockpit-pending--next {
+  opacity: 0.8;
+}
+
+.cockpit-pending-num {
+  width: 18px;
+  height: 18px;
+  border-radius: 4px;
+  background: #F1F1F1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.5625rem;
+  font-weight: 700;
+  color: #959595;
+  flex-shrink: 0;
+}
+
+.cockpit-pending-name {
   font-size: 0.8125rem;
   font-weight: 600;
   color: #1A1A1A;
 }
 
-.run-step-optional {
+.cockpit-pending-optional {
   font-size: 0.5625rem;
   font-weight: 600;
   color: #959595;
@@ -7766,43 +7979,164 @@ select.field-input {
   border-radius: 3px;
 }
 
-.run-step-status-badge {
-  font-size: 0.6875rem;
-  font-weight: 600;
+.cockpit-pending-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
   margin-left: auto;
 }
 
-/* Step summary (completed) */
-.run-step-summary {
+.cockpit-pending-zone {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  padding: 0.25rem 0;
+}
+
+.cockpit-zone-label {
+  font-size: 0.5625rem;
+  font-weight: 700;
+  color: #C0C0C0;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding-bottom: 0.25rem;
+}
+
+/* Progress bar */
+.cockpit-progress {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+  padding: 0.5rem 0;
+}
+
+.cockpit-progress-bar-wrap {
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  font-size: 0.75rem;
+}
+
+.cockpit-progress-bar {
+  display: flex;
+  gap: 2px;
+  flex: 1;
+  height: 6px;
+}
+
+.cockpit-progress-segment {
+  flex: 1;
+  height: 100%;
+  border-radius: 3px;
+  background: #E8E8E8;
+  transition: background 0.2s;
+}
+
+.cockpit-progress-segment--done {
+  background: #3BB570;
+}
+
+.cockpit-progress-segment--active {
+  background: #1C9EFF;
+  animation: cockpit-pulse 2s ease-in-out infinite;
+}
+
+.cockpit-progress-label {
+  font-size: 0.6875rem;
+  font-weight: 700;
   color: #959595;
+  font-variant-numeric: tabular-nums;
+  flex-shrink: 0;
+}
+
+.cockpit-progress-stats {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.cockpit-stat {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.6875rem;
+  color: #959595;
+}
+
+.cockpit-stat-label {
+  font-weight: 600;
+  color: #C0C0C0;
+}
+
+.cockpit-stat-value {
+  font-weight: 700;
   font-variant-numeric: tabular-nums;
 }
 
-.run-step-yield {
+.cockpit-stat-yield {
   font-weight: 700;
 }
 
-.run-step-notes-preview {
-  font-size: 0.6875rem;
-  color: #C0C0C0;
-  margin-left: 0.5rem;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  max-width: 200px;
+/* Planned run */
+.cockpit-planned {
+  padding: 0.5rem 0;
 }
 
-/* Step description (SOP instructions) */
-/* Run step description (read-only on runs) */
-.run-step-desc {
+.cockpit-planned-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  margin-bottom: 0.75rem;
+}
+
+.cockpit-planned-step {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.375rem 0;
+}
+
+.cockpit-planned-step + .cockpit-planned-step {
+  border-top: 1px solid #F5F5F5;
+}
+
+.cockpit-planned-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+/* Finalize prompt */
+.cockpit-finalize {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 0;
+  border-top: 1px solid #F1F1F1;
+  margin-top: 0.25rem;
+}
+
+.cockpit-finalize-msg {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: #3BB570;
+  margin: 0;
+}
+
+/* Run notes */
+.cockpit-run-notes {
   font-size: 0.75rem;
   color: #959595;
   line-height: 1.4;
-  margin-top: 0.25rem;
+  margin: 0.5rem 0 0;
+  padding-top: 0.5rem;
+  border-top: 1px solid #F5F5F5;
+}
+
+/* Cancel */
+.cockpit-cancel {
+  padding-top: 0.5rem;
+  display: flex;
+  justify-content: flex-end;
 }
 
 /* Template step description editing (admin) */
@@ -8252,66 +8586,6 @@ select.field-input {
   background: rgba(59, 181, 112, 0.04);
 }
 
-/* Step inputs (active) */
-.run-step-inputs {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-  margin-top: 0.25rem;
-}
-
-.run-step-weight-row {
-  display: flex;
-  align-items: flex-start;
-  gap: 0.5rem;
-}
-
-.run-step-field {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  flex: 1;
-  max-width: 140px;
-}
-
-.run-step-field label {
-  font-size: 0.625rem;
-  font-weight: 600;
-  color: #959595;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-}
-
-.run-step-field-row {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.run-step-field-row .field-input {
-  flex: 1;
-  min-width: 0;
-  font-variant-numeric: tabular-nums;
-}
-
-.run-step-live-yield {
-  font-size: 0.875rem;
-  font-weight: 700;
-  color: #1C9EFF;
-  font-variant-numeric: tabular-nums;
-  flex-shrink: 0;
-}
-
-.run-step-notes-input {
-  font-size: 0.75rem;
-}
-
-.run-step-actions {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  margin-top: 0.25rem;
-}
 
 /* ── Start Run Modal ─────────────────────────────────────────────────────── */
 
