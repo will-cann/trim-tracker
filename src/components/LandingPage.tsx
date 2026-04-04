@@ -447,6 +447,130 @@ const MockHarvestStats: React.FC = () => (
   </div>
 );
 
+const MockGanttChart: React.FC = () => {
+  const today = 4; // day index (0-based) in the visible range
+  const tasks = [
+    { label: 'Clone → Veg', room: 'Nursery A', start: 0, end: 3, color: 'bg-teal-400' },
+    { label: 'Veg Cycle', room: 'Veg Room 1', start: 2, end: 7, color: 'bg-blue-400' },
+    { label: 'Flip to Flower', room: 'Flower 1', start: 7, end: 14, color: 'bg-emerald-500' },
+    { label: 'Harvest WC-003', room: 'Flower 2', start: 5, end: 6, color: 'bg-amber-500' },
+    { label: 'Dry & Cure', room: 'Dry Room', start: 6, end: 11, color: 'bg-orange-400' },
+    { label: 'Extraction Run', room: 'Lab', start: 10, end: 12, color: 'bg-purple-400' },
+  ];
+  const days = ['Mar 31', 'Apr 1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12', '13', '14'];
+  const totalDays = days.length;
+
+  return (
+    <div>
+      {/* View toggle */}
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex gap-1">
+          {['Calendar', 'Gantt', 'List'].map((v, i) => (
+            <button key={v} className={`text-[11px] font-bold px-3 py-1.5 rounded-lg transition-colors ${i === 1 ? 'bg-emerald-500 text-white' : 'bg-gray-100 text-gray-400'}`}>{v}</button>
+          ))}
+        </div>
+        <div className="flex items-center gap-2">
+          <div className="w-2 h-2 rounded-full bg-emerald-400" />
+          <span className="text-[11px] text-gray-400">6 scheduled</span>
+        </div>
+      </div>
+      {/* Day headers */}
+      <div className="flex mb-1 ml-[120px]">
+        {days.map((d, i) => (
+          <div key={i} className={`flex-1 text-center text-[9px] font-bold ${i === today ? 'text-emerald-600' : 'text-gray-300'}`}>
+            {d}
+          </div>
+        ))}
+      </div>
+      {/* Today marker + rows */}
+      <div className="relative">
+        {/* Today line */}
+        <div
+          className="absolute top-0 bottom-0 w-px bg-emerald-400 z-10"
+          style={{ left: `calc(120px + ${((today + 0.5) / totalDays) * 100}% - ${(120 * (today + 0.5) / totalDays).toFixed(1)}px)` }}
+        />
+        {tasks.map((task, i) => (
+          <div key={i} className="flex items-center h-8 group">
+            {/* Label */}
+            <div className="w-[120px] shrink-0 pr-3">
+              <div className="text-[11px] font-bold text-gray-700 truncate">{task.label}</div>
+              <div className="text-[9px] text-gray-300">{task.room}</div>
+            </div>
+            {/* Bar track */}
+            <div className="flex-1 relative h-6">
+              <div className="absolute inset-0 bg-gray-50 rounded" />
+              <div
+                className={`absolute top-0.5 bottom-0.5 ${task.color} rounded-md opacity-90 group-hover:opacity-100 transition-opacity`}
+                style={{
+                  left: `${(task.start / totalDays) * 100}%`,
+                  width: `${((task.end - task.start) / totalDays) * 100}%`,
+                }}
+              />
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+};
+
+const MockSOPEditor: React.FC = () => {
+  const steps = [
+    { num: 1, label: 'Defoliation', duration: '45 min', assignee: 'Cultivation Lead', status: 'complete' },
+    { num: 2, label: 'Chop & Hang', duration: '2 hr', assignee: 'Harvest Crew', status: 'complete' },
+    { num: 3, label: 'Weigh Wet Plants', duration: '30 min', assignee: 'Harvest Lead', status: 'active' },
+    { num: 4, label: 'Allocate Dry vs Frozen', duration: '15 min', assignee: 'AI + Manager', status: 'pending' },
+    { num: 5, label: 'Log in Compliance System', duration: '10 min', assignee: 'AI Auto-exec', status: 'pending' },
+  ];
+  return (
+    <div>
+      {/* SOP header */}
+      <div className="flex items-center justify-between mb-4">
+        <div>
+          <div className="text-sm font-black text-gray-900">Harvest Day SOP</div>
+          <div className="text-[11px] text-gray-400">5 steps &middot; ~3.5 hr total &middot; Auto-generates tasks</div>
+        </div>
+        <span className="text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-full bg-violet-50 text-violet-600">Template</span>
+      </div>
+      {/* Steps */}
+      <div className="space-y-1.5">
+        {steps.map((step) => (
+          <div key={step.num} className={`flex items-center gap-3 px-3 py-2 rounded-lg border ${
+            step.status === 'active' ? 'border-emerald-200 bg-emerald-50/50' : 'border-gray-100 bg-white'
+          }`}>
+            {/* Step number / check */}
+            <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-black shrink-0 ${
+              step.status === 'complete' ? 'bg-emerald-500 text-white' :
+              step.status === 'active' ? 'bg-emerald-100 text-emerald-700 ring-2 ring-emerald-300' :
+              'bg-gray-100 text-gray-400'
+            }`}>
+              {step.status === 'complete' ? '\u2713' : step.num}
+            </div>
+            {/* Content */}
+            <div className="flex-1 min-w-0">
+              <div className={`text-xs font-bold ${step.status === 'pending' ? 'text-gray-400' : 'text-gray-800'}`}>{step.label}</div>
+              <div className="text-[10px] text-gray-300">{step.assignee}</div>
+            </div>
+            {/* Duration */}
+            <span className="text-[10px] font-bold text-gray-300 tabular-nums shrink-0">{step.duration}</span>
+            {/* AI badge for auto-exec steps */}
+            {step.assignee.includes('AI') && (
+              <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-violet-100 text-violet-500 shrink-0">AI</span>
+            )}
+          </div>
+        ))}
+      </div>
+      {/* Bottom hint */}
+      <div className="mt-3 flex items-center gap-2 text-[11px] text-gray-300">
+        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" />
+        </svg>
+        <span>&quot;Run the Harvest Day SOP for Wedding Cake&quot; — AI generates all tasks automatically</span>
+      </div>
+    </div>
+  );
+};
+
 const MockReportsChart: React.FC = () => {
   const bars = [
     { label: 'Mon', flower: 62, trim: 18 },
@@ -801,6 +925,64 @@ export const LandingPage: React.FC = () => {
         </div>
       </section>
 
+      {/* ═══════════════════ RESOURCE SCHEDULING SHOWCASE — Gantt/Calendar ═══════════════════ */}
+      <section className="py-24 lg:py-32 px-6 lg:px-8">
+        <div className="max-w-7xl mx-auto">
+          <div className="grid lg:grid-cols-12 gap-10 lg:gap-8 items-center">
+            <Reveal className="lg:col-span-8" direction="left">
+              <ShowcasePanel label="Resource Schedule — Week of Mar 31" accent="bg-teal-500">
+                <MockGanttChart />
+              </ShowcasePanel>
+            </Reveal>
+            <Reveal className="lg:col-span-4" delay={150} direction="right">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-10 h-0.5 bg-teal-500 rounded-full" />
+                <p className="text-xs font-bold tracking-[0.2em] uppercase text-teal-600">
+                  Resource Scheduling
+                </p>
+              </div>
+              <h2 className="text-4xl sm:text-5xl font-black text-gray-900 tracking-tight mb-5">
+                Calendar.
+                <br />
+                Gantt. Timeline.
+              </h2>
+              <p className="text-lg text-gray-400 leading-relaxed">
+                See every grow cycle, harvest, dry schedule, and extraction run on a unified timeline. Switch between calendar, Gantt, and list views. Drag to reschedule. AI auto-schedules based on plant readiness.
+              </p>
+            </Reveal>
+          </div>
+        </div>
+      </section>
+
+      {/* ═══════════════════ SOP DEVELOPMENT SHOWCASE ═══════════════════ */}
+      <section className="py-24 lg:py-32 px-6 lg:px-8 bg-gray-50/80">
+        <div className="max-w-7xl mx-auto">
+          <div className="grid lg:grid-cols-12 gap-10 lg:gap-8 items-center">
+            <Reveal className="lg:col-span-4" direction="left">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-10 h-0.5 bg-violet-500 rounded-full" />
+                <p className="text-xs font-bold tracking-[0.2em] uppercase text-violet-600">
+                  SOP Development
+                </p>
+              </div>
+              <h2 className="text-4xl sm:text-5xl font-black text-gray-900 tracking-tight mb-5">
+                Build once.
+                <br />
+                Run every time.
+              </h2>
+              <p className="text-lg text-gray-400 leading-relaxed">
+                Define standard operating procedures as step-by-step templates. When triggered, the AI generates tasks for each step — assigning crew, setting durations, and auto-executing compliance actions. Your process, systematized.
+              </p>
+            </Reveal>
+            <Reveal className="lg:col-span-8" delay={150} direction="right">
+              <ShowcasePanel label="SOP Editor — Harvest Day" accent="bg-violet-500">
+                <MockSOPEditor />
+              </ShowcasePanel>
+            </Reveal>
+          </div>
+        </div>
+      </section>
+
       {/* ═══════════════════ HOW IT WORKS ═══════════════════ */}
       <section id="how-it-works" className="relative py-28 lg:py-36 px-6 lg:px-8 overflow-hidden">
         {/* Background texture */}
@@ -842,16 +1024,52 @@ export const LandingPage: React.FC = () => {
       {/* ═══════════════════ ALSO COVERS ═══════════════════ */}
       <section className="py-20 px-6 lg:px-8 bg-gray-50/80">
         <div className="max-w-7xl mx-auto">
-          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <Reveal>
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-0.5 bg-gray-400 rounded-full" />
+              <p className="text-xs font-bold tracking-[0.2em] uppercase text-gray-500">
+                Also Built In
+              </p>
+            </div>
+          </Reveal>
+          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-12">
             {[
               { label: 'Packaging', detail: 'Create packages, track lab testing, manage compliance tags and inventory.', border: 'border-l-emerald-500' },
-              { label: 'Extraction', detail: 'Fresh frozen to bubble hash to rosin to carts. Full pipeline yield tracking.', border: 'border-l-blue-500' },
+              { label: 'Extraction Pipeline', detail: 'Fresh frozen to bubble hash to rosin to carts. Full pipeline yield tracking with run history.', border: 'border-l-blue-500' },
               { label: 'Voice Commands', detail: 'Hands-free operation with ambient mode. Log weights and create tasks by speaking.', border: 'border-l-amber-500' },
-              { label: 'Task Management', detail: 'AI creates operational tasks from conversation. Track physical and digital workflows.', border: 'border-l-red-400' },
+              { label: 'Task Management', detail: 'AI creates operational tasks from conversation. Calendar and list views with assignees and due dates.', border: 'border-l-red-400' },
             ].map((cap, i) => (
               <Reveal key={cap.label} delay={i * 80}>
                 <div className={`bg-white rounded-xl p-6 border border-gray-100 border-l-2 ${cap.border} hover:shadow-md transition-shadow`} style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.03)' }}>
                   <h3 className="text-sm font-black text-gray-900 mb-2">{cap.label}</h3>
+                  <p className="text-sm text-gray-400 leading-relaxed">{cap.detail}</p>
+                </div>
+              </Reveal>
+            ))}
+          </div>
+
+          {/* Coming soon teaser */}
+          <Reveal delay={350}>
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-0.5 bg-gray-300 rounded-full" />
+              <p className="text-xs font-bold tracking-[0.2em] uppercase text-gray-400">
+                On the Roadmap
+              </p>
+            </div>
+          </Reveal>
+          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {[
+              { label: 'METRC Integration', detail: 'Direct sync with your state compliance system. Auto-submit harvests, packages, and transfers.', border: 'border-l-gray-300' },
+              { label: 'Ordering & Inventory', detail: 'Velocity-based pars, vendor management, and AI-generated purchase orders from consumption data.', border: 'border-l-gray-300' },
+              { label: 'AI Sub-Agents', detail: 'Autonomous agents that monitor plant health, flag anomalies, and execute routine SOPs without prompting.', border: 'border-l-gray-300' },
+              { label: 'Multi-Facility View', detail: 'Unified dashboard across locations. Compare yields, labor costs, and strain performance facility-by-facility.', border: 'border-l-gray-300' },
+            ].map((cap, i) => (
+              <Reveal key={cap.label} delay={400 + i * 80}>
+                <div className={`bg-white/60 rounded-xl p-6 border border-gray-100 border-l-2 ${cap.border} border-dashed hover:shadow-md transition-shadow`} style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.02)' }}>
+                  <div className="flex items-center gap-2 mb-2">
+                    <h3 className="text-sm font-black text-gray-600">{cap.label}</h3>
+                    <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-gray-100 text-gray-400">Soon</span>
+                  </div>
                   <p className="text-sm text-gray-400 leading-relaxed">{cap.detail}</p>
                 </div>
               </Reveal>

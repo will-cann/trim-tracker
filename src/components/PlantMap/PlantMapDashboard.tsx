@@ -13,6 +13,7 @@ import { DataTable, ViewToggle, useViewMode, FilterToolbar } from '../ui';
 import type { Column, FilterDef } from '../ui';
 import { apiService } from '../../services/apiService';
 import ResourceTimeline from '../ui/ResourceTimeline';
+import ResourceCalendar from '../ui/ResourceCalendar';
 import { buildCultivationSchedule } from './cultivationScheduleAdapter';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -91,7 +92,6 @@ export const PlantMapDashboard: React.FC<PlantMapDashboardProps> = ({ refreshKey
     const [plantList, setPlantList] = useState<any[]>([]);
     const [tableLoading, setTableLoading] = useState(false);
     const [search, setSearch] = useState('');
-    const [cardSearch, setCardSearch] = useState('');
     const [activeFilters, setActiveFilters] = useState<Record<string, string[]>>({});
     const [sortKey, setSortKey] = useState<string | null>(null);
     const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
@@ -130,7 +130,7 @@ export const PlantMapDashboard: React.FC<PlantMapDashboardProps> = ({ refreshKey
     // Load rooms when needed (for "all" phase detection or schedule view)
     useEffect(() => {
         if (roomsLoaded) return;
-        if (activePhase !== 'all' && viewMode !== 'schedule') return;
+        if (activePhase !== 'all' && viewMode !== 'schedule' && viewMode !== 'calendar') return;
         apiService.getRooms().then(rooms => {
             setAllRooms(rooms as Array<{ id: string; name: string; room_type: string }>);
             setRoomsLoaded(true);
@@ -139,7 +139,7 @@ export const PlantMapDashboard: React.FC<PlantMapDashboardProps> = ({ refreshKey
 
     // Load schedule data lazily
     useEffect(() => {
-        if (viewMode !== 'schedule' || scheduleLoaded) return;
+        if ((viewMode !== 'schedule' && viewMode !== 'calendar') || scheduleLoaded) return;
         let cancelled = false;
         setScheduleLoading(true);
         apiService.getPlantsList().then(plants => {
@@ -153,10 +153,35 @@ export const PlantMapDashboard: React.FC<PlantMapDashboardProps> = ({ refreshKey
         return () => { cancelled = true; };
     }, [viewMode, scheduleLoaded]);
 
-    const scheduleData = useMemo(
+    const scheduleDataRaw = useMemo(
         () => buildCultivationSchedule(schedulePlants, allRooms),
         [schedulePlants, allRooms],
     );
+
+    // Apply search/filters to schedule data
+    const scheduleData = useMemo(() => {
+        let { resources, blocks } = scheduleDataRaw;
+        if (search) {
+            const q = search.toLowerCase();
+            blocks = blocks.filter(b =>
+                b.label.toLowerCase().includes(q) || b.sublabel?.toLowerCase().includes(q)
+            );
+        }
+        if (activeFilters.strain?.length) {
+            blocks = blocks.filter(b => activeFilters.strain.some(s => b.label.toLowerCase().includes(s.toLowerCase())));
+        }
+        if (activeFilters.room?.length) {
+            const roomIds = new Set(resources.filter(r => activeFilters.room.includes(r.name)).map(r => r.id));
+            blocks = blocks.filter(b => roomIds.has(b.resourceId));
+            resources = resources.filter(r => roomIds.has(r.id));
+        }
+        // Remove empty resources if filtering
+        if (search || activeFilters.strain?.length) {
+            const usedIds = new Set(blocks.map(b => b.resourceId));
+            resources = resources.filter(r => usedIds.has(r.id));
+        }
+        return { resources, blocks };
+    }, [scheduleDataRaw, search, activeFilters]);
 
     const currentTab = PHASE_TABS.find(t => t.key === activePhase) || { key: 'all' as const, label: 'All', entity: 'plants' as const };
     const rooms = data ? Object.entries(data) : [];
@@ -168,14 +193,21 @@ export const PlantMapDashboard: React.FC<PlantMapDashboardProps> = ({ refreshKey
         return map;
     }, [allRooms]);
 
-    // Filter rooms by search (name or strain)
-    const filteredRooms = cardSearch
-        ? rooms.filter(([name, room]) => {
-            const q = cardSearch.toLowerCase();
-            return name.toLowerCase().includes(q)
-                || (room as any).strains?.some((s: string) => s.toLowerCase().includes(q));
-        })
-        : rooms;
+    // Filter rooms by search and active filters
+    const filteredRooms = rooms.filter(([name, room]) => {
+        if (search) {
+            const q = search.toLowerCase();
+            if (!name.toLowerCase().includes(q)
+                && !(room as any).strains?.some((s: string) => s.toLowerCase().includes(q))) return false;
+        }
+        if (activeFilters.strain?.length) {
+            if (!(room as any).strains?.some((s: string) => activeFilters.strain.includes(s))) return false;
+        }
+        if (activeFilters.room?.length) {
+            if (!activeFilters.room.includes(name)) return false;
+        }
+        return true;
+    });
 
     const handlePhaseChange = useCallback((phase: PlantPhase | 'all') => {
         setExpandedRoom(null);
@@ -186,29 +218,33 @@ export const PlantMapDashboard: React.FC<PlantMapDashboardProps> = ({ refreshKey
         setExpandedRoom(prev => prev === name ? null : name);
     }, []);
 
-    // ── Table mode: filtering & sorting ──
+    // Shared filter definitions across card and table views
+    const allStrains = viewMode === 'table'
+        ? [...new Set(plantList.map(p => p.strainName).filter(Boolean))].sort()
+        : [...new Set(rooms.flatMap(([, r]) => (r as any).strains || []))].sort();
 
-    const uniqueStrains = [...new Set(plantList.map(p => p.strainName).filter(Boolean))].sort();
-    const uniqueRooms = [...new Set(plantList.map(p => p.roomName).filter(Boolean))].sort();
+    const allRoomNames = viewMode === 'table'
+        ? [...new Set(plantList.map(p => p.roomName).filter(Boolean))].sort()
+        : rooms.map(([name]) => name).sort();
 
     const phaseFilter: FilterDef = {
-        key: 'phase', label: 'Phase', multi: true,
+        key: 'phase', label: 'Phase', multi: false,
         options: [
             { value: 'nursery', label: 'Nursery' },
             { value: 'vegetative', label: 'Veg' },
             { value: 'flowering', label: 'Flowering' },
-            { value: 'harvested', label: 'Harvested' },
+            ...(viewMode === 'table' ? [{ value: 'harvested', label: 'Harvested' }] : []),
         ],
     };
 
     const strainFilter: FilterDef = {
         key: 'strain', label: 'Strain', multi: true,
-        options: uniqueStrains.map(s => ({ value: s, label: s })),
+        options: allStrains.map(s => ({ value: s, label: s })),
     };
 
     const roomFilter: FilterDef = {
         key: 'room', label: 'Room', multi: true,
-        options: uniqueRooms.map(r => ({ value: r, label: r })),
+        options: allRoomNames.map(r => ({ value: r, label: r })),
     };
 
     const filteredPlants = plantList.filter(p => {
@@ -251,12 +287,12 @@ export const PlantMapDashboard: React.FC<PlantMapDashboardProps> = ({ refreshKey
                     <div>
                         <h1 className="text-lg font-semibold text-gray-900">Plant Map</h1>
                         <p className="text-xs text-gray-400">
-                            {viewMode === 'schedule' ? 'Room occupancy timeline' : viewMode === 'table' ? 'All plants across your facility' : 'Rooms and plant health across your facility'}
+                            {viewMode === 'schedule' ? 'Room occupancy timeline' : viewMode === 'calendar' ? 'Monthly cultivation calendar' : viewMode === 'table' ? 'All plants across your facility' : 'Rooms and plant health across your facility'}
                         </p>
                     </div>
                 </div>
                 <div className="flex items-center gap-2">
-                    <ViewToggle mode={viewMode} onChange={setViewMode} showSchedule />
+                    <ViewToggle mode={viewMode} onChange={setViewMode} showSchedule showCalendar />
                     <button
                         onClick={() => setShowCreateModal(true)}
                         className="btn-new-batch"
@@ -267,26 +303,25 @@ export const PlantMapDashboard: React.FC<PlantMapDashboardProps> = ({ refreshKey
                 </div>
             </div>
 
+            <FilterToolbar
+                    search={search}
+                    onSearchChange={setSearch}
+                    searchPlaceholder={viewMode === 'cards' ? 'Search rooms...' : 'Search plants...'}
+                    filters={[phaseFilter, strainFilter, roomFilter]}
+                    activeFilters={activeFilters}
+                    onFilterChange={(key, values) => {
+                        setActiveFilters(prev => ({ ...prev, [key]: values }));
+                        // Drive phase data fetch from phase filter
+                        if (key === 'phase') {
+                            if (values.length === 1) handlePhaseChange(values[0] as PlantPhase);
+                            else handlePhaseChange('all');
+                        }
+                    }}
+                    onClearFilters={() => { setActiveFilters({}); handlePhaseChange('all'); }}
+                />
+
             {viewMode === 'cards' && (
                 <>
-                    <FilterToolbar
-                        search={cardSearch}
-                        onSearchChange={setCardSearch}
-                        searchPlaceholder="Search rooms..."
-                        filters={[{
-                            key: 'phase', label: 'Phase', multi: false,
-                            options: [
-                                { value: 'all', label: 'All Phases' },
-                                ...PHASE_TABS.map(t => ({ value: t.key, label: t.label })),
-                            ],
-                        }]}
-                        activeFilters={{ phase: [activePhase] }}
-                        onFilterChange={(_key, values) => {
-                            if (values.length > 0) handlePhaseChange(values[0] as PlantPhase | 'all');
-                            else handlePhaseChange('all');
-                        }}
-                        onClearFilters={() => handlePhaseChange('all')}
-                    />
 
                     {loading ? (
                         <RoomGridSkeleton count={3} />
@@ -296,14 +331,14 @@ export const PlantMapDashboard: React.FC<PlantMapDashboardProps> = ({ refreshKey
                                 <Leaf size={22} className="text-gray-400" />
                             </div>
                             <h3 className="text-sm font-semibold text-gray-700 mb-1">
-                                {cardSearch ? 'No rooms match your search' : activePhase === 'all' ? 'No plants yet' : `No ${currentTab.label.toLowerCase()} plants`}
+                                {search || Object.values(activeFilters).some(v => v.length) ? 'No rooms match your filters' : activePhase === 'all' ? 'No plants yet' : `No ${currentTab.label.toLowerCase()} plants`}
                             </h3>
                             <p className="text-xs text-gray-400 max-w-[240px] mb-5">
-                                {cardSearch
-                                    ? 'Try a different search term.'
+                                {search || Object.values(activeFilters).some(v => v.length)
+                                    ? 'Try adjusting your search or filters.'
                                     : activePhase === 'all' ? 'Rooms with plants will appear here once added.' : `Rooms with ${currentTab.label.toLowerCase()} plants will appear here once added.`}
                             </p>
-                            {!cardSearch && (
+                            {!search && !Object.values(activeFilters).some(v => v.length) && (
                                 <button
                                     onClick={() => setShowCreateModal(true)}
                                     className="btn-new-batch"
@@ -356,15 +391,6 @@ export const PlantMapDashboard: React.FC<PlantMapDashboardProps> = ({ refreshKey
 
             {viewMode === 'table' && (
                 <>
-                    <FilterToolbar
-                        search={search}
-                        onSearchChange={setSearch}
-                        searchPlaceholder="Search plants..."
-                        filters={[phaseFilter, strainFilter, roomFilter]}
-                        activeFilters={activeFilters}
-                        onFilterChange={(key, values) => setActiveFilters(prev => ({ ...prev, [key]: values }))}
-                        onClearFilters={() => setActiveFilters({})}
-                    />
                     <div className="mt-4">
                         <DataTable
                             columns={PLANT_COLUMNS}
@@ -385,6 +411,19 @@ export const PlantMapDashboard: React.FC<PlantMapDashboardProps> = ({ refreshKey
                         <div className="data-table-empty">Loading schedule...</div>
                     ) : (
                         <ResourceTimeline
+                            resources={scheduleData.resources}
+                            blocks={scheduleData.blocks}
+                        />
+                    )}
+                </div>
+            )}
+
+            {viewMode === 'calendar' && (
+                <div className="mt-2">
+                    {scheduleLoading ? (
+                        <div className="data-table-empty">Loading calendar...</div>
+                    ) : (
+                        <ResourceCalendar
                             resources={scheduleData.resources}
                             blocks={scheduleData.blocks}
                         />

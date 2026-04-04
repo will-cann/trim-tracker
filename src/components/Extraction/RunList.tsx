@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { Plus, Play, CheckCircle2, XCircle, Clock, Snowflake, Leaf, ChevronRight, LayoutGrid, List, Calendar } from 'lucide-react';
+import { Plus, Play, CheckCircle2, XCircle, Clock, Snowflake, Leaf, ChevronRight, LayoutGrid, List, GanttChart, CalendarDays } from 'lucide-react';
 import type { ExtractionRun, ExtractionEquipment, ProcessTemplate } from '../../types/definitions';
 import { apiService } from '../../services/apiService';
 import { CenteredSpinner } from '../Spinner';
@@ -7,6 +7,7 @@ import { RunDetail } from './RunDetail';
 import { RunKanban } from './RunKanban';
 import { StartRunModal } from './StartRunModal';
 import ResourceTimeline from '../ui/ResourceTimeline';
+import ResourceCalendar from '../ui/ResourceCalendar';
 import { buildExtractionSchedule } from './extractionScheduleAdapter';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -35,7 +36,7 @@ const MATERIAL_ICONS: Record<string, typeof Snowflake> = {
 const formatDate = (d: string | null) =>
     d ? new Date(d).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) : null;
 
-type ViewMode = 'list' | 'kanban' | 'schedule';
+type ViewMode = 'list' | 'kanban' | 'schedule' | 'calendar';
 
 // ── Run Card ─────────────────────────────────────────────────────────────────
 
@@ -159,10 +160,20 @@ export const RunList: React.FC = () => {
         });
     }, [viewMode, equipmentLoaded]);
 
-    const scheduleData = useMemo(
+    const scheduleDataRaw = useMemo(
         () => buildExtractionSchedule(runs, equipment),
         [runs, equipment],
     );
+
+    // Apply status filter to schedule
+    const scheduleData = useMemo(() => {
+        if (statusFilter === 'all') return scheduleDataRaw;
+        let { resources, blocks } = scheduleDataRaw;
+        blocks = blocks.filter(b => b.status === statusFilter);
+        const usedIds = new Set(blocks.map(b => b.resourceId));
+        resources = resources.filter(r => usedIds.has(r.id));
+        return { resources, blocks };
+    }, [scheduleDataRaw, statusFilter]);
 
     const handleRunCreated = async () => {
         setShowStartModal(false);
@@ -201,7 +212,7 @@ export const RunList: React.FC = () => {
             {/* Controls */}
             <div className="run-list-controls">
                 <div className="run-list-left">
-                    {viewMode === 'list' && (
+                    {(viewMode === 'list' || viewMode === 'schedule' || viewMode === 'calendar') && (
                         <div className="run-list-filters">
                             {['all', 'active', 'planned', 'completed'].map(s => (
                                 <button
@@ -239,9 +250,16 @@ export const RunList: React.FC = () => {
                         <button
                             className={`view-toggle-btn ${viewMode === 'schedule' ? 'active' : ''}`}
                             onClick={() => handleViewChange('schedule')}
-                            title="Schedule view"
+                            title="Timeline view"
                         >
-                            <Calendar size={15} />
+                            <GanttChart size={15} />
+                        </button>
+                        <button
+                            className={`view-toggle-btn ${viewMode === 'calendar' ? 'active' : ''}`}
+                            onClick={() => handleViewChange('calendar')}
+                            title="Calendar view"
+                        >
+                            <CalendarDays size={15} />
                         </button>
                     </div>
                     <button
@@ -293,6 +311,20 @@ export const RunList: React.FC = () => {
             {/* Schedule View */}
             {viewMode === 'schedule' && (
                 <ResourceTimeline
+                    resources={scheduleData.resources}
+                    blocks={scheduleData.blocks}
+                    onBlockClick={(block) => {
+                        if (block.linkTo?.id) {
+                            setExpandedId(block.linkTo.id);
+                            handleViewChange('list');
+                        }
+                    }}
+                />
+            )}
+
+            {/* Calendar View */}
+            {viewMode === 'calendar' && (
+                <ResourceCalendar
                     resources={scheduleData.resources}
                     blocks={scheduleData.blocks}
                     onBlockClick={(block) => {

@@ -13,7 +13,7 @@ export const handler: Handler = async (event) => {
             return { statusCode: 401, body: JSON.stringify({ error: 'Unauthorized' }) };
         }
 
-        const { id, name, description, processType, steps } = JSON.parse(event.body || '{}');
+        const { id, name, description, processType, domain, phaseDurations, steps } = JSON.parse(event.body || '{}');
 
         if (!name || !processType || !steps?.length) {
             return { statusCode: 400, body: JSON.stringify({ error: 'name, processType, and steps are required' }) };
@@ -29,10 +29,11 @@ export const handler: Handler = async (event) => {
                 // Update existing template
                 const { rows } = await client.query(
                     `UPDATE process_templates
-                     SET name = $1, description = $2, process_type = $3, updated_at = NOW()
-                     WHERE id = $4 AND company_id = $5
+                     SET name = $1, description = $2, process_type = $3,
+                         domain = $4, phase_durations = $5, updated_at = NOW()
+                     WHERE id = $6 AND company_id = $7
                      RETURNING id`,
-                    [name, description || null, processType, id, context.companyId]
+                    [name, description || null, processType, domain || 'extraction', phaseDurations ? JSON.stringify(phaseDurations) : null, id, context.companyId]
                 );
                 if (rows.length === 0) {
                     await client.query('ROLLBACK');
@@ -45,9 +46,9 @@ export const handler: Handler = async (event) => {
             } else {
                 // Create new template
                 const { rows } = await client.query(
-                    `INSERT INTO process_templates (company_id, name, description, process_type)
-                     VALUES ($1, $2, $3, $4) RETURNING id`,
-                    [context.companyId, name, description || null, processType]
+                    `INSERT INTO process_templates (company_id, name, description, process_type, domain, phase_durations)
+                     VALUES ($1, $2, $3, $4, $5, $6) RETURNING id`,
+                    [context.companyId, name, description || null, processType, domain || 'extraction', phaseDurations ? JSON.stringify(phaseDurations) : null]
                 );
                 templateId = rows[0].id;
             }
@@ -58,8 +59,13 @@ export const handler: Handler = async (event) => {
                     `INSERT INTO process_steps (
                         template_id, step_order, name, description,
                         input_type, output_type, equipment_type,
-                        expected_yield_pct, est_duration_hours, est_hands_on_hours, is_optional
-                    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
+                        expected_yield_pct, est_duration_hours, est_hands_on_hours, is_optional,
+                        track, phase, phase_week, phase_day,
+                        is_span, span_end_week, env_targets,
+                        task_category, on_complete_action, requires_supplies,
+                        is_critical, recurrence
+                    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11,
+                              $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23)`,
                     [
                         templateId,
                         step.stepOrder,
@@ -72,6 +78,19 @@ export const handler: Handler = async (event) => {
                         step.estDurationHours || null,
                         step.estHandsOnHours || null,
                         step.isOptional || false,
+                        // Cultivation fields
+                        step.track || null,
+                        step.phase || null,
+                        step.phaseWeek || null,
+                        step.phaseDay || null,
+                        step.isSpan || false,
+                        step.spanEndWeek || null,
+                        step.envTargets ? JSON.stringify(step.envTargets) : null,
+                        step.taskCategory || null,
+                        step.onCompleteAction ? JSON.stringify(step.onCompleteAction) : null,
+                        step.requiresSupplies || null,
+                        step.isCritical || false,
+                        step.recurrence ? JSON.stringify(step.recurrence) : null,
                     ]
                 );
             }

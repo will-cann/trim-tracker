@@ -353,6 +353,35 @@ export default function ResourceTimeline({
     [onBlockClick],
   );
 
+  // Legend items
+  const legendItems = useMemo(() => {
+    const seen = new Map<string, string>();
+    for (const b of blocks) {
+      if (!seen.has(b.label.split(' — ')[0])) {
+        seen.set(b.label.split(' — ')[0], b.color);
+      }
+    }
+    // Dedupe by color — group items with same color
+    const byColor = new Map<string, string[]>();
+    for (const [label, color] of seen) {
+      const existing = byColor.get(color) || [];
+      existing.push(label);
+      byColor.set(color, existing);
+    }
+    return Array.from(byColor.entries()).map(([color, labels]) => ({
+      color,
+      label: labels.length <= 2 ? labels.join(', ') : `${labels[0]} +${labels.length - 1}`,
+    }));
+  }, [blocks]);
+
+  // Check for visible blocks in current range
+  const hasVisibleBlocks = useMemo(() => {
+    for (const [, data] of positionedByResource) {
+      if (data.positioned.length > 0) return true;
+    }
+    return false;
+  }, [positionedByResource]);
+
   // Build ordered rows (group headers + resource rows)
   const rows = useMemo(() => {
     const result: Array<
@@ -414,6 +443,18 @@ export default function ResourceTimeline({
         </div>
       </div>
 
+      {/* Legend */}
+      {legendItems.length > 0 && (
+        <div className="schedule-legend">
+          {legendItems.map(item => (
+            <div key={item.label} className="schedule-legend__item">
+              <div className="schedule-legend__dot" style={{ background: item.color }} />
+              {item.label}
+            </div>
+          ))}
+        </div>
+      )}
+
       {/* Chart */}
       <div className="resource-timeline__chart">
         {/* Left labels */}
@@ -467,6 +508,14 @@ export default function ResourceTimeline({
               );
             })}
           </div>
+
+          {/* Empty state */}
+          {!hasVisibleBlocks && (
+            <div className="schedule-empty">
+              <p className="schedule-empty__title">No items in this period</p>
+              <p className="schedule-empty__desc">Navigate forward or back to find scheduled items.</p>
+            </div>
+          )}
 
           {/* Rows with blocks */}
           {rows.map((row, i) => {

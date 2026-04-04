@@ -10,8 +10,10 @@ import {
 } from 'lucide-react';
 import type { HumanTask, HumanTaskStatus, HumanTaskCategory, HumanTaskPriority } from '../types/definitions';
 import { executeAction } from '../services/actionExecutor';
-import { Modal, Button, FilterToolbar, UndoToast } from './ui';
+import { Modal, Button, FilterToolbar, ViewToggle, useViewMode, UndoToast } from './ui';
 import type { FilterDef, SortOption } from './ui';
+import ResourceCalendar from './ui/ResourceCalendar';
+import { buildTasksSchedule } from './tasksCalendarAdapter';
 
 export interface TeamMember {
     id: string;
@@ -852,6 +854,7 @@ export const TasksPanel = ({
     type SortDir = 'asc' | 'desc';
 
     const [searchQuery, setSearchQuery] = useState('');
+    const [viewMode, setViewMode] = useViewMode('tasks', 'cards');
     const [expandedId, setExpandedId] = useState<string | null>(null);
     const [editingId, setEditingId] = useState<string | null>(null);
     const [pendingComplete, setPendingComplete] = useState<HumanTask | null>(null);
@@ -1037,6 +1040,11 @@ export const TasksPanel = ({
         return true;
     });
 
+    const calendarData = React.useMemo(
+        () => buildTasksSchedule(filteredTasks),
+        [filteredTasks],
+    );
+
     const sortedTasks = sortField
         ? [...filteredTasks].sort((a, b) => {
             let cmp = 0;
@@ -1103,15 +1111,18 @@ export const TasksPanel = ({
                                 : 'No pending tasks'}
                         </p>
                     </div>
-                    {onCreateTask && (
-                        <button
-                            onClick={() => setShowCreateRow(true)}
-                            className="inline-flex items-center gap-1.5 px-3.5 py-2 text-sm font-medium text-white bg-[#3BB570] hover:bg-[#2a8f56] rounded-lg transition-colors"
-                        >
-                            <Plus size={15} />
-                            New task
-                        </button>
-                    )}
+                    <div className="flex items-center gap-2">
+                        <ViewToggle mode={viewMode} onChange={setViewMode} showCalendar />
+                        {onCreateTask && (
+                            <button
+                                onClick={() => setShowCreateRow(true)}
+                                className="inline-flex items-center gap-1.5 px-3.5 py-2 text-sm font-medium text-white bg-[#3BB570] hover:bg-[#2a8f56] rounded-lg transition-colors"
+                            >
+                                <Plus size={15} />
+                                New task
+                            </button>
+                        )}
+                    </div>
                 </div>
 
                 {/* Attention summary — only when there's something noteworthy */}
@@ -1172,7 +1183,18 @@ export const TasksPanel = ({
                 />
             </div>
 
+            {/* Calendar View */}
+            {viewMode === 'calendar' && (
+                <div className="flex-1 overflow-y-auto px-6 py-4">
+                    <ResourceCalendar
+                        resources={calendarData.resources}
+                        blocks={calendarData.blocks}
+                    />
+                </div>
+            )}
+
             {/* Table */}
+            {viewMode !== 'calendar' && (
             <div className="flex-1 overflow-y-auto">
                 {sortedTasks.length === 0 && !showCreateRow ? (
                     <div className="flex flex-col items-center justify-center py-16 text-center px-6">
@@ -1327,6 +1349,7 @@ export const TasksPanel = ({
                     </table>
                 )}
             </div>
+            )}
 
             {/* Completion action confirmation modal */}
             {pendingComplete && pendingComplete.onCompleteAction && (() => {

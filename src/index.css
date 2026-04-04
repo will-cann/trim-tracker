@@ -9098,7 +9098,7 @@ select.field-input {
   position: relative;
   font-family: 'Lato', sans-serif;
   background: #fff;
-  border: 1px solid #E0E0E0;
+  border: 1px solid #E8E8E8;
   border-radius: 8px;
   overflow: hidden;
 }
@@ -9110,7 +9110,7 @@ select.field-input {
   align-items: center;
   justify-content: space-between;
   padding: 8px 12px;
-  border-bottom: 1px solid #E0E0E0;
+  border-bottom: 1px solid #E8E8E8;
   background: #fff;
 }
 
@@ -9126,7 +9126,7 @@ select.field-input {
   justify-content: center;
   width: 28px;
   height: 28px;
-  border: 1px solid #E0E0E0;
+  border: 1px solid #E8E8E8;
   border-radius: 6px;
   background: #fff;
   color: #1A1A1A;
@@ -9143,7 +9143,7 @@ select.field-input {
   font-size: 0.75rem;
   font-weight: 600;
   padding: 4px 12px;
-  border: 1px solid #E0E0E0;
+  border: 1px solid #E8E8E8;
   border-radius: 6px;
   background: #fff;
   color: #1A1A1A;
@@ -9157,7 +9157,7 @@ select.field-input {
 
 .resource-timeline__view-toggle {
   display: flex;
-  border: 1px solid #E0E0E0;
+  border: 1px solid #E8E8E8;
   border-radius: 6px;
   overflow: hidden;
 }
@@ -9175,7 +9175,7 @@ select.field-input {
 }
 
 .resource-timeline__view-pill:not(:last-child) {
-  border-right: 1px solid #E0E0E0;
+  border-right: 1px solid #E8E8E8;
 }
 
 .resource-timeline__view-pill--active {
@@ -9199,14 +9199,15 @@ select.field-input {
 .resource-timeline__labels {
   flex-shrink: 0;
   width: 160px;
-  border-right: 1px solid #E0E0E0;
+  border-right: 1px solid #E8E8E8;
   background: #fff;
   z-index: 2;
+  box-shadow: 2px 0 4px rgba(0, 0, 0, 0.04);
 }
 
 .resource-timeline__labels-header {
   height: 32px;
-  border-bottom: 1px solid #E0E0E0;
+  border-bottom: 1px solid #E8E8E8;
 }
 
 .resource-timeline__group-header {
@@ -9217,7 +9218,7 @@ select.field-input {
   color: #959595;
   background: #F1F1F1;
   padding: 6px 12px;
-  border-bottom: 1px solid #E0E0E0;
+  border-bottom: 1px solid #E8E8E8;
   position: sticky;
   top: 0;
 }
@@ -9235,7 +9236,7 @@ select.field-input {
 }
 
 .resource-timeline__label-row--alt {
-  background: #FAFAFA;
+  background: #F8F8F8;
 }
 
 /* Time area (horizontally scrollable) */
@@ -9251,7 +9252,7 @@ select.field-input {
 .resource-timeline__column-headers {
   display: grid;
   height: 32px;
-  border-bottom: 1px solid #E0E0E0;
+  border-bottom: 1px solid #E8E8E8;
   min-width: 600px;
 }
 
@@ -9281,7 +9282,7 @@ select.field-input {
 .resource-timeline__time-group-spacer {
   height: 28px;
   background: #F1F1F1;
-  border-bottom: 1px solid #E0E0E0;
+  border-bottom: 1px solid #E8E8E8;
   min-width: 600px;
 }
 
@@ -9294,7 +9295,7 @@ select.field-input {
 }
 
 .resource-timeline__time-row--alt {
-  background: #FAFAFA;
+  background: #F8F8F8;
 }
 
 /* Grid lines behind blocks */
@@ -9412,4 +9413,308 @@ select.field-input {
   margin-top: 2px;
   text-transform: uppercase;
   letter-spacing: 0.04em;
+}
+
+/* ================================================================== */
+/*  ResourceCalendar                                                   */
+/* ================================================================== */
+
+.resource-calendar {
+  font-family: 'Lato', sans-serif;
+  background: #fff;
+  border-radius: 8px;
+  border: 1px solid #E8E8E8;
+  overflow: hidden;
+}
+
+/* Header / navigation */
+.resource-calendar__header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-bottom: 1px solid #E8E8E8;
+}
+
+.resource-calendar__title {
+  font-size: 1rem;
+  font-weight: 700;
+  color: #1A1A1A;
+  min-width: 160px;
+  text-align: center;
+}
+
+.resource-calendar__nav-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: 1px solid #E8E8E8;
+  border-radius: 6px;
+  background: #fff;
+  color: #1A1A1A;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.resource-calendar__nav-btn:hover {
+  background: #F1F1F1;
+}
+
+.resource-calendar__today-btn {
+  margin-left: auto;
+  padding: 4px 12px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  font-family: 'Lato', sans-serif;
+  color: #1A1A1A;
+  background: #fff;
+  border: 1px solid #E8E8E8;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.resource-calendar__today-btn:hover {
+  background: #F1F1F1;
+}
+
+/* Day-of-week headers */
+.resource-calendar__day-headers {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  border-bottom: 1px solid #E8E8E8;
+}
+
+.resource-calendar__day-header {
+  padding: 6px 8px;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  color: #959595;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  text-align: center;
+}
+
+/* Grid */
+.resource-calendar__grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+}
+
+/* Day cell */
+.resource-calendar__cell {
+  min-height: 100px;
+  border-right: 1px solid #E8E8E8;
+  border-bottom: 1px solid #E8E8E8;
+  padding: 4px;
+  position: relative;
+  overflow: hidden;
+  min-width: 0;
+}
+
+.resource-calendar__cell:nth-child(7n) {
+  border-right: none;
+}
+
+.resource-calendar__cell--today {
+  background: #F1F1F1;
+}
+
+.resource-calendar__cell--weekend {
+  background: rgba(241, 241, 241, 0.5);
+}
+
+.resource-calendar__cell--today.resource-calendar__cell--weekend {
+  background: #F1F1F1;
+}
+
+.resource-calendar__cell--overflow .resource-calendar__day-number {
+  color: #C0C0C0;
+}
+
+/* Day number */
+.resource-calendar__day-number {
+  font-size: 0.75rem;
+  font-weight: 400;
+  color: #959595;
+  padding: 2px 4px;
+  line-height: 1;
+  margin-bottom: 2px;
+}
+
+.resource-calendar__day-number--today {
+  background: #3BB570;
+  color: #fff;
+  font-weight: 700;
+  border-radius: 50%;
+  width: 22px;
+  height: 22px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+}
+
+/* Block container */
+.resource-calendar__blocks {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+/* Pill / block bar */
+.resource-calendar__pill {
+  height: 20px;
+  border-left: 2px solid;
+  border-radius: 2px;
+  display: flex;
+  align-items: center;
+  padding: 0 4px;
+  cursor: pointer;
+  transition: opacity 0.15s;
+  min-width: 0;
+  outline: none;
+}
+
+.resource-calendar__pill:hover {
+  opacity: 0.85;
+}
+
+.resource-calendar__pill:focus-visible {
+  outline: 2px solid #1C9EFF;
+  outline-offset: 1px;
+}
+
+.resource-calendar__pill--completed {
+  opacity: 0.5;
+}
+
+.resource-calendar__pill--completed:hover {
+  opacity: 0.65;
+}
+
+.resource-calendar__pill--projected {
+  border-left-style: dashed;
+}
+
+.resource-calendar__pill--continuation .resource-calendar__pill-label {
+  display: none;
+}
+
+.resource-calendar__pill-label {
+  font-size: 0.625rem;
+  font-weight: 600;
+  color: #1A1A1A;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 20px;
+}
+
+/* "+N more" button */
+.resource-calendar__more-btn {
+  font-size: 0.625rem;
+  font-weight: 600;
+  font-family: 'Lato', sans-serif;
+  color: #1C9EFF;
+  background: none;
+  border: none;
+  padding: 1px 4px;
+  cursor: pointer;
+  text-align: left;
+}
+
+.resource-calendar__more-btn:hover {
+  text-decoration: underline;
+}
+
+/* Tooltip (mirrors ResourceTimeline tooltip) */
+.resource-calendar__tooltip {
+  position: fixed;
+  z-index: 1000;
+  background: #1A1A1A;
+  color: #fff;
+  border-radius: 6px;
+  padding: 8px 10px;
+  pointer-events: none;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  max-width: 220px;
+}
+
+.resource-calendar__tooltip-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  margin-bottom: 2px;
+}
+
+.resource-calendar__tooltip-sublabel {
+  font-size: 0.6875rem;
+  color: #C0C0C0;
+  margin-bottom: 4px;
+}
+
+.resource-calendar__tooltip-meta {
+  font-size: 0.625rem;
+  color: #959595;
+}
+
+.resource-calendar__tooltip-status {
+  font-size: 0.625rem;
+  color: #959595;
+  margin-top: 2px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+/* ── Shared Schedule Legend ──────────────────────────────────────────── */
+
+.schedule-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  padding: 6px 12px;
+  border-bottom: 1px solid #E8E8E8;
+}
+
+.schedule-legend__item {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.625rem;
+  font-weight: 600;
+  color: #959595;
+}
+
+.schedule-legend__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+
+/* ── Schedule Empty State ────────────────────────────────────────────── */
+
+.schedule-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 3rem 1rem;
+  text-align: center;
+}
+
+.schedule-empty__title {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #959595;
+  margin: 0 0 0.25rem;
+}
+
+.schedule-empty__desc {
+  font-size: 0.75rem;
+  color: #C0C0C0;
+  margin: 0;
+  max-width: 280px;
 }

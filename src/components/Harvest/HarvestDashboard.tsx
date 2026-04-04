@@ -8,6 +8,7 @@ import { CardsSkeleton } from '../Skeleton';
 import { DataTable, FilterToolbar, ViewToggle, useViewMode } from '../ui';
 import type { Column } from '../ui';
 import ResourceTimeline from '../ui/ResourceTimeline';
+import ResourceCalendar from '../ui/ResourceCalendar';
 import { buildDryingSchedule } from './harvestDryingAdapter';
 
 const STATUS_FILTER_OPTIONS = [
@@ -115,17 +116,39 @@ export const HarvestDashboard: React.FC<HarvestDashboardProps> = ({ onStartHarve
 
     // Load rooms lazily for drying schedule
     useEffect(() => {
-        if (viewMode !== 'schedule' || dryingRoomsLoaded) return;
+        if ((viewMode !== 'schedule' && viewMode !== 'calendar') || dryingRoomsLoaded) return;
         apiService.getRooms().then(rooms => {
             setDryingRooms(rooms as Array<{ id: string; name: string; room_type: string }>);
             setDryingRoomsLoaded(true);
         });
     }, [viewMode, dryingRoomsLoaded]);
 
-    const dryingSchedule = useMemo(
+    const dryingScheduleRaw = useMemo(
         () => buildDryingSchedule(harvests, dryingRooms),
         [harvests, dryingRooms],
     );
+
+    // Apply search/filters to drying schedule
+    const dryingSchedule = useMemo(() => {
+        let { resources, blocks } = dryingScheduleRaw;
+        if (search) {
+            const q = search.toLowerCase();
+            blocks = blocks.filter(b =>
+                b.label.toLowerCase().includes(q) || b.sublabel?.toLowerCase().includes(q)
+            );
+        }
+        if (activeFilters.strain?.length) {
+            blocks = blocks.filter(b => activeFilters.strain.some(s => b.label.toLowerCase().includes(s.toLowerCase())));
+        }
+        if (activeFilters.status?.length) {
+            blocks = blocks.filter(b => activeFilters.status.includes(b.status));
+        }
+        if (search || activeFilters.strain?.length || activeFilters.status?.length) {
+            const usedIds = new Set(blocks.map(b => b.resourceId));
+            resources = resources.filter(r => usedIds.has(r.id));
+        }
+        return { resources, blocks };
+    }, [dryingScheduleRaw, search, activeFilters]);
 
     const uniqueStrains = [...new Set(harvests.map(h => h.strain).filter(Boolean))].sort();
 
@@ -280,7 +303,7 @@ export const HarvestDashboard: React.FC<HarvestDashboardProps> = ({ onStartHarve
                 onClearFilters={() => setActiveFilters({})}
                 trailing={
                     <div className="flex items-center gap-2">
-                        <ViewToggle mode={viewMode} onChange={setViewMode} showSchedule />
+                        <ViewToggle mode={viewMode} onChange={setViewMode} showSchedule showCalendar />
                         {onStartHarvestDay && (
                             <button
                                 type="button"
@@ -307,6 +330,13 @@ export const HarvestDashboard: React.FC<HarvestDashboardProps> = ({ onStartHarve
             {viewMode === 'schedule' ? (
                 <div className="mt-2">
                     <ResourceTimeline
+                        resources={dryingSchedule.resources}
+                        blocks={dryingSchedule.blocks}
+                    />
+                </div>
+            ) : viewMode === 'calendar' ? (
+                <div className="mt-2">
+                    <ResourceCalendar
                         resources={dryingSchedule.resources}
                         blocks={dryingSchedule.blocks}
                     />

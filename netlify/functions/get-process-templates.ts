@@ -13,6 +13,8 @@ export const handler: Handler = async (event) => {
             return { statusCode: 401, body: JSON.stringify({ error: 'Unauthorized' }) };
         }
 
+        const domain = event.queryStringParameters?.domain || null;
+
         // Check if company has any templates — if not, seed presets
         const countResult = await sql`
             SELECT COUNT(*) as count FROM process_templates WHERE company_id = ${context.companyId}
@@ -21,12 +23,18 @@ export const handler: Handler = async (event) => {
             await seedPresets(context.companyId);
         }
 
-        // Fetch templates with steps
-        const templates = await sql`
-            SELECT * FROM process_templates
-            WHERE company_id = ${context.companyId} AND is_active = true
-            ORDER BY is_preset DESC, name ASC
-        `;
+        // Fetch templates with steps, optionally filtered by domain
+        const templates = domain
+            ? await sql`
+                SELECT * FROM process_templates
+                WHERE company_id = ${context.companyId} AND is_active = true AND domain = ${domain}
+                ORDER BY is_preset DESC, name ASC
+            `
+            : await sql`
+                SELECT * FROM process_templates
+                WHERE company_id = ${context.companyId} AND is_active = true
+                ORDER BY is_preset DESC, name ASC
+            `;
 
         const templateIds = templates.rows.map((t: any) => t.id);
 
@@ -66,6 +74,8 @@ function formatTemplate(row: any) {
         name: row.name,
         description: row.description,
         processType: row.process_type,
+        domain: row.domain || 'extraction',
+        phaseDurations: row.phase_durations || null,
         acceptedInputs: row.accepted_inputs || [],
         isPreset: row.is_preset,
         isActive: row.is_active,
@@ -88,6 +98,19 @@ function formatStep(row: any) {
         estDurationHours: row.est_duration_hours ? parseFloat(row.est_duration_hours) : null,
         estHandsOnHours: row.est_hands_on_hours ? parseFloat(row.est_hands_on_hours) : null,
         isOptional: row.is_optional,
+        // Cultivation fields
+        track: row.track || null,
+        phase: row.phase || null,
+        phaseWeek: row.phase_week || null,
+        phaseDay: row.phase_day || null,
+        isSpan: row.is_span || false,
+        spanEndWeek: row.span_end_week || null,
+        envTargets: row.env_targets || null,
+        taskCategory: row.task_category || null,
+        onCompleteAction: row.on_complete_action || null,
+        requiresSupplies: row.requires_supplies || null,
+        isCritical: row.is_critical || false,
+        recurrence: row.recurrence || null,
     };
 }
 
