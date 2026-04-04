@@ -1038,6 +1038,120 @@ export const deleteReport = async (id: string): Promise<void> => {
     if (!response.ok) throw new Error('Failed to delete report');
 };
 
+// ============================================================================
+// ORDERING / VENDORS
+// ============================================================================
+
+export const getVendors = async (): Promise<any[]> => {
+    const response = await fetchWithAuth(`${API_BASE}/get-vendors`);
+    if (!response.ok) return [];
+    return await response.json();
+};
+
+export const createVendor = async (data: {
+    name: string; contactName?: string; contactEmail?: string; contactPhone?: string;
+    leadTimeDays?: number; orderCadenceDays?: number; notes?: string;
+}): Promise<any> => {
+    const response = await fetchWithAuth(`${API_BASE}/create-vendor`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+    });
+    if (!response.ok) throw new Error('Failed to create vendor');
+    return await response.json();
+};
+
+export const updateVendor = async (vendorId: string, updates: Record<string, any>): Promise<any> => {
+    const response = await fetchWithAuth(`${API_BASE}/update-vendor`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ vendorId, ...updates }),
+    });
+    if (!response.ok) throw new Error('Failed to update vendor');
+    return await response.json();
+};
+
+export const deleteVendor = async (vendorId: string): Promise<void> => {
+    const response = await fetchWithAuth(`${API_BASE}/delete-vendor?vendorId=${vendorId}`, {
+        method: 'DELETE',
+    });
+    if (!response.ok) throw new Error('Failed to delete vendor');
+};
+
+export const getVendorProducts = async (vendorId?: string): Promise<any[]> => {
+    const url = vendorId
+        ? `${API_BASE}/get-vendor-products?vendorId=${vendorId}`
+        : `${API_BASE}/get-vendor-products`;
+    const response = await fetchWithAuth(url);
+    if (!response.ok) return [];
+    return await response.json();
+};
+
+export const upsertVendorProduct = async (data: {
+    vendorId: string; productId?: string; name: string; brand?: string; category?: string;
+    sku?: string; unitSize?: string; caseSize?: number; unitPrice?: number; casePrice?: number;
+    menuId?: string; isActive?: boolean;
+}): Promise<any> => {
+    const response = await fetchWithAuth(`${API_BASE}/upsert-vendor-product`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+    });
+    if (!response.ok) throw new Error('Failed to save vendor product');
+    return await response.json();
+};
+
+export const getStores = async (): Promise<any[]> => {
+    const response = await fetchWithAuth(`${API_BASE}/get-stores`);
+    if (!response.ok) return [];
+    return await response.json();
+};
+
+export const saveStore = async (data: {
+    storeId?: string; name: string; posStoreId?: string; address?: string;
+    vaultCapacityNotes?: string; isActive?: boolean;
+}): Promise<any> => {
+    const response = await fetchWithAuth(`${API_BASE}/save-store`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+    });
+    if (!response.ok) throw new Error('Failed to save store');
+    return await response.json();
+};
+
+export const getOrders = async (filters?: { vendorId?: string; status?: string }): Promise<any[]> => {
+    const params = new URLSearchParams();
+    if (filters?.vendorId) params.set('vendorId', filters.vendorId);
+    if (filters?.status) params.set('status', filters.status);
+    const qs = params.toString();
+    const response = await fetchWithAuth(`${API_BASE}/get-orders${qs ? `?${qs}` : ''}`);
+    if (!response.ok) return [];
+    return await response.json();
+};
+
+export const getOrderDetail = async (orderId: string): Promise<any> => {
+    const response = await fetchWithAuth(`${API_BASE}/get-order-detail?orderId=${orderId}`);
+    if (!response.ok) throw new Error('Failed to fetch order');
+    return await response.json();
+};
+
+export const saveOrder = async (data: {
+    orderId?: string; vendorId: string; status?: string; expectedDelivery?: string; notes?: string;
+    lines?: Array<{
+        storeId: string; vendorProductId: string; autoSuggestedQty?: number;
+        finalQty: number; unitPrice?: number; notes?: string;
+    }>;
+}): Promise<any> => {
+    const response = await fetchWithAuth(`${API_BASE}/save-order`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+    });
+    if (!response.ok) throw new Error('Failed to save order');
+    return await response.json();
+};
+
 export const apiService = {
     setAuthToken,
     getSession,
@@ -1145,4 +1259,16 @@ export const apiService = {
     getSavedReports,
     saveReport,
     deleteReport,
+    // Ordering
+    getVendors,
+    createVendor,
+    updateVendor,
+    deleteVendor,
+    getVendorProducts,
+    upsertVendorProduct,
+    getStores,
+    saveStore,
+    getOrders,
+    getOrderDetail,
+    saveOrder,
 };

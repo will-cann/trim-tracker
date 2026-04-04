@@ -431,6 +431,91 @@ export interface CreatePackageDTO {
 }
 
 // ============================================================================
+// ORDERING / VENDOR TYPES
+// ============================================================================
+
+export interface Vendor {
+  id: string;
+  name: string;
+  contactName: string | null;
+  contactEmail: string | null;
+  contactPhone: string | null;
+  leadTimeDays: number;
+  orderCadenceDays: number;
+  notes: string | null;
+  isActive: boolean;
+  productCount: number;
+  orderCount: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface VendorProduct {
+  id: string;
+  vendorId: string;
+  vendorName?: string;
+  menuId: string | null;
+  name: string;
+  brand: string | null;
+  category: string | null;
+  sku: string | null;
+  unitSize: string | null;
+  caseSize: number | null;
+  unitPrice: number | null;
+  casePrice: number | null;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface Store {
+  id: string;
+  name: string;
+  posStoreId: string | null;
+  address: string | null;
+  vaultCapacityNotes: string | null;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type OrderStatus = 'draft' | 'submitted' | 'confirmed' | 'delivered' | 'cancelled';
+
+export interface PurchaseOrderLine {
+  id: string;
+  storeId: string;
+  storeName: string;
+  vendorProductId: string;
+  productName: string;
+  brand: string | null;
+  sku: string | null;
+  category: string | null;
+  unitSize?: string | null;
+  caseSize?: number | null;
+  autoSuggestedQty: number;
+  finalQty: number;
+  unitPrice: number | null;
+  lineTotal: number;
+  notes: string | null;
+}
+
+export interface PurchaseOrder {
+  id: string;
+  vendorId: string;
+  vendorName: string;
+  status: OrderStatus;
+  submittedAt: string | null;
+  expectedDelivery: string | null;
+  deliveredAt: string | null;
+  totalUnits: number;
+  totalCost: number;
+  notes: string | null;
+  lines?: PurchaseOrderLine[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+// ============================================================================
 // AI / CHAT TYPES
 // ============================================================================
 
@@ -447,7 +532,11 @@ export type ProposedActionType =
   | 'create_package' | 'update_package' | 'finish_package' | 'delete_package'
   | 'record_extraction'
   | 'create_room' | 'update_room' | 'delete_room'
-  | 'record_plant_weight' | 'flag_contamination' | 'submit_harvest_batch' | 'approve_harvest_day';
+  | 'record_plant_weight' | 'flag_contamination' | 'submit_harvest_batch' | 'approve_harvest_day'
+  | 'create_vendor' | 'update_vendor' | 'delete_vendor'
+  | 'create_store' | 'update_store'
+  | 'create_order' | 'update_order'
+  | 'add_vendor_product';
 
 export interface ProposedAction {
   type: ProposedActionType;
@@ -514,7 +603,7 @@ export interface ActionResultItem {
   type: string;
   label: string;
   summary: string;
-  navigateTo?: 'dashboard' | 'harvests' | 'reports' | 'tasks' | 'plant-map' | 'packages' | 'extractions' | 'settings' | 'tag-list';
+  navigateTo?: 'dashboard' | 'harvests' | 'reports' | 'tasks' | 'plant-map' | 'packages' | 'extractions' | 'ordering' | 'settings' | 'tag-list';
 }
 
 export interface ChatMessage {

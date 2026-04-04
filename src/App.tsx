@@ -23,10 +23,11 @@ import { TeamDashboard } from './components/TeamDashboard';
 import { TagListView } from './components/TagList/TagListView';
 import { ExtractionDashboard } from './components/Extraction/ExtractionDashboard';
 import { SOPsDashboard } from './components/SOPs/SOPsDashboard';
+import { OrderingDashboard } from './components/Ordering/OrderingDashboard';
 import { usePlantMapSummary } from './hooks/usePlantMapSummary';
 import logo from './assets/logo.png';
 
-type ViewType = 'ai' | 'dashboard' | 'reports' | 'harvests' | 'harvest-day' | 'settings' | 'tasks' | 'plant-map' | 'packages' | 'extractions' | 'sops' | 'team' | 'tag-list';
+type ViewType = 'ai' | 'dashboard' | 'reports' | 'harvests' | 'harvest-day' | 'settings' | 'tasks' | 'plant-map' | 'packages' | 'extractions' | 'sops' | 'ordering' | 'team' | 'tag-list';
 
 const VIEW_SCREEN_CONTEXT: Record<ViewType, string> = {
   'ai': 'neurocann home — general conversation, no specific module focused',
@@ -40,6 +41,7 @@ const VIEW_SCREEN_CONTEXT: Record<ViewType, string> = {
   'packages': 'Package Inventory — managing packaged product (flower, trim, shake) with weights, lab testing status, and compliance tracking',
   'extractions': 'Extraction Log — viewing processing history: ice water washes, rosin presses, cart fills with yield tracking',
   'sops': 'SOPs — creating and managing Standard Operating Procedures for cultivation, extraction, processing, and compliance workflows',
+  'ordering': 'Ordering — managing vendors, product catalogs, stores, and purchase orders with per-store quantity matrix',
   'team': 'Team Management — managing employees, roles, and invitations',
   'tag-list': 'Tag Browser — browsing and searching all plant and batch tags',
 };
@@ -365,6 +367,8 @@ function AppContent() {
           <ExtractionDashboard />
         ) : currentView === 'sops' ? (
           <SOPsDashboard />
+        ) : currentView === 'ordering' ? (
+          <OrderingDashboard />
         ) : currentView === 'reports' ? (
           <ReportsDashboard />
         ) : !session && !selectedSessionId ? (
@@ -444,21 +448,7 @@ function AppContent() {
           />
         )}
 
-        {/* Task panel edge controls — only on reports (AI home has its own voice/ambient/tasks) */}
-        {currentView === 'reports' && (
-          <TaskRightPanel
-            tasks={humanTasks}
-            isOpen={isTaskPanelOpen}
-            onToggle={() => setIsTaskPanelOpen(prev => !prev)}
-            onUpdateStatus={updateTaskStatus}
-            onDeleteTask={deleteHumanTask}
-            pendingCount={taskPendingCount}
-            onViewAll={() => handleViewChange('tasks')}
-            onActionVoiceText={handleActionVoiceText}
-            onAmbientAnalyze={handleAmbientAnalyze}
-            onCreateTask={addHumanTask}
-          />
-        )}
+        {/* Task panel edge controls — excluded from AI home (has its own) and reports */}
       </div>
     </div>
   );

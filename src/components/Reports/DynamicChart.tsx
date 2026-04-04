@@ -1,0 +1,233 @@
+import React from 'react';
+import {
+  BarChart, Bar, LineChart, Line, AreaChart, Area,
+  ComposedChart, PieChart, Pie, Cell,
+  XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
+} from 'recharts';
+import type { ReportSpec } from '../../types/definitions';
+
+const COLORS = ['#4E79A7', '#F28E2B', '#E15759', '#76B7B2', '#59A14F', '#EDC948', '#B07AA1', '#FF9DA7'];
+
+const TOOLTIP_STYLE = {
+  borderRadius: '8px',
+  border: 'none',
+  boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
+  fontSize: '13px',
+};
+
+const AXIS_TICK = { fontSize: 12, fill: '#959595' };
+
+interface DynamicChartProps {
+  spec: ReportSpec;
+  data: Record<string, any>[];
+}
+
+function formatValue(val: any): string {
+  if (val == null) return '—';
+  if (typeof val === 'number') {
+    return val % 1 === 0 ? val.toLocaleString() : val.toLocaleString(undefined, { maximumFractionDigits: 2 });
+  }
+  return String(val);
+}
+
+const MetricView: React.FC<{ spec: ReportSpec; data: Record<string, any>[] }> = ({ spec, data }) => {
+  const row = data[0] || {};
+  const metrics = spec.chart.yAxis.map((key, i) => ({
+    label: key.replace(/_/g, ' '),
+    value: formatValue(row[key]),
+    color: COLORS[i % COLORS.length],
+  }));
+
+  return (
+    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      {metrics.map((m) => (
+        <div key={m.label} className="bg-white/60 rounded-xl p-6 shadow-sm border border-white/40">
+          <div className="text-3xl font-bold mb-1" style={{ color: m.color }}>{m.value}</div>
+          <div className="text-sm font-medium text-gray-500 capitalize">{m.label}</div>
+        </div>
+      ))}
+    </div>
+  );
+};
+
+const TableView: React.FC<{ spec: ReportSpec; data: Record<string, any>[] }> = ({ data }) => {
+  if (data.length === 0) return <div className="text-gray-400 text-center py-8">No data</div>;
+  const columns = Object.keys(data[0]);
+
+  return (
+    <div className="overflow-x-auto rounded-xl border border-white/40">
+      <table className="w-full text-sm">
+        <thead>
+          <tr className="bg-white/40">
+            {columns.map(col => (
+              <th key={col} className="text-left px-4 py-3 font-medium text-gray-600 capitalize">
+                {col.replace(/_/g, ' ')}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {data.map((row, i) => (
+            <tr key={i} className="border-t border-white/30 hover:bg-white/20">
+              {columns.map(col => (
+                <td key={col} className="px-4 py-2.5 text-gray-700">
+                  {formatValue(row[col])}
+                </td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+};
+
+const ChartView: React.FC<DynamicChartProps> = ({ spec, data }) => {
+  const { visualization, chart } = spec;
+  const { xAxis, yAxis, stacked } = chart;
+
+  const commonProps = {
+    data,
+    margin: { top: 20, right: 20, bottom: 20, left: 20 },
+  };
+
+  const renderAxes = (
+    <>
+      <CartesianGrid stroke="#f5f5f5" vertical={false} />
+      <XAxis
+        dataKey={xAxis}
+        tick={AXIS_TICK}
+        axisLine={false}
+        tickLine={false}
+        padding={{ left: 20, right: 20 }}
+      />
+      <YAxis tick={AXIS_TICK} axisLine={false} tickLine={false} />
+      <Tooltip contentStyle={TOOLTIP_STYLE} />
+      <Legend iconType="circle" />
+    </>
+  );
+
+  if (visualization === 'bar') {
+    return (
+      <ResponsiveContainer width="100%" height="100%">
+        <BarChart {...commonProps}>
+          {renderAxes}
+          {yAxis.map((key, i) => (
+            <Bar
+              key={key}
+              dataKey={key}
+              name={key.replace(/_/g, ' ')}
+              fill={COLORS[i % COLORS.length]}
+              stackId={stacked ? 'stack' : undefined}
+              radius={[4, 4, 0, 0]}
+              barSize={40}
+            />
+          ))}
+        </BarChart>
+      </ResponsiveContainer>
+    );
+  }
+
+  if (visualization === 'line') {
+    return (
+      <ResponsiveContainer width="100%" height="100%">
+        <LineChart {...commonProps}>
+          {renderAxes}
+          {yAxis.map((key, i) => (
+            <Line
+              key={key}
+              type="monotone"
+              dataKey={key}
+              name={key.replace(/_/g, ' ')}
+              stroke={COLORS[i % COLORS.length]}
+              strokeWidth={2}
+              dot={{ r: 3 }}
+            />
+          ))}
+        </LineChart>
+      </ResponsiveContainer>
+    );
+  }
+
+  if (visualization === 'area') {
+    return (
+      <ResponsiveContainer width="100%" height="100%">
+        <AreaChart {...commonProps}>
+          {renderAxes}
+          {yAxis.map((key, i) => (
+            <Area
+              key={key}
+              type="monotone"
+              dataKey={key}
+              name={key.replace(/_/g, ' ')}
+              fill={COLORS[i % COLORS.length]}
+              stroke={COLORS[i % COLORS.length]}
+              fillOpacity={0.3}
+              stackId={stacked ? 'stack' : undefined}
+            />
+          ))}
+        </AreaChart>
+      </ResponsiveContainer>
+    );
+  }
+
+  if (visualization === 'composed') {
+    return (
+      <ResponsiveContainer width="100%" height="100%">
+        <ComposedChart {...commonProps}>
+          {renderAxes}
+          {yAxis.map((key, i) => (
+            i === 0
+              ? <Bar key={key} dataKey={key} name={key.replace(/_/g, ' ')} fill={COLORS[i % COLORS.length]} radius={[4, 4, 0, 0]} barSize={40} />
+              : <Line key={key} type="monotone" dataKey={key} name={key.replace(/_/g, ' ')} stroke={COLORS[i % COLORS.length]} strokeWidth={2} />
+          ))}
+        </ComposedChart>
+      </ResponsiveContainer>
+    );
+  }
+
+  if (visualization === 'pie') {
+    return (
+      <ResponsiveContainer width="100%" height="100%">
+        <PieChart>
+          <Pie
+            data={data}
+            dataKey={yAxis[0]}
+            nameKey={xAxis}
+            cx="50%"
+            cy="50%"
+            outerRadius="70%"
+            label={({ name, value }: any) => `${name || ''}: ${formatValue(value)}`}
+          >
+            {data.map((_, i) => (
+              <Cell key={i} fill={COLORS[i % COLORS.length]} />
+            ))}
+          </Pie>
+          <Tooltip contentStyle={TOOLTIP_STYLE} />
+          <Legend iconType="circle" />
+        </PieChart>
+      </ResponsiveContainer>
+    );
+  }
+
+  return <div className="text-gray-400 text-center py-8">Unsupported chart type</div>;
+};
+
+export const DynamicChart: React.FC<DynamicChartProps> = ({ spec, data }) => {
+  if (!data || data.length === 0) {
+    return (
+      <div className="flex items-center justify-center h-64 text-gray-400">
+        No data returned for this query
+      </div>
+    );
+  }
+
+  if (spec.visualization === 'metric') return <MetricView spec={spec} data={data} />;
+  if (spec.visualization === 'table') return <TableView spec={spec} data={data} />;
+
+  return (
+    <div className="h-[400px] w-full min-w-0">
+      <ChartView spec={spec} data={data} />
+    </div>
+  );
+};
