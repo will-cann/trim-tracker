@@ -168,22 +168,42 @@ function computeBlockDates(
     phase: string,
 ): { blockStart: Date | null; blockEnd: Date | null; isProjected: boolean } {
     if (phase === 'nursery') {
-        // Start: planted date, End: projected move to veg (planted + ~14 days)
+        // Start: planted date, End: veg date if known, otherwise projected
         const dates = plants.map(p => p.plantedDate).filter((d): d is string => d != null).sort();
         if (dates.length === 0) return { blockStart: null, blockEnd: null, isProjected: false };
         const start = new Date(dates[0]);
+
+        // Use actual veg date as nursery end when available
+        const vegDates = plants
+            .map(p => p.vegetativeDate)
+            .filter((d): d is string => d != null)
+            .sort();
+        if (vegDates.length > 0) {
+            return { blockStart: start, blockEnd: new Date(vegDates[vegDates.length - 1]), isProjected: false };
+        }
+
         const end = new Date(start.getTime() + DEFAULT_NURSERY_DAYS * MS_PER_DAY);
         return { blockStart: start, blockEnd: end, isProjected: true };
     }
 
     if (phase === 'vegetative') {
-        // Start: veg date (or planted date), End: projected flip (start + ~28 days)
+        // Start: veg date (or planted date), End: flip date if known, otherwise projected
         const dates = plants
             .map(p => p.vegetativeDate || p.plantedDate)
             .filter((d): d is string => d != null)
             .sort();
         if (dates.length === 0) return { blockStart: null, blockEnd: null, isProjected: false };
         const start = new Date(dates[0]);
+
+        // Use actual flip date as veg end when available
+        const flipDates = plants
+            .map(p => p.floweringDate)
+            .filter((d): d is string => d != null)
+            .sort();
+        if (flipDates.length > 0) {
+            return { blockStart: start, blockEnd: new Date(flipDates[flipDates.length - 1]), isProjected: false };
+        }
+
         const end = new Date(start.getTime() + DEFAULT_VEG_DAYS * MS_PER_DAY);
         return { blockStart: start, blockEnd: end, isProjected: true };
     }
