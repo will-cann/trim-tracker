@@ -418,6 +418,38 @@ export async function executeAction(action: ProposedAction): Promise<ActionOutco
             await apiService.deleteRoom(room.id);
             return OK('Room deleted');
         }
+        case 'create_vendor':
+            if (!action.data.name) return SKIPPED('no vendor name');
+            await apiService.createVendor(action.data as any);
+            return OK(`Vendor "${action.data.name}" created`);
+        case 'update_vendor':
+            if (!action.data.vendorId) return SKIPPED('no vendor ID');
+            await apiService.updateVendor(action.data.vendorId, action.data);
+            return OK('Vendor updated');
+        case 'delete_vendor':
+            if (!action.data.vendorId) return SKIPPED('no vendor ID');
+            await apiService.deleteVendor(action.data.vendorId);
+            return OK('Vendor deleted');
+        case 'create_store':
+            if (!action.data.name) return SKIPPED('no store name');
+            await apiService.saveStore(action.data as any);
+            return OK(`Store "${action.data.name}" created`);
+        case 'update_store':
+            if (!action.data.storeId) return SKIPPED('no store ID');
+            await apiService.saveStore(action.data as any);
+            return OK('Store updated');
+        case 'add_vendor_product':
+            if (!action.data.vendorId || !action.data.name) return SKIPPED('missing vendor or product name');
+            await apiService.upsertVendorProduct(action.data as any);
+            return OK(`Product "${action.data.name}" added`);
+        case 'create_order':
+            if (!action.data.vendorId) return SKIPPED('no vendor ID');
+            await apiService.saveOrder(action.data as any);
+            return OK('Order created');
+        case 'update_order':
+            if (!action.data.orderId) return SKIPPED('no order ID');
+            await apiService.saveOrder(action.data as any);
+            return OK('Order updated');
         case 'create_human_task':
             // Human tasks are handled separately via useHumanTasks hook
             return SKIPPED('handled separately');
