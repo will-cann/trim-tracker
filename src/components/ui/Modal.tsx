@@ -33,7 +33,7 @@ export const Modal: React.FC<ModalProps> = ({
                         <h3>{title}</h3>
                     )}
                     <button className="close-btn" onClick={onClose}>
-                        <X size={24} />
+                        <X size={18} />
                     </button>
                 </div>
                 <div className="modal-body">

@@ -750,7 +750,7 @@ body {
 /* Dashboard Chart */
 .dashboard-chart-wrapper {
   background: var(--card-bg);
-  border-radius: 10px;
+  border-radius: 8px;
   border: 1px solid var(--border-color);
   padding: 1rem;
   display: flex;
@@ -1508,7 +1508,7 @@ body {
 .stat-item {
   background: var(--card-bg);
   padding: 0.875rem 1rem;
-  border-radius: 10px;
+  border-radius: 8px;
   border: 1px solid var(--border-color);
   display: flex;
   align-items: center;
@@ -1542,7 +1542,7 @@ body {
 .stat-icon {
   width: 40px;
   height: 40px;
-  border-radius: 10px;
+  border-radius: 8px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1697,8 +1697,8 @@ body {
 
 .modal-content {
   background: white;
-  padding: var(--space-lg);
-  border-radius: 12px;
+  padding: var(--space-md);
+  border-radius: 8px;
   width: 100%;
   max-width: 480px;
   box-shadow: var(--shadow-lg);
@@ -1709,13 +1709,15 @@ body {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 24px;
+  margin-bottom: 12px;
 }
 
 .modal-header h3 {
   margin: 0;
-  font-size: 1.5rem;
+  font-size: 1.125rem;
+  font-weight: 700;
   color: var(--text-color);
+  letter-spacing: -0.01em;
 }
 
 .close-btn {
@@ -1740,16 +1742,16 @@ body {
 .modal-footer {
   display: flex;
   justify-content: flex-end;
-  gap: 12px;
-  margin-top: 32px;
+  gap: 10px;
+  margin-top: 16px;
 }
 
 .btn-cancel {
-  padding: 12px 20px;
+  padding: 8px 16px;
   background: white;
   border: 1px solid #E0E0E0;
-  border-radius: 8px;
-  font-size: 1rem;
+  border-radius: 6px;
+  font-size: 0.8125rem;
   font-weight: 500;
   color: var(--text-secondary);
   cursor: pointer;
@@ -1762,12 +1764,12 @@ body {
 }
 
 .btn-primary {
-  padding: 12px 24px;
+  padding: 8px 16px;
   background-color: var(--primary-color);
   color: white;
   border: none;
-  border-radius: 8px;
-  font-size: 1rem;
+  border-radius: 6px;
+  font-size: 0.8125rem;
   font-weight: 600;
   cursor: pointer;
   transition: var(--transition);
@@ -1791,15 +1793,9 @@ body {
   border-bottom: 1px solid var(--border-color);
 }
 
-.creation-modal .modal-header h3 {
-  font-size: 1.125rem;
-  font-weight: 700;
-  letter-spacing: -0.01em;
-}
-
 .creation-modal .modal-body {
   overflow-y: auto;
-  padding: var(--space-lg) 0 var(--space-sm);
+  padding: var(--space-md) 0 var(--space-sm);
   flex: 1;
   min-height: 0;
 }
@@ -1812,7 +1808,7 @@ body {
 
 /* Field system */
 .field {
-  margin-bottom: var(--space-lg);
+  margin-bottom: var(--space-md);
 }
 
 .field:last-child {
@@ -1842,10 +1838,10 @@ body {
 
 .field-input {
   width: 100%;
-  padding: 10px 12px;
+  padding: 8px 10px;
   border: 1px solid var(--border-color);
-  border-radius: 8px;
-  font-size: 0.875rem;
+  border-radius: 6px;
+  font-size: 0.8125rem;
   color: var(--text-color);
   background: white;
   transition: border-color 0.15s ease, box-shadow 0.15s ease;
@@ -2103,7 +2099,7 @@ select.field-input {
   gap: 6px;
   background: var(--background-color);
   padding: 3px;
-  border-radius: 10px;
+  border-radius: 8px;
 }
 
 .toggle-option {
@@ -2563,7 +2559,7 @@ select.field-input {
 /* Dashboard bar replaces donut */
 .dashboard-bar-wrapper {
   background: var(--card-bg);
-  border-radius: 10px;
+  border-radius: 8px;
   border: 1px solid var(--border-color);
   padding: 1rem 1.25rem;
   box-shadow: var(--shadow-sm);
@@ -3027,7 +3023,7 @@ select.field-input {
   gap: 10px;
   flex: 1;
   border: 2px solid var(--border-color);
-  border-radius: 10px;
+  border-radius: 8px;
   padding: 14px 16px;
   background: white;
   transition: border-color 0.15s, box-shadow 0.15s;
@@ -3070,7 +3066,7 @@ select.field-input {
   padding: 14px 20px;
   font-size: 0.9375rem;
   font-weight: 700;
-  border-radius: 10px;
+  border-radius: 8px;
   border: none;
   background: var(--primary-color);
   color: white;
@@ -3344,7 +3340,7 @@ select.field-input {
   padding: 12px 24px;
   font-size: 0.9375rem;
   font-weight: 700;
-  border-radius: 10px;
+  border-radius: 8px;
   border: none;
   background: var(--primary-color);
   color: white;
@@ -3849,7 +3845,7 @@ select.field-input {
   display: inline-flex;
   align-items: center;
   padding: 4px 12px;
-  border-radius: 12px;
+  border-radius: 8px;
   font-size: 0.75rem;
   font-weight: 600;
   text-transform: uppercase;
@@ -4267,7 +4263,7 @@ select.field-input {
 .ai-hero-send {
   width: 36px;
   height: 36px;
-  border-radius: 10px;
+  border-radius: 8px;
   border: none;
   background: var(--primary-color);
   color: white;
@@ -4338,7 +4334,7 @@ select.field-input {
   gap: 0.75rem;
   padding: 0.875rem 1rem;
   border: 1px solid var(--border-color);
-  border-radius: 12px;
+  border-radius: 8px;
   background: white;
   cursor: pointer;
   transition: border-color 0.2s, box-shadow 0.2s, background 0.2s, transform 0.1s;
@@ -4369,7 +4365,7 @@ select.field-input {
 .ai-feature-icon {
   width: 40px;
   height: 40px;
-  border-radius: 10px;
+  border-radius: 8px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -4832,7 +4828,7 @@ select.field-input {
 }
 
 .action-result-list {
-  border-radius: 10px;
+  border-radius: 8px;
   border: 1px solid var(--primary-color);
   background: var(--primary-light);
   overflow: hidden;
@@ -4932,7 +4928,7 @@ select.field-input {
   width: 100%;
   padding: 0.75rem 1rem;
   border: 1px solid var(--border-color);
-  border-radius: 12px;
+  border-radius: 8px;
   resize: none;
   font-size: 0.875rem;
   line-height: 1.5;
@@ -4987,7 +4983,7 @@ select.field-input {
 .ai-chat-send {
   width: 36px;
   height: 36px;
-  border-radius: 10px;
+  border-radius: 8px;
   border: none;
   background: var(--primary-color);
   color: white;
@@ -5827,7 +5823,7 @@ select.field-input {
   z-index: 50;
   background: white;
   border: 1px solid var(--border-color);
-  border-radius: 12px;
+  border-radius: 8px;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
   overflow: hidden;
   min-width: 200px;
@@ -6023,7 +6019,7 @@ select.field-input {
   width: 100%;
   padding: 0.5rem 0.75rem;
   border: 1px solid var(--border-color);
-  border-radius: 12px;
+  border-radius: 8px;
   resize: none;
   font-size: 0.875rem;
   line-height: 1.5;
@@ -6462,7 +6458,7 @@ select.field-input {
   grid-row: span 2;
   background: white;
   border: 1px solid #f3f4f6;
-  border-radius: 12px;
+  border-radius: 8px;
   padding: 20px;
 }
 
@@ -6472,7 +6468,7 @@ select.field-input {
   text-align: left;
   background: white;
   border: 1.5px solid #e5e7eb;
-  border-radius: 12px;
+  border-radius: 8px;
   padding: 16px;
   cursor: pointer;
   transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1),
@@ -6492,7 +6488,7 @@ select.field-input {
   flex-direction: column;
   background: white;
   border: 1.5px solid #e5e7eb;
-  border-radius: 12px;
+  border-radius: 8px;
   overflow: hidden;
   animation: expandRoom 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
@@ -6733,7 +6729,7 @@ select.field-input {
   overflow-y: auto;
   background: white;
   border: 1px solid var(--border-color);
-  border-radius: 10px;
+  border-radius: 8px;
   box-shadow: 0 8px 24px -4px rgba(0, 0, 0, 0.1), 0 2px 8px -2px rgba(0, 0, 0, 0.06);
   padding: 4px;
   animation: filterDropdownIn 0.12s ease-out;
@@ -6882,7 +6878,7 @@ select.field-input {
 
 .data-table-wrap {
   border: 1px solid #E8E8E8;
-  border-radius: 12px;
+  border-radius: 8px;
   overflow: hidden;
   background: #fff;
 }
@@ -7074,7 +7070,7 @@ select.field-input {
 
 .process-template-card {
   border: 1px solid #E8E8E8;
-  border-radius: 10px;
+  border-radius: 8px;
   background: #fff;
   overflow: hidden;
 }
@@ -7180,7 +7176,7 @@ select.field-input {
 .sop-flow-material-pill {
   display: inline-block;
   padding: 3px 10px;
-  border-radius: 10px;
+  border-radius: 8px;
   font-size: 0.6875rem;
   font-weight: 700;
   background: #1A1A1A;
@@ -7436,7 +7432,7 @@ select.field-input {
   display: inline-flex;
   align-items: center;
   padding: 3px 10px;
-  border-radius: 12px;
+  border-radius: 8px;
   font-size: 0.625rem;
   font-weight: 600;
   background: transparent;
@@ -7523,7 +7519,7 @@ select.field-input {
 
 .run-card {
   border: 1px solid #E8E8E8;
-  border-radius: 10px;
+  border-radius: 8px;
   background: #fff;
   overflow: hidden;
   transition: border-color 0.15s;
@@ -7947,7 +7943,7 @@ select.field-input {
 /* Editor panel */
 .sop-editor {
   border: 1px solid #E8E8E8;
-  border-radius: 10px;
+  border-radius: 8px;
   background: #fff;
   overflow: hidden;
 }
@@ -8476,7 +8472,7 @@ select.field-input {
   display: inline-flex;
   align-items: center;
   padding: 4px 10px;
-  border-radius: 12px;
+  border-radius: 8px;
   font-size: 0.6875rem;
   font-weight: 600;
   background: transparent;
@@ -8908,7 +8904,7 @@ select.field-input {
 
 .kanban-column {
   background: #FAFAFA;
-  border-radius: 10px;
+  border-radius: 8px;
   padding: 0.75rem;
   display: flex;
   flex-direction: column;
@@ -9823,7 +9819,7 @@ select.field-input {
   gap: var(--space-md);
   background: var(--card-bg);
   border: 1px solid #E5E5E5;
-  border-radius: 10px;
+  border-radius: 8px;
   padding: 14px 18px;
   cursor: pointer;
   transition: border-color 0.15s, box-shadow 0.15s;
@@ -9874,7 +9870,7 @@ select.field-input {
   background: var(--primary-light);
   color: var(--primary-color);
   padding: 1px 8px;
-  border-radius: 10px;
+  border-radius: 8px;
   font-size: 0.625rem;
   font-weight: 600;
 }
@@ -10003,7 +9999,7 @@ select.field-input {
 .sop-grid-wrapper {
   overflow-x: auto;
   border: 1px solid #E5E5E5;
-  border-radius: 10px;
+  border-radius: 8px;
   background: var(--card-bg);
 }
 
@@ -10154,7 +10150,7 @@ select.field-input {
 .sop-quick-add {
   background: var(--card-bg);
   border: 1px solid #E5E5E5;
-  border-radius: 10px;
+  border-radius: 8px;
   box-shadow: var(--shadow-lg);
   min-width: 200px;
   padding: 4px;
