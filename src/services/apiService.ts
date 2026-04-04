@@ -1152,6 +1152,33 @@ export const saveOrder = async (data: {
     return await response.json();
 };
 
+export const parseVendorMenu = async (data: {
+    vendorId: string; fileName: string; fileContent: string; fileType: 'text' | 'pdf' | 'image';
+}): Promise<{ menuId: string; vendorName?: string; products: any[]; message?: string }> => {
+    const response = await fetchWithAuth(`${API_BASE}/parse-vendor-menu`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+    });
+    if (!response.ok) {
+        const err = await response.json().catch(() => ({ error: 'Failed to parse menu' }));
+        throw new Error(err.error || err.detail || 'Failed to parse menu');
+    }
+    return await response.json();
+};
+
+export const bulkSaveVendorProducts = async (data: {
+    vendorId: string; menuId?: string; products: any[];
+}): Promise<{ inserted: number }> => {
+    const response = await fetchWithAuth(`${API_BASE}/bulk-save-vendor-products`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+    });
+    if (!response.ok) throw new Error('Failed to save products');
+    return await response.json();
+};
+
 export const apiService = {
     setAuthToken,
     getSession,
@@ -1271,4 +1298,6 @@ export const apiService = {
     getOrders,
     getOrderDetail,
     saveOrder,
+    parseVendorMenu,
+    bulkSaveVendorProducts,
 };

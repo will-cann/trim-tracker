@@ -1,8 +1,9 @@
 import { useState, useMemo } from 'react';
-import { Plus } from 'lucide-react';
+import { Plus, Upload } from 'lucide-react';
 import type { Vendor, VendorProduct } from '../../types/definitions';
 import { apiService } from '../../services/apiService';
 import { DataTable, FilterToolbar, Modal } from '../ui';
+import { MenuUploadModal } from './MenuUploadModal';
 import type { Column, FilterDef } from '../ui';
 
 interface Props {
@@ -23,6 +24,7 @@ export const ProductCatalog: React.FC<Props> = ({ products, vendors, loading, on
     const [showForm, setShowForm] = useState(false);
     const [editing, setEditing] = useState<Partial<VendorProduct> & { vendorId?: string }>(EMPTY);
     const [saving, setSaving] = useState(false);
+    const [showUpload, setShowUpload] = useState(false);
     const [search, setSearch] = useState('');
     const [vendorFilter, setVendorFilter] = useState('');
 
@@ -109,9 +111,14 @@ export const ProductCatalog: React.FC<Props> = ({ products, vendors, loading, on
                     onSearchChange={setSearch}
                     searchPlaceholder="Search products..."
                 />
-                <button className="btn-primary" onClick={() => { setEditing({ ...EMPTY, vendorId: vendorFilter || vendors[0]?.id || '' }); setShowForm(true); }}>
-                    <Plus size={15} style={{ marginRight: 4 }} /> Add Product
-                </button>
+                <div style={{ display: 'flex', gap: 8 }}>
+                    <button className="btn-cancel" onClick={() => setShowUpload(true)}>
+                        <Upload size={15} style={{ marginRight: 4 }} /> Upload Menu
+                    </button>
+                    <button className="btn-primary" onClick={() => { setEditing({ ...EMPTY, vendorId: vendorFilter || vendors[0]?.id || '' }); setShowForm(true); }}>
+                        <Plus size={15} style={{ marginRight: 4 }} /> Add Product
+                    </button>
+                </div>
             </div>
 
             <DataTable
@@ -182,6 +189,15 @@ export const ProductCatalog: React.FC<Props> = ({ products, vendors, loading, on
                         </div>
                     </div>
                 </Modal>
+            )}
+
+            {showUpload && (
+                <MenuUploadModal
+                    vendors={vendors}
+                    defaultVendorId={vendorFilter || undefined}
+                    onClose={() => setShowUpload(false)}
+                    onSaved={() => { setShowUpload(false); onRefresh(); }}
+                />
             )}
         </>
     );
