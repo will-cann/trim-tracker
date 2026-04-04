@@ -1,4 +1,4 @@
-import { Check, ArrowRight, Package, Plus, UserPlus, Sprout, Scale, ArrowRightLeft, Trash2, MapPin, User, Scissors, ClipboardList, Leaf, Thermometer, Tag, FlaskConical, Home, Pencil } from 'lucide-react';
+import { Check, ArrowRight, Package, Plus, UserPlus, Sprout, Scale, ArrowRightLeft, Trash2, MapPin, User, Scissors, ClipboardList, Leaf, Thermometer, Tag, Home, Pencil } from 'lucide-react';
 import type { ActionResultItem } from '../types/definitions';
 
 interface ActionResultProps {
@@ -28,9 +28,6 @@ const RESULT_ICONS: Record<string, typeof Package> = {
     update_trimmer_profile: User,
     update_batch_weight: Scale,
     update_license: Pencil,
-    create_planting: Sprout,
-    move_plants: MapPin,
-    change_plant_phase: Sprout,
     destroy_plants: Trash2,
     create_package: Package,
     update_package: Pencil,
@@ -47,7 +44,6 @@ const RESULT_ICONS: Record<string, typeof Package> = {
     create_room: Home,
     update_room: Pencil,
     delete_room: Trash2,
-    convert_to_trim: Scissors,
     flag_contamination: Thermometer,
 };
 

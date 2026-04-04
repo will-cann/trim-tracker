@@ -200,6 +200,7 @@ export const StartRunModal: React.FC<StartRunModalProps> = ({ templates, onClose
     const [notes, setNotes] = useState('');
     const [submitting, setSubmitting] = useState(false);
     const [packagesLoading, setPackagesLoading] = useState(false);
+    const [typeFilter, setTypeFilter] = useState<string | null>(null);
 
     const loadData = useCallback(async () => {
         setPackagesLoading(true);
@@ -220,8 +221,8 @@ export const StartRunModal: React.FC<StartRunModalProps> = ({ templates, onClose
     const acceptedInputs = selectedTemplate?.acceptedInputs || [];
     const hasInputFilter = acceptedInputs.length > 0;
     const relevantPackages = hasInputFilter
-        ? packages.filter(p => acceptedInputs.includes(p.packageType))
-        : packages;
+        ? packages.filter(p => acceptedInputs.includes(p.packageType) && (!typeFilter || p.packageType === typeFilter))
+        : typeFilter ? packages.filter(p => p.packageType === typeFilter) : packages;
     const otherPackages = hasInputFilter
         ? packages.filter(p => !acceptedInputs.includes(p.packageType) && p.quantity > 0)
         : [];
@@ -268,6 +269,7 @@ export const StartRunModal: React.FC<StartRunModalProps> = ({ templates, onClose
         setSelectedPackageIds([]);
         setPackageQuantities({});
         setTargetProduct('');
+        setTypeFilter(null);
         setStep('packages');
     };
 
@@ -426,6 +428,38 @@ export const StartRunModal: React.FC<StartRunModalProps> = ({ templates, onClose
                                 . Select the packages to use as input.
                             </p>
                         )}
+
+                        {/* Type filter pills */}
+                        {(() => {
+                            const basePackages = hasInputFilter
+                                ? packages.filter(p => acceptedInputs.includes(p.packageType))
+                                : packages;
+                            const typeCounts: Record<string, number> = {};
+                            for (const p of basePackages) {
+                                typeCounts[p.packageType] = (typeCounts[p.packageType] || 0) + 1;
+                            }
+                            const types = Object.entries(typeCounts).sort((a, b) => b[1] - a[1]);
+                            if (types.length <= 1) return null;
+                            return (
+                                <div className="start-run-type-filters">
+                                    <button
+                                        className={`start-run-type-pill ${!typeFilter ? 'start-run-type-pill--active' : ''}`}
+                                        onClick={() => setTypeFilter(null)}
+                                    >
+                                        All ({basePackages.length})
+                                    </button>
+                                    {types.map(([type, count]) => (
+                                        <button
+                                            key={type}
+                                            className={`start-run-type-pill ${typeFilter === type ? 'start-run-type-pill--active' : ''}`}
+                                            onClick={() => setTypeFilter(prev => prev === type ? null : type)}
+                                        >
+                                            {MATERIAL_LABELS[type] || type.replace(/_/g, ' ')} ({count})
+                                        </button>
+                                    ))}
+                                </div>
+                            );
+                        })()}
 
                         {packagesLoading ? (
                             <p className="start-run-empty">Loading packages...</p>

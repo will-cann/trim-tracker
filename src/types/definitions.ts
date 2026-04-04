@@ -295,6 +295,7 @@ export interface ProcessStep {
   equipmentType: string | null;
   expectedYieldPct: number | null;
   estDurationHours: number | null;
+  estHandsOnHours: number | null;
   isOptional: boolean;
 }
 

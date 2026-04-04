@@ -1,14 +1,15 @@
 import React from 'react';
-import { LayoutGrid, List } from 'lucide-react';
+import { LayoutGrid, List, Calendar } from 'lucide-react';
 
-export type ViewMode = 'cards' | 'table';
+export type ViewMode = 'cards' | 'table' | 'schedule';
 
 interface ViewToggleProps {
     mode: ViewMode;
     onChange: (mode: ViewMode) => void;
+    showSchedule?: boolean;
 }
 
-export const ViewToggle: React.FC<ViewToggleProps> = ({ mode, onChange }) => {
+export const ViewToggle: React.FC<ViewToggleProps> = ({ mode, onChange, showSchedule }) => {
     return (
         <div className="view-toggle">
             <button
@@ -25,6 +26,15 @@ export const ViewToggle: React.FC<ViewToggleProps> = ({ mode, onChange }) => {
             >
                 <List size={15} />
             </button>
+            {showSchedule && (
+                <button
+                    onClick={() => onChange('schedule')}
+                    className={`view-toggle-btn ${mode === 'schedule' ? 'active' : ''}`}
+                    title="Schedule view"
+                >
+                    <Calendar size={15} />
+                </button>
+            )}
         </div>
     );
 };
@@ -34,7 +44,7 @@ export function useViewMode(viewKey: string, defaultMode: ViewMode = 'cards'): [
     const storageKey = `viewMode_${viewKey}`;
     const [mode, setModeState] = React.useState<ViewMode>(() => {
         const saved = sessionStorage.getItem(storageKey);
-        return saved === 'cards' || saved === 'table' ? saved : defaultMode;
+        return saved === 'cards' || saved === 'table' || saved === 'schedule' ? saved : defaultMode;
     });
 
     const setMode = React.useCallback((newMode: ViewMode) => {

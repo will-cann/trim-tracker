@@ -86,6 +86,7 @@ function formatStep(row: any) {
         equipmentType: row.equipment_type,
         expectedYieldPct: row.expected_yield_pct ? parseFloat(row.expected_yield_pct) : null,
         estDurationHours: row.est_duration_hours ? parseFloat(row.est_duration_hours) : null,
+        estHandsOnHours: row.est_hands_on_hours ? parseFloat(row.est_hands_on_hours) : null,
         isOptional: row.is_optional,
     };
 }

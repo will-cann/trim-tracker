@@ -94,6 +94,7 @@ export const RoomSection: React.FC<RoomSectionProps> = ({ rooms, loading, onRelo
                             <option value="veg">Veg</option>
                             <option value="flower">Flower</option>
                             <option value="dry">Dry</option>
+                            <option value="storage">Storage</option>
                             <option value="general">General</option>
                         </select>
                         <input
@@ -164,6 +165,7 @@ export const RoomSection: React.FC<RoomSectionProps> = ({ rooms, loading, onRelo
                                                 <option value="veg">Veg</option>
                                                 <option value="flower">Flower</option>
                                                 <option value="dry">Dry</option>
+                                                <option value="storage">Storage</option>
                                                 <option value="general">General</option>
                                             </select>
                                         </td>

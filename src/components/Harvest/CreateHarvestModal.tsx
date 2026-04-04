@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Flower2, Snowflake, ArrowRightLeft, ChevronRight, MapPin, Calendar, CheckSquare, Square, Sprout, X } from 'lucide-react';
+import { Flower2, Snowflake, ArrowRightLeft, ChevronRight, MapPin, Calendar, CheckSquare, Square, Sprout } from 'lucide-react';
 import { CenteredSpinner } from '../Spinner';
 import type { AllocationChoice, CreateHarvestDTO, Strain, License, FloweringBatchGroup } from '../../types/definitions';
 import { apiService } from '../../services/apiService';
@@ -49,7 +49,9 @@ export const CreateHarvestModal: React.FC<CreateHarvestModalProps> = ({ onClose,
     const selectedStrain = strains.find(s => s.id === strainId);
     const selectedLicense = licenses.find(l => l.id === licenseId);
     const hasSourcePlants = selectedBatch !== null && selectedPlantIds.size > 0;
-    const strainResolved = hasSourcePlants || strainId;
+    const hasFloweringPlants = floweringGroups.length > 0;
+    // When flowering plants exist, plant selection is mandatory for traceability
+    const strainResolved = hasSourcePlants || (!hasFloweringPlants && strainId);
     const canSubmit = strainResolved && licenseId && (allocation !== 'Both' || targetWeight);
 
     const getGroupKey = (group: FloweringBatchGroup) => `${group.strainName}::${group.roomId}`;
@@ -94,14 +96,6 @@ export const CreateHarvestModal: React.FC<CreateHarvestModalProps> = ({ onClose,
         }
     };
 
-    const clearSourcePlants = () => {
-        setSelectedPlantIds(new Set());
-        setSelectedBatch(null);
-        setExpandedBatchKey(null);
-        setPickerOpen(false);
-        setStrainId('');
-        setPlantCount('');
-    };
 
     const isReady = (group: FloweringBatchGroup) => {
         if (!group.targetHarvestDate) return false;
@@ -150,7 +144,7 @@ export const CreateHarvestModal: React.FC<CreateHarvestModalProps> = ({ onClose,
             ) : (
                 <form id="create-harvest-form" onSubmit={handleSubmit}>
 
-                    {/* Source plants — collapsed toggle or compact summary */}
+                    {/* Source plants — required when flowering plants exist */}
                     {floweringGroups.length > 0 && (
                         <>
                             {hasSourcePlants && !pickerOpen ? (
@@ -167,20 +161,17 @@ export const CreateHarvestModal: React.FC<CreateHarvestModalProps> = ({ onClose,
                                         <button type="button" onClick={() => setPickerOpen(true)} className="source-plants-pill-edit">
                                             Edit
                                         </button>
-                                        <button type="button" onClick={clearSourcePlants} className="source-plants-pill-clear">
-                                            <X size={14} />
-                                        </button>
                                     </div>
                                 </div>
                             ) : !hasSourcePlants && !pickerOpen ? (
-                                /* Collapsed toggle */
+                                /* Required selection prompt */
                                 <button
                                     type="button"
-                                    className="source-plants-toggle"
+                                    className="source-plants-toggle source-plants-toggle--required"
                                     onClick={() => setPickerOpen(true)}
                                 >
                                     <Sprout size={14} />
-                                    <span>Link flowering plants</span>
+                                    <span>Select plants to harvest <span className="required">*</span></span>
                                     <span className="source-plants-toggle-count">{floweringGroups.reduce((s, g) => s + g.plants.length, 0)} available</span>
                                     <ChevronRight size={14} className="source-plants-toggle-chevron" />
                                 </button>
@@ -280,10 +271,14 @@ export const CreateHarvestModal: React.FC<CreateHarvestModalProps> = ({ onClose,
                                 </div>
                             )}
 
-                            {/* Consequence line when plants are linked */}
-                            {hasSourcePlants && (
+                            {/* Consequence line */}
+                            {hasSourcePlants ? (
                                 <p className="source-plants-consequence">
-                                    {selectedPlantIds.size} plant{selectedPlantIds.size !== 1 ? 's' : ''} will be reserved for this harvest
+                                    {selectedPlantIds.size} plant{selectedPlantIds.size !== 1 ? 's' : ''} will be linked to this harvest for traceability
+                                </p>
+                            ) : (
+                                <p className="source-plants-consequence" style={{ color: '#DF5B59' }}>
+                                    Plant selection is required for harvest traceability
                                 </p>
                             )}
 

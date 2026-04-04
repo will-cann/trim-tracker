@@ -1,6 +1,7 @@
-import React, { useState, useCallback, useEffect, useRef } from 'react';
+import React, { useState, useCallback, useEffect, useRef, useMemo } from 'react';
 import { Leaf, Plus } from 'lucide-react';
 import type { PlantPhase } from '../../types/plantMap';
+import type { PlantListItem } from './cultivationScheduleAdapter';
 import { PHASE_TABS } from '../../types/plantMap';
 import { usePlantMap } from '../../hooks/usePlantMap';
 import { PlantMapSummary } from './PlantMapSummary';
@@ -11,6 +12,8 @@ import { CreatePlantingModal } from './CreatePlantingModal';
 import { DataTable, ViewToggle, useViewMode, FilterToolbar } from '../ui';
 import type { Column, FilterDef } from '../ui';
 import { apiService } from '../../services/apiService';
+import ResourceTimeline from '../ui/ResourceTimeline';
+import { buildCultivationSchedule } from './cultivationScheduleAdapter';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -78,7 +81,7 @@ interface PlantMapDashboardProps {
 }
 
 export const PlantMapDashboard: React.FC<PlantMapDashboardProps> = ({ refreshKey }) => {
-    const [activePhase, setActivePhase] = useState<PlantPhase>('flowering');
+    const [activePhase, setActivePhase] = useState<PlantPhase | 'all'>('all');
     const [expandedRoom, setExpandedRoom] = useState<string | null>(null);
     const [showCreateModal, setShowCreateModal] = useState(false);
     const [viewMode, setViewMode] = useViewMode('plant-map');
@@ -88,9 +91,16 @@ export const PlantMapDashboard: React.FC<PlantMapDashboardProps> = ({ refreshKey
     const [plantList, setPlantList] = useState<any[]>([]);
     const [tableLoading, setTableLoading] = useState(false);
     const [search, setSearch] = useState('');
+    const [cardSearch, setCardSearch] = useState('');
     const [activeFilters, setActiveFilters] = useState<Record<string, string[]>>({});
     const [sortKey, setSortKey] = useState<string | null>(null);
     const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
+
+    // Schedule mode state
+    const [schedulePlants, setSchedulePlants] = useState<PlantListItem[]>([]);
+    const [scheduleRooms, setScheduleRooms] = useState<Array<{ id: string; name: string; room_type: string }>>([]);
+    const [scheduleLoading, setScheduleLoading] = useState(false);
+    const [scheduleLoaded, setScheduleLoaded] = useState(false);
 
     // Refetch when external actions modify plant data
     const prevRefreshKey = useRef(refreshKey);
@@ -114,10 +124,44 @@ export const PlantMapDashboard: React.FC<PlantMapDashboardProps> = ({ refreshKey
         if (viewMode === 'table') loadPlantList();
     }, [viewMode, loadPlantList]);
 
-    const currentTab = PHASE_TABS.find(t => t.key === activePhase)!;
+    // Load schedule data lazily
+    useEffect(() => {
+        if (viewMode !== 'schedule' || scheduleLoaded) return;
+        let cancelled = false;
+        setScheduleLoading(true);
+        Promise.all([
+            apiService.getPlantsList(),
+            apiService.getRooms(),
+        ]).then(([plants, rooms]) => {
+            if (cancelled) return;
+            setSchedulePlants(plants as PlantListItem[]);
+            setScheduleRooms(rooms as Array<{ id: string; name: string; room_type: string }>);
+            setScheduleLoaded(true);
+            setScheduleLoading(false);
+        }).catch(() => {
+            if (!cancelled) setScheduleLoading(false);
+        });
+        return () => { cancelled = true; };
+    }, [viewMode, scheduleLoaded]);
+
+    const scheduleData = useMemo(
+        () => buildCultivationSchedule(schedulePlants, scheduleRooms),
+        [schedulePlants, scheduleRooms],
+    );
+
+    const currentTab = PHASE_TABS.find(t => t.key === activePhase) || { key: 'all' as const, label: 'All', entity: 'plants' as const };
     const rooms = data ? Object.entries(data) : [];
 
-    const handlePhaseChange = useCallback((phase: PlantPhase) => {
+    // Filter rooms by search (name or strain)
+    const filteredRooms = cardSearch
+        ? rooms.filter(([name, room]) => {
+            const q = cardSearch.toLowerCase();
+            return name.toLowerCase().includes(q)
+                || (room as any).strains?.some((s: string) => s.toLowerCase().includes(q));
+        })
+        : rooms;
+
+    const handlePhaseChange = useCallback((phase: PlantPhase | 'all') => {
         setExpandedRoom(null);
         setActivePhase(phase);
     }, []);
@@ -191,12 +235,12 @@ export const PlantMapDashboard: React.FC<PlantMapDashboardProps> = ({ refreshKey
                     <div>
                         <h1 className="text-lg font-semibold text-gray-900">Plant Map</h1>
                         <p className="text-xs text-gray-400">
-                            {viewMode === 'cards' ? 'Rooms and plant health by growth phase' : 'All plants across your facility'}
+                            {viewMode === 'schedule' ? 'Room occupancy timeline' : viewMode === 'table' ? 'All plants across your facility' : 'Rooms and plant health across your facility'}
                         </p>
                     </div>
                 </div>
                 <div className="flex items-center gap-2">
-                    <ViewToggle mode={viewMode} onChange={setViewMode} />
+                    <ViewToggle mode={viewMode} onChange={setViewMode} showSchedule />
                     <button
                         onClick={() => setShowCreateModal(true)}
                         className="btn-new-batch"
@@ -207,59 +251,73 @@ export const PlantMapDashboard: React.FC<PlantMapDashboardProps> = ({ refreshKey
                 </div>
             </div>
 
-            {viewMode === 'cards' ? (
+            {viewMode === 'cards' && (
                 <>
-                    {/* Phase tabs */}
-                    <div className="actions-row">
-                        <div className="tabs-container">
-                            {PHASE_TABS.map(tab => (
-                                <button
-                                    key={tab.key}
-                                    className={`tab-button ${activePhase === tab.key ? 'active' : ''}`}
-                                    onClick={() => handlePhaseChange(tab.key)}
-                                >
-                                    {tab.label}
-                                    {data && activePhase === tab.key && rooms.length > 0 && (
-                                        <span className="ml-1.5 text-gray-400">({rooms.length})</span>
-                                    )}
-                                </button>
-                            ))}
-                        </div>
-                    </div>
+                    <FilterToolbar
+                        search={cardSearch}
+                        onSearchChange={setCardSearch}
+                        searchPlaceholder="Search rooms..."
+                        filters={[{
+                            key: 'phase', label: 'Phase', multi: false,
+                            options: [
+                                { value: 'all', label: 'All Phases' },
+                                ...PHASE_TABS.map(t => ({ value: t.key, label: t.label })),
+                            ],
+                        }]}
+                        activeFilters={{ phase: [activePhase] }}
+                        onFilterChange={(_key, values) => {
+                            if (values.length > 0) handlePhaseChange(values[0] as PlantPhase | 'all');
+                            else handlePhaseChange('all');
+                        }}
+                        onClearFilters={() => handlePhaseChange('all')}
+                    />
 
-                    {/* Card content */}
                     {loading ? (
                         <RoomGridSkeleton count={3} />
-                    ) : rooms.length === 0 ? (
+                    ) : filteredRooms.length === 0 ? (
                         <div className="flex flex-col items-center justify-center py-20 text-center">
                             <div className="w-12 h-12 rounded-xl bg-gray-100 flex items-center justify-center mb-3">
                                 <Leaf size={22} className="text-gray-400" />
                             </div>
                             <h3 className="text-sm font-semibold text-gray-700 mb-1">
-                                No {currentTab.label.toLowerCase()} plants
+                                {cardSearch ? 'No rooms match your search' : activePhase === 'all' ? 'No plants yet' : `No ${currentTab.label.toLowerCase()} plants`}
                             </h3>
                             <p className="text-xs text-gray-400 max-w-[240px] mb-5">
-                                Rooms with {currentTab.label.toLowerCase()} plants will appear here once added.
+                                {cardSearch
+                                    ? 'Try a different search term.'
+                                    : activePhase === 'all' ? 'Rooms with plants will appear here once added.' : `Rooms with ${currentTab.label.toLowerCase()} plants will appear here once added.`}
                             </p>
-                            <button
-                                onClick={() => setShowCreateModal(true)}
-                                className="btn-new-batch"
-                            >
-                                <Plus size={16} />
-                                Add Plants
-                            </button>
+                            {!cardSearch && (
+                                <button
+                                    onClick={() => setShowCreateModal(true)}
+                                    className="btn-new-batch"
+                                >
+                                    <Plus size={16} />
+                                    Add Plants
+                                </button>
+                            )}
                         </div>
                     ) : (
                         <div className="plant-map-grid">
                             <PlantMapSummary data={data!} />
-                            {rooms.map(([name, room]) => (
-                                expandedRoom === name ? (
+                            {filteredRooms.map(([name, room]) => {
+                                // For expanded room in "all" view, derive phase from room data
+                                const roomPhase: PlantPhase = activePhase === 'all'
+                                    ? ((room as any).harvestDates?.length > 0 ? 'flowering'
+                                        : (room as any).flipDates?.length > 0 ? 'vegetative'
+                                        : 'nursery')
+                                    : activePhase;
+                                const roomPhaseLabel = activePhase === 'all'
+                                    ? (roomPhase === 'flowering' ? 'Flowering' : roomPhase === 'vegetative' ? 'Vegetative' : 'Nursery')
+                                    : currentTab.label;
+
+                                return expandedRoom === name ? (
                                     <ExpandedRoom
                                         key={name}
                                         name={name}
                                         room={room}
-                                        phase={activePhase}
-                                        phaseLabel={currentTab.label}
+                                        phase={roomPhase}
+                                        phaseLabel={roomPhaseLabel}
                                         onCollapse={() => setExpandedRoom(null)}
                                         onRevalidate={refetch}
                                     />
@@ -268,18 +326,19 @@ export const PlantMapDashboard: React.FC<PlantMapDashboardProps> = ({ refreshKey
                                         key={name}
                                         name={name}
                                         room={room}
-                                        phase={activePhase}
-                                        phaseLabel={currentTab.label}
+                                        phase={roomPhase}
+                                        phaseLabel={roomPhaseLabel}
                                         onClick={() => handleRoomClick(name)}
                                     />
-                                )
-                            ))}
+                                );
+                            })}
                         </div>
                     )}
                 </>
-            ) : (
+            )}
+
+            {viewMode === 'table' && (
                 <>
-                    {/* Table mode */}
                     <FilterToolbar
                         search={search}
                         onSearchChange={setSearch}
@@ -303,9 +362,22 @@ export const PlantMapDashboard: React.FC<PlantMapDashboardProps> = ({ refreshKey
                 </>
             )}
 
+            {viewMode === 'schedule' && (
+                <div className="mt-2">
+                    {scheduleLoading ? (
+                        <div className="data-table-empty">Loading schedule...</div>
+                    ) : (
+                        <ResourceTimeline
+                            resources={scheduleData.resources}
+                            blocks={scheduleData.blocks}
+                        />
+                    )}
+                </div>
+            )}
+
             {showCreateModal && (
                 <CreatePlantingModal
-                    activePhase={activePhase}
+                    activePhase={activePhase === 'all' ? 'flowering' : activePhase}
                     onClose={() => setShowCreateModal(false)}
                     onSuccess={() => { setShowCreateModal(false); refetch(); if (viewMode === 'table') loadPlantList(); }}
                 />

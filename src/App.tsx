@@ -52,9 +52,10 @@ function AppContent() {
     return saved && saved in VIEW_SCREEN_CONTEXT ? saved as ViewType : 'ai';
   });
   // Persist view across reloads
-  const handleViewChange = (view: ViewType) => {
-    sessionStorage.setItem('currentView', view);
-    setCurrentView(view);
+  const handleViewChange = (view: string) => {
+    const v = view as ViewType;
+    sessionStorage.setItem('currentView', v);
+    setCurrentView(v);
   };
   const [trimmerProfiles, setTrimmerProfiles] = useState<TrimmerProfile[]>([]);
   const [harvests, setHarvests] = useState<Harvest[]>([]);

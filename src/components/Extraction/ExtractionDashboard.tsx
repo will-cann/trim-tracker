@@ -288,6 +288,7 @@ export const ExtractionDashboard: React.FC = () => {
                     <ProcessTemplateList />
                 </div>
             )}
+
         </div>
     );
 };

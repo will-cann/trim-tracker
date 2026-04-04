@@ -58,8 +58,8 @@ export const handler: Handler = async (event) => {
                     `INSERT INTO process_steps (
                         template_id, step_order, name, description,
                         input_type, output_type, equipment_type,
-                        expected_yield_pct, est_duration_hours, is_optional
-                    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
+                        expected_yield_pct, est_duration_hours, est_hands_on_hours, is_optional
+                    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
                     [
                         templateId,
                         step.stepOrder,
@@ -70,6 +70,7 @@ export const handler: Handler = async (event) => {
                         step.equipmentType || null,
                         step.expectedYieldPct || null,
                         step.estDurationHours || null,
+                        step.estHandsOnHours || null,
                         step.isOptional || false,
                     ]
                 );

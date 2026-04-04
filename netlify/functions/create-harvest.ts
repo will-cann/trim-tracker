@@ -80,14 +80,40 @@ export const handler: Handler = async (event) => {
             ]);
 
             // Link plants to this harvest plan (plants stay flowering until harvest day)
-            if (plantIds && plantIds.length > 0) {
+            let resolvedPlantIds = plantIds && plantIds.length > 0 ? plantIds : null;
+
+            // Auto-resolve: if no plantIds provided but strain is known, find matching
+            // unlinked flowering plants to enforce traceability
+            if (!resolvedPlantIds) {
+                const { rows: matchingPlants } = await client.query(`
+                    SELECT id FROM plants
+                    WHERE company_id = $1
+                        AND LOWER(strain_name) = LOWER($2)
+                        AND growth_phase = 'flowering'
+                        AND harvest_id IS NULL
+                    ORDER BY created_at ASC
+                    ${plantCount ? `LIMIT ${parseInt(plantCount, 10)}` : ''}
+                `, [context.companyId, strain]);
+
+                if (matchingPlants.length > 0) {
+                    resolvedPlantIds = matchingPlants.map((p: any) => p.id);
+
+                    // Update plant count to match actual linked plants
+                    await client.query(
+                        `UPDATE harvests SET plant_count = $1 WHERE id = $2`,
+                        [resolvedPlantIds.length, harvest.id]
+                    );
+                }
+            }
+
+            if (resolvedPlantIds && resolvedPlantIds.length > 0) {
                 await client.query(`
                     UPDATE plants
                     SET harvest_id = $1
                     WHERE id = ANY($2::uuid[])
                         AND company_id = $3
                         AND growth_phase = 'flowering'
-                `, [harvest.id, plantIds, context.companyId]);
+                `, [harvest.id, resolvedPlantIds, context.companyId]);
             }
 
             // Auto-capture strain

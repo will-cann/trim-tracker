@@ -1,18 +1,88 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Plus, Sprout, Scissors } from 'lucide-react';
 import type { Harvest, HarvestWasteType, CreateHarvestDTO } from '../../types/definitions';
 import { apiService } from '../../services/apiService';
 import { HarvestCard } from './HarvestCard';
 import { CreateHarvestModal } from './CreateHarvestModal';
-import { StrainTable } from './StrainTable';
 import { CardsSkeleton } from '../Skeleton';
+import { DataTable, FilterToolbar, ViewToggle, useViewMode } from '../ui';
+import type { Column } from '../ui';
+import ResourceTimeline from '../ui/ResourceTimeline';
+import { buildDryingSchedule } from './harvestDryingAdapter';
 
-type ViewTab = 'active' | 'completed' | 'strains';
+const STATUS_FILTER_OPTIONS = [
+    { value: 'planning', label: 'Planning' },
+    { value: 'active', label: 'Active' },
+    { value: 'submitted', label: 'Submitted' },
+    { value: 'drying', label: 'Drying' },
+    { value: 'ready', label: 'Ready' },
+    { value: 'completed', label: 'Completed' },
+];
 
-const TABS: { key: ViewTab; label: string }[] = [
-    { key: 'active', label: 'In Progress' },
-    { key: 'completed', label: 'Completed' },
-    { key: 'strains', label: 'Strains' },
+const STATUS_COLORS: Record<string, string> = {
+    planning: '#1C9EFF',
+    active: '#3BB570',
+    submitted: '#3BB570',
+    drying: '#FA9E52',
+    ready: '#FA9E52',
+    completed: '#959595',
+};
+
+const STATUS_LABELS: Record<string, string> = {
+    planning: 'Planning',
+    active: 'Active',
+    submitted: 'Submitted',
+    drying: 'Drying',
+    ready: 'Ready',
+    completed: 'Completed',
+};
+
+const formatWeight = (g: number) => {
+    if (g === 0) return '—';
+    if (g >= 1000) return `${(g / 1000).toLocaleString(undefined, { maximumFractionDigits: 1 })} kg`;
+    return `${g.toLocaleString(undefined, { maximumFractionDigits: 0 })} g`;
+};
+
+const formatDate = (d: string | null | undefined) =>
+    d ? new Date(d).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) : '—';
+
+const HARVEST_COLUMNS: Column<Harvest>[] = [
+    {
+        key: 'strain', label: 'Strain', sortable: true,
+        render: (h) => <span style={{ fontWeight: 600 }}>{h.strain}</span>,
+    },
+    {
+        key: 'batchId', label: 'Batch', sortable: true,
+        render: (h) => <span style={{ fontFamily: 'monospace', fontSize: '0.75rem', color: '#959595' }}>{h.batchId}</span>,
+    },
+    {
+        key: 'status', label: 'Status', sortable: true, width: 100,
+        render: (h) => (
+            <span className="data-table-badge" style={{ background: STATUS_COLORS[h.status] || '#959595' }}>
+                {STATUS_LABELS[h.status] || h.status}
+            </span>
+        ),
+    },
+    {
+        key: 'plantCount', label: 'Plants', sortable: true, width: 70, align: 'right',
+        render: (h) => <span style={{ fontVariantNumeric: 'tabular-nums' }}>{h.plantCount}</span>,
+    },
+    {
+        key: 'totalWetWeight', label: 'Wet Weight', sortable: true, width: 110, align: 'right',
+        render: (h) => <span style={{ fontVariantNumeric: 'tabular-nums', fontWeight: 500 }}>{formatWeight(h.totalWetWeight)}</span>,
+    },
+    {
+        key: 'dryWeight', label: 'Dry Weight', sortable: true, width: 110, align: 'right',
+        render: (h) => <span style={{ fontVariantNumeric: 'tabular-nums', color: h.dryWeight ? '#1A1A1A' : '#C0C0C0' }}>{h.dryWeight ? formatWeight(h.dryWeight) : '—'}</span>,
+    },
+    {
+        key: 'harvestStartDate', label: 'Start', sortable: true, width: 90,
+        render: (h) => <span style={{ color: '#959595' }}>{formatDate(h.harvestStartDate)}</span>,
+    },
+    {
+        key: 'createdAt', label: 'Created', sortable: true, width: 90,
+        render: (h) => <span style={{ color: '#959595' }}>{formatDate(h.createdAt)}</span>,
+    },
 ];
 
 interface HarvestDashboardProps {
@@ -22,8 +92,15 @@ interface HarvestDashboardProps {
 export const HarvestDashboard: React.FC<HarvestDashboardProps> = ({ onStartHarvestDay }) => {
     const [harvests, setHarvests] = useState<Harvest[]>([]);
     const [loading, setLoading] = useState(true);
-    const [activeTab, setActiveTab] = useState<ViewTab>('active');
     const [showCreateModal, setShowCreateModal] = useState(false);
+    const [viewMode, setViewMode] = useViewMode('harvests');
+    const [search, setSearch] = useState('');
+    const [activeFilters, setActiveFilters] = useState<Record<string, string[]>>({});
+    const [sortKey, setSortKey] = useState<string | null>('createdAt');
+    const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
+
+    const [dryingRooms, setDryingRooms] = useState<Array<{ id: string; name: string; room_type: string }>>([]);
+    const [dryingRoomsLoaded, setDryingRoomsLoaded] = useState(false);
 
     const loadHarvests = useCallback(async () => {
         setLoading(true);
@@ -36,11 +113,70 @@ export const HarvestDashboard: React.FC<HarvestDashboardProps> = ({ onStartHarve
         loadHarvests();
     }, [loadHarvests]);
 
-    const filteredHarvests = activeTab === 'active'
-        ? harvests.filter(h => h.status !== 'completed')
-        : activeTab === 'completed'
-            ? harvests.filter(h => h.status === 'completed')
-            : [];
+    // Load rooms lazily for drying schedule
+    useEffect(() => {
+        if (viewMode !== 'schedule' || dryingRoomsLoaded) return;
+        apiService.getRooms().then(rooms => {
+            setDryingRooms(rooms as Array<{ id: string; name: string; room_type: string }>);
+            setDryingRoomsLoaded(true);
+        });
+    }, [viewMode, dryingRoomsLoaded]);
+
+    const dryingSchedule = useMemo(
+        () => buildDryingSchedule(harvests, dryingRooms),
+        [harvests, dryingRooms],
+    );
+
+    const uniqueStrains = [...new Set(harvests.map(h => h.strain).filter(Boolean))].sort();
+
+    const strainFilterDef = {
+        key: 'strain', label: 'Strain', multi: true,
+        options: uniqueStrains.map(s => ({ value: s, label: s })),
+    };
+
+    const statusFilterDef = {
+        key: 'status', label: 'Status', multi: true,
+        options: STATUS_FILTER_OPTIONS,
+    };
+
+    const searchedHarvests = harvests.filter(h => {
+        if (search) {
+            const q = search.toLowerCase();
+            if (
+                !h.strain?.toLowerCase().includes(q) &&
+                !h.batchId?.toLowerCase().includes(q) &&
+                !h.name?.toLowerCase().includes(q)
+            ) return false;
+        }
+        if (activeFilters.status?.length && !activeFilters.status.includes(h.status)) return false;
+        if (activeFilters.strain?.length && !activeFilters.strain.includes(h.strain)) return false;
+        return true;
+    });
+
+    const filteredHarvests = [...searchedHarvests].sort((a, b) => {
+        if (!sortKey) return 0;
+        const aVal = (a as any)[sortKey];
+        const bVal = (b as any)[sortKey];
+        if (aVal == null) return 1;
+        if (bVal == null) return -1;
+        if (typeof aVal === 'number' && typeof bVal === 'number') {
+            return sortDir === 'asc' ? aVal - bVal : bVal - aVal;
+        }
+        const cmp = String(aVal).localeCompare(String(bVal));
+        return sortDir === 'asc' ? cmp : -cmp;
+    });
+
+    const handleSort = (key: string) => {
+        if (sortKey === key) {
+            if (sortDir === 'asc') setSortDir('desc');
+            else { setSortKey(null); setSortDir('asc'); }
+        } else {
+            setSortKey(key);
+            setSortDir('asc');
+        }
+    };
+
+    const hasFilters = search || Object.values(activeFilters).some(v => v.length);
 
     const handleCreate = async (data: CreateHarvestDTO) => {
         await apiService.createHarvest(data);
@@ -98,10 +234,6 @@ export const HarvestDashboard: React.FC<HarvestDashboardProps> = ({ onStartHarve
         .filter(a => a.allocationType === 'frozen')
         .reduce((sum, a) => sum + a.targetWeight, 0);
 
-    const statusCounts = harvests.reduce((acc, h) => {
-        acc[h.status] = (acc[h.status] || 0) + 1;
-        return acc;
-    }, {} as Record<string, number>);
 
     return (
         <div className="dashboard">
@@ -138,46 +270,59 @@ export const HarvestDashboard: React.FC<HarvestDashboardProps> = ({ onStartHarve
                 </div>
             )}
 
-            {/* Tabs + New Harvest button */}
-            <div className="actions-row">
-                <div className="tabs-container">
-                    {TABS.map(tab => (
-                        <button
-                            key={tab.key}
-                            className={`tab-button ${activeTab === tab.key ? 'active' : ''}`}
-                            onClick={() => setActiveTab(tab.key)}
-                        >
-                            {tab.label}
-                            {tab.key === 'active' && activeCount > 0 ? ` (${activeCount})` : ''}
-                            {tab.key === 'completed' && statusCounts.completed ? ` (${statusCounts.completed})` : ''}
-                        </button>
-                    ))}
-                </div>
-                <div className="flex items-center gap-2">
-                    {onStartHarvestDay && (
+            <FilterToolbar
+                search={search}
+                onSearchChange={setSearch}
+                searchPlaceholder="Search harvests..."
+                filters={[statusFilterDef, strainFilterDef]}
+                activeFilters={activeFilters}
+                onFilterChange={(key, values) => setActiveFilters(prev => ({ ...prev, [key]: values }))}
+                onClearFilters={() => setActiveFilters({})}
+                trailing={
+                    <div className="flex items-center gap-2">
+                        <ViewToggle mode={viewMode} onChange={setViewMode} showSchedule />
+                        {onStartHarvestDay && (
+                            <button
+                                type="button"
+                                className="btn-start-batch"
+                                onClick={onStartHarvestDay}
+                            >
+                                <Scissors size={16} />
+                                Harvest Day
+                            </button>
+                        )}
                         <button
                             type="button"
-                            className="btn-start-batch"
-                            onClick={onStartHarvestDay}
+                            className="btn-new-batch"
+                            onClick={() => setShowCreateModal(true)}
                         >
-                            <Scissors size={16} />
-                            Harvest Day
+                            <Plus size={20} />
+                            New Harvest
                         </button>
-                    )}
-                    <button
-                        type="button"
-                        className="btn-new-batch"
-                        onClick={() => setShowCreateModal(true)}
-                    >
-                        <Plus size={20} />
-                        New Harvest
-                    </button>
-                </div>
-            </div>
+                    </div>
+                }
+            />
 
             {/* Content */}
-            {activeTab === 'strains' ? (
-                <StrainTable />
+            {viewMode === 'schedule' ? (
+                <div className="mt-2">
+                    <ResourceTimeline
+                        resources={dryingSchedule.resources}
+                        blocks={dryingSchedule.blocks}
+                    />
+                </div>
+            ) : viewMode === 'table' ? (
+                <div className="mt-4">
+                    <DataTable
+                        columns={HARVEST_COLUMNS}
+                        data={filteredHarvests}
+                        loading={loading}
+                        emptyMessage={hasFilters ? 'No harvests match your filters.' : 'No harvests yet.'}
+                        sortKey={sortKey}
+                        sortDir={sortDir}
+                        onSort={handleSort}
+                    />
+                </div>
             ) : loading ? (
                 <CardsSkeleton count={3} />
             ) : filteredHarvests.length === 0 ? (
@@ -186,14 +331,14 @@ export const HarvestDashboard: React.FC<HarvestDashboardProps> = ({ onStartHarve
                         <Sprout size={28} style={{ color: 'var(--primary-color)' }} />
                     </div>
                     <h3 className="text-base font-semibold mb-1" style={{ color: 'var(--text-secondary)' }}>
-                        {activeTab === 'completed' ? 'No completed harvests' : 'No harvests yet'}
+                        {hasFilters ? 'No harvests match your filters' : 'No harvests yet'}
                     </h3>
                     <p className="text-sm max-w-xs mb-4" style={{ color: 'var(--color-dolphin)' }}>
-                        {activeTab === 'active'
-                            ? 'Start tracking your plants from wet weight through drying and final allocation.'
-                            : 'Harvests will appear here once they are marked complete.'}
+                        {hasFilters
+                            ? 'Try adjusting your search or filters.'
+                            : 'Start tracking your plants from wet weight through drying and final allocation.'}
                     </p>
-                    {activeTab === 'active' && (
+                    {!hasFilters && (
                         <button
                             onClick={() => setShowCreateModal(true)}
                             className="btn-new-batch px-4 py-2 text-sm"

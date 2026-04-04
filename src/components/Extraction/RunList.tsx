@@ -1,11 +1,13 @@
-import { useState, useEffect, useCallback } from 'react';
-import { Plus, Play, CheckCircle2, XCircle, Clock, Snowflake, Leaf, ChevronRight, LayoutGrid, List } from 'lucide-react';
-import type { ExtractionRun, ProcessTemplate } from '../../types/definitions';
+import { useState, useEffect, useCallback, useMemo } from 'react';
+import { Plus, Play, CheckCircle2, XCircle, Clock, Snowflake, Leaf, ChevronRight, LayoutGrid, List, Calendar } from 'lucide-react';
+import type { ExtractionRun, ExtractionEquipment, ProcessTemplate } from '../../types/definitions';
 import { apiService } from '../../services/apiService';
 import { CenteredSpinner } from '../Spinner';
 import { RunDetail } from './RunDetail';
 import { RunKanban } from './RunKanban';
 import { StartRunModal } from './StartRunModal';
+import ResourceTimeline from '../ui/ResourceTimeline';
+import { buildExtractionSchedule } from './extractionScheduleAdapter';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -33,7 +35,7 @@ const MATERIAL_ICONS: Record<string, typeof Snowflake> = {
 const formatDate = (d: string | null) =>
     d ? new Date(d).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) : null;
 
-type ViewMode = 'list' | 'kanban';
+type ViewMode = 'list' | 'kanban' | 'schedule';
 
 // ── Run Card ─────────────────────────────────────────────────────────────────
 
@@ -131,6 +133,8 @@ export const RunList: React.FC = () => {
     const [viewMode, setViewMode] = useState<ViewMode>(() => {
         return (sessionStorage.getItem('extraction-runs-view') as ViewMode) || 'kanban';
     });
+    const [equipment, setEquipment] = useState<ExtractionEquipment[]>([]);
+    const [equipmentLoaded, setEquipmentLoaded] = useState(false);
 
     const loadRuns = useCallback(async () => {
         const data = await apiService.getExtractionRuns();
@@ -145,6 +149,20 @@ export const RunList: React.FC = () => {
     useEffect(() => {
         Promise.all([loadRuns(), loadTemplates()]).finally(() => setLoading(false));
     }, [loadRuns, loadTemplates]);
+
+    // Lazy-load equipment for schedule view
+    useEffect(() => {
+        if (viewMode !== 'schedule' || equipmentLoaded) return;
+        apiService.getExtractionEquipment().then(data => {
+            setEquipment(data.filter((e: ExtractionEquipment) => e.status !== 'retired'));
+            setEquipmentLoaded(true);
+        });
+    }, [viewMode, equipmentLoaded]);
+
+    const scheduleData = useMemo(
+        () => buildExtractionSchedule(runs, equipment),
+        [runs, equipment],
+    );
 
     const handleRunCreated = async () => {
         setShowStartModal(false);
@@ -218,6 +236,13 @@ export const RunList: React.FC = () => {
                         >
                             <List size={15} />
                         </button>
+                        <button
+                            className={`view-toggle-btn ${viewMode === 'schedule' ? 'active' : ''}`}
+                            onClick={() => handleViewChange('schedule')}
+                            title="Schedule view"
+                        >
+                            <Calendar size={15} />
+                        </button>
                     </div>
                     <button
                         className="btn-new-batch text-sm px-3 py-1.5"
@@ -263,6 +288,20 @@ export const RunList: React.FC = () => {
                         </div>
                     )}
                 </>
+            )}
+
+            {/* Schedule View */}
+            {viewMode === 'schedule' && (
+                <ResourceTimeline
+                    resources={scheduleData.resources}
+                    blocks={scheduleData.blocks}
+                    onBlockClick={(block) => {
+                        if (block.linkTo?.id) {
+                            setExpandedId(block.linkTo.id);
+                            handleViewChange('list');
+                        }
+                    }}
+                />
             )}
 
             {/* Start Run Modal */}
