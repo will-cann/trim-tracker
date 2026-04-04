@@ -1,4 +1,4 @@
-import type { TrimSession, CreateTrimSessionDTO, Trimmer, TrimmerProfile, ProposedAction, Harvest, CreateHarvestDTO, HarvestWasteType, HarvestAllocation, HarvestPlantWeight, FloweringBatchGroup, Strain, License, SpeechMode, HumanTask, TeamRole, Tag, TagType, TagStats, TagSettings, Package, CreatePackageDTO } from '../types/definitions';
+import type { TrimSession, CreateTrimSessionDTO, Trimmer, TrimmerProfile, ProposedAction, Harvest, CreateHarvestDTO, HarvestWasteType, HarvestAllocation, HarvestPlantWeight, FloweringBatchGroup, Strain, License, SpeechMode, HumanTask, TeamRole, Tag, TagType, TagStats, TagSettings, Package, CreatePackageDTO, ReportSpec, SavedReport } from '../types/definitions';
 
 const API_BASE = '/.netlify/functions';
 
@@ -891,15 +891,28 @@ export const deleteExtractionEquipment = async (id: string): Promise<void> => {
 
 // ── Process Templates ───────────────────────────────────────────────────────
 
-export const getProcessTemplates = async (): Promise<any[]> => {
-    const response = await fetchWithAuth(`${API_BASE}/get-process-templates`);
+export const getProcessTemplates = async (domain?: string): Promise<any[]> => {
+    const params = new URLSearchParams();
+    if (domain) params.set('domain', domain);
+    const qs = params.toString();
+    const response = await fetchWithAuth(`${API_BASE}/get-process-templates${qs ? `?${qs}` : ''}`);
     if (!response.ok) throw new Error('Failed to fetch process templates');
     return await response.json();
 };
 
 export const saveProcessTemplate = async (data: {
     id?: string; name: string; description?: string; processType: string;
-    steps: { stepOrder: number; name: string; description?: string; inputType?: string; outputType?: string; equipmentType?: string; expectedYieldPct?: number; estDurationHours?: number; isOptional?: boolean; }[];
+    domain?: string; phaseDurations?: Record<string, number>;
+    steps: {
+        stepOrder: number; name: string; description?: string;
+        inputType?: string; outputType?: string; equipmentType?: string;
+        expectedYieldPct?: number; estDurationHours?: number; estHandsOnHours?: number; isOptional?: boolean;
+        // Cultivation fields
+        track?: string; phase?: string; phaseWeek?: number; phaseDay?: number;
+        isSpan?: boolean; spanEndWeek?: number; envTargets?: Record<string, any>;
+        taskCategory?: string; onCompleteAction?: { type: string; data: Record<string, any> };
+        requiresSupplies?: string[]; isCritical?: boolean; recurrence?: { everyWeeks?: number };
+    }[];
 }): Promise<{ id: string }> => {
     const response = await fetchWithAuth(`${API_BASE}/save-process-template`, {
         method: 'POST',
@@ -982,6 +995,47 @@ export const deletePackage = async (id: string): Promise<void> => {
         method: 'DELETE',
     });
     if (!response.ok) throw new Error('Failed to delete package');
+};
+
+// ── Reports ─────────────────────────────────────────────────────────────────
+
+export const generateReport = async (prompt: string, conversationHistory?: Array<{ role: string; content: string }>): Promise<{ spec?: ReportSpec; data?: Record<string, any>[]; message?: string; error?: string }> => {
+    const response = await fetchWithAuth(`${API_BASE}/generate-report`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prompt, conversationHistory }),
+    });
+    if (!response.ok) {
+        const err = await response.json().catch(() => ({ error: 'Failed to generate report' }));
+        throw new Error(err.error);
+    }
+    return await response.json();
+};
+
+export const getSavedReports = async (): Promise<SavedReport[]> => {
+    const response = await fetchWithAuth(`${API_BASE}/get-saved-reports`);
+    if (!response.ok) throw new Error('Failed to fetch saved reports');
+    return await response.json();
+};
+
+export const saveReport = async (data: { id?: string; title: string; description?: string; spec: ReportSpec; pinned?: boolean }): Promise<SavedReport> => {
+    const response = await fetchWithAuth(`${API_BASE}/save-report`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+    });
+    if (!response.ok) {
+        const err = await response.json().catch(() => ({ error: 'Failed to save report' }));
+        throw new Error(err.error);
+    }
+    return await response.json();
+};
+
+export const deleteReport = async (id: string): Promise<void> => {
+    const response = await fetchWithAuth(`${API_BASE}/delete-saved-report?id=${id}`, {
+        method: 'DELETE',
+    });
+    if (!response.ok) throw new Error('Failed to delete report');
 };
 
 export const apiService = {
@@ -1086,4 +1140,9 @@ export const apiService = {
     updateRunStep,
     // User sync
     syncUser,
+    // Reports
+    generateReport,
+    getSavedReports,
+    saveReport,
+    deleteReport,
 };

@@ -284,6 +284,10 @@ export interface ExtractionEquipment {
   updatedAt: string;
 }
 
+export type SOPTrack = 'feeding' | 'ipm' | 'training' | 'environment' | 'milestone';
+export type SOPPhase = 'nursery' | 'vegetative' | 'flowering' | 'drying';
+export type SOPDomain = 'extraction' | 'cultivation' | 'processing' | 'compliance' | 'facility';
+
 export interface ProcessStep {
   id: string;
   templateId: string;
@@ -297,6 +301,19 @@ export interface ProcessStep {
   estDurationHours: number | null;
   estHandsOnHours: number | null;
   isOptional: boolean;
+  // Cultivation SOP fields
+  track: SOPTrack | null;
+  phase: SOPPhase | null;
+  phaseWeek: number | null;
+  phaseDay: number | null;
+  isSpan: boolean;
+  spanEndWeek: number | null;
+  envTargets: Record<string, any> | null;
+  taskCategory: string | null;
+  onCompleteAction: { type: string; data: Record<string, any> } | null;
+  requiresSupplies: string[] | null;
+  isCritical: boolean;
+  recurrence: { everyWeeks?: number } | null;
 }
 
 export interface ProcessTemplate {
@@ -304,6 +321,8 @@ export interface ProcessTemplate {
   name: string;
   description: string | null;
   processType: ProcessType;
+  domain: SOPDomain;
+  phaseDurations: Record<string, number> | null;
   acceptedInputs: string[];
   isPreset: boolean;
   isActive: boolean;
@@ -519,4 +538,53 @@ export interface ConversationSummary {
   id: string;
   title: string;
   updatedAt: string;
+}
+
+// ============================================================================
+// REPORT BUILDER TYPES
+// ============================================================================
+
+export type ReportVisualization = 'bar' | 'line' | 'area' | 'composed' | 'pie' | 'table' | 'metric';
+
+export interface ReportQueryColumn {
+  expr: string;
+  alias: string;
+  agg?: 'sum' | 'avg' | 'count' | 'min' | 'max';
+}
+
+export interface ReportQueryFilter {
+  column: string;
+  op: '=' | '!=' | '>' | '<' | '>=' | '<=' | 'in' | 'between';
+  value: any;
+}
+
+export interface ReportSpec {
+  title: string;
+  description: string;
+  visualization: ReportVisualization;
+  query: {
+    from: string;
+    joins?: { table: string; on: [string, string] }[];
+    columns: ReportQueryColumn[];
+    filters?: ReportQueryFilter[];
+    groupBy?: string[];
+    orderBy?: { column: string; dir: 'asc' | 'desc' }[];
+    limit?: number;
+  };
+  chart: {
+    xAxis: string;
+    yAxis: string[];
+    colorBy?: string;
+    stacked?: boolean;
+  };
+}
+
+export interface SavedReport {
+  id: string;
+  title: string;
+  description: string | null;
+  spec: ReportSpec;
+  pinned: boolean;
+  created_at: string;
+  updated_at: string;
 }

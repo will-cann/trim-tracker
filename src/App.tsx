@@ -22,10 +22,11 @@ import { HarvestDayCockpit } from './components/HarvestDay/HarvestDayCockpit';
 import { TeamDashboard } from './components/TeamDashboard';
 import { TagListView } from './components/TagList/TagListView';
 import { ExtractionDashboard } from './components/Extraction/ExtractionDashboard';
+import { SOPsDashboard } from './components/SOPs/SOPsDashboard';
 import { usePlantMapSummary } from './hooks/usePlantMapSummary';
 import logo from './assets/logo.png';
 
-type ViewType = 'ai' | 'dashboard' | 'reports' | 'harvests' | 'harvest-day' | 'settings' | 'tasks' | 'plant-map' | 'packages' | 'extractions' | 'team' | 'tag-list';
+type ViewType = 'ai' | 'dashboard' | 'reports' | 'harvests' | 'harvest-day' | 'settings' | 'tasks' | 'plant-map' | 'packages' | 'extractions' | 'sops' | 'team' | 'tag-list';
 
 const VIEW_SCREEN_CONTEXT: Record<ViewType, string> = {
   'ai': 'neurocann home — general conversation, no specific module focused',
@@ -38,6 +39,7 @@ const VIEW_SCREEN_CONTEXT: Record<ViewType, string> = {
   'harvest-day': 'Harvest Day Cockpit — active harvest session with plant weighing, allocation, fresh frozen packaging, and batch submission',
   'packages': 'Package Inventory — managing packaged product (flower, trim, shake) with weights, lab testing status, and compliance tracking',
   'extractions': 'Extraction Log — viewing processing history: ice water washes, rosin presses, cart fills with yield tracking',
+  'sops': 'SOPs — creating and managing Standard Operating Procedures for cultivation, extraction, processing, and compliance workflows',
   'team': 'Team Management — managing employees, roles, and invitations',
   'tag-list': 'Tag Browser — browsing and searching all plant and batch tags',
 };
@@ -361,6 +363,8 @@ function AppContent() {
           <PackageDashboard />
         ) : currentView === 'extractions' ? (
           <ExtractionDashboard />
+        ) : currentView === 'sops' ? (
+          <SOPsDashboard />
         ) : currentView === 'reports' ? (
           <ReportsDashboard />
         ) : !session && !selectedSessionId ? (
