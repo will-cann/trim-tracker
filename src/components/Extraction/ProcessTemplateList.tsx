@@ -537,7 +537,7 @@ const TemplateEditor: React.FC<TemplateEditorProps> = ({ template, onSave, onCan
             const result = await apiService.saveProcessTemplate(payload);
 
             // Reload full template from server
-            const all = await apiService.getProcessTemplates();
+            const all = await apiService.getProcessTemplates('extraction');
             const saved = all.find(t => t.id === (result as any).id);
             if (saved) onSave(saved);
         } catch (err) {
@@ -812,7 +812,7 @@ const TemplateCard: React.FC<{
 
 // ── Main Component ──────────────────────────────────────────────────────────
 
-export const ProcessTemplateList: React.FC = () => {
+export const ProcessTemplateList: React.FC<{ domain?: string }> = ({ domain = 'extraction' }) => {
     const [templates, setTemplates] = useState<ProcessTemplate[]>([]);
     const [loading, setLoading] = useState(true);
     const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -820,11 +820,11 @@ export const ProcessTemplateList: React.FC = () => {
 
     const loadTemplates = useCallback(async () => {
         setLoading(true);
-        const data = await apiService.getProcessTemplates();
+        const data = await apiService.getProcessTemplates(domain);
         setTemplates(data);
         setLoading(false);
         if (data.length > 0 && !expandedId) setExpandedId(data[0].id);
-    }, []);
+    }, [domain]);
 
     useEffect(() => {
         loadTemplates();

@@ -4,6 +4,7 @@ import type { ProcessTemplate, SOPDomain } from '../../types/definitions';
 import { apiService } from '../../services/apiService';
 import { CenteredSpinner } from '../Spinner';
 import { CultivationSOPBuilder } from '../Cultivation/CultivationSOPBuilder';
+import { ProcessTemplateList } from '../Extraction/ProcessTemplateList';
 import { PHASE_LABELS } from '../Cultivation/cultivationSOPAdapter';
 
 // ── Domain tab config ───────────────────────────────────────────────────────
@@ -51,7 +52,7 @@ export function SOPsDashboard() {
         }
     };
 
-    // ── If editing, show the builder ────────────────────────────────────────
+    // ── If editing cultivation, show the builder ──────────────────────────
     if (editing !== null && domain === 'cultivation') {
         return (
             <CultivationSOPBuilder
@@ -70,9 +71,11 @@ export function SOPsDashboard() {
                     <BookOpen size={22} color="#3BB570" />
                     <h1>SOPs</h1>
                 </div>
-                <button className="btn-primary" onClick={() => setEditing('new')}>
-                    <Plus size={14} /> New SOP
-                </button>
+                {domain !== 'extraction' && (
+                    <button className="btn-primary" onClick={() => setEditing('new')}>
+                        <Plus size={14} /> New SOP
+                    </button>
+                )}
             </div>
 
             {/* Domain tabs */}
@@ -89,8 +92,10 @@ export function SOPsDashboard() {
                 ))}
             </div>
 
-            {/* Template list */}
-            {loading ? (
+            {/* Extraction: delegate to existing ProcessTemplateList */}
+            {domain === 'extraction' ? (
+                <ProcessTemplateList />
+            ) : loading ? (
                 <CenteredSpinner />
             ) : templates.length === 0 ? (
                 <div className="sops-empty">
