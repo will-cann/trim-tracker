@@ -45,19 +45,11 @@ export const handler: Handler = async (event) => {
         if (!apiKey) return { statusCode: 500, body: JSON.stringify({ error: 'AI service not configured' }) };
 
         const body = JSON.parse(event.body || '{}');
-        const { vendorId, fileName, fileContent, fileType } = body;
+        const { fileName, fileContent, fileType } = body;
 
-        if (!vendorId || !fileContent) {
-            return { statusCode: 400, body: JSON.stringify({ error: 'vendorId and fileContent are required' }) };
+        if (!fileContent) {
+            return { statusCode: 400, body: JSON.stringify({ error: 'fileContent is required' }) };
         }
-
-        // Create menu record
-        const { rows: menuRows } = await sql`
-            INSERT INTO vendor_menus (vendor_id, company_id, file_name, status)
-            VALUES (${vendorId}, ${context.companyId}, ${fileName || 'upload'}, 'parsing')
-            RETURNING id
-        `;
-        const menuId = menuRows[0].id;
 
         // Build Claude message content
         const content: any[] = [];
@@ -96,7 +88,6 @@ export const handler: Handler = async (event) => {
         if (!apiResponse.ok) {
             const errText = await apiResponse.text();
             console.error('Anthropic API error:', apiResponse.status, errText);
-            await sql`UPDATE vendor_menus SET status = 'failed' WHERE id = ${menuId}`;
             return { statusCode: 502, body: JSON.stringify({ error: 'AI parsing failed', detail: errText }) };
         }
 
@@ -119,24 +110,19 @@ export const handler: Handler = async (event) => {
         }
 
         if (!parsed.products?.length) {
-            await sql`UPDATE vendor_menus SET status = 'failed' WHERE id = ${menuId}`;
             return {
                 statusCode: 200,
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ menuId, products: [], message: 'No products could be extracted from the file.' }),
+                body: JSON.stringify({ products: [], vendorName: parsed.vendorName, message: 'No products could be extracted from the file.' }),
             };
         }
 
-        // Mark menu as parsed
-        await sql`UPDATE vendor_menus SET status = 'parsed', parsed_at = NOW() WHERE id = ${menuId}`;
-
-        // Return parsed products for review (don't save yet — user confirms)
+        // Return parsed products + detected vendor for review (nothing saved yet)
         return {
             statusCode: 200,
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-                menuId,
-                vendorName: parsed.vendorName,
+                vendorName: parsed.vendorName || fileName?.replace(/\.[^.]+$/, '') || 'Unknown Vendor',
                 products: parsed.products,
             }),
         };

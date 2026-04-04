@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Store as StoreIcon, ShoppingCart, Package, Building2 } from 'lucide-react';
+import { Store as StoreIcon, ShoppingCart, Package, Building2, Upload } from 'lucide-react';
 import { apiService } from '../../services/apiService';
 import type { Vendor, VendorProduct, Store, PurchaseOrder } from '../../types/definitions';
 import { VendorList } from './VendorList';
@@ -7,6 +7,7 @@ import { ProductCatalog } from './ProductCatalog';
 import { StoreList } from './StoreList';
 import { OrderList } from './OrderList';
 import { OrderBuilder } from './OrderBuilder';
+import { MenuUploadModal } from './MenuUploadModal';
 
 type Tab = 'vendors' | 'products' | 'stores' | 'orders';
 
@@ -18,7 +19,7 @@ export const OrderingDashboard = () => {
     const [orders, setOrders] = useState<PurchaseOrder[]>([]);
     const [loading, setLoading] = useState(true);
 
-    // Order builder state
+    const [showUpload, setShowUpload] = useState(false);
     const [buildingOrderVendorId, setBuildingOrderVendorId] = useState<string | null>(null);
     const [editingOrderId, setEditingOrderId] = useState<string | null>(null);
 
@@ -97,10 +98,13 @@ export const OrderingDashboard = () => {
 
     return (
         <div className="dashboard">
-            <div className="dashboard-top-section">
+            <div className="dashboard-top-section" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <div className="header-title">
                     <h4>Ordering</h4>
                 </div>
+                <button className="btn-primary" onClick={() => setShowUpload(true)}>
+                    <Upload size={15} style={{ marginRight: 4 }} /> Upload Menu
+                </button>
             </div>
 
             <div className="extraction-tabs">
@@ -153,6 +157,13 @@ export const OrderingDashboard = () => {
                     loading={loading}
                     onRefresh={refreshOrders}
                     onEditOrder={handleEditOrder}
+                />
+            )}
+
+            {showUpload && (
+                <MenuUploadModal
+                    onClose={() => setShowUpload(false)}
+                    onSaved={() => { setShowUpload(false); loadAll(); }}
                 />
             )}
         </div>

@@ -1,13 +1,10 @@
 import { useState, useRef, useCallback } from 'react';
 import { Upload, Check, X, Loader2 } from 'lucide-react';
 import * as XLSX from 'xlsx';
-import type { Vendor } from '../../types/definitions';
 import { apiService } from '../../services/apiService';
 import { Modal } from '../ui';
 
 interface Props {
-    vendors: Vendor[];
-    defaultVendorId?: string;
     onClose: () => void;
     onSaved: () => void;
 }
@@ -26,16 +23,13 @@ interface ParsedProduct {
 
 type Step = 'upload' | 'parsing' | 'review' | 'saving';
 
-export const MenuUploadModal: React.FC<Props> = ({ vendors, defaultVendorId, onClose, onSaved }) => {
+export const MenuUploadModal: React.FC<Props> = ({ onClose, onSaved }) => {
     const [step, setStep] = useState<Step>('upload');
-    const [vendorId, setVendorId] = useState(defaultVendorId || vendors[0]?.id || '');
+    const [vendorName, setVendorName] = useState('');
     const [fileName, setFileName] = useState('');
     const [error, setError] = useState('');
-    const [menuId, setMenuId] = useState('');
     const [products, setProducts] = useState<ParsedProduct[]>([]);
-    const [detectedVendor, setDetectedVendor] = useState('');
     const fileRef = useRef<HTMLInputElement>(null);
-    const dropRef = useRef<HTMLDivElement>(null);
     const [dragging, setDragging] = useState(false);
 
     const processFile = useCallback(async (file: File) => {
@@ -55,18 +49,15 @@ export const MenuUploadModal: React.FC<Props> = ({ vendors, defaultVendorId, onC
             const buf = await file.arrayBuffer();
             fileContent = btoa(String.fromCharCode(...new Uint8Array(buf)));
         } else if (['xlsx', 'xls'].includes(ext)) {
-            // Parse Excel to CSV client-side, then send as text
             fileType = 'text';
             const buf = await file.arrayBuffer();
             const workbook = XLSX.read(buf, { type: 'array' });
-            // Convert all sheets to CSV, separated by sheet name headers
             const sheets = workbook.SheetNames.map(name => {
                 const csv = XLSX.utils.sheet_to_csv(workbook.Sheets[name]);
                 return workbook.SheetNames.length > 1 ? `--- Sheet: ${name} ---\n${csv}` : csv;
             });
             fileContent = sheets.join('\n\n');
         } else {
-            // CSV, TSV, plain text
             fileType = 'text';
             fileContent = await file.text();
         }
@@ -75,14 +66,12 @@ export const MenuUploadModal: React.FC<Props> = ({ vendors, defaultVendorId, onC
 
         try {
             const result = await apiService.parseVendorMenu({
-                vendorId,
                 fileName: file.name,
                 fileContent,
                 fileType,
             });
 
-            setMenuId(result.menuId);
-            if (result.vendorName) setDetectedVendor(result.vendorName);
+            if (result.vendorName) setVendorName(result.vendorName);
 
             if (!result.products?.length) {
                 setError(result.message || 'No products found in file.');
@@ -96,7 +85,7 @@ export const MenuUploadModal: React.FC<Props> = ({ vendors, defaultVendorId, onC
             setError(err.message || 'Failed to parse menu');
             setStep('upload');
         }
-    }, [vendorId]);
+    }, []);
 
     const handleDrop = useCallback((e: React.DragEvent) => {
         e.preventDefault();
@@ -121,13 +110,13 @@ export const MenuUploadModal: React.FC<Props> = ({ vendors, defaultVendorId, onC
 
     const handleSave = async () => {
         const selected = products.filter(p => p._selected);
-        if (!selected.length) return;
+        if (!selected.length || !vendorName.trim()) return;
 
         setStep('saving');
         try {
             await apiService.bulkSaveVendorProducts({
-                vendorId,
-                menuId: menuId || undefined,
+                vendorName: vendorName.trim(),
+                fileName,
                 products: selected.map(({ _selected, ...p }) => p),
             });
             onSaved();
@@ -138,7 +127,6 @@ export const MenuUploadModal: React.FC<Props> = ({ vendors, defaultVendorId, onC
     };
 
     const selectedCount = products.filter(p => p._selected).length;
-
     const fmt = (n?: number) => n != null ? `$${n.toFixed(2)}` : '';
 
     return (
@@ -150,7 +138,7 @@ export const MenuUploadModal: React.FC<Props> = ({ vendors, defaultVendorId, onC
                 step === 'review' ? (
                     <>
                         <button className="btn-cancel" onClick={() => { setStep('upload'); setProducts([]); }}>Back</button>
-                        <button className="btn-primary" disabled={selectedCount === 0} onClick={handleSave}>
+                        <button className="btn-primary" disabled={selectedCount === 0 || !vendorName.trim()} onClick={handleSave}>
                             Save {selectedCount} Product{selectedCount !== 1 ? 's' : ''}
                         </button>
                     </>
@@ -162,15 +150,7 @@ export const MenuUploadModal: React.FC<Props> = ({ vendors, defaultVendorId, onC
             {/* Step: Upload */}
             {step === 'upload' && (
                 <>
-                    <div className="field">
-                        <label className="field-label">Vendor *</label>
-                        <select className="field-input" value={vendorId} onChange={e => setVendorId(e.target.value)}>
-                            {vendors.map(v => <option key={v.id} value={v.id}>{v.name}</option>)}
-                        </select>
-                    </div>
-
                     <div
-                        ref={dropRef}
                         onDragOver={e => { e.preventDefault(); setDragging(true); }}
                         onDragLeave={() => setDragging(false)}
                         onDrop={handleDrop}
@@ -187,10 +167,10 @@ export const MenuUploadModal: React.FC<Props> = ({ vendors, defaultVendorId, onC
                     >
                         <Upload size={32} color={dragging ? '#3BB570' : '#959595'} style={{ margin: '0 auto 12px' }} />
                         <div style={{ fontSize: '0.875rem', fontWeight: 500, color: '#1A1A1A' }}>
-                            Drop a file here or click to browse
+                            Drop a vendor menu here or click to browse
                         </div>
                         <div style={{ fontSize: '0.75rem', color: '#959595', marginTop: 6 }}>
-                            CSV, Excel (.xlsx), PDF, or image — AI will extract products automatically
+                            Excel (.xlsx), CSV, PDF, or image — AI extracts products and detects the vendor
                         </div>
                         <input
                             ref={fileRef}
@@ -217,7 +197,7 @@ export const MenuUploadModal: React.FC<Props> = ({ vendors, defaultVendorId, onC
                         Parsing {fileName}...
                     </div>
                     <div style={{ fontSize: '0.75rem', color: '#959595', marginTop: 6 }}>
-                        AI is extracting product data. This may take 10-30 seconds.
+                        AI is extracting products and identifying the vendor. This may take 10-30 seconds.
                     </div>
                 </div>
             )}
@@ -227,7 +207,7 @@ export const MenuUploadModal: React.FC<Props> = ({ vendors, defaultVendorId, onC
                 <div style={{ textAlign: 'center', padding: '48px 20px' }}>
                     <Loader2 size={32} color="#3BB570" style={{ animation: 'spin 1s linear infinite', margin: '0 auto 16px' }} />
                     <div style={{ fontSize: '0.875rem', fontWeight: 500, color: '#1A1A1A' }}>
-                        Saving {selectedCount} products...
+                        Creating vendor and saving {selectedCount} products...
                     </div>
                 </div>
             )}
@@ -235,17 +215,25 @@ export const MenuUploadModal: React.FC<Props> = ({ vendors, defaultVendorId, onC
             {/* Step: Review */}
             {step === 'review' && (
                 <>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-                        <div>
-                            <span style={{ fontSize: '0.875rem', fontWeight: 500 }}>
-                                {products.length} products found
-                            </span>
-                            {detectedVendor && (
-                                <span style={{ fontSize: '0.75rem', color: '#959595', marginLeft: 8 }}>
-                                    from {detectedVendor}
-                                </span>
-                            )}
+                    {/* Editable vendor name */}
+                    <div className="field" style={{ marginBottom: 16 }}>
+                        <label className="field-label">Vendor Name</label>
+                        <input
+                            className="field-input"
+                            value={vendorName}
+                            onChange={e => setVendorName(e.target.value)}
+                            placeholder="Enter vendor name..."
+                            style={{ fontWeight: 500 }}
+                        />
+                        <div style={{ fontSize: '0.6875rem', color: '#959595', marginTop: 4 }}>
+                            {vendorName ? 'Detected from file — edit if needed' : 'Could not detect vendor name — please enter it'}
                         </div>
+                    </div>
+
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                        <span style={{ fontSize: '0.875rem', fontWeight: 500 }}>
+                            {products.length} products found
+                        </span>
                         <button
                             onClick={toggleAll}
                             style={{ fontSize: '0.75rem', color: '#3BB570', background: 'none', border: 'none', cursor: 'pointer' }}

@@ -193,8 +193,6 @@ export const ProductCatalog: React.FC<Props> = ({ products, vendors, loading, on
 
             {showUpload && (
                 <MenuUploadModal
-                    vendors={vendors}
-                    defaultVendorId={vendorFilter || undefined}
                     onClose={() => setShowUpload(false)}
                     onSaved={() => { setShowUpload(false); onRefresh(); }}
                 />

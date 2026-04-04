@@ -1153,8 +1153,8 @@ export const saveOrder = async (data: {
 };
 
 export const parseVendorMenu = async (data: {
-    vendorId: string; fileName: string; fileContent: string; fileType: 'text' | 'pdf' | 'image';
-}): Promise<{ menuId: string; vendorName?: string; products: any[]; message?: string }> => {
+    fileName: string; fileContent: string; fileType: 'text' | 'pdf' | 'image';
+}): Promise<{ vendorName?: string; products: any[]; message?: string }> => {
     const response = await fetchWithAuth(`${API_BASE}/parse-vendor-menu`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -1168,8 +1168,8 @@ export const parseVendorMenu = async (data: {
 };
 
 export const bulkSaveVendorProducts = async (data: {
-    vendorId: string; menuId?: string; products: any[];
-}): Promise<{ inserted: number }> => {
+    vendorId?: string; vendorName?: string; fileName?: string; products: any[];
+}): Promise<{ vendorId: string; inserted: number }> => {
     const response = await fetchWithAuth(`${API_BASE}/bulk-save-vendor-products`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
