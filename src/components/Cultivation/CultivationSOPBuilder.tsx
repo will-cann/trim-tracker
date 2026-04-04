@@ -456,6 +456,8 @@ export function CultivationSOPBuilder({ initialTemplate, onBack, onSaved }: Prop
                             ? { bottom: window.innerHeight - quickAdd.y, top: 'auto' }
                             : { top: quickAdd.y }),
                         zIndex: 1100,
+                        maxHeight: 'calc(100vh - 32px)',
+                        overflowY: 'auto',
                     }}
                 >
                     <div className="sop-quick-add-header">
