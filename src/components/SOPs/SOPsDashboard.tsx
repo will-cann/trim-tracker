@@ -9,9 +9,9 @@ import { PHASE_LABELS } from '../Cultivation/cultivationSOPAdapter';
 
 // ── Domain tab config ───────────────────────────────────────────────────────
 
-const DOMAIN_TABS: { domain: SOPDomain; label: string; color: string }[] = [
-    { domain: 'cultivation', label: 'Cultivation', color: '#3BB570' },
-    { domain: 'extraction', label: 'Extraction', color: '#1C9EFF' },
+const DOMAIN_TABS: { domain: SOPDomain; label: string; color: string; available?: boolean }[] = [
+    { domain: 'cultivation', label: 'Cultivation', color: '#3BB570', available: true },
+    { domain: 'extraction', label: 'Extraction', color: '#1C9EFF', available: true },
     { domain: 'processing', label: 'Processing', color: '#FA9E52' },
     { domain: 'compliance', label: 'Compliance', color: '#DF5B59' },
     { domain: 'facility', label: 'Facility', color: '#959595' },
@@ -80,16 +80,22 @@ export function SOPsDashboard() {
 
             {/* Domain tabs */}
             <div className="sops-domain-tabs">
-                {DOMAIN_TABS.map(tab => (
-                    <button
-                        key={tab.domain}
-                        className={`sops-domain-tab ${domain === tab.domain ? 'active' : ''}`}
-                        onClick={() => { setDomain(tab.domain); setEditing(null); }}
-                    >
-                        <span className="sops-domain-dot" style={{ background: tab.color }} />
-                        {tab.label}
-                    </button>
-                ))}
+                {DOMAIN_TABS.map(tab => {
+                    const disabled = tab.available !== true;
+                    return (
+                        <button
+                            key={tab.domain}
+                            className={`sops-domain-tab ${domain === tab.domain ? 'active' : ''} ${disabled ? 'disabled' : ''}`}
+                            onClick={disabled ? undefined : () => { setDomain(tab.domain); setEditing(null); }}
+                            style={disabled ? { opacity: 0.4, cursor: 'default' } : undefined}
+                            title={disabled ? 'Coming soon' : undefined}
+                        >
+                            <span className="sops-domain-dot" style={{ background: tab.color }} />
+                            {tab.label}
+                            {disabled && <span style={{ fontSize: '0.6rem', fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.04em', color: '#959595', marginLeft: 4 }}>Soon</span>}
+                        </button>
+                    );
+                })}
             </div>
 
             {/* Extraction: delegate to existing ProcessTemplateList */}

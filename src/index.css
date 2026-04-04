@@ -5577,6 +5577,290 @@ select.field-input {
   background: rgba(223, 91, 89, 0.08);
 }
 
+/* ── Inline input (shared across settings tables) ── */
+.settings-inline-input {
+  width: 100%;
+  font-size: 0.8125rem;
+  padding: 4px 8px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-color);
+  outline: none;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.settings-inline-input::placeholder {
+  color: var(--border-color);
+}
+
+.settings-inline-input:hover {
+  border-color: var(--border-color);
+}
+
+.settings-inline-input:focus {
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 2px var(--primary-light);
+}
+
+select.settings-inline-input {
+  cursor: pointer;
+  padding-right: 24px;
+}
+
+/* Save flash */
+.settings-inline-input.just-saved {
+  background: rgba(59, 181, 112, 0.06);
+  border-color: rgba(59, 181, 112, 0.3);
+  transition: none;
+}
+
+/* ── Equipment table ── */
+.equip-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.875rem;
+}
+
+.equip-th {
+  text-align: left;
+  padding: 10px 12px;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-secondary);
+  border-bottom: 1px solid var(--border-color);
+  background: var(--background-color);
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+}
+
+.equip-th:first-child {
+  padding-left: 16px;
+}
+
+.equip-th:hover {
+  color: var(--text-color);
+}
+
+.equip-th--active {
+  color: var(--text-color);
+}
+
+.equip-th-sort {
+  display: inline-flex;
+  margin-left: 4px;
+  opacity: 0.4;
+  vertical-align: middle;
+}
+
+.equip-th--active .equip-th-sort {
+  opacity: 1;
+}
+
+.equip-col-name { width: 22%; }
+.equip-col-type { width: 18%; }
+.equip-col-capacity { width: 10%; text-align: right; }
+.equip-col-status { width: 12%; }
+.equip-col-notes { width: auto; }
+.equip-col-action { width: 100px; }
+
+.equip-row {
+  border-bottom: 1px solid var(--background-color);
+  transition: background 0.1s ease;
+}
+
+.equip-row:hover {
+  background: var(--background-color);
+}
+
+.equip-cell {
+  padding: 8px 12px;
+  vertical-align: middle;
+}
+
+.equip-cell:first-child {
+  padding-left: 16px;
+}
+
+.equip-cell-name .settings-inline-input {
+  font-weight: 600;
+}
+
+.equip-cell-capacity {
+  text-align: right;
+}
+
+.equip-cell-capacity .settings-inline-input {
+  text-align: right;
+  width: 72px;
+  font-variant-numeric: tabular-nums;
+  -moz-appearance: textfield;
+}
+
+.equip-cell-capacity .settings-inline-input::-webkit-outer-spin-button,
+.equip-cell-capacity .settings-inline-input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.equip-unit {
+  font-size: 0.6875rem;
+  color: var(--text-secondary);
+  margin-left: 2px;
+}
+
+.equip-cell-action {
+  padding: 8px;
+  width: 40px;
+}
+
+/* Status dot */
+.equip-status-dot {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  margin-right: 6px;
+  vertical-align: middle;
+  flex-shrink: 0;
+}
+
+.equip-status-wrap {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* Delete confirmation inline */
+.equip-delete-confirm {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.75rem;
+  white-space: nowrap;
+}
+
+.equip-delete-confirm span {
+  color: var(--text-secondary);
+}
+
+.equip-delete-yes {
+  padding: 2px 8px;
+  border: none;
+  background: var(--danger-color);
+  color: white;
+  border-radius: 4px;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.equip-delete-yes:hover {
+  background: #DC2626;
+}
+
+.equip-delete-no {
+  padding: 2px 8px;
+  border: 1px solid var(--border-color);
+  background: white;
+  color: var(--text-secondary);
+  border-radius: 4px;
+  font-size: 0.6875rem;
+  cursor: pointer;
+}
+
+.equip-delete-no:hover {
+  border-color: #999;
+}
+
+/* Search bar */
+.equip-search {
+  width: 100%;
+  max-width: 280px;
+  padding: 7px 12px 7px 32px;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  font-size: 0.8125rem;
+  background: white;
+  outline: none;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.equip-search:focus {
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 2px var(--primary-light);
+}
+
+.equip-search-wrap {
+  position: relative;
+}
+
+.equip-search-icon {
+  position: absolute;
+  left: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-secondary);
+  pointer-events: none;
+}
+
+/* Toolbar row */
+.equip-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.equip-count {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* Add form improved */
+.equip-add-form {
+  padding: 16px;
+  margin-bottom: 12px;
+  background: var(--background-color);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+}
+
+.equip-add-row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.equip-add-row + .equip-add-row {
+  margin-top: 8px;
+}
+
+.equip-add-required {
+  font-size: 0.6875rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin-bottom: 6px;
+}
+
+.equip-add-optional {
+  font-size: 0.6875rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-weight: 600;
+  color: var(--border-color);
+  margin-bottom: 6px;
+  margin-top: 4px;
+}
+
 /* ============================================================================
    TASK RIGHT PANEL — mirrors right-panel pattern
    ============================================================================ */
@@ -9524,6 +9808,7 @@ select.field-input {
   height: 32px;
   border-bottom: 1px solid #E8E8E8;
   min-width: 600px;
+  position: relative;
 }
 
 .resource-timeline__col-header {
@@ -9545,6 +9830,16 @@ select.field-input {
 
 .resource-timeline__col-header--weekend {
   color: #C0C0C0;
+}
+
+.resource-timeline__day-label {
+  position: absolute;
+  top: -1.25rem;
+  left: 0;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  color: #959595;
+  letter-spacing: 0.02em;
 }
 
 /* Time rows */
