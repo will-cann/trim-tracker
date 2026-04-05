@@ -17,7 +17,7 @@ export const handler: Handler = async (event) => {
             };
         }
 
-        const denied = authorize(context, 'manager');
+        const denied = authorize(context, 'director');
         if (denied) return denied;
 
         const id = event.queryStringParameters?.id;

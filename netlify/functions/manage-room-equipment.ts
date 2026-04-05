@@ -9,7 +9,7 @@ export const handler: Handler = async (event) => {
             return { statusCode: 401, body: JSON.stringify({ error: 'Unauthorized' }) };
         }
 
-        const denied = authorize(context, 'manager');
+        const denied = authorize(context, 'director');
         if (denied) return denied;
 
         // CREATE

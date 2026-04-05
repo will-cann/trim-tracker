@@ -9,9 +9,9 @@ export const handler: Handler = async (event) => {
             return { statusCode: 401, body: JSON.stringify({ error: 'Unauthorized' }) };
         }
 
-        // Write operations require manager+; reads are open to all authenticated users
+        // Write operations require director+; reads are open to all authenticated users
         if (event.httpMethod !== 'GET') {
-            const denied = authorize(context, 'manager');
+            const denied = authorize(context, 'director');
             if (denied) return denied;
         }
 
