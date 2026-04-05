@@ -988,10 +988,21 @@ export const handler: Handler = async (event) => {
     }
 
     try {
-        const authContext = await resolveContext(event.headers.authorization);
+        const authContext = await resolveContext(event.headers.authorization) as
+            { userId: string; companyId: string; role: string; departments?: string[] } | null;
         if (!authContext) {
             return { statusCode: 401, body: JSON.stringify({ error: 'Unauthorized' }) };
         }
+
+        // Route to different models based on user role
+        const model = authContext.role === 'technician'
+            ? 'claude-haiku-4-5-20251001'
+            : 'claude-sonnet-4-20250514';
+
+        // Build department context for the system prompt
+        const deptContext = authContext.role === 'admin' || authContext.role === 'director'
+            ? 'You are assisting a user with full access to all departments.'
+            : `You are assisting a ${authContext.role === 'department_manager' ? 'department manager' : 'technician'} with access to: ${authContext.departments?.join(', ') || 'all departments'}.`;
 
         // Rate limit: 60 requests per company per 60 seconds
         const rateLimit = await checkRateLimit(authContext.companyId, 'ai-parse', 60, 60);
@@ -1167,9 +1178,9 @@ IMPORTANT: If the user is correcting or updating a previous statement (e.g. "act
                 'anthropic-version': '2023-06-01',
             },
             body: JSON.stringify({
-                model: 'claude-sonnet-4-20250514',
+                model,
                 max_tokens: 4096,
-                system: SYSTEM_PROMPT,
+                system: `${deptContext}\n\n${SYSTEM_PROMPT}`,
                 tools,
                 messages,
             }),
