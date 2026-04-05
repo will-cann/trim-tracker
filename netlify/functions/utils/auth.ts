@@ -20,33 +20,48 @@ export interface Auth0User {
     [key: string]: any;
 }
 
-export type Role = 'admin' | 'manager' | 'lead' | 'worker';
+export type Role = 'admin' | 'director' | 'department_manager' | 'technician';
+export type Department = 'cultivation' | 'extraction' | 'post_harvest' | 'trim' | 'procurement' | 'lab' | 'compliance';
 
 export interface AuthenticatedContext {
     userId: string;
     companyId: string;
     role: Role;
+    departments: Department[];
 }
 
 const ROLE_LEVEL: Record<Role, number> = {
-    admin: 40,
-    manager: 30,
-    lead: 20,
-    worker: 10,
+    admin: 50,
+    director: 40,
+    department_manager: 30,
+    technician: 10,
 };
 
 /**
- * Check if a user's role meets the minimum required level.
+ * Check if a user's role meets the minimum required level,
+ * and optionally that they belong to a required department.
+ * Admin and director bypass department checks.
  * Returns null if authorized, or an HTTP response object if not.
  */
-export function authorize(context: AuthenticatedContext, minRole: Role) {
+export function authorize(context: AuthenticatedContext, minRole: Role, requiredDept?: Department) {
     const userLevel = ROLE_LEVEL[context.role] ?? 0;
     const requiredLevel = ROLE_LEVEL[minRole];
-    if (userLevel >= requiredLevel) return null;
-    return {
-        statusCode: 403,
-        body: JSON.stringify({ error: 'Forbidden: insufficient permissions' }),
-    };
+    if (userLevel < requiredLevel) {
+        return {
+            statusCode: 403,
+            body: JSON.stringify({ error: 'Forbidden: insufficient permissions' }),
+        };
+    }
+    // Admin and director bypass department checks
+    if (requiredDept && context.role !== 'admin' && context.role !== 'director') {
+        if (!context.departments.includes(requiredDept)) {
+            return {
+                statusCode: 403,
+                body: JSON.stringify({ error: 'Forbidden: insufficient department permissions' }),
+            };
+        }
+    }
+    return null;
 }
 
 export async function verifyToken(authHeader?: string): Promise<Auth0User | null> {
@@ -76,6 +91,7 @@ export async function resolveContext(authHeader?: string): Promise<Authenticated
             userId: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
             companyId: '11111111-1111-1111-1111-111111111111',
             role: 'admin',
+            departments: [],
         };
     }
 
@@ -85,7 +101,7 @@ export async function resolveContext(authHeader?: string): Promise<Authenticated
     try {
         // Look up existing user by Auth0 sub
         const { rows } = await sql`
-            SELECT id, company_id, role
+            SELECT id, company_id, role, departments
             FROM users
             WHERE external_id = ${auth0User.sub}
         `;
@@ -94,7 +110,8 @@ export async function resolveContext(authHeader?: string): Promise<Authenticated
             return {
                 userId: rows[0].id,
                 companyId: rows[0].company_id,
-                role: rows[0].role
+                role: rows[0].role,
+                departments: rows[0].departments || [],
             };
         }
 
@@ -105,7 +122,7 @@ export async function resolveContext(authHeader?: string): Promise<Authenticated
 
         // Check if a user with this email already exists (link Auth0 sub to existing account)
         const { rows: existingByEmail } = await sql`
-            SELECT id, company_id, role FROM users WHERE email = ${email}
+            SELECT id, company_id, role, departments FROM users WHERE email = ${email}
         `;
 
         if (existingByEmail.length > 0) {
@@ -115,13 +132,14 @@ export async function resolveContext(authHeader?: string): Promise<Authenticated
             return {
                 userId: existingByEmail[0].id,
                 companyId: existingByEmail[0].company_id,
-                role: existingByEmail[0].role
+                role: existingByEmail[0].role,
+                departments: existingByEmail[0].departments || [],
             };
         }
 
         // Check if this email was pre-registered as a team member (invited via trimmer_profiles)
         const { rows: invitedProfiles } = await sql`
-            SELECT tp.id AS profile_id, tp.company_id, tp.role, tp.name AS profile_name
+            SELECT tp.id AS profile_id, tp.company_id, tp.role, tp.name AS profile_name, tp.departments
             FROM trimmer_profiles tp
             WHERE LOWER(tp.email) = LOWER(${email})
               AND tp.user_id IS NULL
@@ -130,11 +148,12 @@ export async function resolveContext(authHeader?: string): Promise<Authenticated
 
         if (invitedProfiles.length > 0) {
             const profile = invitedProfiles[0];
-            // Create user in the invited company with the assigned role
+            const profileDepts = profile.departments || [];
+            // Create user in the invited company with the assigned role and departments
             const { rows: [newUser] } = await sql`
-                INSERT INTO users (id, company_id, external_id, email, name, role)
-                VALUES (gen_random_uuid(), ${profile.company_id}, ${auth0User.sub}, ${email}, ${name || profile.profile_name}, ${profile.role})
-                RETURNING id, company_id, role
+                INSERT INTO users (id, company_id, external_id, email, name, role, departments)
+                VALUES (gen_random_uuid(), ${profile.company_id}, ${auth0User.sub}, ${email}, ${name || profile.profile_name}, ${profile.role}, ${profileDepts})
+                RETURNING id, company_id, role, departments
             `;
             // Link the profile to the new user
             await sql`
@@ -144,7 +163,8 @@ export async function resolveContext(authHeader?: string): Promise<Authenticated
             return {
                 userId: newUser.id,
                 companyId: newUser.company_id,
-                role: newUser.role
+                role: newUser.role,
+                departments: newUser.departments || [],
             };
         }
 
@@ -169,7 +189,8 @@ export async function resolveContext(authHeader?: string): Promise<Authenticated
         return {
             userId: newUser.id,
             companyId: newUser.company_id,
-            role: newUser.role
+            role: newUser.role,
+            departments: [],
         };
     } catch (error) {
         console.error('Error resolving user context:', error);
