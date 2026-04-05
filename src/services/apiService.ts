@@ -129,17 +129,17 @@ export const getTrimmerProfiles = async (): Promise<TrimmerProfile[]> => {
     return await response.json();
 };
 
-export const addTrimmerProfile = async (name: string, role?: TeamRole, email?: string): Promise<TrimmerProfile & { invited?: boolean; inviteUrl?: string }> => {
+export const addTrimmerProfile = async (name: string, role?: TeamRole, email?: string, departments?: string[]): Promise<TrimmerProfile & { invited?: boolean; inviteUrl?: string }> => {
     const response = await fetchWithAuth(`${API_BASE}/add-trimmer-profile`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, role, email }),
+        body: JSON.stringify({ name, role, email, departments }),
     });
     if (!response.ok) throw new Error('Failed to add profile');
     return await response.json();
 };
 
-export const updateTrimmerProfile = async (profileId: string, updates: { name?: string; role?: TeamRole; email?: string; status?: string }): Promise<TrimmerProfile> => {
+export const updateTrimmerProfile = async (profileId: string, updates: { name?: string; role?: TeamRole; email?: string; status?: string; departments?: string[] }): Promise<TrimmerProfile> => {
     const response = await fetchWithAuth(`${API_BASE}/update-trimmer-profile`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

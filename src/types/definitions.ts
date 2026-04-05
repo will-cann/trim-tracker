@@ -1,4 +1,4 @@
-export type TeamRole = 'admin' | 'manager' | 'lead' | 'worker';
+export type TeamRole = 'admin' | 'director' | 'department_manager' | 'technician';
 export type InviteStatus = 'none' | 'pending' | 'accepted';
 
 export interface TrimmerProfile {
@@ -7,6 +7,7 @@ export interface TrimmerProfile {
   status: 'active' | 'inactive';
   role: TeamRole;
   email?: string;
+  departments?: string[];
   userId?: string;
   invitedAt?: string;
   inviteStatus: InviteStatus;
