@@ -14,7 +14,7 @@ export const handler: Handler = async (event) => {
             return { statusCode: 401, body: JSON.stringify({ error: 'Unauthorized' }) };
         }
 
-        const { name, role, email } = JSON.parse(event.body || '{}');
+        const { name, role, email, departments } = JSON.parse(event.body || '{}');
 
         if (!name) {
             return { statusCode: 400, body: JSON.stringify({ error: 'Name is required' }) };
@@ -22,23 +22,24 @@ export const handler: Handler = async (event) => {
 
         // Inviting users (with email) requires manager+; adding roster-only profiles is open
         if (email) {
-            const denied = authorize(context, 'manager');
+            const denied = authorize(context, 'director');
             if (denied) return denied;
         }
 
-        const validRoles = ['admin', 'manager', 'lead', 'worker'];
-        const assignedRole = validRoles.includes(role) ? role : 'worker';
+        const validRoles = ['admin', 'director', 'department_manager', 'technician'];
+        const assignedRole = validRoles.includes(role) ? role : 'technician';
 
         const { rows } = await sql`
-            INSERT INTO trimmer_profiles (company_id, name, status, role, email)
+            INSERT INTO trimmer_profiles (company_id, name, status, role, email, departments)
             VALUES (
                 ${context.companyId},
                 ${name},
                 'active',
                 ${assignedRole},
-                ${email || null}
+                ${email || null},
+                ${departments || []}
             )
-            RETURNING id, name, status, role, email, user_id, invited_at, invite_status, created_at
+            RETURNING id, name, status, role, email, departments, user_id, invited_at, invite_status, created_at
         `;
 
         const row = rows[0];
@@ -69,6 +70,7 @@ export const handler: Handler = async (event) => {
                 name: row.name,
                 status: row.status,
                 role: row.role,
+                departments: row.departments || [],
                 email: row.email || undefined,
                 userId: row.user_id || undefined,
                 invitedAt: invited ? new Date().toISOString() : undefined,

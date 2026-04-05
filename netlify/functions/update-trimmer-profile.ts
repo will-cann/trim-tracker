@@ -13,7 +13,7 @@ export const handler: Handler = async (event) => {
             return { statusCode: 401, body: JSON.stringify({ error: 'Unauthorized' }) };
         }
 
-        const { profileId, name, role, email, status } = JSON.parse(event.body || '{}');
+        const { profileId, name, role, email, status, departments } = JSON.parse(event.body || '{}');
 
         if (!profileId) {
             return { statusCode: 400, body: JSON.stringify({ error: 'profileId is required' }) };
@@ -35,9 +35,10 @@ export const handler: Handler = async (event) => {
                 name = COALESCE(${name ?? null}, name),
                 role = COALESCE(${role ?? null}, role),
                 email = CASE WHEN ${email !== undefined} THEN ${email ?? null} ELSE email END,
-                status = COALESCE(${status ?? null}, status)
+                status = COALESCE(${status ?? null}, status),
+                departments = CASE WHEN ${departments !== undefined} THEN ${departments ?? []} ELSE departments END
             WHERE id = ${profileId} AND company_id = ${context.companyId}
-            RETURNING id, name, status, role, email, user_id, invited_at, invite_status, created_at
+            RETURNING id, name, status, role, email, departments, user_id, invited_at, invite_status, created_at
         `;
 
         // If this profile is linked to a user, keep the users table in sync
@@ -60,6 +61,7 @@ export const handler: Handler = async (event) => {
                 name: row.name,
                 status: row.status,
                 role: row.role,
+                departments: row.departments || [],
                 email: row.email || undefined,
                 userId: row.user_id || undefined,
                 invitedAt: row.invited_at || undefined,
