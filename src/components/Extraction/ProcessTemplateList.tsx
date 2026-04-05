@@ -888,10 +888,9 @@ export const ProcessTemplateList: React.FC<{ domain?: string }> = ({ domain = 'e
 
             {templates.length === 0 && (
                 <div className="sop-empty-state">
-                    <p className="sop-empty-title">No process templates yet</p>
+                    <p className="sop-empty-title">Define your extraction processes</p>
                     <p className="sop-empty-desc">
-                        Define your extraction workflows — each template becomes a reusable SOP
-                        that you can launch as a run.
+                        Create templates for wash, press, and cart fill workflows. Each template defines the steps, inputs, and outputs — then launch it as a tracked run.
                     </p>
                 </div>
             )}

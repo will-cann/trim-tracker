@@ -242,7 +242,7 @@ export const ReportsBuilder: React.FC = () => {
 
       {!isLoadingSaved && savedReports.length === 0 && !activeReport && !isGenerating && (
         <div className="report-empty">
-          Ask a question about your data to create your first report
+          Ask a question in plain language — "trimmer productivity this week" or "flower-to-waste ratio by strain" — and the AI will build a chart.
         </div>
       )}
     </div>

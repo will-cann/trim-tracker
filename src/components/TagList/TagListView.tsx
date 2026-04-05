@@ -173,7 +173,7 @@ export const TagListView: React.FC<TagListViewProps> = ({ onBack }) => {
                     columns={TAG_COLUMNS}
                     data={sortedTags}
                     loading={loading}
-                    emptyMessage={hasFilters ? 'No tags match your filters.' : 'No tags imported yet.'}
+                    emptyMessage={hasFilters ? 'No tags match your filters.' : 'Import a tag roll to assign physical tags to plants and packages for compliance tracking.'}
                     sortKey={sortKey}
                     sortDir={sortDir}
                     onSort={handleSort}

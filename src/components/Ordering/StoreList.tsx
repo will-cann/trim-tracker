@@ -72,7 +72,7 @@ export const StoreList: React.FC<Props> = ({ stores, loading, onRefresh }) => {
                 columns={columns}
                 data={stores}
                 loading={loading}
-                emptyMessage="No stores yet. Add your retail locations to start building per-store orders."
+                emptyMessage="Add your retail locations here. Each store gets its own column in the order builder so you can order per-location."
             />
 
             {showForm && (

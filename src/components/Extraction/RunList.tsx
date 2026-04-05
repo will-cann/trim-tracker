@@ -143,7 +143,7 @@ export const RunList: React.FC = () => {
     }, []);
 
     const loadTemplates = useCallback(async () => {
-        const data = await apiService.getProcessTemplates();
+        const data = await apiService.getProcessTemplates('extraction');
         setTemplates(data);
     }, []);
 
@@ -287,8 +287,8 @@ export const RunList: React.FC = () => {
                         <div className="run-list-empty">
                             <p>
                                 {statusFilter === 'all'
-                                    ? 'No extraction runs yet. Start one from a process template.'
-                                    : `No ${statusFilter} runs.`
+                                    ? 'Track wash, press, and cart fill runs here. Create a process template first, then start a run from it.'
+                                    : `No ${statusFilter} runs right now.`
                                 }
                             </p>
                         </div>

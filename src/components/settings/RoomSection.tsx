@@ -119,9 +119,9 @@ export const RoomSection: React.FC<RoomSectionProps> = ({ rooms, loading, onRelo
                 <CenteredSpinner label="Loading rooms…" height="py-12" />
             ) : rooms.length === 0 ? (
                 <div className="settings-empty">
-                    No rooms configured yet.{' '}
+                    Rooms define where plants live — veg, flower, dry, cure. Required for the plant map.{' '}
                     <button onClick={() => setIsAdding(true)} className="settings-empty-action">
-                        Add your first room
+                        Add your rooms
                     </button>
                 </div>
             ) : (

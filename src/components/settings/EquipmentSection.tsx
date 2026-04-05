@@ -241,7 +241,7 @@ export const EquipmentSection: React.FC<EquipmentSectionProps> = ({ loading }) =
             {equipment.length === 0 && !isAdding ? (
                 <div className="settings-empty mt-4">
                     <Wrench size={20} style={{ color: '#3BB570', marginBottom: 8 }} />
-                    <p>No equipment yet. Add your extraction machines to track capacity, status, and usage across runs.</p>
+                    <p>Add your extraction machines here — wash vessels, presses, cart fillers. Equipment shows up in run scheduling so you can track capacity and usage.</p>
                 </div>
             ) : equipment.length > 0 && (
                 <>

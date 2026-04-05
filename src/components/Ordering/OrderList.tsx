@@ -57,7 +57,7 @@ export const OrderList: React.FC<Props> = ({ orders, loading, onEditOrder }) => 
                 columns={columns}
                 data={orders}
                 loading={loading}
-                emptyMessage="No orders yet. Start an order from the Vendors tab."
+                emptyMessage="Purchase orders appear here once you build them. Go to Vendors and click 'Start Order' on any vendor."
                 onRowClick={(o) => onEditOrder(o.id)}
             />
         </div>

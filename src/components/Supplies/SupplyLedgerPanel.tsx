@@ -40,7 +40,7 @@ export const SupplyLedgerPanel = ({ item, entries, loading, onClose }: SupplyLed
                 {loading ? (
                     <div style={{ padding: '2rem', textAlign: 'center', color: '#959595' }}>Loading...</div>
                 ) : entries.length === 0 ? (
-                    <div style={{ padding: '2rem', textAlign: 'center', color: '#959595' }}>No history yet</div>
+                    <div style={{ padding: '2rem', textAlign: 'center', color: '#959595' }}>No transactions recorded for this item yet</div>
                 ) : (
                     <div style={{ maxHeight: 400, overflowY: 'auto' }}>
                         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8125rem' }}>

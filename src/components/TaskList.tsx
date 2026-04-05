@@ -33,8 +33,8 @@ export const TaskList = ({
         return (
             <div className="flex flex-col items-center justify-center py-8 text-gray-400">
                 <ListChecks size={32} className="mb-2" />
-                <p className="text-sm">No tasks yet</p>
-                <p className="text-xs mt-1">Speak or type to create tasks</p>
+                <p className="text-sm">No tasks captured yet</p>
+                <p className="text-xs mt-1">Mention a to-do in conversation and the AI will log it here</p>
             </div>
         );
     }

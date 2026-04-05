@@ -2,6 +2,7 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 import { useDeepgram } from '../hooks/useDeepgram';
 import { useAIChat } from '../hooks/useAIChat';
 import { AIEmptyState } from './AIEmptyState';
+import type { FacilitySetupStatus } from './AIEmptyState';
 import { AIChat } from './AIChat';
 import { isCardReady } from './ExtractionRunCard';
 import type { ExtractionRunCardData } from './ExtractionRunCard';
@@ -60,6 +61,26 @@ export const AIHome: React.FC<AIHomeProps> = ({
     onSelectConversation,
     onDeleteConversation,
 }) => {
+    // ── Facility setup status (for first-run checklist) ──
+    const [facilitySetup, setFacilitySetup] = useState<FacilitySetupStatus>({
+        hasLicenses: true, hasStrains: true, hasRooms: true, loading: true,
+    });
+
+    useEffect(() => {
+        let cancelled = false;
+        Promise.all([apiService.getStrains(), apiService.getRooms()]).then(([strains, rooms]) => {
+            if (!cancelled) {
+                setFacilitySetup({
+                    hasLicenses: licenses.length > 0,
+                    hasStrains: strains.length > 0,
+                    hasRooms: rooms.length > 0,
+                    loading: false,
+                });
+            }
+        });
+        return () => { cancelled = true; };
+    }, [licenses.length]);
+
     // ── Input state ──
     const [inputText, setInputText] = useState('');
     const [isDragOver, setIsDragOver] = useState(false);
@@ -474,6 +495,8 @@ export const AIHome: React.FC<AIHomeProps> = ({
                     onInputChange={setInputText}
                     onSubmit={handleSubmit}
                     onKeyDown={handleKeyDown}
+                    facilitySetup={facilitySetup}
+                    onNavigateToSettings={() => onViewChange?.('settings')}
                 />
             ) : (
                 <AIChat

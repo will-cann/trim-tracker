@@ -8,12 +8,14 @@ import {
     ArrowUp, ArrowDown, ChevronsUpDown, ChevronDown, ChevronRight, Plus, AlertTriangle, Clock,
     MessageSquare,
 } from 'lucide-react';
-import type { HumanTask, HumanTaskStatus, HumanTaskCategory, HumanTaskPriority } from '../types/definitions';
+import type { HumanTask, HumanTaskStatus, HumanTaskCategory, HumanTaskPriority, TaskViewSpec } from '../types/definitions';
 import { executeAction } from '../services/actionExecutor';
-import { Modal, Button, FilterToolbar, ViewToggle, useViewMode, UndoToast } from './ui';
+import { Modal, Button, FilterToolbar, ViewToggle, useViewMode, UndoToast, ViewSwitcherPills } from './ui';
 import type { FilterDef, SortOption } from './ui';
 import ResourceCalendar from './ui/ResourceCalendar';
 import { buildTasksSchedule } from './tasksCalendarAdapter';
+import { useAuth } from '../contexts/authContext';
+import { useTaskViews } from '../hooks/useTaskViews';
 
 export interface TeamMember {
     id: string;
@@ -864,6 +866,39 @@ export const TasksPanel = ({
     const [showCreateRow, setShowCreateRow] = useState(false);
     const [collapsedGroups, setCollapsedGroups] = useState<Set<UrgencyGroup>>(new Set(['completed']));
     const [pendingDelete, setPendingDelete] = useState<{ id: string; title: string } | null>(null);
+
+    // ── Saved views ────────────────────────────────────────────────────────
+    const { user } = useAuth();
+    const currentUserName = teamMembers.find(m => m.userId === user?.id)?.name;
+    const taskViews = useTaskViews({ currentUserName });
+    const initialViewApplied = useRef(false);
+
+    const getCurrentSpec = (): TaskViewSpec => ({
+        filters,
+        sortField,
+        sortDir,
+        viewMode,
+    });
+
+    const handleSelectView = (viewId: string) => {
+        const spec = taskViews.applyView(viewId);
+        onSetFilters(spec.filters);
+        setSortField((spec.sortField as SortField) ?? null);
+        setSortDir(spec.sortDir);
+        setViewMode(spec.viewMode as 'cards' | 'table' | 'schedule' | 'calendar' | 'kanban');
+        setSearchQuery('');
+    };
+
+    // Auto-apply "My Tasks" on initial load
+    useEffect(() => {
+        if (initialViewApplied.current) return;
+        if (!user || teamMembers.length === 0) return;
+        initialViewApplied.current = true;
+        const myName = teamMembers.find(m => m.userId === user.id)?.name;
+        if (myName) {
+            onSetFilters({ assignees: [myName] });
+        }
+    }, [user, teamMembers, onSetFilters]);
     const deleteTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const activeCategories = [...new Set(tasks.map(t => t.category))];
 
@@ -1166,6 +1201,19 @@ export const TasksPanel = ({
                 </div>
             )}
 
+            {/* View switcher pills */}
+            <div className="px-6 pt-2 pb-1">
+                <ViewSwitcherPills
+                    views={taskViews.views}
+                    activeViewId={taskViews.activeViewId}
+                    isModified={taskViews.isModified(getCurrentSpec())}
+                    onSelectView={handleSelectView}
+                    onSaveView={(title) => taskViews.saveCurrentAsView(title, getCurrentSpec())}
+                    onDeleteView={taskViews.deleteView}
+                    onUpdateView={(id) => taskViews.updateView(id, getCurrentSpec())}
+                />
+            </div>
+
             {/* Search + Filters + Sort */}
             <div className="px-6 py-3 border-b border-[#F1F1F1]">
                 <FilterToolbar
@@ -1208,9 +1256,9 @@ export const TasksPanel = ({
                             </>
                         ) : (
                             <>
-                                <h3 className="text-base font-semibold text-[#1A1A1A] mb-1">Get started with tasks</h3>
+                                <h3 className="text-base font-semibold text-[#1A1A1A] mb-1">Track operational work</h3>
                                 <p className="text-sm text-[#959595] max-w-sm mb-6">
-                                    Track operational work across your facility. Create tasks manually or let the AI generate them from conversation.
+                                    IPM sprays, equipment checks, room turnovers — anything your team needs to do. Create tasks here or let the AI capture them from conversation.
                                 </p>
 
                                 <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full max-w-md">

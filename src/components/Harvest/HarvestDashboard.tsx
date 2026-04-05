@@ -418,12 +418,12 @@ export const HarvestDashboard: React.FC<HarvestDashboardProps> = ({ onStartHarve
                         <Sprout size={28} style={{ color: 'var(--primary-color)' }} />
                     </div>
                     <h3 className="text-base font-semibold mb-1" style={{ color: 'var(--text-secondary)' }}>
-                        {hasFilters ? 'No harvests match your filters' : 'No harvests yet'}
+                        {hasFilters ? 'No harvests match your filters' : 'Ready to track a harvest'}
                     </h3>
                     <p className="text-sm max-w-xs mb-4" style={{ color: 'var(--color-dolphin)' }}>
                         {hasFilters
                             ? 'Try adjusting your search or filters.'
-                            : 'Start tracking your plants from wet weight through drying and final allocation.'}
+                            : 'Record wet weights, track drying progress, and allocate flower vs. frozen. Each harvest flows through the pipeline from cut to completion.'}
                     </p>
                     {!hasFilters && (
                         <button

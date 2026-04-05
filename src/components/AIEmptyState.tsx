@@ -3,11 +3,154 @@ import {
     ArrowRight, FileText, Scissors, Sprout, ClipboardList,
     Leaf, Radio, ChevronDown, type LucideIcon, Thermometer,
     MoveRight, Package, User, Scale, ArrowRightLeft, Trash2,
-    MessageSquare,
+    MessageSquare, Check, Shield, Dna, DoorOpen,
 } from 'lucide-react';
 import { VoicePill } from './VoicePill';
 import type { ConversationSummary, SpeechMode } from '../types/definitions';
 import logo from '../assets/logo.png';
+
+// ── Setup status for first-run checklist ──
+export interface FacilitySetupStatus {
+    hasLicenses: boolean;
+    hasStrains: boolean;
+    hasRooms: boolean;
+    loading: boolean;
+}
+
+const SetupChecklist: React.FC<{
+    setup: FacilitySetupStatus;
+    onNavigateToSettings: () => void;
+}> = ({ setup, onNavigateToSettings }) => {
+    const [collapsed, setCollapsed] = useState(false);
+
+    if (setup.loading) return null;
+
+    const steps = [
+        { key: 'license', label: 'Add a facility license', desc: 'Required for harvests, sessions, and compliance', done: setup.hasLicenses, icon: Shield },
+        { key: 'strain', label: 'Add your strains', desc: 'Needed for tracking harvests and plant batches', done: setup.hasStrains, icon: Dna },
+        { key: 'room', label: 'Set up a room', desc: 'Used for plant map and room assignments', done: setup.hasRooms, icon: DoorOpen },
+    ];
+
+    const doneCount = steps.filter(s => s.done).length;
+    if (doneCount === 3) return null; // All done — hide checklist
+
+    return (
+        <div style={{
+            width: '100%',
+            maxWidth: 520,
+            margin: '0 auto 20px',
+        }}>
+            <button
+                onClick={() => setCollapsed(!collapsed)}
+                style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 10,
+                    width: '100%',
+                    padding: '10px 16px',
+                    background: '#FAFAFA',
+                    border: '1px solid #E8E8E8',
+                    borderRadius: collapsed ? 10 : '10px 10px 0 0',
+                    cursor: 'pointer',
+                    transition: 'border-radius 0.15s ease',
+                }}
+            >
+                {/* Progress ring */}
+                <svg width="24" height="24" viewBox="0 0 24 24" style={{ flexShrink: 0 }}>
+                    <circle cx="12" cy="12" r="10" fill="none" stroke="#E8E8E8" strokeWidth="2.5" />
+                    <circle
+                        cx="12" cy="12" r="10" fill="none"
+                        stroke="#3BB570" strokeWidth="2.5"
+                        strokeDasharray={`${(doneCount / 3) * 62.83} 62.83`}
+                        strokeLinecap="round"
+                        transform="rotate(-90 12 12)"
+                        style={{ transition: 'stroke-dasharray 0.3s ease' }}
+                    />
+                    <text x="12" y="12" textAnchor="middle" dominantBaseline="central"
+                        style={{ fontSize: '8px', fontWeight: 700, fill: '#1A1A1A' }}>
+                        {doneCount}/3
+                    </text>
+                </svg>
+                <span style={{ flex: 1, textAlign: 'left', fontSize: '0.8125rem', fontWeight: 600, color: '#1A1A1A' }}>
+                    Set up your facility
+                </span>
+                <ChevronDown size={14} color="#959595" style={{
+                    transform: collapsed ? 'none' : 'rotate(180deg)',
+                    transition: 'transform 0.15s ease',
+                }} />
+            </button>
+
+            {!collapsed && (
+                <div style={{
+                    border: '1px solid #E8E8E8',
+                    borderTop: 'none',
+                    borderRadius: '0 0 10px 10px',
+                    overflow: 'hidden',
+                }}>
+                    {steps.map((step, idx) => {
+                        const Icon = step.icon;
+                        return (
+                            <button
+                                key={step.key}
+                                onClick={step.done ? undefined : onNavigateToSettings}
+                                style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: 12,
+                                    width: '100%',
+                                    padding: '12px 16px',
+                                    background: step.done ? '#FAFAFA' : '#fff',
+                                    border: 'none',
+                                    borderTop: idx > 0 ? '1px solid #F1F1F1' : 'none',
+                                    cursor: step.done ? 'default' : 'pointer',
+                                    textAlign: 'left',
+                                    transition: 'background 0.1s ease',
+                                    opacity: step.done ? 0.55 : 1,
+                                }}
+                                onMouseEnter={e => { if (!step.done) (e.currentTarget.style.background = '#F8FBF9'); }}
+                                onMouseLeave={e => { if (!step.done) (e.currentTarget.style.background = '#fff'); }}
+                            >
+                                <div style={{
+                                    width: 28,
+                                    height: 28,
+                                    borderRadius: 8,
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    background: step.done ? '#E8F8EE' : '#F1F1F1',
+                                    flexShrink: 0,
+                                }}>
+                                    {step.done
+                                        ? <Check size={14} color="#3BB570" strokeWidth={3} />
+                                        : <Icon size={14} color="#959595" />
+                                    }
+                                </div>
+                                <div style={{ flex: 1, minWidth: 0 }}>
+                                    <div style={{
+                                        fontSize: '0.8125rem',
+                                        fontWeight: 500,
+                                        color: step.done ? '#959595' : '#1A1A1A',
+                                        textDecoration: step.done ? 'line-through' : 'none',
+                                    }}>
+                                        {step.label}
+                                    </div>
+                                    {!step.done && (
+                                        <div style={{ fontSize: '0.6875rem', color: '#959595', marginTop: 1 }}>
+                                            {step.desc}
+                                        </div>
+                                    )}
+                                </div>
+                                {!step.done && (
+                                    <ArrowRight size={14} color="#C0C0C0" style={{ flexShrink: 0 }} />
+                                )}
+                            </button>
+                        );
+                    })}
+                </div>
+            )}
+        </div>
+    );
+};
 
 // ── Static suggestions — one per domain, contextually useful ──
 const SUGGESTIONS: { text: string; icon: LucideIcon; color: string }[] = [
@@ -106,6 +249,9 @@ interface AIEmptyStateProps {
     onInputChange: (text: string) => void;
     onSubmit: (e: React.FormEvent) => void;
     onKeyDown: (e: React.KeyboardEvent) => void;
+    // Setup status
+    facilitySetup?: FacilitySetupStatus;
+    onNavigateToSettings?: () => void;
 }
 
 export const AIEmptyState: React.FC<AIEmptyStateProps> = ({
@@ -132,6 +278,8 @@ export const AIEmptyState: React.FC<AIEmptyStateProps> = ({
     onInputChange,
     onSubmit,
     onKeyDown,
+    facilitySetup,
+    onNavigateToSettings,
 }) => {
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [showAllWorkflows, setShowAllWorkflows] = useState(false);
@@ -153,6 +301,11 @@ export const AIEmptyState: React.FC<AIEmptyStateProps> = ({
 
             {/* License selector */}
             {licenseSelector}
+
+            {/* Setup checklist — shown when facility config is incomplete */}
+            {facilitySetup && onNavigateToSettings && (
+                <SetupChecklist setup={facilitySetup} onNavigateToSettings={onNavigateToSettings} />
+            )}
 
             {/* Primary input */}
             <form onSubmit={onSubmit} className="ai-hero-form">

@@ -336,12 +336,12 @@ export const PackageDashboard: React.FC = () => {
                         <Package size={24} className="text-[#C0C0C0]" />
                     </div>
                     <h3 className="text-base font-semibold text-[#1A1A1A] mb-1">
-                        {hasFilters ? 'No matching packages' : 'No packages yet'}
+                        {hasFilters ? 'No matching packages' : 'Package your finished product'}
                     </h3>
                     <p className="text-sm text-[#959595] max-w-xs mb-4">
                         {hasFilters
                             ? 'Try adjusting your search or filters.'
-                            : 'Create packages from your completed trim entries to track inventory.'}
+                            : 'Packages are the final inventory units — flower, trim, or shake — ready for sale or transfer. Create them from completed trim entries.'}
                     </p>
                     {!hasFilters && (
                         <button

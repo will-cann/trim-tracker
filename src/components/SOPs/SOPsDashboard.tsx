@@ -106,9 +106,9 @@ export function SOPsDashboard() {
             ) : templates.length === 0 ? (
                 <div className="sops-empty">
                     <BookOpen size={32} color="#C0C0C0" />
-                    <p>No {domain} SOPs yet</p>
+                    <p>Define your {domain.toLowerCase()} workflows as reusable templates. SOPs can auto-generate tasks when launched.</p>
                     <button className="btn-primary" onClick={() => setEditing('new')}>
-                        <Plus size={14} /> New {domain} SOP
+                        <Plus size={14} /> Create {domain} SOP
                     </button>
                 </div>
             ) : (

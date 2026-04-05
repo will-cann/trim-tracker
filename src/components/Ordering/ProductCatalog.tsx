@@ -211,7 +211,7 @@ export const ProductCatalog: React.FC<Props> = ({ products, vendors, loading, on
                 sortKey={sortKey}
                 sortDir={sortDir}
                 onSort={handleSort}
-                emptyMessage="No products found. Add products manually or upload a vendor menu."
+                emptyMessage="Your vendor product catalog lives here. Upload a menu to auto-import, or add products manually."
                 onRowClick={(p) => { setEditing({ ...p }); setShowForm(true); }}
             />
 

@@ -26,7 +26,7 @@ export function DataTable<T extends Record<string, any>>({
     columns,
     data,
     loading = false,
-    emptyMessage = 'No data found.',
+    emptyMessage = 'Nothing here yet.',
     onRowClick,
     sortKey,
     sortDir = 'asc',

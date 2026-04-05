@@ -213,7 +213,7 @@ export const VendorList: React.FC<Props> = ({ vendors, loading, onRefresh, onSta
                 columns={columns}
                 data={vendors}
                 loading={loading}
-                emptyMessage="No vendors yet. Upload a menu to auto-create vendors, or add one manually."
+                emptyMessage="Your vendor list builds automatically when you upload menus. You can also add vendors manually."
             />
 
             {showForm && (

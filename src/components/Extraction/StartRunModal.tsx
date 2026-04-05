@@ -378,7 +378,7 @@ export const StartRunModal: React.FC<StartRunModalProps> = ({ templates, onClose
                 {/* ── Step 1: Template ────────────────────────────────────── */}
                 {step === 'template' && (
                     <div className="start-run-templates">
-                        {templates.map(t => {
+                        {templates.filter(t => t.domain === 'extraction').map(t => {
                             const color = PROCESS_COLORS[t.processType] || '#959595';
                             const Icon = PROCESS_ICONS[t.processType] || Wrench;
                             const requiredSteps = t.steps.filter(s => !s.isOptional);
@@ -405,7 +405,7 @@ export const StartRunModal: React.FC<StartRunModalProps> = ({ templates, onClose
                         })}
                         {templates.length === 0 && (
                             <p className="start-run-empty">
-                                No process templates found. Create one in the Processes tab first.
+                                You need at least one process template before starting a run. Switch to the Processes tab to create one.
                             </p>
                         )}
                     </div>

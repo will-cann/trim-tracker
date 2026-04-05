@@ -81,9 +81,9 @@ export const LicenseSection: React.FC<LicenseSectionProps> = ({ licenses, loadin
                 <CenteredSpinner label="Loading licenses…" height="py-12" />
             ) : licenses.length === 0 ? (
                 <div className="settings-empty">
-                    No licenses configured yet.{' '}
+                    Your facility license number is required for harvests, trim sessions, and packages.{' '}
                     <button onClick={() => setIsAdding(true)} className="settings-empty-action">
-                        Add your first license
+                        Add a license to get started
                     </button>
                 </div>
             ) : (

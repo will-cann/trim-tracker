@@ -1,13 +1,20 @@
 import React, { useState } from 'react';
 import { Plus, Trash2 } from 'lucide-react';
 import { CenteredSpinner } from '../Spinner';
-import type { Strain } from '../../types/definitions';
+import type { Strain, StretchTrait } from '../../types/definitions';
 import { apiService } from '../../services/apiService';
 
 /** Inline-editable row for a single strain */
+const STRETCH_OPTIONS: { value: StretchTrait | ''; label: string }[] = [
+    { value: '', label: '—' },
+    { value: 'low', label: 'Low' },
+    { value: 'medium', label: 'Med' },
+    { value: 'high', label: 'High' },
+];
+
 const StrainRow = ({ strain, onUpdate, onDelete }: {
     strain: Strain;
-    onUpdate: (updates: { defaultVegDays?: number | null; defaultFloweringDays?: number | null; notes?: string | null }) => Promise<void>;
+    onUpdate: (updates: { defaultVegDays?: number | null; defaultFloweringDays?: number | null; stretchTrait?: StretchTrait | null; notes?: string | null }) => Promise<void>;
     onDelete: () => void;
 }) => {
     const saveDays = async (field: 'defaultVegDays' | 'defaultFloweringDays', raw: string) => {
@@ -40,6 +47,17 @@ const StrainRow = ({ strain, onUpdate, onDelete }: {
             </td>
             <td className="strain-cell-days">{daysInput('defaultVegDays', strain.defaultVegDays)}</td>
             <td className="strain-cell-days">{daysInput('defaultFloweringDays', strain.defaultFloweringDays)}</td>
+            <td className="strain-cell-days">
+                <select
+                    defaultValue={strain.stretchTrait ?? ''}
+                    onChange={e => onUpdate({ stretchTrait: (e.target.value as StretchTrait) || null })}
+                    className="strain-days-input"
+                >
+                    {STRETCH_OPTIONS.map(o => (
+                        <option key={o.value} value={o.value}>{o.label}</option>
+                    ))}
+                </select>
+            </td>
             <td className="strain-cell-notes">
                 <input
                     type="text"
@@ -115,9 +133,9 @@ export const StrainSection: React.FC<StrainSectionProps> = ({ strains, loading, 
                 <CenteredSpinner label="Loading strains…" height="py-12" />
             ) : strains.length === 0 ? (
                 <div className="settings-empty">
-                    No strains configured yet.{' '}
+                    Strains are used to track harvests, batches, and plant records across your facility.{' '}
                     <button onClick={() => setIsAdding(true)} className="settings-empty-action">
-                        Add your first strain
+                        Add your strains
                     </button>
                 </div>
             ) : (
@@ -128,6 +146,7 @@ export const StrainSection: React.FC<StrainSectionProps> = ({ strains, loading, 
                                 <th className="strain-th strain-th-name">Strain</th>
                                 <th className="strain-th strain-th-days">Veg</th>
                                 <th className="strain-th strain-th-days">Flower</th>
+                                <th className="strain-th strain-th-days">Stretch</th>
                                 <th className="strain-th strain-th-notes">Notes</th>
                                 <th className="strain-th" style={{ width: 40 }}></th>
                             </tr>
