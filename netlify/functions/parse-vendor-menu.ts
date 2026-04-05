@@ -24,13 +24,24 @@ Rules:
 - If store columns are present (quantities per store), ignore those — just extract the product catalog
 - Combine multi-line product entries where appropriate
 - For THC/CBD percentages, include them in the product name if they seem relevant
+- For tiered pricing, use the lowest tier (highest volume discount) as the unitPrice
+
+IMPORTANT: Also include a "notes" field in your response — a short summary (2-4 sentences) highlighting anything the buyer should know about this menu. Flag things like:
+- Tiered pricing structures (and which tier you used for unitPrice)
+- Active promotions, sales, or limited-time pricing
+- Minimum order requirements or free shipping thresholds
+- Items marked as limited availability, seasonal, or new
+- Payment terms (Net 15, COD, etc.) if mentioned
+- Any data you couldn't parse or had to guess at
+If the menu is clean and straightforward, just say so briefly.
 
 Return a JSON object with exactly this shape:
 {
+  "vendorName": "...",
+  "notes": "...",
   "products": [
     { "name": "...", "brand": "...", "category": "...", "sku": "...", "unitSize": "...", "caseSize": 12, "unitPrice": 5.50, "casePrice": 60.00 }
-  ],
-  "vendorName": "..." // if you can detect the vendor name from the document
+  ]
 }`;
 
 export const handler: Handler = async (event) => {
@@ -94,7 +105,7 @@ export const handler: Handler = async (event) => {
         const response = await apiResponse.json();
 
         // Extract JSON from response text
-        let parsed: { products: any[]; vendorName?: string } = { products: [] };
+        let parsed: { products: any[]; vendorName?: string; notes?: string } = { products: [] };
         for (const block of response.content) {
             if (block.type === 'text') {
                 // Find JSON in the response (might be wrapped in markdown code blocks)
@@ -113,16 +124,17 @@ export const handler: Handler = async (event) => {
             return {
                 statusCode: 200,
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ products: [], vendorName: parsed.vendorName, message: 'No products could be extracted from the file.' }),
+                body: JSON.stringify({ products: [], vendorName: parsed.vendorName, notes: parsed.notes, message: 'No products could be extracted from the file.' }),
             };
         }
 
-        // Return parsed products + detected vendor for review (nothing saved yet)
+        // Return parsed products + detected vendor + AI notes for review (nothing saved yet)
         return {
             statusCode: 200,
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 vendorName: parsed.vendorName || fileName?.replace(/\.[^.]+$/, '') || 'Unknown Vendor',
+                notes: parsed.notes || null,
                 products: parsed.products,
             }),
         };
