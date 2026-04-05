@@ -26,6 +26,14 @@
 
   --color-dolphin: #C0C0C0;
 
+  /* Detail grays — used in inline sections, METRC compliance, sub-forms */
+  --detail-bg: #F8F8F8;           /* subtle section background */
+  --detail-bg-hover: #F1F1F1;     /* koala */
+  --detail-border: #E0E0E0;       /* same as border-color */
+  --detail-text: #737373;          /* between rhino and dolphin */
+  --detail-text-light: #959595;    /* rhino */
+  --detail-text-strong: #404040;   /* near panther */
+
   --border-radius: 8px;
   --border-color: #E0E0E0;
 
@@ -11257,4 +11265,191 @@ select.settings-inline-input {
 
 .report-table tbody tr:hover {
   background: #FAFAFA;
+}
+
+/* ── View Switcher Tabs ──────────────────────────────────────────────────── */
+
+.view-switcher {
+  position: relative;
+}
+
+.view-switcher__track {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.view-switcher__item {
+  display: flex;
+  align-items: center;
+  position: relative;
+}
+
+.view-switcher__sep {
+  width: 1px;
+  height: 16px;
+  background: var(--border-color);
+  margin: 0 6px;
+  flex-shrink: 0;
+}
+
+/* ── Tab button ──────────────────────────────────────────────────────────── */
+
+.view-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 12px;
+  font-size: 0.8125rem;
+  font-weight: 400;
+  font-family: inherit;
+  color: var(--text-secondary);
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: color 0.15s ease, background 0.15s ease;
+  user-select: none;
+  position: relative;
+}
+
+.view-tab:hover {
+  color: var(--text-primary);
+  background: var(--background-color);
+}
+
+.view-tab--active {
+  color: var(--text-primary);
+  font-weight: 700;
+  background: var(--background-color);
+}
+
+.view-tab--active::after {
+  content: '';
+  position: absolute;
+  bottom: -1px;
+  left: 10px;
+  right: 10px;
+  height: 2px;
+  background: var(--primary-color);
+  border-radius: 2px 2px 0 0;
+}
+
+.view-tab--ghost {
+  color: var(--color-dolphin);
+  font-weight: 400;
+}
+
+.view-tab--ghost:hover {
+  color: var(--text-secondary);
+  background: var(--background-color);
+}
+
+.view-tab__label {
+  line-height: 1;
+}
+
+/* Modified indicator — subtle orange dot after label */
+.view-tab__dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--warning-color);
+  flex-shrink: 0;
+  margin-top: -4px;
+}
+
+/* ── Dropdown trigger (chevron on active custom views) ───────────────────── */
+
+.view-tab__menu-trigger {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 4px;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: background 0.12s ease, color 0.12s ease;
+  margin-left: -4px;
+}
+
+.view-tab__menu-trigger:hover {
+  background: var(--border-color);
+  color: var(--text-primary);
+}
+
+/* ── Dropdown menu ───────────────────────────────────────────────────────── */
+
+.view-tab__dropdown {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  z-index: 50;
+  min-width: 170px;
+  background: white;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 4px;
+  box-shadow: 0 8px 24px -4px rgba(0, 0, 0, 0.1), 0 2px 8px -2px rgba(0, 0, 0, 0.06);
+  animation: filterDropdownIn 0.12s ease-out;
+}
+
+.view-tab__dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 7px 10px;
+  font-size: 0.8125rem;
+  font-family: inherit;
+  color: var(--text-primary);
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.1s ease;
+  text-align: left;
+}
+
+.view-tab__dropdown-item:hover {
+  background: var(--background-color);
+}
+
+.view-tab__dropdown-item--danger {
+  color: var(--danger-color);
+}
+
+.view-tab__dropdown-item--danger:hover {
+  background: rgba(223, 91, 89, 0.06);
+}
+
+/* ── New view input ──────────────────────────────────────────────────────── */
+
+.view-switcher__new {
+  flex-shrink: 0;
+}
+
+.view-switcher__new-input {
+  font-size: 0.8125rem;
+  font-family: inherit;
+  color: var(--text-primary);
+  background: white;
+  border: 1.5px solid var(--primary-color);
+  border-radius: 6px;
+  padding: 5px 10px;
+  width: 140px;
+  outline: none;
+  transition: box-shadow 0.15s ease;
+}
+
+.view-switcher__new-input:focus {
+  box-shadow: 0 0 0 3px var(--primary-light);
+}
+
+.view-switcher__new-input::placeholder {
+  color: var(--color-dolphin);
 }

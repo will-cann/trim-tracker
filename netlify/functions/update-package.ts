@@ -33,8 +33,8 @@ export const handler: Handler = async (event) => {
         if (updates.labTestingState !== undefined && !VALID_LAB_STATES.includes(updates.labTestingState)) {
             return { statusCode: 400, body: JSON.stringify({ error: `labTestingState must be one of: ${VALID_LAB_STATES.join(', ')}` }) };
         }
-        if (updates.quantity !== undefined && (typeof updates.quantity !== 'number' || updates.quantity < 0)) {
-            return { statusCode: 400, body: JSON.stringify({ error: 'quantity must be a non-negative number' }) };
+        if (updates.quantity !== undefined) {
+            return { statusCode: 400, body: JSON.stringify({ error: 'Use the adjust endpoint to change quantity — provides audit trail and METRC reason codes' }) };
         }
         if (updates.wasteWeight !== undefined && (typeof updates.wasteWeight !== 'number' || updates.wasteWeight < 0)) {
             return { statusCode: 400, body: JSON.stringify({ error: 'wasteWeight must be a non-negative number' }) };
@@ -46,8 +46,11 @@ export const handler: Handler = async (event) => {
             notes: 'notes',
             labTestingState: 'lab_testing_state',
             itemName: 'item_name',
-            quantity: 'quantity',
+            metrcItemId: 'metrc_item_id',
             wasteWeight: 'waste_weight',
+            isProductionBatch: 'is_production_batch',
+            isTradeSample: 'is_trade_sample',
+            isDonation: 'is_donation',
         };
 
         const setClauses: string[] = [];
@@ -96,6 +99,8 @@ export const handler: Handler = async (event) => {
                 harvestId: row.harvest_id,
                 trimEntryId: row.trim_entry_id,
                 tagId: row.tag_id,
+                sourcePackageId: row.source_package_id || null,
+                metrcItemId: row.metrc_item_id || null,
                 label: row.label,
                 packageType: row.package_type,
                 itemName: row.item_name,
@@ -108,6 +113,12 @@ export const handler: Handler = async (event) => {
                 notes: row.notes,
                 status: row.status,
                 labTestingState: row.lab_testing_state,
+                isProductionBatch: row.is_production_batch || false,
+                isTradeSample: row.is_trade_sample || false,
+                isDonation: row.is_donation || false,
+                sourceHarvestNames: row.source_harvest_names || [],
+                sourcePackageLabels: row.source_package_labels || [],
+                metrcSyncedAt: row.metrc_synced_at || null,
                 packagedDate: row.packaged_date,
                 finishedDate: row.finished_date,
                 createdAt: row.created_at,

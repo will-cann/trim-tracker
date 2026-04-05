@@ -329,13 +329,13 @@ export const TrimCard: React.FC<TrimCardProps> = ({
                                     gap: '12px',
                                     padding: '6px 0 8px',
                                     fontSize: '11px',
-                                    color: 'var(--color-elephant-400)',
-                                    borderBottom: '1px solid var(--color-elephant-100)',
+                                    color: 'var(--detail-text-light)',
+                                    borderBottom: '1px solid var(--detail-bg-hover)',
                                     marginBottom: '8px',
                                 }}>
-                                    <span>Wet: <strong style={{ color: 'var(--color-elephant-600)' }}>{Math.round(entry.wetWeight!).toLocaleString()}g</strong></span>
+                                    <span>Wet: <strong style={{ color: 'var(--detail-text-strong)' }}>{Math.round(entry.wetWeight!).toLocaleString()}g</strong></span>
                                     <span>&rarr;</span>
-                                    <span>Est. Dry: <strong style={{ color: 'var(--color-elephant-600)' }}>{Math.round(entry.startWeight).toLocaleString()}g</strong></span>
+                                    <span>Est. Dry: <strong style={{ color: 'var(--detail-text-strong)' }}>{Math.round(entry.startWeight).toLocaleString()}g</strong></span>
                                     <span style={{ marginLeft: 'auto' }}>
                                         Moisture: ~{Math.round(entry.wetWeight! - entry.startWeight).toLocaleString()}g
                                     </span>

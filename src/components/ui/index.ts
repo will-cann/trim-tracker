@@ -10,3 +10,4 @@ export { DataTable } from './DataTable';
 export type { Column, DataTableProps } from './DataTable';
 export { ViewToggle, useViewMode } from './ViewToggle';
 export type { ViewMode } from './ViewToggle';
+export { ViewSwitcherPills } from './ViewSwitcherPills';

@@ -180,10 +180,10 @@ export const AddBatchModal: React.FC<AddBatchModalProps> = ({ onClose, onSubmit 
                                                     borderRadius: '10px',
                                                     border: isSelected
                                                         ? '2px solid var(--color-chameleon)'
-                                                        : '1.5px solid var(--color-elephant-200)',
+                                                        : '1.5px solid var(--detail-border)',
                                                     background: isSelected
                                                         ? 'var(--color-chameleon-50, rgba(76,175,80,0.06))'
-                                                        : 'var(--color-elephant-50)',
+                                                        : 'var(--detail-bg)',
                                                     cursor: 'pointer',
                                                     textAlign: 'left',
                                                     width: '100%',
@@ -195,13 +195,13 @@ export const AddBatchModal: React.FC<AddBatchModalProps> = ({ onClose, onSubmit 
                                                     <div style={{
                                                         fontWeight: 600,
                                                         fontSize: '14px',
-                                                        color: 'var(--color-elephant-800)',
+                                                        color: 'var(--text-color)',
                                                     }}>
                                                         {h.batchId}
                                                     </div>
                                                     <div style={{
                                                         fontSize: '12px',
-                                                        color: 'var(--color-elephant-500)',
+                                                        color: 'var(--detail-text)',
                                                         marginTop: '2px',
                                                     }}>
                                                         {h.strain} &middot; {h.licenseNumber}
@@ -214,13 +214,13 @@ export const AddBatchModal: React.FC<AddBatchModalProps> = ({ onClose, onSubmit 
                                                     <div style={{
                                                         fontSize: '13px',
                                                         fontWeight: 600,
-                                                        color: 'var(--color-elephant-800)',
+                                                        color: 'var(--text-color)',
                                                     }}>
                                                         ~{estDryWeight.toLocaleString()}g
                                                     </div>
                                                     <div style={{
                                                         fontSize: '11px',
-                                                        color: 'var(--color-elephant-400)',
+                                                        color: 'var(--detail-text-light)',
                                                         display: 'flex',
                                                         alignItems: 'center',
                                                         justifyContent: 'flex-end',

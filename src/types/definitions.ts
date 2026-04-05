@@ -238,11 +238,14 @@ export interface License {
 // STRAIN TYPES
 // ============================================================================
 
+export type StretchTrait = 'low' | 'medium' | 'high';
+
 export interface Strain {
   id: string;
   name: string;
   defaultVegDays: number | null;
   defaultFloweringDays: number | null;
+  stretchTrait: StretchTrait | null;
   notes: string | null;
   harvestCount: number;
   sessionCount: number;
@@ -295,6 +298,19 @@ export type PackageType = 'flower' | 'trim' | 'shake' | 'fresh_frozen' | 'bubble
 export type PackageStatus = 'active' | 'on_hold' | 'finished' | 'archived';
 export type LabTestingState = 'not_submitted' | 'submitted' | 'passed' | 'failed';
 export type ExtractionType = 'ice_water' | 'rosin_press' | 'cart_fill' | 'other';
+export type AdjustmentReason = 'Waste' | 'Moisture Loss' | 'Processing Loss' | 'Theft' | 'Reconciliation';
+
+export interface PackageAdjustment {
+  id: string;
+  packageId: string;
+  quantityBefore: number;
+  quantityAfter: number;
+  quantityDelta: number;
+  reason: AdjustmentReason;
+  notes: string | null;
+  createdBy: string;
+  createdAt: string;
+}
 
 export interface ExtractionLog {
   id: string;
@@ -433,6 +449,20 @@ export interface ExtractionRun {
   updatedAt: string;
 }
 
+export interface MetrcItem {
+  id: string;
+  licenseNumber: string;
+  name: string;
+  category: string;
+  strain?: string;
+  unitOfMeasure: string;
+  packageType?: PackageType;
+  metrcId?: number;
+  metrcSyncedAt?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface Package {
   id: string;
   harvestId?: string;
@@ -440,6 +470,7 @@ export interface Package {
   tagId?: string;
   tagNumber?: string;
   sourcePackageId?: string;
+  metrcItemId?: string;
   label: string;
   packageType: PackageType;
   itemName?: string;
@@ -454,6 +485,12 @@ export interface Package {
   status: PackageStatus;
   contaminants?: string[];
   labTestingState: LabTestingState;
+  isProductionBatch: boolean;
+  isTradeSample: boolean;
+  isDonation: boolean;
+  sourceHarvestNames?: string[];
+  sourcePackageLabels?: string[];
+  metrcSyncedAt?: string;
   packagedDate: string;
   finishedDate?: string;
   createdAt: string;
@@ -464,6 +501,7 @@ export interface CreatePackageDTO {
   trimEntryId?: string;
   tagId?: string;
   sourcePackageId?: string;
+  metrcItemId?: string;
   label: string;
   packageType: PackageType;
   itemName?: string;
@@ -474,6 +512,12 @@ export interface CreatePackageDTO {
   wasteWeight?: number;
   location?: string;
   notes?: string;
+  isProductionBatch?: boolean;
+  isTradeSample?: boolean;
+  isDonation?: boolean;
+  sourceHarvestNames?: string[];
+  sourcePackageLabels?: string[];
+  packagedDate?: string;
 }
 
 // ============================================================================
@@ -723,6 +767,31 @@ export interface SavedReport {
   pinned: boolean;
   created_at: string;
   updated_at: string;
+}
+
+// ============================================================================
+// SAVED TASK VIEWS
+// ============================================================================
+
+export interface TaskViewSpec {
+  filters: {
+    status: HumanTaskStatus[] | 'all';
+    category: HumanTaskCategory | 'all';
+    priority: HumanTaskPriority | 'all';
+    assignees: string[] | 'all';
+  };
+  sortField: string | null;
+  sortDir: 'asc' | 'desc';
+  viewMode: string;
+}
+
+export interface SavedTaskView {
+  id: string;
+  title: string;
+  spec: TaskViewSpec;
+  pinned: boolean;
+  createdAt: string;
+  updatedAt: string;
 }
 
 // ============================================================================

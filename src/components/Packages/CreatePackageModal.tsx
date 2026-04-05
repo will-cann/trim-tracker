@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Trash2 } from 'lucide-react';
+import { Trash2, ChevronDown } from 'lucide-react';
 import { CenteredSpinner } from '../Spinner';
-import type { CreatePackageDTO, PackageType, Strain, License } from '../../types/definitions';
+import type { CreatePackageDTO, PackageType, Strain, License, MetrcItem } from '../../types/definitions';
 import { apiService } from '../../services/apiService';
 import { Modal, Button } from '../ui';
 
@@ -92,9 +92,18 @@ export const CreatePackageModal: React.FC<CreatePackageModalProps> = ({ onClose,
     const [location, setLocation] = useState('');
     const [notes, setNotes] = useState('');
 
+    // METRC fields
+    const [metrcItemId, setMetrcItemId] = useState('');
+    const [packagedDate, setPackagedDate] = useState(new Date().toISOString().slice(0, 10));
+    const [isProductionBatch, setIsProductionBatch] = useState(false);
+    const [isTradeSample, setIsTradeSample] = useState(false);
+    const [isDonation, setIsDonation] = useState(false);
+    const [showMetrcFields, setShowMetrcFields] = useState(false);
+
     const [strains, setStrains] = useState<Strain[]>([]);
     const [licenses, setLicenses] = useState<License[]>([]);
     const [rooms, setRooms] = useState<Array<{ id: string; name: string }>>([]);
+    const [metrcItems, setMetrcItems] = useState<MetrcItem[]>([]);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
@@ -104,6 +113,17 @@ export const CreatePackageModal: React.FC<CreatePackageModalProps> = ({ onClose,
             apiService.getRooms().then(setRooms),
         ]).finally(() => setLoading(false));
     }, []);
+
+    // Load METRC items when license changes
+    useEffect(() => {
+        const lic = licenses.find(l => l.id === licenseId);
+        if (lic) {
+            apiService.getMetrcItems(lic.licenseNumber).then(setMetrcItems);
+        } else {
+            setMetrcItems([]);
+            setMetrcItemId('');
+        }
+    }, [licenseId, licenses]);
 
     // Auto-select strain/license from prefill
     useEffect(() => {
@@ -144,6 +164,14 @@ export const CreatePackageModal: React.FC<CreatePackageModalProps> = ({ onClose,
         e.preventDefault();
         if (!selectedStrain || !selectedLicense) return;
 
+        const metrcFields = {
+            metrcItemId: metrcItemId || undefined,
+            packagedDate: packagedDate || undefined,
+            isProductionBatch: isProductionBatch || undefined,
+            isTradeSample: isTradeSample || undefined,
+            isDonation: isDonation || undefined,
+        };
+
         if (isBatchMode && autoRows) {
             const dtos: CreatePackageDTO[] = autoRows.map(row => ({
                 label: row.label,
@@ -154,6 +182,7 @@ export const CreatePackageModal: React.FC<CreatePackageModalProps> = ({ onClose,
                 location: row.location || undefined,
                 harvestId: prefill?.harvestId,
                 trimEntryId: prefill?.trimEntryId,
+                ...metrcFields,
             }));
             onSubmit(dtos);
         } else {
@@ -168,6 +197,7 @@ export const CreatePackageModal: React.FC<CreatePackageModalProps> = ({ onClose,
                 notes: notes || undefined,
                 harvestId: prefill?.harvestId,
                 trimEntryId: prefill?.trimEntryId,
+                ...metrcFields,
             };
             onSubmit(dto);
         }
@@ -242,8 +272,8 @@ export const CreatePackageModal: React.FC<CreatePackageModalProps> = ({ onClose,
                                         alignItems: 'center',
                                         padding: '10px 12px',
                                         borderRadius: '8px',
-                                        background: 'var(--color-elephant-50)',
-                                        border: '1px solid var(--color-elephant-200)',
+                                        background: 'var(--detail-bg)',
+                                        border: '1px solid var(--detail-border)',
                                     }}
                                 >
                                     <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
@@ -259,11 +289,11 @@ export const CreatePackageModal: React.FC<CreatePackageModalProps> = ({ onClose,
                                     <span style={{
                                         fontSize: '11px',
                                         fontWeight: 600,
-                                        color: 'var(--color-elephant-500)',
+                                        color: 'var(--detail-text)',
                                         textTransform: 'uppercase',
                                         letterSpacing: '0.5px',
                                         padding: '2px 8px',
-                                        background: 'var(--color-elephant-100)',
+                                        background: 'var(--detail-bg-hover)',
                                         borderRadius: '4px',
                                         whiteSpace: 'nowrap',
                                     }}>
@@ -288,7 +318,7 @@ export const CreatePackageModal: React.FC<CreatePackageModalProps> = ({ onClose,
                                             background: 'none',
                                             border: 'none',
                                             cursor: 'pointer',
-                                            color: 'var(--color-elephant-400)',
+                                            color: 'var(--detail-text-light)',
                                             padding: '4px',
                                             display: 'flex',
                                             alignItems: 'center',
@@ -417,6 +447,111 @@ export const CreatePackageModal: React.FC<CreatePackageModalProps> = ({ onClose,
                                 />
                             </div>
                         </>
+                    )}
+
+                    {/* ── METRC Compliance (only shown when METRC items exist for this license) ── */}
+                    {metrcItems.length > 0 && (
+                        <div style={{ marginTop: '12px' }}>
+                            <button
+                                type="button"
+                                onClick={() => setShowMetrcFields(!showMetrcFields)}
+                                style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '6px',
+                                    background: 'none',
+                                    border: 'none',
+                                    cursor: 'pointer',
+                                    fontSize: '12px',
+                                    fontWeight: 600,
+                                    color: 'var(--detail-text)',
+                                    textTransform: 'uppercase',
+                                    letterSpacing: '0.5px',
+                                    padding: '4px 0',
+                                }}
+                            >
+                                <ChevronDown
+                                    size={14}
+                                    style={{
+                                        transform: showMetrcFields ? 'rotate(180deg)' : 'rotate(0)',
+                                        transition: 'transform 0.15s ease',
+                                    }}
+                                />
+                                METRC Compliance
+                            </button>
+
+                            {showMetrcFields && (
+                                <div style={{
+                                    display: 'flex',
+                                    flexDirection: 'column',
+                                    gap: '8px',
+                                    marginTop: '8px',
+                                    padding: '12px',
+                                    borderRadius: '8px',
+                                    background: 'var(--detail-bg)',
+                                    border: '1px solid var(--detail-border)',
+                                }}>
+                                    <div className="field-row">
+                                        <div className="field">
+                                            <label className="field-label">METRC Item</label>
+                                            <select
+                                                className="field-input"
+                                                value={metrcItemId}
+                                                onChange={e => setMetrcItemId(e.target.value)}
+                                            >
+                                                <option value="">Select item…</option>
+                                                {metrcItems.map(item => (
+                                                    <option key={item.id} value={item.id}>
+                                                        {item.name} ({item.category})
+                                                    </option>
+                                                ))}
+                                            </select>
+                                        </div>
+                                        <div className="field">
+                                            <label className="field-label">Packaged Date</label>
+                                            <input
+                                                type="date"
+                                                className="field-input"
+                                                value={packagedDate}
+                                                onChange={e => setPackagedDate(e.target.value)}
+                                            />
+                                        </div>
+                                    </div>
+
+                                    <div className="field">
+                                        <label className="field-label">Classification</label>
+                                        <div className="chip-group">
+                                            {[
+                                                { key: 'standard', label: 'Standard' },
+                                                { key: 'production', label: 'Production Batch' },
+                                                { key: 'sample', label: 'Trade Sample' },
+                                                { key: 'donation', label: 'Donation' },
+                                            ].map(opt => {
+                                                const isActive =
+                                                    (opt.key === 'standard' && !isProductionBatch && !isTradeSample && !isDonation) ||
+                                                    (opt.key === 'production' && isProductionBatch) ||
+                                                    (opt.key === 'sample' && isTradeSample) ||
+                                                    (opt.key === 'donation' && isDonation);
+                                                return (
+                                                    <button
+                                                        key={opt.key}
+                                                        type="button"
+                                                        className={`chip ${isActive ? 'chip-active' : ''}`}
+                                                        onClick={() => {
+                                                            setIsProductionBatch(opt.key === 'production');
+                                                            setIsTradeSample(opt.key === 'sample');
+                                                            setIsDonation(opt.key === 'donation');
+                                                        }}
+                                                    >
+                                                        {opt.label}
+                                                    </button>
+                                                );
+                                            })}
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
                     )}
                 </form>
             )}

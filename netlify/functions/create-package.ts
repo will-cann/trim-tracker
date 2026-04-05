@@ -56,13 +56,35 @@ export const handler: Handler = async (event) => {
                     }
                 }
 
+                // Resolve source harvest names from harvestId if not provided
+                let sourceHarvestNames = pkg.sourceHarvestNames || [];
+                if (sourceHarvestNames.length === 0 && pkg.harvestId) {
+                    const { rows: [h] } = await client.query(
+                        `SELECT name FROM harvests WHERE id = $1`,
+                        [pkg.harvestId]
+                    );
+                    if (h?.name) sourceHarvestNames = [h.name];
+                }
+
+                // Resolve source package labels from sourcePackageId if not provided
+                let sourcePackageLabels = pkg.sourcePackageLabels || [];
+                if (sourcePackageLabels.length === 0 && pkg.sourcePackageId) {
+                    const { rows: [sp] } = await client.query(
+                        `SELECT label FROM packages WHERE id = $1`,
+                        [pkg.sourcePackageId]
+                    );
+                    if (sp?.label) sourcePackageLabels = [sp.label];
+                }
+
                 const { rows: [row] } = await client.query(`
                     INSERT INTO packages (
                         company_id, created_by, harvest_id, trim_entry_id, tag_id,
-                        source_package_id, input_quantity,
+                        source_package_id, input_quantity, metrc_item_id,
                         label, package_type, item_name, strain, license_number,
-                        quantity, waste_weight, location, notes, contaminants
-                    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
+                        quantity, waste_weight, location, notes, contaminants,
+                        is_production_batch, is_trade_sample, is_donation,
+                        source_harvest_names, source_package_labels, packaged_date
+                    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24)
                     RETURNING *
                 `, [
                     context.companyId,
@@ -72,6 +94,7 @@ export const handler: Handler = async (event) => {
                     pkg.tagId || null,
                     pkg.sourcePackageId || null,
                     pkg.inputQuantity || null,
+                    pkg.metrcItemId || null,
                     pkg.label,
                     pkg.packageType,
                     pkg.itemName || null,
@@ -82,6 +105,12 @@ export const handler: Handler = async (event) => {
                     pkg.location || null,
                     pkg.notes || null,
                     contaminants,
+                    pkg.isProductionBatch || false,
+                    pkg.isTradeSample || false,
+                    pkg.isDonation || false,
+                    sourceHarvestNames.length > 0 ? sourceHarvestNames : null,
+                    sourcePackageLabels.length > 0 ? sourcePackageLabels : null,
+                    pkg.packagedDate || new Date().toISOString(),
                 ]);
 
                 // If a tag was specified, mark it as assigned
@@ -124,6 +153,7 @@ function formatPackage(row: any) {
         trimEntryId: row.trim_entry_id,
         tagId: row.tag_id,
         sourcePackageId: row.source_package_id,
+        metrcItemId: row.metrc_item_id || null,
         inputQuantity: row.input_quantity ? parseFloat(row.input_quantity) : null,
         label: row.label,
         packageType: row.package_type,
@@ -138,6 +168,12 @@ function formatPackage(row: any) {
         contaminants: row.contaminants || [],
         status: row.status,
         labTestingState: row.lab_testing_state,
+        isProductionBatch: row.is_production_batch || false,
+        isTradeSample: row.is_trade_sample || false,
+        isDonation: row.is_donation || false,
+        sourceHarvestNames: row.source_harvest_names || [],
+        sourcePackageLabels: row.source_package_labels || [],
+        metrcSyncedAt: row.metrc_synced_at || null,
         packagedDate: row.packaged_date,
         finishedDate: row.finished_date,
         createdAt: row.created_at,

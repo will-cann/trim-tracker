@@ -171,8 +171,8 @@ export const StartSession: React.FC<StartSessionProps> = ({ onStart }) => {
                                     ready: 'var(--color-chameleon)',
                                     drying: 'var(--color-lion)',
                                     active: 'var(--color-dolphin, #3b82f6)',
-                                    submitted: 'var(--color-elephant-400)',
-                                    planning: 'var(--color-elephant-300)',
+                                    submitted: 'var(--detail-text-light)',
+                                    planning: 'var(--color-dolphin)',
                                 };
 
                                 return (
@@ -191,12 +191,12 @@ export const StartSession: React.FC<StartSessionProps> = ({ onStart }) => {
                                                 ? '2px solid var(--color-chameleon)'
                                                 : isReady
                                                     ? '1.5px solid var(--color-chameleon-300, rgba(76,175,80,0.4))'
-                                                    : '1.5px solid var(--color-elephant-200)',
+                                                    : '1.5px solid var(--detail-border)',
                                             background: isSelected
                                                 ? 'var(--color-chameleon-50, rgba(76,175,80,0.06))'
                                                 : isReady
                                                     ? 'rgba(76,175,80,0.03)'
-                                                    : 'var(--color-elephant-50)',
+                                                    : 'var(--detail-bg)',
                                             cursor: 'pointer',
                                             textAlign: 'left',
                                             width: '100%',
@@ -213,7 +213,7 @@ export const StartSession: React.FC<StartSessionProps> = ({ onStart }) => {
                                                 <span style={{
                                                     fontWeight: 600,
                                                     fontSize: '14px',
-                                                    color: 'var(--color-elephant-800)',
+                                                    color: 'var(--text-color)',
                                                 }}>
                                                     {h.batchId}
                                                 </span>
@@ -224,15 +224,15 @@ export const StartSession: React.FC<StartSessionProps> = ({ onStart }) => {
                                                     letterSpacing: '0.04em',
                                                     padding: '2px 6px',
                                                     borderRadius: '4px',
-                                                    background: `${statusColor[h.status] ?? 'var(--color-elephant-300)'}20`,
-                                                    color: statusColor[h.status] ?? 'var(--color-elephant-500)',
+                                                    background: `${statusColor[h.status] ?? 'var(--color-dolphin)'}20`,
+                                                    color: statusColor[h.status] ?? 'var(--detail-text)',
                                                 }}>
                                                     {statusLabel[h.status] ?? h.status}
                                                 </span>
                                             </div>
                                             <div style={{
                                                 fontSize: '12px',
-                                                color: 'var(--color-elephant-500)',
+                                                color: 'var(--detail-text)',
                                                 marginTop: '2px',
                                             }}>
                                                 {h.strain} &middot; {h.licenseNumber}
@@ -245,7 +245,7 @@ export const StartSession: React.FC<StartSessionProps> = ({ onStart }) => {
                                             <div style={{
                                                 fontSize: '13px',
                                                 fontWeight: 500,
-                                                color: 'var(--color-elephant-600)',
+                                                color: 'var(--detail-text-strong)',
                                             }}>
                                                 {h.dryWeight
                                                     ? `${h.dryWeight.toLocaleString()}g dry`
@@ -254,7 +254,7 @@ export const StartSession: React.FC<StartSessionProps> = ({ onStart }) => {
                                             </div>
                                             <div style={{
                                                 fontSize: '11px',
-                                                color: 'var(--color-elephant-400)',
+                                                color: 'var(--detail-text-light)',
                                             }}>
                                                 {wetWeight.toLocaleString()}g wet
                                             </div>
@@ -285,13 +285,13 @@ export const StartSession: React.FC<StartSessionProps> = ({ onStart }) => {
                             marginTop: '8px',
                             padding: '10px 12px',
                             borderRadius: '8px',
-                            background: 'var(--color-elephant-50)',
+                            background: 'var(--detail-bg)',
                             fontSize: '12px',
-                            color: 'var(--color-elephant-500)',
+                            color: 'var(--detail-text)',
                         }}>
-                            Strain: <strong style={{ color: 'var(--color-elephant-700)' }}>{selectedHarvest.strain}</strong>
-                            {' '}&middot; License: <strong style={{ color: 'var(--color-elephant-700)' }}>{selectedHarvest.licenseNumber}</strong>
-                            {' '}&middot; Status: <strong style={{ color: 'var(--color-elephant-700)' }}>{selectedHarvest.status}</strong>
+                            Strain: <strong style={{ color: 'var(--text-color)' }}>{selectedHarvest.strain}</strong>
+                            {' '}&middot; License: <strong style={{ color: 'var(--text-color)' }}>{selectedHarvest.licenseNumber}</strong>
+                            {' '}&middot; Status: <strong style={{ color: 'var(--text-color)' }}>{selectedHarvest.status}</strong>
                         </div>
                     )}
                 </div>

@@ -27,7 +27,7 @@ export const handler: Handler = async (event) => {
         const templates = domain
             ? await sql`
                 SELECT * FROM process_templates
-                WHERE company_id = ${context.companyId} AND is_active = true AND domain = ${domain}
+                WHERE company_id = ${context.companyId} AND is_active = true AND COALESCE(domain, 'extraction') = ${domain}
                 ORDER BY is_preset DESC, name ASC
             `
             : await sql`
@@ -158,8 +158,8 @@ async function seedPresets(companyId: string) {
 
     for (const preset of presets) {
         const tResult = await sql`
-            INSERT INTO process_templates (company_id, name, description, process_type, is_preset)
-            VALUES (${companyId}, ${preset.name}, ${preset.description}, ${preset.processType}, true)
+            INSERT INTO process_templates (company_id, name, description, process_type, domain, is_preset)
+            VALUES (${companyId}, ${preset.name}, ${preset.description}, ${preset.processType}, 'extraction', true)
             RETURNING id
         `;
         const templateId = tResult.rows[0].id;

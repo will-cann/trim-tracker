@@ -1,4 +1,4 @@
-import type { TrimSession, CreateTrimSessionDTO, Trimmer, TrimmerProfile, ProposedAction, Harvest, CreateHarvestDTO, HarvestWasteType, HarvestAllocation, HarvestPlantWeight, HarvestBin, BinCureLog, CreateBinDTO, FloweringBatchGroup, Strain, License, SpeechMode, HumanTask, TeamRole, Tag, TagType, TagStats, TagSettings, Package, CreatePackageDTO, ReportSpec, SavedReport, SupplyPool, SupplyItem, SupplyLedgerEntry, SupplyChangeType, SupplyPoolSlug } from '../types/definitions';
+import type { TrimSession, CreateTrimSessionDTO, Trimmer, TrimmerProfile, ProposedAction, Harvest, CreateHarvestDTO, HarvestWasteType, HarvestAllocation, HarvestPlantWeight, HarvestBin, BinCureLog, CreateBinDTO, FloweringBatchGroup, Strain, License, SpeechMode, HumanTask, TeamRole, Tag, TagType, TagStats, TagSettings, Package, CreatePackageDTO, MetrcItem, PackageAdjustment, AdjustmentReason, ReportSpec, SavedReport, TaskViewSpec, SavedTaskView, SupplyPool, SupplyItem, SupplyLedgerEntry, SupplyChangeType, SupplyPoolSlug } from '../types/definitions';
 
 const API_BASE = '/.netlify/functions';
 
@@ -498,7 +498,7 @@ export const getStrains = async (): Promise<Strain[]> => {
     return await response.json();
 };
 
-export const upsertStrain = async (name: string, opts?: { defaultVegDays?: number | null; defaultFloweringDays?: number | null; notes?: string | null }): Promise<Strain> => {
+export const upsertStrain = async (name: string, opts?: { defaultVegDays?: number | null; defaultFloweringDays?: number | null; stretchTrait?: string | null; notes?: string | null }): Promise<Strain> => {
     const response = await fetchWithAuth(`${API_BASE}/upsert-strain`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -902,6 +902,63 @@ export const getExtractionLogs = async (params?: { type?: string; strain?: strin
     return await response.json();
 };
 
+// ── METRC Items ────────────────────────────────────────────────────────────
+
+export const getMetrcItems = async (licenseNumber?: string): Promise<MetrcItem[]> => {
+    const params = new URLSearchParams();
+    if (licenseNumber) params.set('licenseNumber', licenseNumber);
+    const qs = params.toString();
+    const response = await fetchWithAuth(`${API_BASE}/get-metrc-items${qs ? `?${qs}` : ''}`);
+    if (!response.ok) return [];
+    return await response.json();
+};
+
+export const upsertMetrcItem = async (data: {
+    name: string;
+    licenseNumber: string;
+    category: string;
+    strain?: string;
+    unitOfMeasure?: string;
+    packageType?: string;
+}): Promise<MetrcItem> => {
+    const response = await fetchWithAuth(`${API_BASE}/upsert-metrc-item`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+    });
+    if (!response.ok) {
+        const err = await response.json().catch(() => ({ error: 'Failed to upsert METRC item' }));
+        throw new Error(err.error);
+    }
+    return await response.json();
+};
+
+// ── Package Adjustments ────────────────────────────────────────────────────
+
+export const createPackageAdjustment = async (data: {
+    packageId: string;
+    quantityDelta: number;
+    reason: AdjustmentReason;
+    notes?: string;
+}): Promise<{ adjustment: PackageAdjustment; newQuantity: number }> => {
+    const response = await fetchWithAuth(`${API_BASE}/create-package-adjustment`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+    });
+    if (!response.ok) {
+        const err = await response.json().catch(() => ({ error: 'Failed to create adjustment' }));
+        throw new Error(err.error);
+    }
+    return await response.json();
+};
+
+export const getPackageAdjustments = async (packageId: string): Promise<PackageAdjustment[]> => {
+    const response = await fetchWithAuth(`${API_BASE}/get-package-adjustments?packageId=${packageId}`);
+    if (!response.ok) return [];
+    return await response.json();
+};
+
 // ── Extraction Equipment ────────────────────────────────────────────────────
 
 export const getExtractionEquipment = async (): Promise<any[]> => {
@@ -1088,6 +1145,33 @@ export const deleteReport = async (id: string): Promise<void> => {
         method: 'DELETE',
     });
     if (!response.ok) throw new Error('Failed to delete report');
+};
+
+// ============================================================================
+// SAVED TASK VIEWS
+// ============================================================================
+
+export const getSavedTaskViews = async (): Promise<SavedTaskView[]> => {
+    const response = await fetchWithAuth(`${API_BASE}/get-saved-task-views`);
+    if (!response.ok) throw new Error('Failed to fetch saved task views');
+    return await response.json();
+};
+
+export const saveTaskView = async (data: { id?: string; title: string; spec: TaskViewSpec; pinned?: boolean }): Promise<SavedTaskView> => {
+    const response = await fetchWithAuth(`${API_BASE}/save-task-view`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+    });
+    if (!response.ok) throw new Error('Failed to save task view');
+    return await response.json();
+};
+
+export const deleteTaskView = async (id: string): Promise<void> => {
+    const response = await fetchWithAuth(`${API_BASE}/delete-task-view?id=${id}`, {
+        method: 'DELETE',
+    });
+    if (!response.ok) throw new Error('Failed to delete task view');
 };
 
 // ============================================================================
@@ -1382,6 +1466,12 @@ export const apiService = {
     createPackages,
     updatePackage,
     deletePackage,
+    // METRC Items
+    getMetrcItems,
+    upsertMetrcItem,
+    // Package Adjustments
+    createPackageAdjustment,
+    getPackageAdjustments,
     // Extraction
     recordExtraction,
     getExtractionLogs,
@@ -1406,6 +1496,9 @@ export const apiService = {
     getSavedReports,
     saveReport,
     deleteReport,
+    getSavedTaskViews,
+    saveTaskView,
+    deleteTaskView,
     // Ordering
     getVendors,
     createVendor,
