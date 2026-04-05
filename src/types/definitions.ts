@@ -1,4 +1,5 @@
-export type TeamRole = 'admin' | 'manager' | 'lead' | 'worker';
+export type TeamRole = 'admin' | 'director' | 'department_manager' | 'technician';
+export type Department = 'cultivation' | 'extraction' | 'post_harvest' | 'trim' | 'procurement' | 'lab' | 'compliance';
 export type InviteStatus = 'none' | 'pending' | 'accepted';
 
 export interface TrimmerProfile {
@@ -10,6 +11,7 @@ export interface TrimmerProfile {
   userId?: string;
   invitedAt?: string;
   inviteStatus: InviteStatus;
+  departments?: Department[];
   createdAt?: string;
 }
 
