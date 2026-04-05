@@ -6,8 +6,6 @@ import type { CreateTrimSessionDTO } from '../types/definitions';
 interface AIAssistantProps {
     onStart: (dto: CreateTrimSessionDTO) => void;
     onNavigateToAI?: () => void;
-    trimmerProfiles?: any[];
-    onSessionUpdate?: () => Promise<void>;
 }
 
 export const AIAssistant: React.FC<AIAssistantProps> = ({ onStart, onNavigateToAI }) => {

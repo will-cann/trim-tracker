@@ -38,7 +38,7 @@ const SetupChecklist: React.FC<{
         <div style={{
             width: '100%',
             maxWidth: 520,
-            margin: '0 auto 20px',
+            margin: '0 auto 24px',
         }}>
             <button
                 onClick={() => setCollapsed(!collapsed)}

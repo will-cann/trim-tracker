@@ -396,7 +396,7 @@ export const PlantMapDashboard: React.FC<PlantMapDashboardProps> = ({ refreshKey
                             columns={PLANT_COLUMNS}
                             data={sortedPlants}
                             loading={tableLoading}
-                            emptyMessage={search || Object.values(activeFilters).some(v => v.length) ? 'No plants match your filters.' : 'No plants found.'}
+                            emptyMessage={search || Object.values(activeFilters).some(v => v.length) ? 'No plants match your filters.' : 'Add plantings from the AI chat or create them above to start tracking your canopy.'}
                             sortKey={sortKey}
                             sortDir={sortDir}
                             onSort={handleSort}

@@ -228,7 +228,7 @@ export const HarvestDayCockpit: React.FC<HarvestDayCockpitProps> = ({ onExit }) 
             ) : (
                 <div className="hd-empty">
                     <p style={{ color: 'var(--text-secondary)', fontSize: '0.9375rem' }}>
-                        No batches yet — add flowering plants to start weighing.
+                        Add flowering plants to create batches, then weigh each plant at the scale.
                     </p>
                     <button
                         className="hd-add-btn"

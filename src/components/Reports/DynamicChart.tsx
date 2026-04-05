@@ -51,7 +51,7 @@ const MetricView: React.FC<{ spec: ReportSpec; data: Record<string, any>[] }> = 
 };
 
 const TableView: React.FC<{ spec: ReportSpec; data: Record<string, any>[] }> = ({ data }) => {
-  if (data.length === 0) return <div className="report-empty">No data</div>;
+  if (data.length === 0) return <div className="report-empty">No data to display</div>;
   const columns = Object.keys(data[0]);
 
   return (
@@ -211,7 +211,7 @@ const ChartView: React.FC<DynamicChartProps> = ({ spec, data }) => {
 
 export const DynamicChart: React.FC<DynamicChartProps> = ({ spec, data }) => {
   if (!data || data.length === 0) {
-    return <div className="report-empty" style={{ height: 256 }}>No data returned for this query</div>;
+    return <div className="report-empty" style={{ height: 256 }}>No results for this query — try adjusting the question</div>;
   }
 
   if (spec.visualization === 'metric') return <MetricView spec={spec} data={data} />;

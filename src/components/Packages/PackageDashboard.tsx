@@ -358,7 +358,7 @@ export const PackageDashboard: React.FC = () => {
                     <DataTable
                         columns={PACKAGE_COLUMNS}
                         data={sortedPackages}
-                        emptyMessage={hasFilters ? 'No packages match your filters.' : 'No packages found.'}
+                        emptyMessage={hasFilters ? 'No packages match your filters.' : 'Create packages from completed trim entries to track your finished inventory.'}
                         sortKey={sortField === 'tag' ? 'label' : sortField === 'type' ? 'packageType' : sortField}
                         sortDir={sortDir}
                         onSort={handleTableSort}
