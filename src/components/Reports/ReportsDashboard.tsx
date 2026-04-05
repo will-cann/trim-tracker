@@ -46,11 +46,7 @@ export const ReportsDashboard: React.FC = () => {
     };
 
     const tabClass = (tab: ReportsTab) =>
-        `px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
-            activeTab === tab
-                ? 'bg-white text-gray-800 shadow-sm'
-                : 'text-gray-500 hover:text-gray-700 hover:bg-white/50'
-        }`;
+        `reports-tab ${activeTab === tab ? 'reports-tab-active' : ''}`;
 
     const renderTrimPerformance = () => {
         if (loading) {
@@ -152,22 +148,18 @@ export const ReportsDashboard: React.FC = () => {
     };
 
     return (
-        <div className="reports-dashboard p-8 max-w-7xl mx-auto space-y-6">
+        <div className="reports-dashboard">
             {/* Header with tabs */}
-            <div className="flex items-center justify-between">
-                <h1 className="text-2xl font-bold text-gray-900">Reports</h1>
-                <div className="flex items-center gap-1 bg-gray-100/80 rounded-lg p-1">
+            <div className="reports-header">
+                <h1>Reports</h1>
+                <div className="reports-tabs">
                     <button onClick={() => setActiveTab('dashboards')} className={tabClass('dashboards')}>
-                        <span className="flex items-center gap-1.5">
-                            <Sparkles size={14} />
-                            Dashboards
-                        </span>
+                        <Sparkles size={14} />
+                        Dashboards
                     </button>
                     <button onClick={() => setActiveTab('trim-performance')} className={tabClass('trim-performance')}>
-                        <span className="flex items-center gap-1.5">
-                            <BarChart3 size={14} />
-                            Trim Performance
-                        </span>
+                        <BarChart3 size={14} />
+                        Trim Performance
                     </button>
                 </div>
             </div>

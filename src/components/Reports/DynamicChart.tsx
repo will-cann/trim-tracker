@@ -9,7 +9,7 @@ import type { ReportSpec } from '../../types/definitions';
 const COLORS = ['#4E79A7', '#F28E2B', '#E15759', '#76B7B2', '#59A14F', '#EDC948', '#B07AA1', '#FF9DA7'];
 
 const TOOLTIP_STYLE = {
-  borderRadius: '8px',
+  borderRadius: '6px',
   border: 'none',
   boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
   fontSize: '13px',
@@ -39,11 +39,11 @@ const MetricView: React.FC<{ spec: ReportSpec; data: Record<string, any>[] }> = 
   }));
 
   return (
-    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+    <div className="report-metric-grid">
       {metrics.map((m) => (
-        <div key={m.label} className="bg-white/60 rounded-xl p-6 shadow-sm border border-white/40">
-          <div className="text-3xl font-bold mb-1" style={{ color: m.color }}>{m.value}</div>
-          <div className="text-sm font-medium text-gray-500 capitalize">{m.label}</div>
+        <div key={m.label} className="report-metric-card">
+          <div className="report-metric-value" style={{ color: m.color }}>{m.value}</div>
+          <div className="report-metric-label">{m.label}</div>
         </div>
       ))}
     </div>
@@ -51,28 +51,24 @@ const MetricView: React.FC<{ spec: ReportSpec; data: Record<string, any>[] }> = 
 };
 
 const TableView: React.FC<{ spec: ReportSpec; data: Record<string, any>[] }> = ({ data }) => {
-  if (data.length === 0) return <div className="text-gray-400 text-center py-8">No data</div>;
+  if (data.length === 0) return <div className="report-empty">No data</div>;
   const columns = Object.keys(data[0]);
 
   return (
-    <div className="overflow-x-auto rounded-xl border border-white/40">
-      <table className="w-full text-sm">
+    <div className="report-table-wrap">
+      <table className="report-table">
         <thead>
-          <tr className="bg-white/40">
+          <tr>
             {columns.map(col => (
-              <th key={col} className="text-left px-4 py-3 font-medium text-gray-600 capitalize">
-                {col.replace(/_/g, ' ')}
-              </th>
+              <th key={col}>{col.replace(/_/g, ' ')}</th>
             ))}
           </tr>
         </thead>
         <tbody>
           {data.map((row, i) => (
-            <tr key={i} className="border-t border-white/30 hover:bg-white/20">
+            <tr key={i}>
               {columns.map(col => (
-                <td key={col} className="px-4 py-2.5 text-gray-700">
-                  {formatValue(row[col])}
-                </td>
+                <td key={col}>{formatValue(row[col])}</td>
               ))}
             </tr>
           ))}
@@ -210,23 +206,19 @@ const ChartView: React.FC<DynamicChartProps> = ({ spec, data }) => {
     );
   }
 
-  return <div className="text-gray-400 text-center py-8">Unsupported chart type</div>;
+  return <div className="report-empty">Unsupported chart type</div>;
 };
 
 export const DynamicChart: React.FC<DynamicChartProps> = ({ spec, data }) => {
   if (!data || data.length === 0) {
-    return (
-      <div className="flex items-center justify-center h-64 text-gray-400">
-        No data returned for this query
-      </div>
-    );
+    return <div className="report-empty" style={{ height: 256 }}>No data returned for this query</div>;
   }
 
   if (spec.visualization === 'metric') return <MetricView spec={spec} data={data} />;
   if (spec.visualization === 'table') return <TableView spec={spec} data={data} />;
 
   return (
-    <div className="h-[400px] w-full min-w-0">
+    <div style={{ height: 400, width: '100%', minWidth: 0 }}>
       <ChartView spec={spec} data={data} />
     </div>
   );
