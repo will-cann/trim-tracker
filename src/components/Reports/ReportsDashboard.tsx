@@ -7,7 +7,7 @@ import { ThroughputChart } from './ThroughputChart';
 import { CostMetricsRow } from './CostMetricsRow';
 import { ReportsBuilder } from './ReportsBuilder';
 import { getReportsData, shiftWeek, formatDateRange, type ReportsData, type DateRange } from '../../services/reportsData';
-import { ChevronLeft, ChevronRight, MoreVertical, ChevronUp, BarChart3, Sparkles } from 'lucide-react';
+import { ChevronLeft, ChevronRight, MoreVertical, ChevronUp, BarChart3 } from 'lucide-react';
 import { PageSkeleton } from '../Skeleton';
 import { useAuth } from '../../contexts/authContext';
 
@@ -16,7 +16,7 @@ type ReportsTab = 'dashboards' | 'trim-performance';
 export const ReportsDashboard: React.FC = () => {
     const { user } = useAuth();
     const isExecutive = user?.role === 'admin' || user?.role === 'owner';
-    const [activeTab, setActiveTab] = useState<ReportsTab>('dashboards');
+    const [activeTab] = useState<ReportsTab>('trim-performance');
     const [data, setData] = useState<ReportsData | null>(null);
     const [loading, setLoading] = useState(true);
     const [customWage, setCustomWage] = useState<number>(15);
@@ -45,8 +45,8 @@ export const ReportsDashboard: React.FC = () => {
         if (dateRange) setDateRange(shiftWeek(dateRange, 1));
     };
 
-    const tabClass = (tab: ReportsTab) =>
-        `reports-tab ${activeTab === tab ? 'reports-tab-active' : ''}`;
+    // const tabClass = (tab: ReportsTab) =>
+    //     `reports-tab ${activeTab === tab ? 'reports-tab-active' : ''}`;
 
     const renderTrimPerformance = () => {
         if (loading) {
@@ -149,9 +149,10 @@ export const ReportsDashboard: React.FC = () => {
 
     return (
         <div className="reports-dashboard">
-            {/* Header with tabs */}
+            {/* Header */}
             <div className="reports-header">
                 <h1>Reports</h1>
+                {/* Dashboards tab hidden until prod API key is resolved
                 <div className="reports-tabs">
                     <button onClick={() => setActiveTab('dashboards')} className={tabClass('dashboards')}>
                         <Sparkles size={14} />
@@ -162,6 +163,7 @@ export const ReportsDashboard: React.FC = () => {
                         Trim Performance
                     </button>
                 </div>
+                */}
             </div>
 
             {/* Tab content */}

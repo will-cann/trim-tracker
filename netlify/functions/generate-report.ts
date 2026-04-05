@@ -19,9 +19,15 @@ ${SCHEMA_DESCRIPTION}
 
 All column references MUST be table-qualified: "table_name.column_name". Never use bare column names.
 
+## Critical constraints
+
+- You can ONLY reference columns that exist in the schema. You CANNOT create computed expressions, derived columns, or formulas. If you need a ratio or calculation, use the raw columns and let the frontend handle display.
+- For "productivity" or "per hour" requests, use SUM of weights (flower_weight, trim_weight etc.) and the raw time columns — do NOT invent columns like "grams_per_hour" or "productivity".
+- For "yield" requests, return the raw input and output columns separately — do NOT compute ratios.
+
 ## Rules
 
-1. Always use the exact table and column names from the schema above.
+1. Always use the exact table and column names from the schema above. Never invent column names.
 2. Pick the most appropriate visualization type:
    - "bar" for categorical comparisons (e.g., weight by strain, count by status)
    - "line" for time series trends (e.g., harvest weights over time, daily production)
@@ -49,11 +55,11 @@ All column references MUST be table-qualified: "table_name.column_name". Never u
 
 ## Common analytics patterns
 
-- Trimmer productivity: join trimmers → trim_entries → trim_sessions, calculate grams per hour from weights and time
-- Harvest yield: dry_weight / total_wet_weight * 100
-- Extraction efficiency: output_quantity / input_quantity * 100 from extraction_logs
-- Room utilization: count plants per room vs room capacity
-- Task completion rate: count by status from human_tasks`;
+- Trimmer productivity: join trimmers → trim_entries → trim_sessions. Use SUM(trimmers.flower_weight) grouped by trimmers.name. Show total flower weight per trimmer as a bar chart.
+- Harvest totals: SUM or AVG of harvests.total_wet_weight, harvests.dry_weight grouped by strain or date.
+- Extraction: SUM of extraction_logs.input_quantity and extraction_logs.output_quantity grouped by strain or extraction_type.
+- Room utilization: COUNT of plants grouped by rooms.name and plants.growth_phase.
+- Task completion: COUNT of human_tasks grouped by human_tasks.status or human_tasks.category.`;
 
 const REPORT_TOOL = {
   name: 'generate_report',
@@ -168,7 +174,11 @@ const handler: Handler = async (event) => {
     };
   }
 
-  const apiKey = process.env.ANTHROPIC_API_KEY;
+  const claudeKey = process.env.CLAUDE_API_KEY;
+  const anthropicKey = process.env.ANTHROPIC_API_KEY;
+  console.log('CLAUDE_API_KEY:', claudeKey ? `${claudeKey.slice(0,10)}... (${claudeKey.length})` : 'MISSING');
+  console.log('ANTHROPIC_API_KEY:', anthropicKey ? `${anthropicKey.slice(0,10)}... (${anthropicKey.length})` : 'MISSING');
+  const apiKey = claudeKey || anthropicKey;
   if (!apiKey) {
     return { statusCode: 500, body: JSON.stringify({ error: 'AI service not configured' }) };
   }
@@ -214,8 +224,8 @@ const handler: Handler = async (event) => {
 
     if (!response.ok) {
       const errText = await response.text();
-      console.error('Claude API error:', errText);
-      return { statusCode: 502, body: JSON.stringify({ error: 'AI service error' }) };
+      console.error('Claude API error:', response.status, errText);
+      return { statusCode: 502, body: JSON.stringify({ error: `AI service error (${response.status}): ${errText.slice(0, 200)}` }) };
     }
 
     const result = await response.json();
