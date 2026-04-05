@@ -6,6 +6,27 @@ import logo from '../assets/logo.png';
 
 type ViewType = 'ai' | 'dashboard' | 'reports' | 'harvests' | 'harvest-day' | 'settings' | 'tasks' | 'plant-map' | 'packages' | 'extractions' | 'sops' | 'ordering' | 'supplies' | 'team' | 'tag-list';
 
+type Role = 'admin' | 'director' | 'department_manager' | 'technician';
+type Department = 'cultivation' | 'extraction' | 'post_harvest' | 'trim' | 'procurement' | 'lab' | 'compliance';
+
+const ROLE_LEVELS: Record<Role, number> = {
+    admin: 50,
+    director: 40,
+    department_manager: 30,
+    technician: 10,
+};
+
+interface NavItem {
+    view: ViewType;
+    icon: (color: string) => React.ReactNode;
+    label: string;
+    flag?: boolean;
+    /** Departments that grant access to this module. Omit for universal access. */
+    dept?: Department[];
+    /** Minimum role level required. Omit for no role restriction. */
+    minRole?: number;
+}
+
 interface SidebarProps {
     currentView: ViewType;
     onViewChange: (view: ViewType) => void;
@@ -13,18 +34,39 @@ interface SidebarProps {
     taskCount?: number;
 }
 
-const navItems: { view: ViewType; icon: (color: string) => React.ReactNode; label: string; flag?: boolean }[] = [
-    { view: 'plant-map', icon: (color) => <Map size={18} color={color} />, label: 'Plants' },
-    { view: 'harvests', icon: (color) => <Sprout size={18} color={color} />, label: 'Harvest' },
-    { view: 'dashboard', icon: (color) => <Scissors size={18} color={color} />, label: 'Trim' },
-    { view: 'packages', icon: (color) => <Package size={18} color={color} />, label: 'Packages' },
-    { view: 'extractions', icon: (color) => <FlaskConical size={18} color={color} />, label: 'Extraction', flag: ff.extractionWorkspace },
+function canSeeNavItem(
+    item: NavItem,
+    role: Role,
+    departments: Department[],
+): boolean {
+    const level = ROLE_LEVELS[role] ?? 0;
+
+    // Admins and directors see everything
+    if (level >= ROLE_LEVELS.director) return true;
+
+    // Check minimum role requirement
+    if (item.minRole && level < item.minRole) return false;
+
+    // Check department requirement
+    if (item.dept && item.dept.length > 0) {
+        return item.dept.some((d) => departments.includes(d));
+    }
+
+    return true;
+}
+
+const navItems: NavItem[] = [
+    { view: 'plant-map', icon: (color) => <Map size={18} color={color} />, label: 'Plants', dept: ['cultivation'] },
+    { view: 'harvests', icon: (color) => <Sprout size={18} color={color} />, label: 'Harvest', dept: ['cultivation'] },
+    { view: 'dashboard', icon: (color) => <Scissors size={18} color={color} />, label: 'Trim', dept: ['trim'] },
+    { view: 'packages', icon: (color) => <Package size={18} color={color} />, label: 'Packages', dept: ['post_harvest', 'extraction', 'lab'] },
+    { view: 'extractions', icon: (color) => <FlaskConical size={18} color={color} />, label: 'Extraction', flag: ff.extractionWorkspace, dept: ['extraction'] },
     { view: 'sops', icon: (color) => <BookOpen size={18} color={color} />, label: 'SOPs' },
-    { view: 'ordering', icon: (color) => <ShoppingCart size={18} color={color} />, label: 'Ordering' },
+    { view: 'ordering', icon: (color) => <ShoppingCart size={18} color={color} />, label: 'Ordering', dept: ['procurement'], minRole: ROLE_LEVELS.department_manager },
     { view: 'supplies', icon: (color) => <Warehouse size={18} color={color} />, label: 'Supplies' },
     { view: 'tasks', icon: (color) => <ClipboardList size={18} color={color} />, label: 'Tasks' },
-    { view: 'team', icon: (color) => <Users size={18} color={color} />, label: 'Team' },
-    { view: 'reports', icon: (color) => <BarChart3 size={18} color={color} />, label: 'Reports' },
+    { view: 'team', icon: (color) => <Users size={18} color={color} />, label: 'Team', minRole: ROLE_LEVELS.director },
+    { view: 'reports', icon: (color) => <BarChart3 size={18} color={color} />, label: 'Reports', minRole: ROLE_LEVELS.department_manager },
 ];
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -34,6 +76,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
     taskCount = 0,
 }) => {
     const { user, logout } = useAuth();
+    const role = (user?.role ?? 'technician') as Role;
+    const departments = (user?.departments ?? []) as Department[];
 
     return (
         <div className="sidebar-rail">
@@ -51,7 +95,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
             {/* Module icons */}
             <div className="sidebar-rail-nav">
-                {navItems.filter(n => n.flag !== false).map(({ view, icon, label }) => {
+                {navItems.filter(n => n.flag !== false && canSeeNavItem(n, role, departments)).map(({ view, icon, label }) => {
                     const isActive = currentView === view;
                     return (
                         <button
