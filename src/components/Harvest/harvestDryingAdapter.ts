@@ -24,9 +24,11 @@ export function buildDryingSchedule(
             group: 'Dry Rooms',
         }));
 
-    // Harvests that have entered drying
+    // Harvests that have entered drying (support both old and new statuses)
     const dryingHarvests = harvests.filter(h =>
-        h.status === 'drying' || h.status === 'ready' || h.status === 'completed'
+        h.status === 'drying' || h.status === 'hanging' ||
+        h.status === 'ready' || h.status === 'bucking' ||
+        h.status === 'completed'
     );
 
     const blocks: ResourceBlock[] = [];
@@ -64,7 +66,7 @@ export function buildDryingSchedule(
         let isProjected = false;
         let status: ResourceBlock['status'];
 
-        if (h.status === 'completed' || h.status === 'ready') {
+        if (h.status === 'completed' || h.status === 'ready' || h.status === 'bucking') {
             blockEnd = h.approvedAt
                 ? new Date(h.approvedAt)
                 : new Date(blockStart.getTime() + DEFAULT_DRY_DAYS * MS_PER_DAY);

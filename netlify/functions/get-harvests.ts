@@ -37,6 +37,7 @@ export const handler: Handler = async (event) => {
 
         let allAllocations: any[] = [];
         let allWaste: any[] = [];
+        let allBins: any[] = [];
 
         if (harvestIds.length > 0) {
             const allocResult = await sql`
@@ -52,6 +53,18 @@ export const handler: Handler = async (event) => {
                 ORDER BY created_at DESC
             `;
             allWaste = wasteResult.rows;
+
+            const binsResult = await sql`
+                SELECT b.*,
+                    (SELECT cl.next_action_at FROM bin_cure_logs cl
+                     WHERE cl.bin_id = b.id ORDER BY cl.created_at DESC LIMIT 1) AS next_action_at,
+                    (SELECT cl.created_at FROM bin_cure_logs cl
+                     WHERE cl.bin_id = b.id ORDER BY cl.created_at DESC LIMIT 1) AS last_cure_at
+                FROM harvest_bins b
+                WHERE b.harvest_id = ANY(${harvestIds})
+                ORDER BY b.bin_number ASC
+            `;
+            allBins = binsResult.rows;
         }
 
         const result = harvests.map((h: any) => ({
@@ -96,6 +109,24 @@ export const handler: Handler = async (event) => {
                     weight: parseFloat(w.weight) || 0,
                     recordedBy: w.recorded_by,
                     createdAt: w.created_at,
+                })),
+            bins: allBins
+                .filter((b: any) => b.harvest_id === h.id)
+                .map((b: any) => ({
+                    id: b.id,
+                    harvestId: b.harvest_id,
+                    binNumber: b.bin_number,
+                    strain: b.strain,
+                    licenseNumber: b.license_number,
+                    weight: b.weight ? parseFloat(b.weight) : null,
+                    status: b.status,
+                    location: b.location,
+                    buckedAt: b.bucked_at,
+                    readyAt: b.ready_at,
+                    trimEntryId: b.trim_entry_id,
+                    createdAt: b.created_at,
+                    nextActionAt: b.next_action_at,
+                    lastCureAt: b.last_cure_at,
                 })),
         }));
 

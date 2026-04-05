@@ -2,7 +2,10 @@ import { Handler } from '@netlify/functions';
 import { pool } from './utils/db';
 import { resolveContext, authorize } from './utils/auth';
 
-const VALID_STATUSES = ['planning', 'active', 'submitted', 'drying', 'ready', 'completed'];
+const VALID_STATUSES = [
+    'planning', 'active', 'submitted', 'drying', 'ready', 'completed',
+    'cutting', 'hanging', 'bucking',
+];
 
 export const handler: Handler = async (event) => {
     if (event.httpMethod !== 'PUT') {

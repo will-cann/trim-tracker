@@ -148,6 +148,7 @@ export const handler: Handler = async (event) => {
                     harvestStartDate: harvest.harvest_start_date,
                     allocations: [],
                     waste: [],
+                    bins: [],
                     createdAt: harvest.created_at,
                 }),
             };

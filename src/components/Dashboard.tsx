@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
-import type { TrimSession, CreateTrimSessionDTO, TrimmerProfile, CreatePackageDTO } from '../types/definitions';
-import { Cannabis, Trash2, Scale, Plus, Package, Hourglass, Users } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import type { TrimSession, CreateTrimSessionDTO, TrimmerProfile, CreatePackageDTO, HarvestBin } from '../types/definitions';
+import { Cannabis, Trash2, Scale, Plus, Package, Hourglass, Users, Scissors } from 'lucide-react';
+import { apiService } from '../services/apiService';
 
 import { EntryList } from './EntryList';
 import { AddBatchModal } from './AddBatchModal';
@@ -42,6 +43,23 @@ export const Dashboard: React.FC<DashboardProps> = ({
 }) => {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [activeTab, setActiveTab] = useState<'active' | 'completed' | 'upcoming'>('active');
+    const [readyBins, setReadyBins] = useState<HarvestBin[]>([]);
+    const [sendingBin, setSendingBin] = useState<string | null>(null);
+
+    useEffect(() => {
+        apiService.getBins({ status: 'ready' }).then(setReadyBins);
+    }, [session]); // reload when session changes (after bin sent to trim)
+
+    const handleSendBinToTrim = async (binId: string) => {
+        setSendingBin(binId);
+        try {
+            await apiService.binToTrim(binId);
+            setReadyBins(prev => prev.filter(b => b.id !== binId));
+            // Refresh happens via parent when session updates
+        } finally {
+            setSendingBin(null);
+        }
+    };
 
     const handleAddSubmit = (data: CreateTrimSessionDTO) => {
         onAddBatch(data);
@@ -96,6 +114,46 @@ export const Dashboard: React.FC<DashboardProps> = ({
                     />
                 </div>
             </div>
+
+            {/* Ready Bins intake queue */}
+            {readyBins.length > 0 && (
+                <div style={{
+                    display: 'flex', flexDirection: 'column', gap: 8,
+                    padding: '12px 16px', background: '#F0FDF4', borderRadius: 8,
+                    border: '1px solid #BBF7D0', marginBottom: 8,
+                }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <span style={{ fontSize: '0.75rem', fontWeight: 600, textTransform: 'uppercase', color: '#15803D', letterSpacing: '0.05em' }}>
+                            Ready Bins ({readyBins.length})
+                        </span>
+                    </div>
+                    <div style={{ display: 'flex', gap: 8, overflowX: 'auto', paddingBottom: 4 }}>
+                        {readyBins.map(bin => (
+                            <button
+                                key={bin.id}
+                                onClick={() => handleSendBinToTrim(bin.id)}
+                                disabled={sendingBin === bin.id}
+                                style={{
+                                    display: 'flex', alignItems: 'center', gap: 8,
+                                    padding: '8px 12px', borderRadius: 8, border: '1px solid #D1D5DB',
+                                    background: 'white', cursor: 'pointer', flexShrink: 0,
+                                    opacity: sendingBin === bin.id ? 0.5 : 1,
+                                }}
+                            >
+                                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 2 }}>
+                                    <span style={{ fontSize: '0.813rem', fontWeight: 600 }}>
+                                        BIN-{String(bin.binNumber).padStart(3, '0')}
+                                    </span>
+                                    <span style={{ fontSize: '0.688rem', color: '#6B7280' }}>
+                                        {bin.strain} · {bin.weight ? `${bin.weight}g` : '—'}
+                                    </span>
+                                </div>
+                                <Scissors size={14} style={{ color: '#3BB570' }} />
+                            </button>
+                        ))}
+                    </div>
+                </div>
+            )}
 
             <div className="actions-row">
                 <div className="tabs-container">

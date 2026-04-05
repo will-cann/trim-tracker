@@ -25,7 +25,7 @@ export const handler: Handler = async (event) => {
         const { rows } = await sql`
             UPDATE harvests
             SET total_wet_weight = ${weight},
-                status = CASE WHEN status = 'planning' THEN 'active' ELSE status END
+                status = CASE WHEN status = 'planning' THEN 'cutting' ELSE status END
             WHERE id = ${harvestId} AND company_id = ${context.companyId}
             RETURNING *
         `;

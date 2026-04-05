@@ -1,18 +1,28 @@
 import React from 'react';
-import { LayoutGrid, List, GanttChart, CalendarDays } from 'lucide-react';
+import { LayoutGrid, List, GanttChart, CalendarDays, Columns3 } from 'lucide-react';
 
-export type ViewMode = 'cards' | 'table' | 'schedule' | 'calendar';
+export type ViewMode = 'cards' | 'table' | 'schedule' | 'calendar' | 'kanban';
 
 interface ViewToggleProps {
     mode: ViewMode;
     onChange: (mode: ViewMode) => void;
     showSchedule?: boolean;
     showCalendar?: boolean;
+    showKanban?: boolean;
 }
 
-export const ViewToggle: React.FC<ViewToggleProps> = ({ mode, onChange, showSchedule, showCalendar }) => {
+export const ViewToggle: React.FC<ViewToggleProps> = ({ mode, onChange, showSchedule, showCalendar, showKanban }) => {
     return (
         <div className="view-toggle">
+            {showKanban && (
+                <button
+                    onClick={() => onChange('kanban')}
+                    className={`view-toggle-btn ${mode === 'kanban' ? 'active' : ''}`}
+                    title="Pipeline view"
+                >
+                    <Columns3 size={15} />
+                </button>
+            )}
             <button
                 onClick={() => onChange('cards')}
                 className={`view-toggle-btn ${mode === 'cards' ? 'active' : ''}`}
@@ -54,7 +64,7 @@ export function useViewMode(viewKey: string, defaultMode: ViewMode = 'cards'): [
     const storageKey = `viewMode_${viewKey}`;
     const [mode, setModeState] = React.useState<ViewMode>(() => {
         const saved = sessionStorage.getItem(storageKey);
-        return saved === 'cards' || saved === 'table' || saved === 'schedule' || saved === 'calendar' ? saved : defaultMode;
+        return saved === 'cards' || saved === 'table' || saved === 'schedule' || saved === 'calendar' || saved === 'kanban' ? saved : defaultMode;
     });
 
     const setMode = React.useCallback((newMode: ViewMode) => {

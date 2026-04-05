@@ -16,11 +16,12 @@ The application can automate these operations:
 - **Trimmers**: Workers assigned to batches. Each has a name, start time (HH:mm 24-hour format), and tool (scissors or machine).
 - **Trimmer Profiles**: A company roster of available trimmers that can be assigned to batches.
 - **Trimmer Updates**: Update an existing trimmer's start time, end time, tool (scissors/machine), and weights (flower, shake, trim, waste) on an active batch.
-- **Harvests**: Pre-trim records tracking plant harvest through drying. Each has a batch ID, strain, license number, wet weight, waste, and allocations (flower for dry trim, frozen for fresh frozen, or both).
+- **Harvests**: Records tracking plants through the harvest pipeline: planning → cutting → submitted → hanging (drying ~7 days) → bucking (creating bins) → completed. Each has a batch ID, strain, license number, wet weight, waste, and allocations (flower/frozen/both).
+- **Harvest Bins**: Physical containers created during the buck & bin phase. Bins hold one strain from one harvest. Lifecycle: curing → ready → in_trim → completed. Bins need regular burping/aeration during curing (the schedule varies by strain and conditions). When ready, bins are sent to the trim team.
 - **Plant Health**: Update plant health scores (0-100) and contaminant flags for plants or plant batches. Plants/batches are identified by strain and room.
 - **Plantings**: Create new plant batches (clones/seeds in nursery) or individual plants (veg/flower). Requires strain, room, and count.
 - **Plant Actions**: Move plants between rooms, change growth phase (vegetative→flowering→harvested), or destroy plants. Works on both individual plants and batches.
-- **Convert to Trim**: Convert a flower harvest allocation into a trim entry for processing.
+- **Convert to Trim**: Convert a flower harvest allocation or a ready bin into a trim entry for processing.
 - **Strains**: Create new strains or remove existing ones from the system.
 - **Licenses**: Add, rename, or remove facility license numbers.
 - **Packages**: Final saleable units created from trim processing. Each package has a label, type (flower/trim/shake), strain, license, quantity (grams), optional waste weight, location, and lab testing state. Packages can be put on hold, finished, or deleted.
@@ -636,6 +637,70 @@ const tools = [
             required: [],
         },
     },
+    // ── Harvest Bins ──
+    {
+        name: 'create_bins',
+        description: 'Create one or more bins from a harvest during the buck & bin phase. Bins are physical containers holding one strain from one harvest. The harvest must be in hanging or bucking status. Creating bins auto-transitions the harvest to bucking.',
+        input_schema: {
+            type: 'object' as const,
+            properties: {
+                harvestId: { type: 'string', description: 'Harvest ID to create bins from' },
+                harvestIdentifier: { type: 'string', description: 'Harvest batch ID or strain name to identify the harvest' },
+                bins: {
+                    type: 'array',
+                    description: 'Array of bins to create, each with optional weight and location',
+                    items: {
+                        type: 'object',
+                        properties: {
+                            weight: { type: 'number', description: 'Weight in grams' },
+                            location: { type: 'string', description: 'Storage location (room name)' },
+                        },
+                    },
+                },
+                count: { type: 'number', description: 'Number of bins to create (if bins array not provided)' },
+            },
+            required: [],
+        },
+    },
+    {
+        name: 'log_bin_cure',
+        description: 'Log a burp, aeration, inspection, or note on one or more bins. Used to track the curing schedule.',
+        input_schema: {
+            type: 'object' as const,
+            properties: {
+                binId: { type: 'string', description: 'Specific bin ID' },
+                binIdentifier: { type: 'string', description: 'Bin number or strain to identify the bin(s)' },
+                action: { type: 'string', enum: ['burp', 'aerate', 'inspect', 'note'], description: 'Type of cure action' },
+                notes: { type: 'string', description: 'Optional notes about the action' },
+                moistureReading: { type: 'number', description: 'Optional moisture percentage reading' },
+            },
+            required: ['action'],
+        },
+    },
+    {
+        name: 'mark_bin_ready',
+        description: 'Mark a bin as ready for the trim team. The bin must be in curing status.',
+        input_schema: {
+            type: 'object' as const,
+            properties: {
+                binId: { type: 'string', description: 'Bin ID to mark ready' },
+                binIdentifier: { type: 'string', description: 'Bin number or strain to identify the bin' },
+            },
+            required: [],
+        },
+    },
+    {
+        name: 'send_bin_to_trim',
+        description: 'Send a ready bin to the trim team. Creates a trim entry from the bin and moves it into the active trim session.',
+        input_schema: {
+            type: 'object' as const,
+            properties: {
+                binId: { type: 'string', description: 'Bin ID to send to trim' },
+                binIdentifier: { type: 'string', description: 'Bin number or strain to identify the bin' },
+            },
+            required: [],
+        },
+    },
     // ── Strain Management ──
     {
         name: 'create_strain',
@@ -1006,7 +1071,12 @@ IMPORTANT: If the user is correcting or updating a previous statement (e.g. "act
         }
 
         if (request.context.harvests && request.context.harvests.length > 0) {
-            contextInfo.push(`- Harvests: ${request.context.harvests.map(h => `"${h.batchId}" / ${h.strain} [${h.status}] (ID: ${h.id})`).join(', ')}`);
+            contextInfo.push(`- Harvests: ${request.context.harvests.map(h => `"${h.batchId}" / ${h.strain} [${h.status}]${h.bins?.length ? ` (${h.bins.length} bins)` : ''} (ID: ${h.id})`).join(', ')}`);
+            // Include bins summary
+            const allBins = request.context.harvests.flatMap((h: any) => (h.bins || []).map((b: any) => ({ ...b, harvestBatchId: h.batchId })));
+            if (allBins.length > 0) {
+                contextInfo.push(`- Bins: ${allBins.map((b: any) => `BIN-${String(b.binNumber).padStart(3, '0')} / ${b.strain} [${b.status}] from ${b.harvestBatchId}${b.weight ? ` ${b.weight}g` : ''} (ID: ${b.id})`).join(', ')}`);
+            }
         } else {
             contextInfo.push(`- Harvests: None`);
         }
@@ -1070,9 +1140,9 @@ IMPORTANT: If the user is correcting or updating a previous statement (e.g. "act
 
         userMessage += contextInfo.join('\n');
 
-        const apiKey = process.env.ANTHROPIC_API_KEY;
+        const apiKey = process.env.CLAUDE_API_KEY || process.env.ANTHROPIC_API_KEY;
         if (!apiKey) {
-            console.error('ANTHROPIC_API_KEY not set');
+            console.error('CLAUDE_API_KEY / ANTHROPIC_API_KEY not set');
             return { statusCode: 500, body: JSON.stringify({ error: 'AI service not configured' }) };
         }
 

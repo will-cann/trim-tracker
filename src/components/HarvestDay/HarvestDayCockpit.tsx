@@ -33,7 +33,7 @@ export const HarvestDayCockpit: React.FC<HarvestDayCockpitProps> = ({ onExit }) 
         ]);
 
         const todayHarvests = allHarvests.filter(h =>
-            h.status === 'planning' || h.status === 'active' || h.status === 'submitted'
+            h.status === 'planning' || h.status === 'active' || h.status === 'cutting' || h.status === 'submitted'
         );
         setHarvests(todayHarvests);
         setRooms(allRooms);
@@ -62,7 +62,7 @@ export const HarvestDayCockpit: React.FC<HarvestDayCockpitProps> = ({ onExit }) 
             apiService.getPlantWeights(activeTabId),
         ]);
         const todayHarvests = allHarvests.filter(h =>
-            h.status === 'planning' || h.status === 'active' || h.status === 'submitted'
+            h.status === 'planning' || h.status === 'active' || h.status === 'cutting' || h.status === 'submitted'
         );
         setHarvests(todayHarvests);
         setPlantWeights(prev => ({ ...prev, [activeTabId]: weights }));

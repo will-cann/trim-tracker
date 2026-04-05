@@ -3,6 +3,7 @@ import { Plus, Sprout, Scissors } from 'lucide-react';
 import type { Harvest, HarvestWasteType, CreateHarvestDTO } from '../../types/definitions';
 import { apiService } from '../../services/apiService';
 import { HarvestCard } from './HarvestCard';
+import { HarvestKanban } from './HarvestKanban';
 import { CreateHarvestModal } from './CreateHarvestModal';
 import { CardsSkeleton } from '../Skeleton';
 import { DataTable, FilterToolbar, ViewToggle, useViewMode } from '../ui';
@@ -13,27 +14,33 @@ import { buildDryingSchedule } from './harvestDryingAdapter';
 
 const STATUS_FILTER_OPTIONS = [
     { value: 'planning', label: 'Planning' },
-    { value: 'active', label: 'Active' },
+    { value: 'cutting', label: 'Cutting' },
     { value: 'submitted', label: 'Submitted' },
-    { value: 'drying', label: 'Drying' },
-    { value: 'ready', label: 'Ready' },
+    { value: 'hanging', label: 'Hanging' },
+    { value: 'bucking', label: 'Binning' },
     { value: 'completed', label: 'Completed' },
 ];
 
 const STATUS_COLORS: Record<string, string> = {
     planning: '#1C9EFF',
+    cutting: '#3BB570',
     active: '#3BB570',
-    submitted: '#3BB570',
+    submitted: '#FA9E52',
+    hanging: '#FA9E52',
     drying: '#FA9E52',
-    ready: '#FA9E52',
+    bucking: '#C27ADB',
+    ready: '#C27ADB',
     completed: '#959595',
 };
 
 const STATUS_LABELS: Record<string, string> = {
     planning: 'Planning',
+    cutting: 'Cutting',
     active: 'Active',
     submitted: 'Submitted',
+    hanging: 'Hanging',
     drying: 'Drying',
+    bucking: 'Binning',
     ready: 'Ready',
     completed: 'Completed',
 };
@@ -94,7 +101,7 @@ export const HarvestDashboard: React.FC<HarvestDashboardProps> = ({ onStartHarve
     const [harvests, setHarvests] = useState<Harvest[]>([]);
     const [loading, setLoading] = useState(true);
     const [showCreateModal, setShowCreateModal] = useState(false);
-    const [viewMode, setViewMode] = useViewMode('harvests');
+    const [viewMode, setViewMode] = useViewMode('harvests', 'kanban');
     const [search, setSearch] = useState('');
     const [activeFilters, setActiveFilters] = useState<Record<string, string[]>>({});
     const [sortKey, setSortKey] = useState<string | null>('createdAt');
@@ -241,55 +248,75 @@ export const HarvestDashboard: React.FC<HarvestDashboardProps> = ({ onStartHarve
         await apiService.createPackage(data);
     };
 
-    // Summary stats (only for non-completed)
-    const activeHarvests = harvests.filter(h => h.status !== 'completed');
-    const activeCount = activeHarvests.length;
+    // Pipeline stats
+    const statusMap = new Map<string, number>();
+    for (const h of harvests) {
+        const s = h.status;
+        statusMap.set(s, (statusMap.get(s) || 0) + 1);
+    }
+    const pipelineCounts = {
+        planning: (statusMap.get('planning') || 0),
+        cutting: (statusMap.get('cutting') || 0) + (statusMap.get('active') || 0),
+        submitted: (statusMap.get('submitted') || 0),
+        hanging: (statusMap.get('hanging') || 0) + (statusMap.get('drying') || 0),
+        bucking: (statusMap.get('bucking') || 0) + (statusMap.get('ready') || 0),
+    };
+    const activeCount = Object.values(pipelineCounts).reduce((a, b) => a + b, 0);
 
-    const totalWetWeight = activeHarvests.reduce((sum, h) => sum + h.totalWetWeight, 0);
+    const allBins = harvests.flatMap(h => h.bins || []);
+    const binsCuring = allBins.filter(b => b.status === 'curing').length;
+    const binsReady = allBins.filter(b => b.status === 'ready').length;
 
-    const flowerWeight = activeHarvests
-        .flatMap(h => h.allocations)
-        .filter(a => a.allocationType === 'flower')
-        .reduce((sum, a) => sum + a.targetWeight, 0);
-
-    const frozenWeight = activeHarvests
-        .flatMap(h => h.allocations)
-        .filter(a => a.allocationType === 'frozen')
-        .reduce((sum, a) => sum + a.targetWeight, 0);
+    // Expanded card state (for kanban card clicks)
+    const [expandedHarvestId, setExpandedHarvestId] = useState<string | null>(null);
 
 
     return (
         <div className="dashboard">
-            {/* Compact summary bar */}
+            {/* Pipeline summary bar */}
             {activeCount > 0 && (
                 <div className="harvest-summary-bar">
-                    <div className="harvest-summary-stat">
-                        <span className="stat-number">{activeCount}</span>
-                        <span className="stat-label">active</span>
-                    </div>
-                    <div className="harvest-summary-divider" />
-                    <div className="harvest-summary-stat">
-                        <span className="stat-number">{totalWetWeight.toFixed(0)}</span>
-                        <span className="stat-label">g wet</span>
-                    </div>
-                    {flowerWeight > 0 && (
-                        <>
+                    {pipelineCounts.planning > 0 && (
+                        <div className="harvest-summary-stat">
+                            <span className="stat-number" style={{ color: '#1C9EFF' }}>{pipelineCounts.planning}</span>
+                            <span className="stat-label">planning</span>
+                        </div>
+                    )}
+                    {pipelineCounts.cutting > 0 && (<>
+                        <div className="harvest-summary-divider" />
+                        <div className="harvest-summary-stat">
+                            <span className="stat-number" style={{ color: '#3BB570' }}>{pipelineCounts.cutting}</span>
+                            <span className="stat-label">cutting</span>
+                        </div>
+                    </>)}
+                    {pipelineCounts.hanging > 0 && (<>
+                        <div className="harvest-summary-divider" />
+                        <div className="harvest-summary-stat">
+                            <span className="stat-number" style={{ color: '#FA9E52' }}>{pipelineCounts.hanging}</span>
+                            <span className="stat-label">hanging</span>
+                        </div>
+                    </>)}
+                    {pipelineCounts.bucking > 0 && (<>
+                        <div className="harvest-summary-divider" />
+                        <div className="harvest-summary-stat">
+                            <span className="stat-number" style={{ color: '#C27ADB' }}>{pipelineCounts.bucking}</span>
+                            <span className="stat-label">binning</span>
+                        </div>
+                    </>)}
+                    {(binsCuring > 0 || binsReady > 0) && (<>
+                        <div className="harvest-summary-divider" />
+                        <div className="harvest-summary-stat">
+                            <span className="stat-number">{binsCuring}</span>
+                            <span className="stat-label">bins curing</span>
+                        </div>
+                        {binsReady > 0 && (<>
                             <div className="harvest-summary-divider" />
                             <div className="harvest-summary-stat">
-                                <span className="stat-number" style={{ color: 'var(--warning-color)' }}>{flowerWeight.toFixed(0)}</span>
-                                <span className="stat-label">g flower</span>
+                                <span className="stat-number" style={{ color: '#3BB570' }}>{binsReady}</span>
+                                <span className="stat-label">bins ready</span>
                             </div>
-                        </>
-                    )}
-                    {frozenWeight > 0 && (
-                        <>
-                            <div className="harvest-summary-divider" />
-                            <div className="harvest-summary-stat">
-                                <span className="stat-number" style={{ color: 'var(--secondary-color)' }}>{frozenWeight.toFixed(0)}</span>
-                                <span className="stat-label">g frozen</span>
-                            </div>
-                        </>
-                    )}
+                        </>)}
+                    </>)}
                 </div>
             )}
 
@@ -303,7 +330,7 @@ export const HarvestDashboard: React.FC<HarvestDashboardProps> = ({ onStartHarve
                 onClearFilters={() => setActiveFilters({})}
                 trailing={
                     <div className="flex items-center gap-2">
-                        <ViewToggle mode={viewMode} onChange={setViewMode} showSchedule showCalendar />
+                        <ViewToggle mode={viewMode} onChange={setViewMode} showKanban showSchedule showCalendar />
                         {onStartHarvestDay && (
                             <button
                                 type="button"
@@ -327,7 +354,37 @@ export const HarvestDashboard: React.FC<HarvestDashboardProps> = ({ onStartHarve
             />
 
             {/* Content */}
-            {viewMode === 'schedule' ? (
+            {viewMode === 'kanban' ? (
+                <div className="mt-2">
+                    {/* Expanded card above kanban when clicking a card */}
+                    {expandedHarvestId && (() => {
+                        const h = harvests.find(x => x.id === expandedHarvestId);
+                        if (!h) return null;
+                        return (
+                            <div style={{ marginBottom: 12 }}>
+                                <HarvestCard
+                                    harvest={h}
+                                    onRecordWetWeight={handleRecordWetWeight}
+                                    onAllocate={handleAllocate}
+                                    onRecordWaste={handleRecordWaste}
+                                    onConvertToTrim={handleConvertToTrim}
+                                    onDelete={handleDelete}
+                                    onUpdate={handleUpdate}
+                                    onCreatePackage={handleCreatePackage}
+                                    defaultExpanded
+                                    onClose={() => setExpandedHarvestId(null)}
+                                />
+                            </div>
+                        );
+                    })()}
+                    <HarvestKanban
+                        harvests={filteredHarvests}
+                        onUpdate={loadHarvests}
+                        onCardClick={(id) => setExpandedHarvestId(expandedHarvestId === id ? null : id)}
+                        onNavigateHarvestDay={onStartHarvestDay}
+                    />
+                </div>
+            ) : viewMode === 'schedule' ? (
                 <div className="mt-2">
                     <ResourceTimeline
                         resources={dryingSchedule.resources}

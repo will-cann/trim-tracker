@@ -43,6 +43,7 @@ export interface TrimEntry {
   plannedTrimDate?: string;
   plannedMethod?: 'machine' | 'scissors';
   harvestId?: string;
+  binId?: string;
 }
 
 export interface TrimSession {
@@ -72,7 +73,8 @@ export interface CreateTrimSessionDTO {
 // HARVEST TYPES
 // ============================================================================
 
-export type HarvestStatus = 'planning' | 'active' | 'submitted' | 'drying' | 'ready' | 'completed';
+export type HarvestStatus = 'planning' | 'active' | 'submitted' | 'drying' | 'ready' | 'completed'
+    | 'cutting' | 'hanging' | 'bucking';
 export type ContaminantFlag = 'powdery_mildew' | 'bud_rot' | 'insects' | 'other';
 export type AllocationType = 'flower' | 'frozen';
 export type AllocationStatus = 'pending' | 'in_progress' | 'completed';
@@ -125,6 +127,7 @@ export interface Harvest {
   approvedAt?: string;
   allocations: HarvestAllocation[];
   waste: HarvestWasteEntry[];
+  bins: HarvestBin[];
   createdAt: string;
 }
 
@@ -148,6 +151,49 @@ export interface CreateHarvestDTO {
   plantIds?: string[];          // flowering plant IDs to plan for harvest
   sourceBatchId?: string;       // source plant batch ID
   plannedHarvestDate?: string;  // ISO date for planned harvest
+}
+
+// ── Bins ──────────────────────────────────────────────────────────────────────
+
+export type BinStatus = 'curing' | 'ready' | 'in_trim' | 'completed';
+export type CureAction = 'burp' | 'aerate' | 'inspect' | 'note';
+
+export interface HarvestBin {
+  id: string;
+  harvestId: string;
+  harvestBatchId?: string;
+  binNumber: number;
+  strain: string;
+  licenseNumber?: string;
+  weight: number | null;
+  status: BinStatus;
+  location?: string;
+  buckedAt: string;
+  readyAt?: string;
+  trimEntryId?: string;
+  createdAt: string;
+  updatedAt?: string;
+  nextActionAt?: string | null;
+  lastCureAt?: string | null;
+}
+
+export interface BinCureLog {
+  id: string;
+  binId: string;
+  action: CureAction;
+  notes?: string;
+  moistureReading?: number | null;
+  recordedBy?: string;
+  recordedByName?: string;
+  nextActionAt?: string | null;
+  createdAt: string;
+}
+
+export interface CreateBinDTO {
+  weight?: number;
+  location?: string;
+  strain?: string;
+  licenseNumber?: string;
 }
 
 export interface FloweringPlant {
@@ -536,7 +582,8 @@ export type ProposedActionType =
   | 'create_vendor' | 'update_vendor' | 'delete_vendor'
   | 'create_store' | 'update_store'
   | 'create_order' | 'update_order'
-  | 'add_vendor_product';
+  | 'add_vendor_product'
+  | 'create_bins' | 'update_bin' | 'log_bin_cure' | 'mark_bin_ready' | 'send_bin_to_trim';
 
 export interface ProposedAction {
   type: ProposedActionType;
@@ -676,4 +723,52 @@ export interface SavedReport {
   pinned: boolean;
   created_at: string;
   updated_at: string;
+}
+
+// ============================================================================
+// SUPPLY INVENTORY TYPES
+// ============================================================================
+
+export type SupplyPoolSlug = 'extraction' | 'cultivation' | 'facility';
+export type SupplyChangeType = 'receive' | 'consume' | 'adjust' | 'waste';
+
+export interface SupplyPool {
+  id: string;
+  slug: SupplyPoolSlug;
+  label: string;
+  createdAt: string;
+}
+
+export interface SupplyItem {
+  id: string;
+  poolId: string;
+  poolSlug: SupplyPoolSlug;
+  poolLabel?: string;
+  name: string;
+  description?: string;
+  category?: string;
+  unit: string;
+  quantityOnHand: number;
+  parLevel?: number;
+  reorderQty?: number;
+  vendorName?: string;
+  sku?: string;
+  unitCost?: number;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface SupplyLedgerEntry {
+  id: string;
+  supplyItemId: string;
+  itemName?: string;
+  changeType: SupplyChangeType;
+  quantityDelta: number;
+  quantityAfter: number;
+  referenceType?: string;
+  referenceId?: string;
+  notes?: string;
+  performedBy?: string;
+  createdAt: string;
 }

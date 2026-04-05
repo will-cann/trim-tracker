@@ -22,7 +22,7 @@ const ACTION_TITLES: Record<PlantActionType, string> = {
     'change-phase': 'Change Growth Phase',
     'change-room': 'Change Room',
     'plant-health': 'Plant Health Report',
-    'create-harvest': 'Create Harvest',
+    'create-harvest': 'Schedule Harvest',
 };
 
 const ALLOCATION_OPTIONS: { value: AllocationChoice; label: string; sub: string; icon: typeof Flower2 }[] = [
@@ -542,7 +542,7 @@ export const PlantActionModal: React.FC<PlantActionModalProps> = ({
                                     </>
                                 ) : (
                                     <p className="harvest-plan-title">
-                                        Harvesting {selectedStrainNames[0]} — {totalPlants} plant{totalPlants !== 1 ? 's' : ''}
+                                        Scheduling {selectedStrainNames[0]} — {totalPlants} plant{totalPlants !== 1 ? 's' : ''}
                                     </p>
                                 )}
                                 <p className="harvest-plan-room">from {roomName}</p>
@@ -650,13 +650,22 @@ export const PlantActionModal: React.FC<PlantActionModalProps> = ({
                             {/* Drying location */}
                             <div className="field">
                                 <label className="field-label">Drying Location</label>
-                                <input
-                                    type="text"
+                                <select
                                     className="field-input"
                                     value={harvestDryingLocation}
                                     onChange={e => setHarvestDryingLocation(e.target.value)}
-                                    placeholder="Drying Room 1"
-                                />
+                                >
+                                    <option value="">Select room...</option>
+                                    {rooms
+                                        .filter(r => {
+                                            const t = (r.room_type || '').toLowerCase();
+                                            return t === 'dry' || t === 'drying' || t === 'general';
+                                        })
+                                        .map(r => (
+                                            <option key={r.id} value={r.name}>{r.name}</option>
+                                        ))
+                                    }
+                                </select>
                             </div>
                         </div>
                     )}
@@ -722,7 +731,7 @@ export const PlantActionModal: React.FC<PlantActionModalProps> = ({
                     <button
                         onClick={handleSubmit}
                         disabled={submitting}
-                        className={isDestructive ? 'btn-delete-confirm' : 'btn-primary'}
+                        className={isDestructive ? 'btn-delete-confirm' : action === 'create-harvest' ? 'btn-lion' : 'btn-primary'}
                     >
                         {submitting ? (
                             <Loader2 size={14} className="animate-spin" />
@@ -730,8 +739,8 @@ export const PlantActionModal: React.FC<PlantActionModalProps> = ({
                             `Destroy ${totalPlants} Plant${totalPlants !== 1 ? 's' : ''}`
                         ) : action === 'create-harvest' ? (
                             selectedStrainNames.length > 1
-                                ? `Harvest ${selectedStrainNames.length} Strains (${totalPlants} plants)`
-                                : `Harvest ${totalPlants} Plant${totalPlants !== 1 ? 's' : ''}`
+                                ? `Schedule ${selectedStrainNames.length} Strains (${totalPlants} plants)`
+                                : `Schedule ${totalPlants} Plant${totalPlants !== 1 ? 's' : ''}`
                         ) : (
                             'Apply'
                         )}

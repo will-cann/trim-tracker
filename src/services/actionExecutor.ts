@@ -296,6 +296,36 @@ export async function executeAction(action: ProposedAction): Promise<ActionOutco
             if (!action.data.allocationId) return SKIPPED('no allocation ID');
             await apiService.convertToTrim(action.data.allocationId);
             return OK('Converted to trim');
+
+        // ── Bins ──────────────────────────────────────────────────────────
+        case 'create_bins': {
+            if (!action.data.harvestId) return SKIPPED('no harvest ID');
+            const bins = action.data.bins || [{ weight: action.data.weight, location: action.data.location }];
+            const result = await apiService.createBins(action.data.harvestId, bins);
+            return OK(`Created ${result.bins.length} bin(s)`);
+        }
+        case 'update_bin':
+            if (!action.data.binId) return SKIPPED('no bin ID');
+            await apiService.updateBin(action.data.binId, action.data);
+            return OK('Bin updated');
+        case 'log_bin_cure':
+            if (!action.data.binId) return SKIPPED('no bin ID');
+            await apiService.logBinCure(action.data.binId, {
+                action: action.data.action || 'burp',
+                notes: action.data.notes,
+                moistureReading: action.data.moistureReading,
+                nextActionAt: action.data.nextActionAt,
+            });
+            return OK('Cure action logged');
+        case 'mark_bin_ready':
+            if (!action.data.binId) return SKIPPED('no bin ID');
+            await apiService.updateBin(action.data.binId, { status: 'ready' });
+            return OK('Bin marked ready for trim');
+        case 'send_bin_to_trim':
+            if (!action.data.binId) return SKIPPED('no bin ID');
+            await apiService.binToTrim(action.data.binId);
+            return OK('Bin sent to trim');
+
         case 'create_strain':
             await apiService.upsertStrain(action.data.name);
             return OK('Strain created');

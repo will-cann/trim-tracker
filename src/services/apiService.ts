@@ -1,4 +1,4 @@
-import type { TrimSession, CreateTrimSessionDTO, Trimmer, TrimmerProfile, ProposedAction, Harvest, CreateHarvestDTO, HarvestWasteType, HarvestAllocation, HarvestPlantWeight, FloweringBatchGroup, Strain, License, SpeechMode, HumanTask, TeamRole, Tag, TagType, TagStats, TagSettings, Package, CreatePackageDTO, ReportSpec, SavedReport } from '../types/definitions';
+import type { TrimSession, CreateTrimSessionDTO, Trimmer, TrimmerProfile, ProposedAction, Harvest, CreateHarvestDTO, HarvestWasteType, HarvestAllocation, HarvestPlantWeight, HarvestBin, BinCureLog, CreateBinDTO, FloweringBatchGroup, Strain, License, SpeechMode, HumanTask, TeamRole, Tag, TagType, TagStats, TagSettings, Package, CreatePackageDTO, ReportSpec, SavedReport, SupplyPool, SupplyItem, SupplyLedgerEntry, SupplyChangeType, SupplyPoolSlug } from '../types/definitions';
 
 const API_BASE = '/.netlify/functions';
 
@@ -390,6 +390,71 @@ export const approveHarvestDay = async (harvestIds: string[]): Promise<any> => {
         body: JSON.stringify({ harvestIds }),
     });
     if (!response.ok) throw new Error('Failed to approve harvests');
+    return await response.json();
+};
+
+// ============================================================================
+// HARVEST BINS
+// ============================================================================
+
+export const getBins = async (params?: { status?: string; harvestId?: string }): Promise<HarvestBin[]> => {
+    const query = new URLSearchParams();
+    if (params?.status) query.set('status', params.status);
+    if (params?.harvestId) query.set('harvestId', params.harvestId);
+    const qs = query.toString();
+    const response = await fetchWithAuth(`${API_BASE}/get-bins${qs ? `?${qs}` : ''}`);
+    if (!response.ok) return [];
+    return await response.json();
+};
+
+export const createBins = async (harvestId: string, bins: CreateBinDTO[]): Promise<{ bins: HarvestBin[] }> => {
+    const response = await fetchWithAuth(`${API_BASE}/create-bin`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ harvestId, bins }),
+    });
+    if (!response.ok) throw new Error('Failed to create bins');
+    return await response.json();
+};
+
+export const updateBin = async (binId: string, updates: Partial<{ status: string; weight: number; location: string }>): Promise<HarvestBin> => {
+    const response = await fetchWithAuth(`${API_BASE}/update-bin`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ binId, ...updates }),
+    });
+    if (!response.ok) throw new Error('Failed to update bin');
+    return await response.json();
+};
+
+export const logBinCure = async (binId: string, data: {
+    action: string;
+    notes?: string;
+    moistureReading?: number;
+    nextActionAt?: string;
+}): Promise<BinCureLog> => {
+    const response = await fetchWithAuth(`${API_BASE}/log-bin-cure`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ binId, ...data }),
+    });
+    if (!response.ok) throw new Error('Failed to log cure action');
+    return await response.json();
+};
+
+export const getBinCureLogs = async (binId: string): Promise<BinCureLog[]> => {
+    const response = await fetchWithAuth(`${API_BASE}/get-bin-cure-logs?binId=${binId}`);
+    if (!response.ok) return [];
+    return await response.json();
+};
+
+export const binToTrim = async (binId: string): Promise<any> => {
+    const response = await fetchWithAuth(`${API_BASE}/bin-to-trim`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ binId }),
+    });
+    if (!response.ok) throw new Error('Failed to send bin to trim');
     return await response.json();
 };
 
@@ -1179,6 +1244,68 @@ export const bulkSaveVendorProducts = async (data: {
     return await response.json();
 };
 
+// ── Supply Inventory ─────────────────────────────────────────────────────
+
+export const getSupplyPools = async (): Promise<SupplyPool[]> => {
+    const response = await fetchWithAuth(`${API_BASE}/get-supply-pools`);
+    if (!response.ok) throw new Error('Failed to fetch supply pools');
+    return await response.json();
+};
+
+export const getSupplyItems = async (poolSlug?: SupplyPoolSlug, belowPar?: boolean): Promise<SupplyItem[]> => {
+    const params = new URLSearchParams();
+    if (poolSlug) params.set('poolSlug', poolSlug);
+    if (belowPar) params.set('belowPar', 'true');
+    const response = await fetchWithAuth(`${API_BASE}/get-supply-items?${params}`);
+    if (!response.ok) throw new Error('Failed to fetch supply items');
+    return await response.json();
+};
+
+export const saveSupplyItem = async (item: Partial<SupplyItem> & { poolSlug: string; name: string }): Promise<SupplyItem> => {
+    const response = await fetchWithAuth(`${API_BASE}/save-supply-item`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(item),
+    });
+    if (!response.ok) throw new Error('Failed to save supply item');
+    return await response.json();
+};
+
+export const deleteSupplyItem = async (itemId: string): Promise<void> => {
+    const response = await fetchWithAuth(`${API_BASE}/delete-supply-item`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ itemId }),
+    });
+    if (!response.ok) throw new Error('Failed to delete supply item');
+};
+
+export const supplyLedgerEntry = async (data: {
+    itemId: string;
+    changeType: SupplyChangeType;
+    quantity: number;
+    notes?: string;
+    referenceType?: string;
+    referenceId?: string;
+}): Promise<{ item: SupplyItem; entry: SupplyLedgerEntry }> => {
+    const response = await fetchWithAuth(`${API_BASE}/supply-ledger-entry`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+    });
+    if (!response.ok) throw new Error('Failed to create supply ledger entry');
+    return await response.json();
+};
+
+export const getSupplyLedger = async (itemId?: string, poolSlug?: string): Promise<SupplyLedgerEntry[]> => {
+    const params = new URLSearchParams();
+    if (itemId) params.set('itemId', itemId);
+    if (poolSlug) params.set('poolSlug', poolSlug);
+    const response = await fetchWithAuth(`${API_BASE}/get-supply-ledger?${params}`);
+    if (!response.ok) throw new Error('Failed to fetch supply ledger');
+    return await response.json();
+};
+
 export const apiService = {
     setAuthToken,
     getSession,
@@ -1217,6 +1344,13 @@ export const apiService = {
     deletePlantWeight,
     submitHarvestBatch,
     approveHarvestDay,
+    // Bins
+    getBins,
+    createBins,
+    updateBin,
+    logBinCure,
+    getBinCureLogs,
+    binToTrim,
     // Licenses
     getMyLicenses,
     getAllLicenses,
@@ -1300,4 +1434,11 @@ export const apiService = {
     saveOrder,
     parseVendorMenu,
     bulkSaveVendorProducts,
+    // Supply inventory
+    getSupplyPools,
+    getSupplyItems,
+    saveSupplyItem,
+    deleteSupplyItem,
+    supplyLedgerEntry,
+    getSupplyLedger,
 };

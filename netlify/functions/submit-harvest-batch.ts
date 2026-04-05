@@ -37,7 +37,7 @@ export const handler: Handler = async (event) => {
                 return { statusCode: 404, body: JSON.stringify({ error: 'Harvest not found' }) };
             }
 
-            if (harvest.status !== 'planning' && harvest.status !== 'active') {
+            if (!['planning', 'active', 'cutting'].includes(harvest.status)) {
                 await client.query('ROLLBACK');
                 return {
                     statusCode: 400,

@@ -55,8 +55,8 @@ export const handler: Handler = async (event) => {
                     };
                 }
 
-                // Flower allocation → drying; frozen-only → completed
-                const nextStatus = harvest.has_flower ? 'drying' : 'completed';
+                // Flower allocation → hanging (drying); frozen-only → completed
+                const nextStatus = harvest.has_flower ? 'hanging' : 'completed';
                 const endDate = harvest.has_flower ? null : 'NOW()';
 
                 const { rows: [updated] } = await client.query(`

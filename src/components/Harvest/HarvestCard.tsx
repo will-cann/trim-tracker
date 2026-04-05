@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { ChevronDown, Trash2, Snowflake, Flower2, ArrowRightLeft, Scissors, Clock, Plus, Scale, PackagePlus } from 'lucide-react';
+import { ChevronDown, X, Trash2, Snowflake, Flower2, ArrowRightLeft, Scissors, Clock, Plus, Scale, PackagePlus } from 'lucide-react';
 import type { Harvest, HarvestWasteType, CreatePackageDTO } from '../../types/definitions';
 import { WasteEntryForm } from './WasteEntryForm';
 import { RecordWeightModal } from './RecordWeightModal';
@@ -16,23 +16,31 @@ interface HarvestCardProps {
     onDelete: (harvestId: string) => void;
     onUpdate: (harvestId: string, updates: Record<string, any>) => void;
     onCreatePackage?: (data: CreatePackageDTO) => Promise<void>;
+    defaultExpanded?: boolean;
+    onClose?: () => void;
 }
 
 const STATUS_CLASS: Record<string, string> = {
     planning: 'status-upcoming',
     active: 'status-active',
-    submitted: 'status-active',
+    cutting: 'status-active',
+    submitted: 'status-drying',
     drying: 'status-drying',
+    hanging: 'status-drying',
     ready: 'status-complete',
+    bucking: 'status-complete',
     completed: 'status-complete',
 };
 
 const STATUS_LABEL: Record<string, string> = {
     planning: 'Planning',
     active: 'Active',
+    cutting: 'Cutting',
     submitted: 'Submitted',
     drying: 'Drying',
+    hanging: 'Hanging',
     ready: 'Ready',
+    bucking: 'Binning',
     completed: 'Completed',
 };
 
@@ -45,8 +53,10 @@ export const HarvestCard: React.FC<HarvestCardProps> = ({
     onDelete,
     onUpdate,
     onCreatePackage,
+    defaultExpanded,
+    onClose,
 }) => {
-    const [isExpanded, setIsExpanded] = useState(false);
+    const [isExpanded, setIsExpanded] = useState(defaultExpanded ?? false);
     const [showWeightModal, setShowWeightModal] = useState(false);
     const [showAllocateModal, setShowAllocateModal] = useState(false);
     const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -69,14 +79,14 @@ export const HarvestCard: React.FC<HarvestCardProps> = ({
 
     // Tick every minute to keep drying time live
     useEffect(() => {
-        if (harvest.status !== 'drying') return;
+        if (harvest.status !== 'drying' && harvest.status !== 'hanging') return;
         const interval = setInterval(() => setTick(t => t + 1), 60000);
         return () => clearInterval(interval);
     }, [harvest.status]);
 
     const getDryingInfo = () => {
-        const startDate = harvest.harvestEndDate || harvest.createdAt;
-        if (!startDate || harvest.status !== 'drying') return null;
+        const startDate = harvest.harvestEndDate || harvest.approvedAt || harvest.createdAt;
+        if (!startDate || (harvest.status !== 'drying' && harvest.status !== 'hanging')) return null;
         const start = new Date(startDate);
         const now = new Date();
         const diffMs = now.getTime() - start.getTime();
@@ -147,9 +157,20 @@ export const HarvestCard: React.FC<HarvestCardProps> = ({
                                     <Trash2 size={20} />
                                 </button>
                             )}
-                            <div className="expand-icon">
-                                <ChevronDown size={24} />
-                            </div>
+                            {onClose ? (
+                                <button
+                                    className="icon-btn"
+                                    onClick={e => { e.stopPropagation(); onClose(); }}
+                                    title="Close"
+                                    style={{ color: '#959595' }}
+                                >
+                                    <X size={20} />
+                                </button>
+                            ) : (
+                                <div className="expand-icon">
+                                    <ChevronDown size={24} />
+                                </div>
+                            )}
                         </div>
                     </div>
 
@@ -268,7 +289,7 @@ export const HarvestCard: React.FC<HarvestCardProps> = ({
                                             <span className={`status-badge ${alloc.status === 'completed' ? 'status-complete' : 'status-upcoming'}`}>
                                                 {alloc.status}
                                             </span>
-                                            {alloc.allocationType === 'flower' && alloc.status !== 'completed' && harvest.status === 'ready' && (
+                                            {alloc.allocationType === 'flower' && alloc.status !== 'completed' && (harvest.status === 'ready' || harvest.status === 'bucking') && (
                                                 <button className="btn-start-batch" onClick={() => onConvertToTrim(alloc.id)}>
                                                     <Scissors size={12} className="mr-1" />
                                                     Send to Trim
@@ -310,21 +331,21 @@ export const HarvestCard: React.FC<HarvestCardProps> = ({
                         )}
 
                         {/* Action buttons — only render when there are actions */}
-                        {(((harvest.status === 'planning' || harvest.status === 'active') && harvest.allocations.length === 0)
-                            || harvest.status === 'drying') && (
+                        {(((harvest.status === 'planning' || harvest.status === 'active' || harvest.status === 'cutting') && harvest.allocations.length === 0)
+                            || harvest.status === 'drying' || harvest.status === 'hanging') && (
                             <div className="flex gap-2 flex-wrap pt-3" style={{ borderTop: '1px solid var(--border-color)' }}>
-                                {(harvest.status === 'planning' || harvest.status === 'active') && harvest.allocations.length === 0 && (
+                                {(harvest.status === 'planning' || harvest.status === 'active' || harvest.status === 'cutting') && harvest.allocations.length === 0 && (
                                     <button className="btn-start-batch" onClick={() => setShowAllocateModal(true)}>
                                         <ArrowRightLeft size={14} className="mr-1" />
                                         Set Allocation
                                     </button>
                                 )}
-                                {harvest.status === 'drying' && (
+                                {(harvest.status === 'drying' || harvest.status === 'hanging') && (
                                     <button
                                         className="btn-start-batch"
-                                        onClick={() => onUpdate(harvest.id, { status: 'ready' })}
+                                        onClick={() => onUpdate(harvest.id, { status: 'bucking' })}
                                     >
-                                        Mark as Ready to Trim
+                                        Start Binning
                                     </button>
                                 )}
                             </div>

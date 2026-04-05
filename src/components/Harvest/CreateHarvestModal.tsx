@@ -38,13 +38,21 @@ export const CreateHarvestModal: React.FC<CreateHarvestModalProps> = ({ onClose,
     const [selectedPlantIds, setSelectedPlantIds] = useState<Set<string>>(new Set());
     const [selectedBatch, setSelectedBatch] = useState<FloweringBatchGroup | null>(null);
 
+    const [rooms, setRooms] = useState<Array<{ id: string; name: string; room_type?: string }>>([]);
+
     useEffect(() => {
         Promise.all([
             apiService.getStrains().then(setStrains),
             apiService.getMyLicenses().then(setLicenses),
             apiService.getFloweringPlants().then(setFloweringGroups),
+            apiService.getRooms().then((r: any) => setRooms(r)),
         ]).finally(() => setLoading(false));
     }, []);
+
+    const dryingRooms = rooms.filter(r => {
+        const t = (r.room_type || '').toLowerCase();
+        return t === 'dry' || t === 'drying' || t === 'general';
+    });
 
     const selectedStrain = strains.find(s => s.id === strainId);
     const selectedLicense = licenses.find(l => l.id === licenseId);
@@ -128,13 +136,13 @@ export const CreateHarvestModal: React.FC<CreateHarvestModalProps> = ({ onClose,
     };
 
     return (
-        <Modal title="New Harvest" contentClassName="creation-modal" onClose={onClose} footer={
+        <Modal title="Schedule Harvest" contentClassName="creation-modal" onClose={onClose} footer={
             <>
                 <Button variant="secondary" type="button" onClick={onClose}>Cancel</Button>
-                <Button variant="primary" type="submit" form="create-harvest-form" disabled={!canSubmit}>
+                <Button variant="lion" type="submit" form="create-harvest-form" disabled={!canSubmit}>
                     {hasSourcePlants
-                        ? `Harvest ${selectedPlantIds.size} Plant${selectedPlantIds.size !== 1 ? 's' : ''}`
-                        : 'Create Harvest'
+                        ? `Schedule ${selectedPlantIds.size} Plant${selectedPlantIds.size !== 1 ? 's' : ''}`
+                        : 'Schedule Harvest'
                     }
                 </Button>
             </>
@@ -366,13 +374,16 @@ export const CreateHarvestModal: React.FC<CreateHarvestModalProps> = ({ onClose,
 
                     <div className="field">
                         <label className="field-label">Drying Location</label>
-                        <input
-                            type="text"
+                        <select
                             className="field-input"
                             value={dryingLocation}
                             onChange={e => setDryingLocation(e.target.value)}
-                            placeholder="Drying Room 1"
-                        />
+                        >
+                            <option value="">Select room...</option>
+                            {dryingRooms.map(r => (
+                                <option key={r.id} value={r.name}>{r.name}</option>
+                            ))}
+                        </select>
                     </div>
 
                     <div className="field-divider" />
