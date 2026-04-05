@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback } from 'react';
-import { Upload, Check, X, Loader2, AlertCircle, FileText, CheckCircle2 } from 'lucide-react';
+import { Upload, Check, X, Loader2, AlertCircle, FileText, CheckCircle2, ChevronDown } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { apiService } from '../../services/apiService';
 import { Modal } from '../ui';
@@ -176,6 +176,7 @@ export const MenuUploadModal: React.FC<Props> = ({
     const fileRef = useRef<HTMLInputElement>(null);
     const [dragging, setDragging] = useState(false);
     const [saving, setSaving] = useState(false);
+    const [notesExpanded, setNotesExpanded] = useState(false);
 
     const { step, fileStatuses, products, vendorName, notes, error, fileName } = parseState;
     const isUpload = !parseState.active;
@@ -393,7 +394,6 @@ export const MenuUploadModal: React.FC<Props> = ({
                     {notes && (
                         <div style={{
                             marginBottom: 16,
-                            padding: '10px 14px',
                             background: '#FFFBEB',
                             border: '1px solid #F5D98B',
                             borderRadius: 8,
@@ -401,10 +401,39 @@ export const MenuUploadModal: React.FC<Props> = ({
                             color: '#78600F',
                             lineHeight: 1.5,
                         }}>
-                            <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
-                                <AlertCircle size={14} style={{ marginTop: 2, flexShrink: 0 }} />
-                                <div style={{ whiteSpace: 'pre-wrap' }}>{notes}</div>
-                            </div>
+                            <button
+                                onClick={() => setNotesExpanded(!notesExpanded)}
+                                style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: 8,
+                                    width: '100%',
+                                    padding: '8px 14px',
+                                    background: 'none',
+                                    border: 'none',
+                                    cursor: 'pointer',
+                                    color: '#78600F',
+                                    fontSize: '0.8125rem',
+                                    fontWeight: 600,
+                                    textAlign: 'left',
+                                }}
+                            >
+                                <AlertCircle size={13} style={{ flexShrink: 0 }} />
+                                <span style={{ flex: 1 }}>AI parsing notes</span>
+                                <ChevronDown size={14} style={{ transform: notesExpanded ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s ease' }} />
+                            </button>
+                            {notesExpanded && (
+                                <div style={{
+                                    padding: '0 14px 10px',
+                                    whiteSpace: 'pre-wrap',
+                                    maxHeight: 180,
+                                    overflowY: 'auto',
+                                    fontSize: '0.75rem',
+                                    lineHeight: 1.6,
+                                }}>
+                                    {notes}
+                                </div>
+                            )}
                         </div>
                     )}
 
