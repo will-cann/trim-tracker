@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { Store as StoreIcon, ShoppingCart, Package, Building2, Upload, Loader2, CheckCircle2, X } from 'lucide-react';
 import { apiService } from '../../services/apiService';
 import type { Vendor, VendorProduct, Store, PurchaseOrder } from '../../types/definitions';
@@ -129,6 +130,7 @@ export const OrderingDashboard = () => {
     ];
 
     return (
+        <>
         <div className="dashboard">
             <div className="dashboard-top-section" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <div className="header-title">
@@ -202,14 +204,16 @@ export const OrderingDashboard = () => {
                 />
             )}
 
-            {/* Background parse toast */}
-            {showToast && (
+        </div>
+
+            {/* Background parse toast — portaled to body to escape any overflow/transform containers */}
+            {showToast && createPortal(
                 <div style={{
                     position: 'fixed',
                     bottom: 24,
                     left: '50%',
                     transform: 'translateX(-50%)',
-                    zIndex: 200,
+                    zIndex: 9999,
                     animation: 'slideUp 0.2s ease-out',
                 }}>
                     <div style={{
@@ -258,8 +262,9 @@ export const OrderingDashboard = () => {
                             </>
                         )}
                     </div>
-                </div>
+                </div>,
+                document.body,
             )}
-        </div>
+        </>
     );
 };
