@@ -12,15 +12,15 @@ interface AIAssistantProps {
 
 export const AIAssistant: React.FC<AIAssistantProps> = ({ onStart, onNavigateToAI }) => {
     return (
-        <div className="flex flex-col items-center justify-center flex-1 min-h-0 py-12 px-4">
-            <div className="w-full max-w-md">
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', flex: 1, minHeight: 0, padding: '48px 16px' }}>
+            <div style={{ width: '100%', maxWidth: 420 }}>
                 {/* Empty state header */}
-                <div className="text-center mb-8">
-                    <div className="w-11 h-11 rounded-xl bg-gray-100 flex items-center justify-center mx-auto mb-4">
-                        <Scissors size={20} className="text-gray-400" />
+                <div style={{ textAlign: 'center', marginBottom: 32 }}>
+                    <div style={{ width: 44, height: 44, borderRadius: 12, background: '#F1F1F1', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
+                        <Scissors size={20} color="#959595" />
                     </div>
-                    <h2 className="text-base font-semibold text-gray-800 mb-1">No Active Session</h2>
-                    <p className="text-sm text-gray-400">
+                    <h2 style={{ fontSize: '1rem', fontWeight: 600, color: '#1A1A1A', marginBottom: 4 }}>No Active Session</h2>
+                    <p style={{ fontSize: '0.875rem', color: '#959595' }}>
                         Start a trim session to begin tracking batches and trimmer output.
                     </p>
                 </div>
@@ -29,28 +29,39 @@ export const AIAssistant: React.FC<AIAssistantProps> = ({ onStart, onNavigateToA
                 {onNavigateToAI && (
                     <button
                         onClick={onNavigateToAI}
-                        className="w-full flex items-center justify-between px-4 py-3 mb-6
-                                   rounded-lg border border-gray-200 bg-white
-                                   hover:border-emerald-300 hover:bg-emerald-50/40
-                                   transition-colors group"
+                        style={{
+                            width: '100%',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            padding: '12px 16px',
+                            marginBottom: 24,
+                            borderRadius: 8,
+                            border: '1px solid #E8E8E8',
+                            background: '#fff',
+                            cursor: 'pointer',
+                            transition: 'border-color 0.15s ease, background 0.15s ease',
+                        }}
+                        onMouseEnter={e => { e.currentTarget.style.borderColor = '#3BB570'; e.currentTarget.style.background = 'rgba(59, 181, 112, 0.04)'; }}
+                        onMouseLeave={e => { e.currentTarget.style.borderColor = '#E8E8E8'; e.currentTarget.style.background = '#fff'; }}
                     >
-                        <div className="text-left">
-                            <span className="text-sm font-medium text-gray-700 group-hover:text-emerald-700">
+                        <div style={{ textAlign: 'left' }}>
+                            <span style={{ fontSize: '0.875rem', fontWeight: 500, color: '#1A1A1A' }}>
                                 Start with AI
                             </span>
-                            <span className="block text-xs text-gray-400 mt-0.5">
+                            <span style={{ display: 'block', fontSize: '0.75rem', color: '#959595', marginTop: 2 }}>
                                 Describe your session and let AI set it up
                             </span>
                         </div>
-                        <ArrowRight size={16} className="text-gray-300 group-hover:text-emerald-500 transition-colors" />
+                        <ArrowRight size={16} color="#C0C0C0" />
                     </button>
                 )}
 
                 {/* Divider */}
-                <div className="flex items-center gap-3 mb-6">
-                    <div className="flex-1 h-px bg-gray-200" />
-                    <span className="text-xs text-gray-400 font-medium">or manually</span>
-                    <div className="flex-1 h-px bg-gray-200" />
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 24 }}>
+                    <div style={{ flex: 1, height: 1, background: '#E8E8E8' }} />
+                    <span style={{ fontSize: '0.75rem', color: '#959595', fontWeight: 500 }}>or manually</span>
+                    <div style={{ flex: 1, height: 1, background: '#E8E8E8' }} />
                 </div>
 
                 {/* Form */}
