@@ -40,19 +40,32 @@ export const handler: Handler = async (event) => {
             `, [vendorId, context.companyId, body.fileName || 'menu upload']);
         }
 
-        let inserted = 0;
-        for (const p of products) {
-            if (!p.name?.trim()) continue;
-            await client.query(`
-                INSERT INTO vendor_products (company_id, vendor_id, name, brand, category, sku, unit_size, case_size, unit_price, case_price)
-                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-            `, [
+        const valid = products.filter((p: any) => p.name?.trim());
+        if (!valid.length) {
+            await client.query('ROLLBACK');
+            return { statusCode: 400, body: JSON.stringify({ error: 'No valid products to save' }) };
+        }
+
+        // Batch insert — build multi-row VALUES clause
+        const COLS = 10; // columns per row
+        const values: any[] = [];
+        const placeholders: string[] = [];
+        valid.forEach((p: any, i: number) => {
+            const offset = i * COLS;
+            placeholders.push(`($${offset+1}, $${offset+2}, $${offset+3}, $${offset+4}, $${offset+5}, $${offset+6}, $${offset+7}, $${offset+8}, $${offset+9}, $${offset+10})`);
+            values.push(
                 context.companyId, vendorId,
                 p.name.trim(), p.brand || null, p.category || null, p.sku || null,
                 p.unitSize || null, p.caseSize || null, p.unitPrice || null, p.casePrice || null,
-            ]);
-            inserted++;
-        }
+            );
+        });
+
+        await client.query(`
+            INSERT INTO vendor_products (company_id, vendor_id, name, brand, category, sku, unit_size, case_size, unit_price, case_price)
+            VALUES ${placeholders.join(', ')}
+        `, values);
+
+        const inserted = valid.length;
 
         await client.query('COMMIT');
 

@@ -4,12 +4,9 @@ import * as XLSX from 'xlsx';
 import { apiService } from '../../services/apiService';
 import { Modal } from '../ui';
 
-interface Props {
-    onClose: () => void;
-    onSaved: () => void;
-}
+// ── Shared types (used by dashboard too) ──────────────────────────────────
 
-interface ParsedProduct {
+export interface ParsedProduct {
     name: string;
     brand?: string;
     category?: string;
@@ -22,149 +19,223 @@ interface ParsedProduct {
     _sourceFile?: string;
 }
 
-interface FileStatus {
+export interface FileStatus {
     name: string;
     status: 'pending' | 'parsing' | 'done' | 'error';
     productCount?: number;
     error?: string;
 }
 
-type Step = 'upload' | 'parsing' | 'review' | 'saving';
+export interface ParseState {
+    active: boolean;
+    step: 'parsing' | 'review' | 'saving' | 'done';
+    fileStatuses: FileStatus[];
+    products: ParsedProduct[];
+    vendorName: string;
+    notes: string;
+    error: string;
+    fileName: string;
+}
 
-export const MenuUploadModal: React.FC<Props> = ({ onClose, onSaved }) => {
-    const [step, setStep] = useState<Step>('upload');
-    const [vendorName, setVendorName] = useState('');
-    const [fileName, setFileName] = useState('');
-    const [error, setError] = useState('');
-    const [notes, setNotes] = useState('');
-    const [products, setProducts] = useState<ParsedProduct[]>([]);
-    const [fileStatuses, setFileStatuses] = useState<FileStatus[]>([]);
+export const EMPTY_PARSE_STATE: ParseState = {
+    active: false,
+    step: 'parsing',
+    fileStatuses: [],
+    products: [],
+    vendorName: '',
+    notes: '',
+    error: '',
+    fileName: '',
+};
+
+// ── File parser (called from dashboard, survives modal close) ─────────────
+
+async function parseOneFile(file: File): Promise<{ products: any[]; vendorName?: string; notes?: string }> {
+    const ext = file.name.split('.').pop()?.toLowerCase() || '';
+    let fileContent: string;
+    let fileType: 'text' | 'pdf' | 'image';
+
+    if (ext === 'pdf') {
+        fileType = 'pdf';
+        const buf = await file.arrayBuffer();
+        fileContent = btoa(String.fromCharCode(...new Uint8Array(buf)));
+    } else if (['png', 'jpg', 'jpeg', 'webp'].includes(ext)) {
+        fileType = 'image';
+        const buf = await file.arrayBuffer();
+        fileContent = btoa(String.fromCharCode(...new Uint8Array(buf)));
+    } else if (['xlsx', 'xls'].includes(ext)) {
+        fileType = 'text';
+        const buf = await file.arrayBuffer();
+        const workbook = XLSX.read(buf, { type: 'array' });
+        const sheets = workbook.SheetNames.map(name => {
+            const csv = XLSX.utils.sheet_to_csv(workbook.Sheets[name]);
+            return workbook.SheetNames.length > 1 ? `--- Sheet: ${name} ---\n${csv}` : csv;
+        });
+        fileContent = sheets.join('\n\n');
+    } else {
+        fileType = 'text';
+        fileContent = await file.text();
+    }
+
+    return apiService.parseVendorMenu({ fileName: file.name, fileContent, fileType });
+}
+
+export async function processFiles(
+    files: File[],
+    onUpdate: (updater: (prev: ParseState) => ParseState) => void,
+) {
+    const statuses: FileStatus[] = files.map(f => ({ name: f.name, status: 'pending' as const }));
+    const fileName = files.length === 1 ? files[0].name : `${files.length} files`;
+
+    onUpdate(() => ({
+        active: true,
+        step: 'parsing',
+        fileStatuses: statuses,
+        products: [],
+        vendorName: '',
+        notes: '',
+        error: '',
+        fileName,
+    }));
+
+    const allProducts: ParsedProduct[] = [];
+    const allNotes: string[] = [];
+    let detectedVendor = '';
+
+    for (let i = 0; i < files.length; i++) {
+        onUpdate(prev => ({
+            ...prev,
+            fileStatuses: prev.fileStatuses.map((s, idx) => idx === i ? { ...s, status: 'parsing' } : s),
+        }));
+
+        try {
+            const result = await parseOneFile(files[i]);
+
+            if (result.vendorName && !detectedVendor) {
+                detectedVendor = result.vendorName;
+            }
+
+            if (result.notes) {
+                allNotes.push(files.length > 1 ? `**${files[i].name}:** ${result.notes}` : result.notes);
+            }
+
+            const fileProducts = (result.products || []).map((p: any) => ({
+                ...p,
+                _selected: true,
+                _sourceFile: files[i].name,
+            }));
+            allProducts.push(...fileProducts);
+
+            onUpdate(prev => ({
+                ...prev,
+                fileStatuses: prev.fileStatuses.map((s, idx) =>
+                    idx === i ? { ...s, status: 'done', productCount: fileProducts.length } : s
+                ),
+            }));
+        } catch (err: any) {
+            onUpdate(prev => ({
+                ...prev,
+                fileStatuses: prev.fileStatuses.map((s, idx) =>
+                    idx === i ? { ...s, status: 'error', error: err.message } : s
+                ),
+            }));
+        }
+    }
+
+    if (!allProducts.length) {
+        onUpdate(prev => ({ ...prev, active: false, error: 'No products found across any uploaded files.' }));
+        return;
+    }
+
+    onUpdate(prev => ({
+        ...prev,
+        step: 'review',
+        products: allProducts,
+        vendorName: detectedVendor || prev.vendorName,
+        notes: allNotes.join('\n\n'),
+    }));
+}
+
+// ── Modal props ───────────────────────────────────────────────────────────
+
+interface Props {
+    parseState: ParseState;
+    onUpdateParseState: (updater: (prev: ParseState) => ParseState) => void;
+    onStartParse: (files: File[]) => void;
+    onClose: () => void;
+    onSaved: () => void;
+}
+
+export const MenuUploadModal: React.FC<Props> = ({
+    parseState,
+    onUpdateParseState,
+    onStartParse,
+    onClose,
+    onSaved,
+}) => {
     const fileRef = useRef<HTMLInputElement>(null);
     const [dragging, setDragging] = useState(false);
+    const [saving, setSaving] = useState(false);
 
-    const parseOneFile = async (file: File): Promise<{ products: any[]; vendorName?: string; notes?: string }> => {
-        const ext = file.name.split('.').pop()?.toLowerCase() || '';
-        let fileContent: string;
-        let fileType: 'text' | 'pdf' | 'image';
+    const { step, fileStatuses, products, vendorName, notes, error, fileName } = parseState;
+    const isUpload = !parseState.active;
+    const isParsing = step === 'parsing' && parseState.active;
+    const isReview = step === 'review' && parseState.active;
 
-        if (ext === 'pdf') {
-            fileType = 'pdf';
-            const buf = await file.arrayBuffer();
-            fileContent = btoa(String.fromCharCode(...new Uint8Array(buf)));
-        } else if (['png', 'jpg', 'jpeg', 'webp'].includes(ext)) {
-            fileType = 'image';
-            const buf = await file.arrayBuffer();
-            fileContent = btoa(String.fromCharCode(...new Uint8Array(buf)));
-        } else if (['xlsx', 'xls'].includes(ext)) {
-            fileType = 'text';
-            const buf = await file.arrayBuffer();
-            const workbook = XLSX.read(buf, { type: 'array' });
-            const sheets = workbook.SheetNames.map(name => {
-                const csv = XLSX.utils.sheet_to_csv(workbook.Sheets[name]);
-                return workbook.SheetNames.length > 1 ? `--- Sheet: ${name} ---\n${csv}` : csv;
-            });
-            fileContent = sheets.join('\n\n');
-        } else {
-            fileType = 'text';
-            fileContent = await file.text();
-        }
-
-        return apiService.parseVendorMenu({ fileName: file.name, fileContent, fileType });
-    };
-
-    const processFiles = useCallback(async (files: File[]) => {
-        setError('');
-        setNotes('');
-        setStep('parsing');
-
-        const statuses: FileStatus[] = files.map(f => ({ name: f.name, status: 'pending' as const }));
-        setFileStatuses(statuses);
-        setFileName(files.length === 1 ? files[0].name : `${files.length} files`);
-
-        const allProducts: ParsedProduct[] = [];
-        const allNotes: string[] = [];
-        let detectedVendor = '';
-
-        for (let i = 0; i < files.length; i++) {
-            setFileStatuses(prev => prev.map((s, idx) => idx === i ? { ...s, status: 'parsing' } : s));
-
-            try {
-                const result = await parseOneFile(files[i]);
-
-                if (result.vendorName && !detectedVendor) {
-                    detectedVendor = result.vendorName;
-                }
-
-                if (result.notes) {
-                    allNotes.push(files.length > 1 ? `**${files[i].name}:** ${result.notes}` : result.notes);
-                }
-
-                const fileProducts = (result.products || []).map((p: any) => ({
-                    ...p,
-                    _selected: true,
-                    _sourceFile: files[i].name,
-                }));
-                allProducts.push(...fileProducts);
-
-                setFileStatuses(prev => prev.map((s, idx) =>
-                    idx === i ? { ...s, status: 'done', productCount: fileProducts.length } : s
-                ));
-            } catch (err: any) {
-                setFileStatuses(prev => prev.map((s, idx) =>
-                    idx === i ? { ...s, status: 'error', error: err.message } : s
-                ));
-            }
-        }
-
-        if (!allProducts.length) {
-            setError('No products found across any uploaded files.');
-            setStep('upload');
-            return;
-        }
-
-        if (detectedVendor) setVendorName(detectedVendor);
-        if (allNotes.length) setNotes(allNotes.join('\n\n'));
-        setProducts(allProducts);
-        setStep('review');
-    }, []);
+    const setVendorName = (name: string) => onUpdateParseState(prev => ({ ...prev, vendorName: name }));
+    const setError = (err: string) => onUpdateParseState(prev => ({ ...prev, error: err }));
 
     const handleDrop = useCallback((e: React.DragEvent) => {
         e.preventDefault();
         setDragging(false);
         const files = Array.from(e.dataTransfer.files);
-        if (files.length) processFiles(files);
-    }, [processFiles]);
+        if (files.length) onStartParse(files);
+    }, [onStartParse]);
 
     const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
         const files = Array.from(e.target.files || []);
-        if (files.length) processFiles(files);
+        if (files.length) onStartParse(files);
     };
 
     const toggleProduct = (idx: number) => {
-        setProducts(prev => prev.map((p, i) => i === idx ? { ...p, _selected: !p._selected } : p));
+        onUpdateParseState(prev => ({
+            ...prev,
+            products: prev.products.map((p, i) => i === idx ? { ...p, _selected: !p._selected } : p),
+        }));
     };
 
     const toggleAll = () => {
         const allSelected = products.every(p => p._selected);
-        setProducts(prev => prev.map(p => ({ ...p, _selected: !allSelected })));
+        onUpdateParseState(prev => ({
+            ...prev,
+            products: prev.products.map(p => ({ ...p, _selected: !allSelected })),
+        }));
     };
 
     const handleSave = async () => {
         const selected = products.filter(p => p._selected);
         if (!selected.length || !vendorName.trim()) return;
 
-        setStep('saving');
+        setSaving(true);
+        onUpdateParseState(prev => ({ ...prev, step: 'saving' }));
         try {
             await apiService.bulkSaveVendorProducts({
                 vendorName: vendorName.trim(),
-                fileName: fileName,
+                fileName,
                 products: selected.map(({ _selected, _sourceFile, ...p }) => p),
             });
+            onUpdateParseState(() => EMPTY_PARSE_STATE);
             onSaved();
         } catch (err: any) {
-            setError(err.message || 'Failed to save products');
-            setStep('review');
+            setError((err as Error).message || 'Failed to save products');
+            onUpdateParseState(prev => ({ ...prev, step: 'review' }));
+        } finally {
+            setSaving(false);
         }
+    };
+
+    const handleBack = () => {
+        onUpdateParseState(() => EMPTY_PARSE_STATE);
     };
 
     const selectedCount = products.filter(p => p._selected).length;
@@ -177,20 +248,20 @@ export const MenuUploadModal: React.FC<Props> = ({ onClose, onSaved }) => {
             onClose={onClose}
             contentClassName="creation-modal"
             footer={
-                step === 'review' ? (
+                isReview ? (
                     <>
-                        <button className="btn-cancel" onClick={() => { setStep('upload'); setProducts([]); setNotes(''); setFileStatuses([]); }}>Back</button>
-                        <button className="btn-primary" disabled={selectedCount === 0 || !vendorName.trim()} onClick={handleSave}>
-                            Save {selectedCount} Product{selectedCount !== 1 ? 's' : ''}
+                        <button className="btn-cancel" onClick={handleBack}>Back</button>
+                        <button className="btn-primary" disabled={selectedCount === 0 || !vendorName.trim() || saving} onClick={handleSave}>
+                            {saving ? 'Saving...' : `Save ${selectedCount} Product${selectedCount !== 1 ? 's' : ''}`}
                         </button>
                     </>
-                ) : step === 'upload' ? (
+                ) : isUpload ? (
                     <button className="btn-cancel" onClick={onClose}>Cancel</button>
                 ) : undefined
             }
         >
             {/* Step: Upload */}
-            {step === 'upload' && (
+            {isUpload && (
                 <>
                     <div
                         onDragOver={e => { e.preventDefault(); setDragging(true); }}
@@ -233,7 +304,7 @@ export const MenuUploadModal: React.FC<Props> = ({ onClose, onSaved }) => {
             )}
 
             {/* Step: Parsing */}
-            {step === 'parsing' && (
+            {isParsing && (
                 <div style={{ padding: '32px 20px' }}>
                     {fileStatuses.length === 1 ? (
                         <div style={{ textAlign: 'center' }}>
@@ -242,13 +313,16 @@ export const MenuUploadModal: React.FC<Props> = ({ onClose, onSaved }) => {
                                 Parsing {fileStatuses[0].name}...
                             </div>
                             <div style={{ fontSize: '0.75rem', color: '#959595', marginTop: 6 }}>
-                                AI is extracting products and identifying the vendor. This may take 10-30 seconds.
+                                AI is extracting products. You can close this and keep working — we'll notify you when it's done.
                             </div>
                         </div>
                     ) : (
                         <>
-                            <div style={{ fontSize: '0.875rem', fontWeight: 500, color: '#1A1A1A', marginBottom: 16 }}>
+                            <div style={{ fontSize: '0.875rem', fontWeight: 500, color: '#1A1A1A', marginBottom: 4 }}>
                                 Parsing {fileStatuses.length} files...
+                            </div>
+                            <div style={{ fontSize: '0.75rem', color: '#959595', marginBottom: 16 }}>
+                                You can close this and keep working — we'll notify you when it's done.
                             </div>
                             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                                 {fileStatuses.map((fs, idx) => (
@@ -288,7 +362,7 @@ export const MenuUploadModal: React.FC<Props> = ({ onClose, onSaved }) => {
             )}
 
             {/* Step: Saving */}
-            {step === 'saving' && (
+            {saving && (
                 <div style={{ textAlign: 'center', padding: '48px 20px' }}>
                     <Loader2 size={32} color="#3BB570" style={{ animation: 'spin 1s linear infinite', margin: '0 auto 16px' }} />
                     <div style={{ fontSize: '0.875rem', fontWeight: 500, color: '#1A1A1A' }}>
@@ -298,7 +372,7 @@ export const MenuUploadModal: React.FC<Props> = ({ onClose, onSaved }) => {
             )}
 
             {/* Step: Review */}
-            {step === 'review' && (
+            {isReview && !saving && (
                 <>
                     {/* Editable vendor name */}
                     <div className="field" style={{ marginBottom: 16 }}>
