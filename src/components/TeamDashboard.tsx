@@ -363,12 +363,14 @@ const AddMemberModal = ({
     onSubmit,
 }: {
     onClose: () => void;
-    onSubmit: (name: string, role: TeamRole, email?: string) => Promise<void>;
+    onSubmit: (name: string, role: TeamRole, email?: string) => Promise<{ inviteUrl?: string }>;
 }) => {
     const [name, setName] = useState('');
     const [role, setRole] = useState<TeamRole>('worker');
     const [email, setEmail] = useState('');
     const [saving, setSaving] = useState(false);
+    const [inviteUrl, setInviteUrl] = useState<string | null>(null);
+    const [copied, setCopied] = useState(false);
     const nameRef = useRef<HTMLInputElement>(null);
 
     useEffect(() => { nameRef.current?.focus(); }, []);
@@ -377,12 +379,55 @@ const AddMemberModal = ({
         if (!name.trim()) return;
         setSaving(true);
         try {
-            await onSubmit(name.trim(), role, email.trim() || undefined);
-            onClose();
+            const result = await onSubmit(name.trim(), role, email.trim() || undefined);
+            if (result.inviteUrl) {
+                setInviteUrl(result.inviteUrl);
+            } else {
+                onClose();
+            }
         } finally {
             setSaving(false);
         }
     };
+
+    const handleCopyLink = async () => {
+        if (!inviteUrl) return;
+        await navigator.clipboard.writeText(inviteUrl);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+    };
+
+    // After invite is generated, show the link view
+    if (inviteUrl) {
+        return (
+            <Modal
+                title="Invite Sent"
+                contentClassName="creation-modal"
+                titleIcon={<Mail size={20} className="text-emerald-500" />}
+                onClose={onClose}
+                footer={
+                    <div className="flex items-center gap-2 justify-end">
+                        <button className="btn-cancel" onClick={onClose}>Done</button>
+                        <button className="btn-primary" onClick={handleCopyLink}>
+                            {copied ? <><CheckCircle size={14} /> Copied</> : <><Copy size={14} /> Copy Link</>}
+                        </button>
+                    </div>
+                }
+            >
+                <div className="space-y-3">
+                    <p className="text-sm text-gray-600">
+                        <strong>{name}</strong> has been added as <strong>{ROLE_LABELS[role]}</strong>. Share this link to let them set up their account. The link expires in 7 days.
+                    </p>
+                    <div
+                        onClick={handleCopyLink}
+                        className="text-xs text-gray-500 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2.5 break-all cursor-pointer hover:bg-gray-100 transition-colors select-all"
+                    >
+                        {inviteUrl}
+                    </div>
+                </div>
+            </Modal>
+        );
+    }
 
     return (
         <Modal
@@ -398,7 +443,7 @@ const AddMemberModal = ({
                         disabled={!name.trim() || saving}
                         onClick={handleSubmit}
                     >
-                        {saving ? 'Adding...' : 'Add Member'}
+                        {saving ? (email ? 'Adding & inviting...' : 'Adding...') : 'Add Member'}
                     </button>
                 </div>
             }
@@ -437,7 +482,7 @@ const AddMemberModal = ({
                         type="email"
                         className="field-input"
                     />
-                    <p className="field-hint">An invitation will be sent if email is provided</p>
+                    <p className="field-hint">{email.trim() ? 'An invite link will be generated for this user' : 'Add email to generate an invite link'}</p>
                 </div>
             </div>
         </Modal>
@@ -600,9 +645,10 @@ export const TeamDashboard: React.FC<TeamDashboardProps> = ({ profiles, onReload
     };
 
     // ── Actions ─────────────────────────────────────────────────────────────
-    const handleAdd = async (name: string, role: TeamRole, email?: string) => {
-        await apiService.addTrimmerProfile(name, role, email);
+    const handleAdd = async (name: string, role: TeamRole, email?: string): Promise<{ inviteUrl?: string }> => {
+        const result = await apiService.addTrimmerProfile(name, role, email);
         onReload();
+        return { inviteUrl: result.inviteUrl };
     };
 
     const handleUpdate = async (id: string, updates: Partial<TrimmerProfile>) => {

@@ -26,7 +26,7 @@ export interface ResourceBlock {
 export interface ResourceTimelineProps {
   resources: Resource[];
   blocks: ResourceBlock[];
-  view?: 'week' | 'month';
+  view?: 'day' | 'week' | 'month';
   onBlockClick?: (block: ResourceBlock) => void;
 }
 
@@ -73,6 +73,13 @@ const SHORT_MONTHS = [
   'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
 ];
 
+function formatHourHeader(hour: number): string {
+  if (hour === 0) return '12a';
+  if (hour < 12) return `${hour}a`;
+  if (hour === 12) return '12p';
+  return `${hour - 12}p`;
+}
+
 function formatDayHeader(d: Date): string {
   return `${SHORT_DAYS[d.getDay()]} ${d.getDate()}`;
 }
@@ -102,7 +109,17 @@ interface VisibleRange {
   columnCount: number;
 }
 
-function getVisibleRange(anchorDate: Date, view: 'week' | 'month'): VisibleRange {
+function getVisibleRange(anchorDate: Date, view: 'day' | 'week' | 'month'): VisibleRange {
+  if (view === 'day') {
+    const dayStart = startOfDay(anchorDate);
+    const columns: Date[] = [];
+    for (let h = 0; h < 24; h++) {
+      const col = new Date(dayStart);
+      col.setHours(h);
+      columns.push(col);
+    }
+    return { start: dayStart, end: addDays(dayStart, 1), columns, columnCount: 24 };
+  }
   const monday = getMondayOfWeek(anchorDate);
   if (view === 'week') {
     const columns: Date[] = [];
@@ -271,7 +288,7 @@ export default function ResourceTimeline({
   onBlockClick,
 }: ResourceTimelineProps) {
   const [anchor, setAnchor] = useState(() => startOfDay(new Date()));
-  const [viewMode, setViewMode] = useState<'week' | 'month'>(viewProp ?? 'week');
+  const [viewMode, setViewMode] = useState<'day' | 'week' | 'month'>(viewProp ?? 'week');
   const [tooltip, setTooltip] = useState<TooltipData | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -310,7 +327,7 @@ export default function ResourceTimeline({
   const todayLeft = useMemo(() => getTodayPosition(range.start, range.end), [range]);
 
   // Navigation
-  const step = viewMode === 'week' ? 7 : 28;
+  const step = viewMode === 'day' ? 1 : viewMode === 'week' ? 7 : 28;
 
   const goBack = useCallback(() => {
     setAnchor((prev) => addDays(prev, -step));
@@ -324,7 +341,7 @@ export default function ResourceTimeline({
     setAnchor(startOfDay(new Date()));
   }, []);
 
-  const switchView = useCallback((v: 'week' | 'month') => {
+  const switchView = useCallback((v: 'day' | 'week' | 'month') => {
     setViewMode(v);
   }, []);
 
@@ -429,6 +446,12 @@ export default function ResourceTimeline({
         </div>
         <div className="resource-timeline__view-toggle">
           <button
+            className={`resource-timeline__view-pill ${viewMode === 'day' ? 'resource-timeline__view-pill--active' : ''}`}
+            onClick={() => switchView('day')}
+          >
+            Day
+          </button>
+          <button
             className={`resource-timeline__view-pill ${viewMode === 'week' ? 'resource-timeline__view-pill--active' : ''}`}
             onClick={() => switchView('week')}
           >
@@ -491,19 +514,26 @@ export default function ResourceTimeline({
               gridTemplateColumns: `repeat(${range.columnCount}, 1fr)`,
             }}
           >
+            {viewMode === 'day' && (
+              <div className="resource-timeline__day-label">
+                {SHORT_DAYS[range.start.getDay()]} {SHORT_MONTHS[range.start.getMonth()]} {range.start.getDate()}
+              </div>
+            )}
             {range.columns.map((col) => {
               const isToday = viewMode === 'week' && isSameDay(col, today);
               const weekend = viewMode === 'week' && isWeekend(col);
+              const isNowHour = viewMode === 'day' && isSameDay(col, today) && col.getHours() === new Date().getHours();
               const classes = [
                 'resource-timeline__col-header',
                 isToday ? 'resource-timeline__col-header--today' : '',
                 weekend ? 'resource-timeline__col-header--weekend' : '',
+                isNowHour ? 'resource-timeline__col-header--today' : '',
               ]
                 .filter(Boolean)
                 .join(' ');
               return (
                 <div key={col.toISOString()} className={classes}>
-                  {viewMode === 'week' ? formatDayHeader(col) : formatWeekHeader(col)}
+                  {viewMode === 'day' ? formatHourHeader(col.getHours()) : viewMode === 'week' ? formatDayHeader(col) : formatWeekHeader(col)}
                 </div>
               );
             })}
@@ -548,13 +578,14 @@ export default function ResourceTimeline({
                 >
                   {range.columns.map((col) => {
                     const isToday = viewMode === 'week' && isSameDay(col, today);
+                    const isNowHour = viewMode === 'day' && isSameDay(col, today) && col.getHours() === new Date().getHours();
                     const weekend = viewMode === 'week' && isWeekend(col);
                     return (
                       <div
                         key={col.toISOString()}
                         className={[
                           'resource-timeline__grid-cell',
-                          isToday ? 'resource-timeline__grid-cell--today' : '',
+                          (isToday || isNowHour) ? 'resource-timeline__grid-cell--today' : '',
                           weekend ? 'resource-timeline__grid-cell--weekend' : '',
                         ]
                           .filter(Boolean)

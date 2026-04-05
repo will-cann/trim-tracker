@@ -45,9 +45,11 @@ export const handler: Handler = async (event) => {
 
         // Send Auth0 invitation if email was provided
         let invited = false;
+        let inviteUrl: string | undefined;
         if (email) {
             const result = await sendInvitation(email, name);
             invited = result.success;
+            inviteUrl = result.inviteUrl;
             if (result.success) {
                 await sql`
                     UPDATE trimmer_profiles
@@ -73,6 +75,7 @@ export const handler: Handler = async (event) => {
                 inviteStatus: invited ? 'pending' : 'none',
                 createdAt: row.created_at,
                 invited,
+                inviteUrl,
             }),
         };
     } catch (error) {

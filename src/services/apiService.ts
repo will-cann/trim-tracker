@@ -129,14 +129,14 @@ export const getTrimmerProfiles = async (): Promise<TrimmerProfile[]> => {
     return await response.json();
 };
 
-export const addTrimmerProfile = async (name: string, role?: TeamRole, email?: string): Promise<TrimmerProfile[]> => {
+export const addTrimmerProfile = async (name: string, role?: TeamRole, email?: string): Promise<TrimmerProfile & { invited?: boolean; inviteUrl?: string }> => {
     const response = await fetchWithAuth(`${API_BASE}/add-trimmer-profile`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name, role, email }),
     });
     if (!response.ok) throw new Error('Failed to add profile');
-    return await getTrimmerProfiles();
+    return await response.json();
 };
 
 export const updateTrimmerProfile = async (profileId: string, updates: { name?: string; role?: TeamRole; email?: string; status?: string }): Promise<TrimmerProfile> => {
@@ -146,19 +146,6 @@ export const updateTrimmerProfile = async (profileId: string, updates: { name?: 
         body: JSON.stringify({ profileId, ...updates }),
     });
     if (!response.ok) throw new Error('Failed to update profile');
-    return await response.json();
-};
-
-export const inviteTeamMember = async (profileId?: string, email?: string): Promise<{ success: boolean; email: string }> => {
-    const response = await fetchWithAuth(`${API_BASE}/invite-team-member`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ profileId, email }),
-    });
-    if (!response.ok) {
-        const err = await response.json().catch(() => ({ error: 'Failed to send invitation' }));
-        throw new Error(err.error);
-    }
     return await response.json();
 };
 
@@ -1320,7 +1307,6 @@ export const apiService = {
     getTrimmerProfiles,
     addTrimmerProfile,
     updateTrimmerProfile,
-    inviteTeamMember,
     deleteTrimmerProfile,
     sendTeamInvite,
     deleteBatch,

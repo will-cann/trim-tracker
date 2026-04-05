@@ -23,10 +23,11 @@ import { TagListView } from './components/TagList/TagListView';
 import { ExtractionDashboard } from './components/Extraction/ExtractionDashboard';
 import { SOPsDashboard } from './components/SOPs/SOPsDashboard';
 import { OrderingDashboard } from './components/Ordering/OrderingDashboard';
+import { SupplyDashboard } from './components/Supplies/SupplyDashboard';
 import { usePlantMapSummary } from './hooks/usePlantMapSummary';
 import logo from './assets/logo.png';
 
-type ViewType = 'ai' | 'dashboard' | 'reports' | 'harvests' | 'harvest-day' | 'settings' | 'tasks' | 'plant-map' | 'packages' | 'extractions' | 'sops' | 'ordering' | 'team' | 'tag-list';
+type ViewType = 'ai' | 'dashboard' | 'reports' | 'harvests' | 'harvest-day' | 'settings' | 'tasks' | 'plant-map' | 'packages' | 'extractions' | 'sops' | 'ordering' | 'supplies' | 'team' | 'tag-list';
 
 const VIEW_SCREEN_CONTEXT: Record<ViewType, string> = {
   'ai': 'neurocann home — general conversation, no specific module focused',
@@ -41,6 +42,7 @@ const VIEW_SCREEN_CONTEXT: Record<ViewType, string> = {
   'extractions': 'Extraction Log — viewing processing history: ice water washes, rosin presses, cart fills with yield tracking',
   'sops': 'SOPs — creating and managing Standard Operating Procedures for cultivation, extraction, processing, and compliance workflows',
   'ordering': 'Ordering — managing vendors, product catalogs, stores, and purchase orders with per-store quantity matrix',
+  'supplies': 'Supply Inventory — managing consumable supply levels, par tracking, and receiving for extraction, cultivation, and facility supplies',
   'team': 'Team Management — managing employees, roles, and invitations',
   'tag-list': 'Tag Browser — browsing and searching all plant and batch tags',
 };
@@ -233,7 +235,8 @@ function AppContent() {
   };
 
   const handleAddProfile = async (name: string) => {
-    const updatedProfiles = await apiService.addTrimmerProfile(name);
+    await apiService.addTrimmerProfile(name);
+    const updatedProfiles = await apiService.getTrimmerProfiles();
     setTrimmerProfiles(updatedProfiles);
   };
 
@@ -331,6 +334,8 @@ function AppContent() {
           <SOPsDashboard />
         ) : currentView === 'ordering' ? (
           <OrderingDashboard />
+        ) : currentView === 'supplies' ? (
+          <SupplyDashboard />
         ) : currentView === 'reports' ? (
           <ReportsDashboard />
         ) : !session && !selectedSessionId ? (

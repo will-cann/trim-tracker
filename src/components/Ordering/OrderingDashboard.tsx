@@ -12,7 +12,7 @@ import { MenuUploadModal } from './MenuUploadModal';
 type Tab = 'vendors' | 'products' | 'stores' | 'orders';
 
 export const OrderingDashboard = () => {
-    const [tab, setTab] = useState<Tab>('vendors');
+    const [tab, setTab] = useState<Tab>('products');
     const [vendors, setVendors] = useState<Vendor[]>([]);
     const [products, setProducts] = useState<VendorProduct[]>([]);
     const [stores, setStores] = useState<Store[]>([]);
@@ -90,8 +90,8 @@ export const OrderingDashboard = () => {
     }
 
     const TABS: { key: Tab; label: string; icon: typeof StoreIcon; count?: number }[] = [
-        { key: 'vendors', label: 'Vendors', icon: Building2, count: vendors.length },
         { key: 'products', label: 'Products', icon: Package, count: products.length },
+        { key: 'vendors', label: 'Vendors', icon: Building2, count: vendors.length },
         { key: 'stores', label: 'Stores', icon: StoreIcon, count: stores.length },
         { key: 'orders', label: 'Orders', icon: ShoppingCart, count: orders.length },
     ];

@@ -41,7 +41,7 @@ export const handler: Handler = async (event) => {
         const context = await resolveContext(event.headers.authorization);
         if (!context) return { statusCode: 401, body: JSON.stringify({ error: 'Unauthorized' }) };
 
-        const apiKey = process.env.ANTHROPIC_API_KEY;
+        const apiKey = process.env.CLAUDE_API_KEY || process.env.ANTHROPIC_API_KEY;
         if (!apiKey) return { statusCode: 500, body: JSON.stringify({ error: 'AI service not configured' }) };
 
         const body = JSON.parse(event.body || '{}');

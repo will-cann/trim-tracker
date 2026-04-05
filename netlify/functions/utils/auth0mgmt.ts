@@ -64,8 +64,29 @@ export async function sendInvitation(email: string, name?: string): Promise<{ su
         const existingUsers = await searchRes.json();
 
         if (Array.isArray(existingUsers) && existingUsers.length > 0) {
-            // User already has an Auth0 account — no invite needed
-            return { success: true };
+            // User already exists — generate a fresh invite link (doesn't void previous ones)
+            const existingUser = existingUsers[0];
+            const ticketRes = await fetch(`https://${AUTH0_DOMAIN}/api/v2/tickets/password-change`, {
+                method: 'POST',
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    user_id: existingUser.user_id,
+                    client_id: AUTH0_CLIENT_ID,
+                    mark_email_as_verified: true,
+                    ttl_sec: 604800, // 7 days
+                }),
+            });
+
+            if (!ticketRes.ok) {
+                // Ticket failed but user exists — they can still log in normally
+                return { success: true };
+            }
+
+            const ticket = await ticketRes.json();
+            return { success: true, inviteUrl: ticket.ticket };
         }
 
         // Create the user in Auth0 with a random password (they'll reset it via invite)
