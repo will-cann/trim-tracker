@@ -227,14 +227,6 @@ body {
   border: 1px solid var(--primary-color);
 }
 .btn-new-batch:hover { background: var(--primary-light); }
-  align-items: center;
-  gap: 6px;
-}
-
-
-
-/* (btn-new-batch hover defined in button system above) */
-
 
 /* Entry Grid */
 .entry-list-container h2 {
@@ -2323,21 +2315,7 @@ select.field-input {
 }
 
 /* Submit button refinements for creation modals */
-.creation-modal .btn-primary {
-  padding: 10px 20px;
-  font-size: 0.875rem;
-  border-radius: 8px;
-}
-
-.creation-modal .btn-primary:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.creation-modal .btn-cancel {
-  padding: 10px 16px;
-  font-size: 0.875rem;
-}
+/* creation-modal button sizing handled by button system */
 
 @keyframes fadeIn {
   from {
@@ -10312,13 +10290,7 @@ select.settings-inline-input {
   margin-bottom: var(--space-lg);
 }
 
-.sops-dashboard .btn-primary {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 8px 16px;
-  font-size: 0.8125rem;
-}
+/* sops btn-primary — handled by button system */
 
 .sops-dashboard-title {
   display: flex;
