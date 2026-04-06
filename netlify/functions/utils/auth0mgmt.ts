@@ -53,6 +53,19 @@ export async function sendInvitation(email: string, name?: string): Promise<{ su
         return { success: false, error: 'Auth0 not configured' };
     }
 
+    // Rewrite the ticket URL's hostname from the tenant domain to the custom
+    // domain so invite links show login.neurocann.app instead of dev-*.auth0.com.
+    const rewriteTicketUrl = (url: string): string => {
+        if (!AUTH0_TENANT_DOMAIN || AUTH0_TENANT_DOMAIN === AUTH0_DOMAIN) return url;
+        try {
+            const parsed = new URL(url);
+            parsed.host = AUTH0_DOMAIN!;
+            return parsed.toString();
+        } catch {
+            return url;
+        }
+    };
+
     try {
         const token = await getMgmtToken();
 
@@ -87,7 +100,7 @@ export async function sendInvitation(email: string, name?: string): Promise<{ su
             }
 
             const ticket = await ticketRes.json();
-            return { success: true, inviteUrl: ticket.ticket };
+            return { success: true, inviteUrl: rewriteTicketUrl(ticket.ticket) };
         }
 
         // Create the user in Auth0 with a random password (they'll reset it via invite)
