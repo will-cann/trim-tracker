@@ -12,23 +12,23 @@ import type { FilterDef, SortOption } from './ui';
 
 const ROLE_LABELS: Record<TeamRole, string> = {
     admin: 'Admin',
-    manager: 'Manager',
-    lead: 'Lead',
-    worker: 'Worker',
+    director: 'Director',
+    department_manager: 'Manager',
+    technician: 'Technician',
 };
 
 const ROLE_BADGE: Record<TeamRole, { bg: string; color: string }> = {
     admin: { bg: 'bg-blue-50', color: 'text-blue-600' },
-    manager: { bg: 'bg-blue-50', color: 'text-blue-600' },
-    lead: { bg: 'bg-amber-50', color: 'text-amber-600' },
-    worker: { bg: 'bg-gray-100', color: 'text-gray-600' },
+    director: { bg: 'bg-blue-50', color: 'text-blue-600' },
+    department_manager: { bg: 'bg-amber-50', color: 'text-amber-600' },
+    technician: { bg: 'bg-gray-100', color: 'text-gray-600' },
 };
 
 const ROLE_DOTS: Record<TeamRole, string> = {
     admin: 'bg-blue-500',
-    manager: 'bg-blue-400',
-    lead: 'bg-amber-500',
-    worker: 'bg-gray-400',
+    director: 'bg-blue-400',
+    department_manager: 'bg-amber-500',
+    technician: 'bg-gray-400',
 };
 
 function formatRelativeTime(dateStr: string): string {
@@ -231,7 +231,7 @@ const MemberRow = ({
                 {/* Role */}
                 <td className="px-3 py-3">
                     <InlineRoleCell
-                        value={profile.role || 'worker'}
+                        value={profile.role || 'technician'}
                         onSave={(role) => onUpdate(profile.id, { role })}
                     />
                 </td>
@@ -366,7 +366,7 @@ const AddMemberModal = ({
     onSubmit: (name: string, role: TeamRole, email?: string) => Promise<{ inviteUrl?: string }>;
 }) => {
     const [name, setName] = useState('');
-    const [role, setRole] = useState<TeamRole>('worker');
+    const [role, setRole] = useState<TeamRole>('technician');
     const [email, setEmail] = useState('');
     const [saving, setSaving] = useState(false);
     const [inviteUrl, setInviteUrl] = useState<string | null>(null);
@@ -595,7 +595,7 @@ export const TeamDashboard: React.FC<TeamDashboardProps> = ({ profiles, onReload
         }
 
         const roleF = activeFilters.role || [];
-        if (roleF.length > 0 && !roleF.includes(p.role || 'worker')) return false;
+        if (roleF.length > 0 && !roleF.includes(p.role || 'technician')) return false;
 
         const statusF = activeFilters.status || [];
         if (statusF.length > 0 && !statusF.includes(p.status)) return false;
@@ -612,7 +612,7 @@ export const TeamDashboard: React.FC<TeamDashboardProps> = ({ profiles, onReload
             let cmp = 0;
             switch (sortField) {
                 case 'name': cmp = a.name.localeCompare(b.name); break;
-                case 'role': cmp = (a.role || 'worker').localeCompare(b.role || 'worker'); break;
+                case 'role': cmp = (a.role || 'technician').localeCompare(b.role || 'technician'); break;
                 case 'email': cmp = (a.email || '').localeCompare(b.email || ''); break;
                 case 'status': cmp = a.status.localeCompare(b.status); break;
                 case 'inviteStatus': cmp = (a.inviteStatus || 'none').localeCompare(b.inviteStatus || 'none'); break;

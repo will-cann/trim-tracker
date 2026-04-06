@@ -9,6 +9,7 @@ interface User {
     email: string;
     name?: string;
     role?: string;
+    departments?: string[];
     picture?: string;
 }
 
@@ -29,6 +30,7 @@ const DevBypassProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
         email: 'admin@greenvalley.com',
         name: 'Sarah Martinez',
         role: 'admin',
+        departments: [],
     };
 
     useEffect(() => {
@@ -106,6 +108,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         name: auth0User.name,
         picture: auth0User.picture,
         role: (auth0User['https://trimtracker.com/roles'] as string[])?.[0] || 'User',
+        departments: [],
     } : null;
 
     // Show loading while Auth0 loads OR while we're fetching the token

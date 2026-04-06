@@ -11,32 +11,32 @@ interface TeamSectionProps {
 
 const ROLE_LABELS: Record<TeamRole, string> = {
     admin: 'Admin',
-    manager: 'Manager',
-    lead: 'Lead',
-    worker: 'Worker',
+    director: 'Director',
+    department_manager: 'Manager',
+    technician: 'Technician',
 };
 
 const ROLE_COLORS: Record<TeamRole, string> = {
     admin: 'bg-blue-100 text-blue-700',
-    manager: 'bg-blue-100 text-blue-700',
-    lead: 'bg-amber-100 text-amber-700',
-    worker: 'bg-gray-100 text-gray-600',
+    director: 'bg-blue-100 text-blue-700',
+    department_manager: 'bg-amber-100 text-amber-700',
+    technician: 'bg-gray-100 text-gray-600',
 };
 
 export const TeamSection: React.FC<TeamSectionProps> = ({ profiles, onReload, onNavigateToTeam }) => {
     const [isAdding, setIsAdding] = useState(false);
     const [newName, setNewName] = useState('');
-    const [newRole, setNewRole] = useState<TeamRole>('worker');
+    const [newRole, setNewRole] = useState<TeamRole>('technician');
     const [newEmail, setNewEmail] = useState('');
     const [editingId, setEditingId] = useState<string | null>(null);
-    const [editData, setEditData] = useState<{ name: string; role: TeamRole; email: string }>({ name: '', role: 'worker', email: '' });
+    const [editData, setEditData] = useState<{ name: string; role: TeamRole; email: string }>({ name: '', role: 'technician', email: '' });
 
     const handleAdd = async () => {
         const name = newName.trim();
         if (!name) { setIsAdding(false); return; }
         await apiService.addTrimmerProfile(name, newRole, newEmail.trim() || undefined);
         setNewName('');
-        setNewRole('worker');
+        setNewRole('technician');
         setNewEmail('');
         setIsAdding(false);
         onReload();
@@ -44,7 +44,7 @@ export const TeamSection: React.FC<TeamSectionProps> = ({ profiles, onReload, on
 
     const handleEdit = (profile: TrimmerProfile) => {
         setEditingId(profile.id);
-        setEditData({ name: profile.name, role: profile.role || 'worker', email: profile.email || '' });
+        setEditData({ name: profile.name, role: profile.role || 'technician', email: profile.email || '' });
     };
 
     const handleSaveEdit = async () => {
@@ -116,9 +116,9 @@ export const TeamSection: React.FC<TeamSectionProps> = ({ profiles, onReload, on
                             className="text-sm px-3 py-2 border border-gray-200 rounded-lg bg-white
                                        focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:border-emerald-400"
                         >
-                            <option value="worker">Worker</option>
-                            <option value="lead">Lead</option>
-                            <option value="manager">Manager</option>
+                            <option value="technician">Technician</option>
+                            <option value="department_manager">Manager</option>
+                            <option value="director">Director</option>
                             <option value="admin">Admin</option>
                         </select>
                         <input
@@ -192,9 +192,9 @@ export const TeamSection: React.FC<TeamSectionProps> = ({ profiles, onReload, on
                                                 className="text-sm px-2 py-1 border border-emerald-300 rounded bg-white
                                                            focus:outline-none focus:ring-2 focus:ring-emerald-400"
                                             >
-                                                <option value="worker">Worker</option>
-                                                <option value="lead">Lead</option>
-                                                <option value="manager">Manager</option>
+                                                <option value="technician">Technician</option>
+                                                <option value="department_manager">Manager</option>
+                                                <option value="director">Director</option>
                                                 <option value="admin">Admin</option>
                                             </select>
                                         </td>
@@ -223,8 +223,8 @@ export const TeamSection: React.FC<TeamSectionProps> = ({ profiles, onReload, on
                                     <>
                                         <td className="px-5 py-3 font-medium text-gray-900">{profile.name}</td>
                                         <td className="px-5 py-3">
-                                            <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${ROLE_COLORS[profile.role || 'worker']}`}>
-                                                {ROLE_LABELS[profile.role || 'worker']}
+                                            <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${ROLE_COLORS[profile.role || 'technician']}`}>
+                                                {ROLE_LABELS[profile.role || 'technician']}
                                             </span>
                                         </td>
                                         <td className="px-5 py-3 text-gray-500">{profile.email || '—'}</td>
