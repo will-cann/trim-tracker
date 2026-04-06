@@ -101,7 +101,7 @@ export const LicenseSection: React.FC<LicenseSectionProps> = ({ licenses, loadin
                             {licenses.map(lic => (
                                 <tr key={lic.id} className="strain-row">
                                     <td className="strain-cell-name">
-                                        <span style={{ fontFamily: 'monospace', fontWeight: 500 }}>{lic.licenseNumber}</span>
+                                        <span className="font-mono font-medium text-[#1A1A1A]">{lic.licenseNumber}</span>
                                     </td>
                                     <td className="strain-cell-notes">
                                         {editingId === lic.id ? (
@@ -115,21 +115,24 @@ export const LicenseSection: React.FC<LicenseSectionProps> = ({ licenses, loadin
                                                     if (e.key === 'Escape') setEditingId(null);
                                                 }}
                                                 autoFocus
-                                                className="text-sm px-2 py-1 border border-emerald-300 rounded
-                                                           focus:outline-none focus:ring-2 focus:ring-emerald-400 w-full"
+                                                className="strain-notes-input !border-[#3BB570] !shadow-[0_0_0_2px_rgba(59,181,112,0.12)]"
                                             />
                                         ) : (
-                                            <span
+                                            <button
                                                 onClick={() => { setEditingId(lic.id); setEditLabel(lic.label || ''); }}
-                                                className="cursor-pointer border-b border-dashed border-gray-300 pb-px"
+                                                className="text-left w-full min-h-[28px] flex items-center group/cell"
                                                 title="Click to edit"
                                             >
-                                                {lic.label || '—'}
-                                            </span>
+                                                {lic.label ? (
+                                                    <span className="text-sm text-[#1A1A1A] group-hover/cell:text-[#1A1A1A] transition-colors">{lic.label}</span>
+                                                ) : (
+                                                    <span className="text-sm text-[#C0C0C0] italic group-hover/cell:text-[#959595] transition-colors">Add label</span>
+                                                )}
+                                            </button>
                                         )}
                                     </td>
                                     <td className="strain-cell-days">
-                                        <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>
+                                        <span className="text-sm text-[#959595]">
                                             {new Date(lic.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
                                         </span>
                                     </td>

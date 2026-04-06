@@ -199,9 +199,9 @@ export const RoomSection: React.FC<RoomSectionProps> = ({ rooms, loading, onRelo
                                     </tr>
                                     {expandedRoomId === room.id && (
                                         <tr>
-                                            <td colSpan={7} className="px-5 py-3" style={{ background: 'var(--bg-secondary, #f9fafb)' }}>
+                                            <td colSpan={7} className="px-5 py-3 bg-[#F9FAFB]">
                                                 <div className="flex items-center justify-between mb-2">
-                                                    <span className="text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--text-secondary)' }}>
+                                                    <span className="text-xs font-medium uppercase tracking-wider text-[#959595]">
                                                         Equipment ({room.equipment?.length || 0})
                                                     </span>
                                                     {isAddingEquipment !== room.id && (
@@ -236,17 +236,17 @@ export const RoomSection: React.FC<RoomSectionProps> = ({ rooms, loading, onRelo
                                                     </div>
                                                 )}
                                                 {(!room.equipment || room.equipment.length === 0) && isAddingEquipment !== room.id ? (
-                                                    <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>No equipment added yet.</p>
+                                                    <p className="text-xs text-[#C0C0C0] italic">No equipment added yet.</p>
                                                 ) : (
                                                     <div className="space-y-1">
                                                         {room.equipment?.map(eq => (
-                                                            <div key={eq.id} className="flex items-center justify-between py-1.5 px-2 rounded" style={{ background: 'var(--bg-color, white)' }}>
+                                                            <div key={eq.id} className="flex items-center justify-between py-1.5 px-2 rounded bg-white">
                                                                 <div className="flex items-center gap-2">
-                                                                    <span className="text-xs font-medium capitalize px-1.5 py-0.5 rounded" style={{ background: 'var(--bg-secondary, #f3f4f6)', color: 'var(--text-secondary)' }}>
+                                                                    <span className="text-[11px] font-medium capitalize px-1.5 py-0.5 rounded bg-[#F1F1F1] text-[#959595]">
                                                                         {eq.equipmentType.replace('_', ' ')}
                                                                     </span>
-                                                                    <span className="text-sm" style={{ color: 'var(--text-color)' }}>{eq.name}</span>
-                                                                    <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>x{eq.quantity}</span>
+                                                                    <span className="text-sm text-[#1A1A1A]">{eq.name}</span>
+                                                                    <span className="text-xs text-[#959595]">x{eq.quantity}</span>
                                                                 </div>
                                                                 <button onClick={() => onDeleteEquipment(eq.id, eq.name)}
                                                                     className="strain-delete-btn" title="Remove equipment">
