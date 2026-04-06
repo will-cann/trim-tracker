@@ -1,11 +1,12 @@
 import { useState, useRef, useEffect } from 'react';
 import {
-    Users, UserCheck, UserX, Mail, Plus, Check, Trash2,
+    Users, Mail, Plus, Check, Trash2,
     ArrowUp, ArrowDown, ChevronsUpDown, Send, Copy, CheckCircle,
+    UserCheck, UserX,
 } from 'lucide-react';
 import type { TrimmerProfile, TeamRole } from '../types/definitions';
 import { apiService } from '../services/apiService';
-import { Modal, Badge, FilterToolbar } from './ui';
+import { Modal, FilterToolbar } from './ui';
 import type { FilterDef, SortOption } from './ui';
 
 // ── Config ──────────────────────────────────────────────────────────────────
@@ -17,18 +18,18 @@ const ROLE_LABELS: Record<TeamRole, string> = {
     technician: 'Technician',
 };
 
-const ROLE_BADGE: Record<TeamRole, { bg: string; color: string }> = {
-    admin: { bg: 'bg-purple-50', color: 'text-purple-600' },
-    director: { bg: 'bg-blue-50', color: 'text-blue-600' },
-    department_manager: { bg: 'bg-amber-50', color: 'text-amber-600' },
-    technician: { bg: 'bg-gray-100', color: 'text-gray-600' },
+const ROLE_BADGE: Record<TeamRole, { bg: string; color: string; border: string }> = {
+    admin: { bg: 'bg-[#3BB570]/8', color: 'text-[#2a8a54]', border: 'border-[#3BB570]/15' },
+    director: { bg: 'bg-[#1C9EFF]/8', color: 'text-[#1680d0]', border: 'border-[#1C9EFF]/15' },
+    department_manager: { bg: 'bg-[#FA9E52]/8', color: 'text-[#c07428]', border: 'border-[#FA9E52]/15' },
+    technician: { bg: 'bg-[#959595]/8', color: 'text-[#6b6b6b]', border: 'border-[#959595]/12' },
 };
 
 const ROLE_DOTS: Record<TeamRole, string> = {
-    admin: 'bg-purple-500',
-    director: 'bg-blue-500',
-    department_manager: 'bg-amber-500',
-    technician: 'bg-gray-400',
+    admin: 'bg-[#3BB570]',
+    director: 'bg-[#1C9EFF]',
+    department_manager: 'bg-[#FA9E52]',
+    technician: 'bg-[#959595]',
 };
 
 function formatRelativeTime(dateStr: string): string {
@@ -96,7 +97,7 @@ const InlineTextCell = ({
             {value ? (
                 <span className="text-sm text-gray-700 group-hover/cell:text-gray-900 transition-colors">{value}</span>
             ) : (
-                <span className="text-sm text-gray-300 group-hover/cell:text-gray-400 transition-colors">{placeholder}</span>
+                <span className="text-sm text-[#C0C0C0] italic group-hover/cell:text-[#959595] transition-colors">{placeholder}</span>
             )}
         </button>
     );
@@ -118,9 +119,10 @@ const InlineRoleCell = ({
                 onClick={() => setOpen(!open)}
                 className="group/cell"
             >
-                <Badge variant="custom" bg={badge.bg} color={badge.color} className="cursor-pointer hover:ring-2 hover:ring-offset-1 hover:ring-gray-200 transition-all">
+                <span className={`inline-flex items-center gap-1.5 text-[11px] font-semibold tracking-wide uppercase px-2 py-0.5 rounded-md border ${badge.bg} ${badge.color} ${badge.border} cursor-pointer hover:ring-2 hover:ring-offset-1 hover:ring-gray-200/60 transition-all`}>
+                    <span className={`w-1.5 h-1.5 rounded-full ${ROLE_DOTS[value]}`} />
                     {ROLE_LABELS[value]}
-                </Badge>
+                </span>
             </button>
             {open && (
                 <>
@@ -194,16 +196,22 @@ const MemberRow = ({
         switch (profile.inviteStatus) {
             case 'pending':
                 return (
-                    <Badge variant="upcoming" className="text-[11px]">
-                        Invite sent {profile.invitedAt && <span className="ml-1 opacity-70">{formatRelativeTime(profile.invitedAt)}</span>}
-                    </Badge>
+                    <span className="inline-flex items-center gap-1.5 text-xs text-[#c07428]">
+                        <span className="w-1.5 h-1.5 rounded-full bg-[#FA9E52]" />
+                        Pending{profile.invitedAt && <span className="text-gray-400">&middot; {formatRelativeTime(profile.invitedAt)}</span>}
+                    </span>
                 );
             case 'accepted':
-                return <Badge variant="complete" className="text-[11px]">Accepted</Badge>;
+                return (
+                    <span className="inline-flex items-center gap-1.5 text-xs text-[#2a8a54]">
+                        <span className="w-1.5 h-1.5 rounded-full bg-[#3BB570]" />
+                        Accepted
+                    </span>
+                );
             default:
                 return profile.email
-                    ? <span className="text-xs text-gray-400">Not invited</span>
-                    : <span className="text-xs text-gray-300">No email</span>;
+                    ? <span className="text-xs text-[#C0C0C0]">Not invited</span>
+                    : <span className="text-xs text-[#C0C0C0]">&mdash;</span>;
         }
     };
 
@@ -217,7 +225,7 @@ const MemberRow = ({
                 {/* Avatar + Name */}
                 <td className="pl-5 pr-2 py-3">
                     <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center text-sm font-semibold shrink-0">
+                        <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0 ${ROLE_BADGE[profile.role || 'technician'].bg} ${ROLE_BADGE[profile.role || 'technician'].color}`}>
                             {profile.name.charAt(0).toUpperCase()}
                         </div>
                         <InlineTextCell
@@ -540,12 +548,6 @@ export const TeamDashboard: React.FC<TeamDashboardProps> = ({ profiles, onReload
     const [sortField, setSortField] = useState<SortField | null>(null);
     const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
 
-    // ── Stats ───────────────────────────────────────────────────────────────
-    const activeCount = profiles.filter(p => p.status === 'active').length;
-    const inactiveCount = profiles.filter(p => p.status === 'inactive').length;
-    const pendingCount = profiles.filter(p => p.inviteStatus === 'pending').length;
-    const acceptedCount = profiles.filter(p => p.inviteStatus === 'accepted').length;
-
     // ── Filter defs ─────────────────────────────────────────────────────────
     const roleFilter: FilterDef = {
         key: 'role',
@@ -670,49 +672,7 @@ export const TeamDashboard: React.FC<TeamDashboardProps> = ({ profiles, onReload
     const hasActiveFilters = Object.values(activeFilters).some(v => v.length > 0);
 
     return (
-        <div className="dashboard">
-            {/* Stats */}
-            <div className="dashboard-top-section">
-                <div className="stats-grid">
-                    <div className="stat-item">
-                        <div className="stat-icon" style={{ backgroundColor: 'rgba(59, 181, 112, 0.1)', color: '#3BB570' }}>
-                            <Users size={24} />
-                        </div>
-                        <div className="stat-content">
-                            <label>Active Members</label>
-                            <p className="stat-value">{activeCount}</p>
-                        </div>
-                    </div>
-                    <div className="stat-item">
-                        <div className="stat-icon" style={{ backgroundColor: 'rgba(250, 158, 82, 0.1)', color: '#FA9E52' }}>
-                            <Mail size={24} />
-                        </div>
-                        <div className="stat-content">
-                            <label>Pending Invites</label>
-                            <p className="stat-value">{pendingCount}</p>
-                        </div>
-                    </div>
-                    <div className="stat-item">
-                        <div className="stat-icon" style={{ backgroundColor: 'rgba(28, 158, 255, 0.1)', color: '#1C9EFF' }}>
-                            <UserCheck size={24} />
-                        </div>
-                        <div className="stat-content">
-                            <label>Accepted</label>
-                            <p className="stat-value">{acceptedCount}</p>
-                        </div>
-                    </div>
-                    <div className="stat-item">
-                        <div className="stat-icon" style={{ backgroundColor: 'rgba(156, 163, 175, 0.1)', color: '#9CA3AF' }}>
-                            <UserX size={24} />
-                        </div>
-                        <div className="stat-content">
-                            <label>Inactive</label>
-                            <p className="stat-value">{inactiveCount}</p>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
+        <div>
             {/* Filters */}
             <FilterToolbar
                 search={searchQuery}
