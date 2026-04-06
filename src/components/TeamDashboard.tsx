@@ -13,20 +13,20 @@ import type { FilterDef, SortOption } from './ui';
 const ROLE_LABELS: Record<TeamRole, string> = {
     admin: 'Admin',
     director: 'Director',
-    department_manager: 'Manager',
+    department_manager: 'Dept Manager',
     technician: 'Technician',
 };
 
 const ROLE_BADGE: Record<TeamRole, { bg: string; color: string }> = {
-    admin: { bg: 'bg-blue-50', color: 'text-blue-600' },
+    admin: { bg: 'bg-purple-50', color: 'text-purple-600' },
     director: { bg: 'bg-blue-50', color: 'text-blue-600' },
     department_manager: { bg: 'bg-amber-50', color: 'text-amber-600' },
     technician: { bg: 'bg-gray-100', color: 'text-gray-600' },
 };
 
 const ROLE_DOTS: Record<TeamRole, string> = {
-    admin: 'bg-blue-500',
-    director: 'bg-blue-400',
+    admin: 'bg-purple-500',
+    director: 'bg-blue-500',
     department_manager: 'bg-amber-500',
     technician: 'bg-gray-400',
 };

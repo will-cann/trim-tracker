@@ -8,6 +8,7 @@ export interface TrimmerProfile {
   status: 'active' | 'inactive';
   role: TeamRole;
   email?: string;
+  departments?: string[];
   userId?: string;
   invitedAt?: string;
   inviteStatus: InviteStatus;
