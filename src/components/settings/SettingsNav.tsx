@@ -1,5 +1,5 @@
 import React from 'react';
-import { KeyRound, Leaf, LayoutGrid, Tag, Users, ArrowRight, Wrench } from 'lucide-react';
+import { KeyRound, Leaf, LayoutGrid, Tag, Users, Wrench } from 'lucide-react';
 import { ff } from '../../utils/featureFlags';
 
 export type SettingsSection = 'licenses' | 'strains' | 'rooms' | 'tags' | 'equipment' | 'team';
@@ -13,7 +13,6 @@ interface SettingsNavProps {
         rooms: number;
         team: number;
     };
-    onNavigateToTeam?: () => void;
 }
 
 const NAV_ITEMS: { id: SettingsSection; label: string; icon: React.ElementType; countKey?: keyof SettingsNavProps['counts']; flag?: boolean }[] = [
@@ -25,7 +24,7 @@ const NAV_ITEMS: { id: SettingsSection; label: string; icon: React.ElementType; 
     { id: 'team', label: 'Team', icon: Users, countKey: 'team' },
 ];
 
-export const SettingsNav: React.FC<SettingsNavProps> = ({ active, onChange, counts, onNavigateToTeam }) => {
+export const SettingsNav: React.FC<SettingsNavProps> = ({ active, onChange, counts }) => {
     return (
         <>
             {/* Desktop sidebar */}
@@ -49,15 +48,6 @@ export const SettingsNav: React.FC<SettingsNavProps> = ({ active, onChange, coun
                         );
                     })}
                 </div>
-                {onNavigateToTeam && (
-                    <button
-                        onClick={onNavigateToTeam}
-                        className="settings-nav-link"
-                    >
-                        Team Dashboard
-                        <ArrowRight size={14} />
-                    </button>
-                )}
             </nav>
 
             {/* Mobile pill bar */}

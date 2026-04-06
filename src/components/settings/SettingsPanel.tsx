@@ -155,7 +155,6 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ onViewChange }) =>
                     <TeamSettingsSection
                         profiles={profiles}
                         onReload={loadProfiles}
-                        onNavigateToTeam={onViewChange ? () => onViewChange('team') : undefined}
                     />
                 );
         }
@@ -187,7 +186,6 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ onViewChange }) =>
                             rooms: rooms.length,
                             team: profiles.filter(p => p.status === 'active').length,
                         }}
-                        onNavigateToTeam={onViewChange ? () => onViewChange('team') : undefined}
                     />
                 </aside>
 

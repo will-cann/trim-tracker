@@ -1,5 +1,5 @@
 import React from 'react';
-import { BarChart3, Sprout, LogOut, User as UserIcon, Scissors, Settings, ClipboardList, Map, Package, Users, FlaskConical, BookOpen, ShoppingCart, Warehouse } from 'lucide-react';
+import { BarChart3, Sprout, LogOut, User as UserIcon, Scissors, Settings, ClipboardList, Map, Package, FlaskConical, BookOpen, ShoppingCart, Warehouse } from 'lucide-react';
 import { ff } from '../utils/featureFlags';
 import { useAuth } from '../contexts/authContext';
 import logo from '../assets/logo.png';
@@ -65,7 +65,6 @@ const navItems: NavItem[] = [
     { view: 'ordering', icon: (color) => <ShoppingCart size={18} color={color} />, label: 'Ordering', dept: ['procurement'], minRole: ROLE_LEVELS.department_manager },
     { view: 'supplies', icon: (color) => <Warehouse size={18} color={color} />, label: 'Supplies' },
     { view: 'tasks', icon: (color) => <ClipboardList size={18} color={color} />, label: 'Tasks' },
-    { view: 'team', icon: (color) => <Users size={18} color={color} />, label: 'Team', minRole: ROLE_LEVELS.director },
     { view: 'reports', icon: (color) => <BarChart3 size={18} color={color} />, label: 'Reports', minRole: ROLE_LEVELS.department_manager },
 ];
 

@@ -18,7 +18,6 @@ import { useHumanTasks } from './hooks/useHumanTasks';
 import { PlantMapDashboard } from './components/PlantMap/PlantMapDashboard';
 import { PackageDashboard } from './components/Packages/PackageDashboard';
 import { HarvestDayCockpit } from './components/HarvestDay/HarvestDayCockpit';
-import { TeamDashboard } from './components/TeamDashboard';
 import { TagListView } from './components/TagList/TagListView';
 import { ExtractionDashboard } from './components/Extraction/ExtractionDashboard';
 import { SOPsDashboard } from './components/SOPs/SOPsDashboard';
@@ -314,8 +313,6 @@ function AppContent() {
             onRetry={retryLoadTasks}
             teamMembers={trimmerProfiles.filter(p => p.status === 'active').map(p => ({ id: p.id, name: p.name, userId: p.userId }))}
           />
-        ) : currentView === 'team' ? (
-          <TeamDashboard profiles={trimmerProfiles} onReload={loadTrimmerProfiles} />
         ) : currentView === 'tag-list' ? (
           <TagListView onBack={() => handleViewChange('settings')} />
         ) : currentView === 'settings' ? (
