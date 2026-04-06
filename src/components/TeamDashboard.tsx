@@ -4,7 +4,7 @@ import {
     ArrowUp, ArrowDown, ChevronsUpDown, Send, Copy, CheckCircle,
     UserCheck, UserX,
 } from 'lucide-react';
-import type { TrimmerProfile, TeamRole } from '../types/definitions';
+import type { TrimmerProfile, TeamRole, Department } from '../types/definitions';
 import { apiService } from '../services/apiService';
 import { Modal, FilterToolbar } from './ui';
 import type { FilterDef, SortOption } from './ui';
@@ -31,6 +31,20 @@ const ROLE_DOTS: Record<TeamRole, string> = {
     department_manager: 'bg-[#FA9E52]',
     technician: 'bg-[#959595]',
 };
+
+const DEPARTMENT_LABELS: Record<Department, string> = {
+    cultivation: 'Cultivation',
+    extraction: 'Extraction',
+    post_harvest: 'Post-Harvest',
+    trim: 'Trim',
+    procurement: 'Procurement',
+    lab: 'Lab',
+    compliance: 'Compliance',
+};
+
+const ALL_DEPARTMENTS = Object.keys(DEPARTMENT_LABELS) as Department[];
+
+const showDepartments = (role: TeamRole) => role === 'department_manager' || role === 'technician';
 
 function formatRelativeTime(dateStr: string): string {
     const date = new Date(dateStr);
@@ -146,6 +160,67 @@ const InlineRoleCell = ({
     );
 };
 
+const InlineDeptCell = ({
+    role,
+    departments,
+    onSave,
+}: {
+    role: TeamRole;
+    departments: Department[];
+    onSave: (departments: Department[]) => void;
+}) => {
+    const [open, setOpen] = useState(false);
+
+    if (!showDepartments(role)) {
+        return <span className="text-xs text-[#C0C0C0] italic">All</span>;
+    }
+
+    const toggle = (dept: Department) => {
+        const next = departments.includes(dept)
+            ? departments.filter(d => d !== dept)
+            : [...departments, dept];
+        onSave(next);
+    };
+
+    return (
+        <div className="relative">
+            <button onClick={() => setOpen(!open)} className="flex flex-wrap gap-1 items-center min-h-[28px]">
+                {departments.length === 0 ? (
+                    <span className="text-xs text-[#C0C0C0] italic">Assign depts</span>
+                ) : (
+                    departments.map(d => (
+                        <span key={d} className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-[#F1F1F1] text-[#6b6b6b]">
+                            {DEPARTMENT_LABELS[d]}
+                        </span>
+                    ))
+                )}
+            </button>
+            {open && (
+                <>
+                    <div className="fixed inset-0 z-20" onClick={() => setOpen(false)} />
+                    <div className="absolute left-0 top-8 z-30 bg-white rounded-lg shadow-lg border border-gray-200 py-1.5 w-48">
+                        {ALL_DEPARTMENTS.map((dept) => {
+                            const selected = departments.includes(dept);
+                            return (
+                                <button
+                                    key={dept}
+                                    onClick={() => toggle(dept)}
+                                    className={`w-full flex items-center gap-2 px-3 py-1.5 text-sm hover:bg-gray-50 ${selected ? 'text-[#2a8a54] font-medium' : 'text-gray-700'}`}
+                                >
+                                    <span className={`w-3.5 h-3.5 rounded border flex items-center justify-center ${selected ? 'bg-[#3BB570] border-[#3BB570]' : 'border-gray-300'}`}>
+                                        {selected && <Check size={10} className="text-white" />}
+                                    </span>
+                                    {DEPARTMENT_LABELS[dept]}
+                                </button>
+                            );
+                        })}
+                    </div>
+                </>
+            )}
+        </div>
+    );
+};
+
 // ── Member Row ──────────────────────────────────────────────────────────────
 
 const MemberRow = ({
@@ -245,7 +320,20 @@ const MemberRow = ({
                 <td className="px-3 py-3">
                     <InlineRoleCell
                         value={profile.role || 'technician'}
-                        onSave={(role) => onUpdate(profile.id, { role })}
+                        onSave={(role) => {
+                            const updates: Partial<TrimmerProfile> = { role };
+                            if (!showDepartments(role)) updates.departments = [];
+                            onUpdate(profile.id, updates);
+                        }}
+                    />
+                </td>
+
+                {/* Departments */}
+                <td className="px-3 py-3 hidden lg:table-cell">
+                    <InlineDeptCell
+                        role={profile.role || 'technician'}
+                        departments={(profile.departments || []) as Department[]}
+                        onSave={(depts) => onUpdate(profile.id, { departments: depts })}
                     />
                 </td>
 
@@ -315,7 +403,7 @@ const MemberRow = ({
 
             {confirmDelete && (
                 <tr>
-                    <td colSpan={6}>
+                    <td colSpan={7}>
                         <Modal
                             title="Remove Team Member"
                             contentClassName="delete-modal"
@@ -337,7 +425,7 @@ const MemberRow = ({
 
             {inviteUrl && (
                 <tr>
-                    <td colSpan={6}>
+                    <td colSpan={7}>
                         <Modal
                             title="Invite Link"
                             titleIcon={<Mail size={20} className="text-emerald-500" />}
@@ -378,11 +466,12 @@ const AddMemberModal = ({
     onSubmit,
 }: {
     onClose: () => void;
-    onSubmit: (name: string, role: TeamRole, email?: string) => Promise<{ inviteUrl?: string }>;
+    onSubmit: (name: string, role: TeamRole, email?: string, departments?: Department[]) => Promise<{ inviteUrl?: string }>;
 }) => {
     const [name, setName] = useState('');
     const [role, setRole] = useState<TeamRole>('technician');
     const [email, setEmail] = useState('');
+    const [departments, setDepartments] = useState<Department[]>([]);
     const [saving, setSaving] = useState(false);
     const [inviteUrl, setInviteUrl] = useState<string | null>(null);
     const [copied, setCopied] = useState(false);
@@ -394,7 +483,8 @@ const AddMemberModal = ({
         if (!name.trim()) return;
         setSaving(true);
         try {
-            const result = await onSubmit(name.trim(), role, email.trim() || undefined);
+            const depts = showDepartments(role) ? departments : [];
+            const result = await onSubmit(name.trim(), role, email.trim() || undefined, depts);
             if (result.inviteUrl) {
                 setInviteUrl(result.inviteUrl);
             } else {
@@ -479,7 +569,7 @@ const AddMemberModal = ({
                     <label className="field-label">Role</label>
                     <select
                         value={role}
-                        onChange={(e) => setRole(e.target.value as TeamRole)}
+                        onChange={(e) => { setRole(e.target.value as TeamRole); if (!showDepartments(e.target.value as TeamRole)) setDepartments([]); }}
                         className="field-input"
                     >
                         {(Object.keys(ROLE_LABELS) as TeamRole[]).map((r) => (
@@ -487,6 +577,30 @@ const AddMemberModal = ({
                         ))}
                     </select>
                 </div>
+                {showDepartments(role) && (
+                    <div className="field">
+                        <label className="field-label">Departments</label>
+                        <div className="flex flex-wrap gap-1.5 mt-1">
+                            {ALL_DEPARTMENTS.map((dept) => {
+                                const selected = departments.includes(dept);
+                                return (
+                                    <button
+                                        key={dept}
+                                        type="button"
+                                        onClick={() => setDepartments(selected ? departments.filter(d => d !== dept) : [...departments, dept])}
+                                        className={`text-xs font-medium px-2.5 py-1 rounded-md border transition-colors ${
+                                            selected
+                                                ? 'bg-[#3BB570]/8 text-[#2a8a54] border-[#3BB570]/20'
+                                                : 'bg-white text-[#959595] border-[#EBEBEB] hover:border-[#C0C0C0]'
+                                        }`}
+                                    >
+                                        {DEPARTMENT_LABELS[dept]}
+                                    </button>
+                                );
+                            })}
+                        </div>
+                    </div>
+                )}
                 <div className="field">
                     <label className="field-label">Email</label>
                     <input
@@ -654,8 +768,8 @@ export const TeamDashboard: React.FC<TeamDashboardProps> = ({ profiles, onReload
     };
 
     // ── Actions ─────────────────────────────────────────────────────────────
-    const handleAdd = async (name: string, role: TeamRole, email?: string): Promise<{ inviteUrl?: string }> => {
-        const result = await apiService.addTrimmerProfile(name, role, email);
+    const handleAdd = async (name: string, role: TeamRole, email?: string, depts?: Department[]): Promise<{ inviteUrl?: string }> => {
+        const result = await apiService.addTrimmerProfile(name, role, email, depts);
         onReload();
         return { inviteUrl: result.inviteUrl };
     };
@@ -736,6 +850,7 @@ export const TeamDashboard: React.FC<TeamDashboardProps> = ({ profiles, onReload
                             <tr className="border-b border-gray-200 bg-gray-50/50">
                                 <SortableHeader label="Name" field="name" activeSort={sortField} sortDir={sortDir} onSort={handleSort} className="pl-5" />
                                 <SortableHeader label="Role" field="role" activeSort={sortField} sortDir={sortDir} onSort={handleSort} />
+                                <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden lg:table-cell">Departments</th>
                                 <SortableHeader label="Email" field="email" activeSort={sortField} sortDir={sortDir} onSort={handleSort} className="hidden md:table-cell" />
                                 <SortableHeader label="Invite" field="inviteStatus" activeSort={sortField} sortDir={sortDir} onSort={handleSort} className="hidden lg:table-cell" />
                                 <SortableHeader label="Status" field="status" activeSort={sortField} sortDir={sortDir} onSort={handleSort} className="hidden sm:table-cell" />
