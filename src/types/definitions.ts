@@ -8,11 +8,10 @@ export interface TrimmerProfile {
   status: 'active' | 'inactive';
   role: TeamRole;
   email?: string;
-  departments?: string[];
+  departments?: Department[];
   userId?: string;
   invitedAt?: string;
   inviteStatus: InviteStatus;
-  departments?: Department[];
   createdAt?: string;
 }
 
