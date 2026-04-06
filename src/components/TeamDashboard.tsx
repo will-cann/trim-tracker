@@ -161,6 +161,7 @@ const MemberRow = ({
 }) => {
     const [showActions, setShowActions] = useState(false);
     const [inviting, setInviting] = useState(false);
+    const [inviteError, setInviteError] = useState<string | null>(null);
     const [confirmDelete, setConfirmDelete] = useState(false);
     const [inviteUrl, setInviteUrl] = useState<string | null>(null);
     const [copied, setCopied] = useState(false);
@@ -168,9 +169,13 @@ const MemberRow = ({
 
     const handleInvite = async () => {
         setInviting(true);
+        setInviteError(null);
         try {
             const url = await onSendInvite(profile.id);
             if (url) setInviteUrl(url);
+        } catch (err) {
+            setInviteError(err instanceof Error ? err.message : 'Failed to send invite');
+            setTimeout(() => setInviteError(null), 4000);
         } finally {
             setInviting(false);
         }
@@ -279,8 +284,10 @@ const MemberRow = ({
                         <button
                             onClick={handleInvite}
                             disabled={!profile.email || inviting}
-                            title={!profile.email ? 'Add an email to send invite' : profile.inviteStatus === 'pending' ? 'Resend invite' : 'Send invite'}
-                            className="p-1.5 rounded-md text-gray-400 hover:text-blue-600 hover:bg-blue-50 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                            title={inviteError || (!profile.email ? 'Add an email to send invite' : profile.inviteStatus === 'pending' ? 'Resend invite' : 'Send invite')}
+                            className={`p-1.5 rounded-md transition-colors disabled:opacity-30 disabled:cursor-not-allowed ${
+                                inviteError ? 'text-[#DF5B59] bg-red-50' : inviting ? 'text-blue-400 animate-pulse' : 'text-gray-400 hover:text-blue-600 hover:bg-blue-50'
+                            }`}
                         >
                             <Send size={14} />
                         </button>

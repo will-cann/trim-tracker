@@ -1,7 +1,7 @@
 const AUTH0_DOMAIN = process.env.AUTH0_DOMAIN;
 const AUTH0_MGMT_CLIENT_ID = process.env.AUTH0_MGMT_CLIENT_ID;
 const AUTH0_MGMT_CLIENT_SECRET = process.env.AUTH0_MGMT_CLIENT_SECRET;
-const AUTH0_CLIENT_ID = process.env.VITE_AUTH0_CLIENT_ID;
+const AUTH0_CLIENT_ID = process.env.AUTH0_CLIENT_ID || process.env.VITE_AUTH0_CLIENT_ID;
 
 // Cache the M2M token in-memory (shared across warm invocations)
 let cachedToken: { token: string; expiresAt: number } | null = null;
