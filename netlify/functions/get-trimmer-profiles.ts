@@ -42,7 +42,7 @@ export const handler: Handler = async (event) => {
         }
 
         const result = await sql`
-            SELECT id, name, status, role, email, user_id, invited_at, invite_status, created_at
+            SELECT id, name, status, role, email, departments, user_id, invited_at, invite_status, created_at
             FROM trimmer_profiles
             WHERE company_id = ${context.companyId}
             ORDER BY name ASC
@@ -52,7 +52,8 @@ export const handler: Handler = async (event) => {
             id: row.id,
             name: row.name,
             status: row.status,
-            role: row.role || 'worker',
+            role: row.role || 'technician',
+            departments: row.departments || [],
             email: row.email || undefined,
             userId: row.user_id || undefined,
             invitedAt: row.invited_at || undefined,
