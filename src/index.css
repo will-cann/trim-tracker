@@ -5309,6 +5309,11 @@ select.field-input {
   padding: 2rem 2.5rem;
 }
 
+/* Team section needs more room for the table */
+.settings-content:has(.team-dashboard) {
+  max-width: 64rem;
+}
+
 .settings-section-header {
   display: flex;
   align-items: flex-start;

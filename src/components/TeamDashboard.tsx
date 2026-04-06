@@ -274,7 +274,7 @@ const MemberRow = ({
 
                 {/* Actions */}
                 <td className="px-3 py-3 text-right">
-                    <div className={`flex items-center justify-end gap-1 transition-opacity ${showActions ? 'opacity-100' : 'opacity-0'}`}>
+                    <div className={`flex items-center justify-end gap-1 transition-opacity sm:opacity-0 sm:group-hover:opacity-100 ${showActions ? 'sm:opacity-100' : ''}`}>
                         {/* Send / Resend invite */}
                         <button
                             onClick={handleInvite}
@@ -672,7 +672,7 @@ export const TeamDashboard: React.FC<TeamDashboardProps> = ({ profiles, onReload
     const hasActiveFilters = Object.values(activeFilters).some(v => v.length > 0);
 
     return (
-        <div>
+        <div className="team-dashboard">
             {/* Filters */}
             <FilterToolbar
                 search={searchQuery}
@@ -723,8 +723,8 @@ export const TeamDashboard: React.FC<TeamDashboardProps> = ({ profiles, onReload
                     )}
                 </div>
             ) : (
-                <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-                    <table className="w-full">
+                <div className="bg-white rounded-xl border border-gray-200 overflow-x-auto">
+                    <table className="w-full min-w-[640px]">
                         <thead>
                             <tr className="border-b border-gray-200 bg-gray-50/50">
                                 <SortableHeader label="Name" field="name" activeSort={sortField} sortDir={sortDir} onSort={handleSort} className="pl-5" />
