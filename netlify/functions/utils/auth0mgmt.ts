@@ -1,4 +1,5 @@
 const AUTH0_DOMAIN = process.env.AUTH0_DOMAIN;
+const AUTH0_TENANT_DOMAIN = process.env.AUTH0_TENANT_DOMAIN || AUTH0_DOMAIN;
 const AUTH0_MGMT_CLIENT_ID = process.env.AUTH0_MGMT_CLIENT_ID;
 const AUTH0_MGMT_CLIENT_SECRET = process.env.AUTH0_MGMT_CLIENT_SECRET;
 const AUTH0_CLIENT_ID = process.env.AUTH0_CLIENT_ID || process.env.VITE_AUTH0_CLIENT_ID;
@@ -14,17 +15,17 @@ async function getMgmtToken(): Promise<string> {
         return cachedToken.token;
     }
 
-    if (!AUTH0_DOMAIN || !AUTH0_MGMT_CLIENT_ID || !AUTH0_MGMT_CLIENT_SECRET) {
+    if (!AUTH0_TENANT_DOMAIN || !AUTH0_MGMT_CLIENT_ID || !AUTH0_MGMT_CLIENT_SECRET) {
         throw new Error('Auth0 Management API credentials not configured');
     }
 
-    const response = await fetch(`https://${AUTH0_DOMAIN}/oauth/token`, {
+    const response = await fetch(`https://${AUTH0_TENANT_DOMAIN}/oauth/token`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
             client_id: AUTH0_MGMT_CLIENT_ID,
             client_secret: AUTH0_MGMT_CLIENT_SECRET,
-            audience: `https://${AUTH0_DOMAIN}/api/v2/`,
+            audience: `https://${AUTH0_TENANT_DOMAIN}/api/v2/`,
             grant_type: 'client_credentials',
         }),
     });
@@ -57,7 +58,7 @@ export async function sendInvitation(email: string, name?: string): Promise<{ su
 
         // First, check if user already exists in Auth0
         const searchRes = await fetch(
-            `https://${AUTH0_DOMAIN}/api/v2/users-by-email?email=${encodeURIComponent(email)}`,
+            `https://${AUTH0_TENANT_DOMAIN}/api/v2/users-by-email?email=${encodeURIComponent(email)}`,
             { headers: { Authorization: `Bearer ${token}` } },
         );
 
@@ -66,7 +67,7 @@ export async function sendInvitation(email: string, name?: string): Promise<{ su
         if (Array.isArray(existingUsers) && existingUsers.length > 0) {
             // User already exists — generate a fresh invite link (doesn't void previous ones)
             const existingUser = existingUsers[0];
-            const ticketRes = await fetch(`https://${AUTH0_DOMAIN}/api/v2/tickets/password-change`, {
+            const ticketRes = await fetch(`https://${AUTH0_TENANT_DOMAIN}/api/v2/tickets/password-change`, {
                 method: 'POST',
                 headers: {
                     Authorization: `Bearer ${token}`,
@@ -90,7 +91,7 @@ export async function sendInvitation(email: string, name?: string): Promise<{ su
         }
 
         // Create the user in Auth0 with a random password (they'll reset it via invite)
-        const createRes = await fetch(`https://${AUTH0_DOMAIN}/api/v2/users`, {
+        const createRes = await fetch(`https://${AUTH0_TENANT_DOMAIN}/api/v2/users`, {
             method: 'POST',
             headers: {
                 Authorization: `Bearer ${token}`,
@@ -114,7 +115,7 @@ export async function sendInvitation(email: string, name?: string): Promise<{ su
         const newUser = await createRes.json();
 
         // Send a password change ticket (acts as the invite link)
-        const ticketRes = await fetch(`https://${AUTH0_DOMAIN}/api/v2/tickets/password-change`, {
+        const ticketRes = await fetch(`https://${AUTH0_TENANT_DOMAIN}/api/v2/tickets/password-change`, {
             method: 'POST',
             headers: {
                 Authorization: `Bearer ${token}`,
