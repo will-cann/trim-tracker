@@ -62,6 +62,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     } = useAuth0();
 
     const [tokenReady, setTokenReady] = React.useState(false);
+    const [dbRole, setDbRole] = React.useState<string | undefined>();
+    const [dbDepartments, setDbDepartments] = React.useState<string[]>([]);
 
     const login = () => {
         loginWithRedirect();
@@ -87,11 +89,14 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         if (isAuthenticated && !isLoading) {
             getToken().then(() => {
                 setTokenReady(true);
-                // Sync Auth0 profile info to backend (ID token has name/email, access token doesn't)
+                // Sync Auth0 profile info to backend and get DB role/departments
                 if (auth0User?.name || auth0User?.email) {
                     apiService.syncUser({
                         name: auth0User.name,
                         email: auth0User.email,
+                    }).then((res) => {
+                        if (res.role) setDbRole(res.role);
+                        if (res.departments) setDbDepartments(res.departments);
                     }).catch(() => {});
                 }
             });
@@ -107,8 +112,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         email: auth0User.email || '',
         name: auth0User.name,
         picture: auth0User.picture,
-        role: (auth0User['https://trimtracker.com/roles'] as string[])?.[0] || 'User',
-        departments: [],
+        role: dbRole || (auth0User['https://trimtracker.com/roles'] as string[])?.[0] || 'admin',
+        departments: dbDepartments,
     } : null;
 
     // Show loading while Auth0 loads OR while we're fetching the token

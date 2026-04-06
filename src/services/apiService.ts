@@ -1091,12 +1091,13 @@ export const updateRunStep = async (id: string, data: Record<string, any>): Prom
     return response.json();
 };
 
-export const syncUser = async (data: { name?: string; email?: string }): Promise<void> => {
-    await fetchWithAuth(`${API_BASE}/sync-user`, {
+export const syncUser = async (data: { name?: string; email?: string }): Promise<{ role?: string; departments?: string[] }> => {
+    const response = await fetchWithAuth(`${API_BASE}/sync-user`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data),
     });
+    return response.json();
 };
 
 export const deletePackage = async (id: string): Promise<void> => {

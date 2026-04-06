@@ -38,7 +38,7 @@ export const handler: Handler = async (event) => {
         return {
             statusCode: 200,
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ ok: true }),
+            body: JSON.stringify({ ok: true, role: context.role, departments: context.departments }),
         };
     } catch (error) {
         const msg = error instanceof Error ? error.message : String(error);
