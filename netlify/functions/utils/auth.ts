@@ -115,10 +115,21 @@ export async function resolveContext(authHeader?: string): Promise<Authenticated
             };
         }
 
-        // Auto-provision on first login
+        // Auto-provision on first login.
+        // Auth0 access tokens don't include `email` by default — a Post-Login
+        // Action injects it as a namespaced custom claim.
+        const claimedEmail = (auth0User.email
+            || auth0User['https://trimtracker.com/email']
+            || auth0User['https://neurocann.app/email']) as string | undefined;
+
+        if (!claimedEmail) {
+            console.error(`Refusing to auto-provision user for ${auth0User.sub}: no email claim on access token. Check the Auth0 Post-Login Action that sets the email custom claim.`);
+            return null;
+        }
+
         console.log(`Auto-provisioning user for external_id ${auth0User.sub}`);
-        const email = auth0User.email || `${auth0User.sub}@unknown.com`;
-        const name = auth0User.name || auth0User.nickname || email.split('@')[0];
+        const email = claimedEmail;
+        const name = (auth0User.name || auth0User.nickname || email.split('@')[0]) as string;
 
         // Check if a user with this email already exists (link Auth0 sub to existing account)
         const { rows: existingByEmail } = await sql`
