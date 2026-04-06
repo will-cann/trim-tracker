@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { X, Mic } from 'lucide-react';
+import { Mic } from 'lucide-react';
 import { useSpeechRecognition } from '../hooks/useSpeechRecognition';
+import { Modal, Button } from './ui';
 
 interface AddTrimmerProfileModalProps {
     onClose: () => void;
@@ -32,44 +33,45 @@ export const AddTrimmerProfileModal: React.FC<AddTrimmerProfileModalProps> = ({ 
     };
 
     return (
-        <div className="modal-overlay">
-            <div className="modal-content">
-                <div className="modal-header">
-                    <h3>Add New Trimmer</h3>
-                    <button className="close-btn" onClick={onClose}>
-                        <X size={24} />
-                    </button>
+        <Modal
+            title="Add New Trimmer"
+            size="sm"
+            onClose={onClose}
+            footer={
+                <>
+                    <Button variant="secondary" type="button" onClick={onClose}>Cancel</Button>
+                    <Button variant="primary" type="submit" form="add-trimmer-form" disabled={!name.trim()}>
+                        Add to Roster
+                    </Button>
+                </>
+            }
+        >
+            <form id="add-trimmer-form" onSubmit={handleSubmit}>
+                <div className="field">
+                    <label className="field-label">Trimmer Name</label>
+                    <div className="field-input-wrap">
+                        <input
+                            type="text"
+                            className="field-input"
+                            value={name}
+                            onChange={e => setName(e.target.value)}
+                            placeholder="e.g. John Doe"
+                            required
+                            autoFocus
+                        />
+                        {hasSupport && (
+                            <button
+                                type="button"
+                                className={`field-input-addon ${isListening ? 'active' : ''}`}
+                                onClick={handleMicClick}
+                                title="Dictate"
+                            >
+                                <Mic size={16} />
+                            </button>
+                        )}
+                    </div>
                 </div>
-                <form onSubmit={handleSubmit} className="add-batch-form">
-                    <div className="form-group">
-                        <label>Trimmer Name</label>
-                        <div className="input-with-icon">
-                            <input
-                                type="text"
-                                value={name}
-                                onChange={e => setName(e.target.value)}
-                                placeholder="e.g. John Doe"
-                                required
-                                autoFocus
-                            />
-                            {hasSupport && (
-                                <button
-                                    type="button"
-                                    className={`mic-btn ${isListening ? 'listening' : ''}`}
-                                    onClick={handleMicClick}
-                                    title="Dictate"
-                                >
-                                    <Mic size={18} />
-                                </button>
-                            )}
-                        </div>
-                    </div>
-                    <div className="modal-actions">
-                        <button type="button" className="btn-cancel" onClick={onClose}>Cancel</button>
-                        <button type="submit" className="btn-primary">Add to Roster</button>
-                    </div>
-                </form>
-            </div>
-        </div>
+            </form>
+        </Modal>
     );
 };

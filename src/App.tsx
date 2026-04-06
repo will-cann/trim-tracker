@@ -258,7 +258,14 @@ function AppContent() {
     setActiveConversationId(id);
   };
 
-  if (loading) return <div className="loading flex items-center justify-center min-h-screen bg-gray-50 text-gray-500">Loading App Data...</div>;
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center gap-5">
+        <img src={logo} alt="" className="w-8 h-8 object-contain opacity-40 animate-pulse" />
+        <p className="text-xs text-gray-300 tracking-wide">Loading</p>
+      </div>
+    );
+  }
 
   return (
     <div className="app-container">

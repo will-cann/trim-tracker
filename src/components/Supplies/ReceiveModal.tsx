@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react';
-import { X } from 'lucide-react';
+import { useState } from 'react';
 import type { SupplyItem, SupplyChangeType } from '../../types/definitions';
+import { Modal, Button } from '../ui';
 
 interface ReceiveModalProps {
     item: SupplyItem;
@@ -9,11 +9,13 @@ interface ReceiveModalProps {
     onClose: () => void;
 }
 
-const MODE_CONFIG: Record<string, { title: string; label: string; btnLabel: string; btnClass: string }> = {
-    receive: { title: 'Receive Stock', label: 'Quantity to add', btnLabel: 'Receive', btnClass: 'btn-primary' },
-    consume: { title: 'Record Usage', label: 'Quantity used', btnLabel: 'Deduct', btnClass: 'btn-danger' },
-    waste: { title: 'Record Waste', label: 'Quantity wasted', btnLabel: 'Record Waste', btnClass: 'btn-danger' },
-    adjust: { title: 'Adjust Count', label: 'New quantity on hand', btnLabel: 'Adjust', btnClass: 'btn-primary' },
+type Variant = 'primary' | 'danger';
+
+const MODE_CONFIG: Record<string, { title: string; label: string; btnLabel: string; variant: Variant }> = {
+    receive: { title: 'Receive Stock', label: 'Quantity to add', btnLabel: 'Receive', variant: 'primary' },
+    consume: { title: 'Record Usage', label: 'Quantity used', btnLabel: 'Deduct', variant: 'danger' },
+    waste: { title: 'Record Waste', label: 'Quantity wasted', btnLabel: 'Record Waste', variant: 'danger' },
+    adjust: { title: 'Adjust Count', label: 'New quantity on hand', btnLabel: 'Adjust', variant: 'primary' },
 };
 
 export const ReceiveModal = ({ item, mode = 'receive', onSubmit, onClose }: ReceiveModalProps) => {
@@ -23,20 +25,14 @@ export const ReceiveModal = ({ item, mode = 'receive', onSubmit, onClose }: Rece
 
     const config = MODE_CONFIG[mode] || MODE_CONFIG.receive;
 
-    useEffect(() => {
-        const handleKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
-        window.addEventListener('keydown', handleKey);
-        return () => window.removeEventListener('keydown', handleKey);
-    }, [onClose]);
+    const canSubmit = mode === 'adjust' ? quantity !== '' : !!Number(quantity);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        const qty = Number(quantity);
-        if (!qty && mode !== 'adjust') return;
-        if (mode === 'adjust' && quantity === '') return;
+        if (!canSubmit) return;
         setSaving(true);
         try {
-            await onSubmit(item.id, qty, notes.trim() || undefined);
+            await onSubmit(item.id, Number(quantity), notes.trim() || undefined);
             onClose();
         } finally {
             setSaving(false);
@@ -44,44 +40,53 @@ export const ReceiveModal = ({ item, mode = 'receive', onSubmit, onClose }: Rece
     };
 
     return (
-        <div className="modal-overlay" onClick={onClose}>
-            <div className="modal-content creation-modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 400 }}>
-                <div className="modal-header">
-                    <h3>{config.title}</h3>
-                    <button className="modal-close" onClick={onClose}><X size={18} /></button>
-                </div>
-                <form onSubmit={handleSubmit}>
-                    <div className="modal-body">
-                        <div style={{ fontSize: '0.8125rem', color: '#6B7280', marginBottom: 'var(--space-md)' }}>
-                            <strong style={{ color: '#1A1A1A' }}>{item.name}</strong>
-                            <span style={{ marginLeft: 8 }}>Current: {item.quantityOnHand} {item.unit}</span>
-                        </div>
-                        <div className="field">
-                            <label className="field-label">{config.label}</label>
-                            <input
-                                className="field-input"
-                                type="number"
-                                min={mode === 'adjust' ? '0' : '0.01'}
-                                step="any"
-                                value={quantity}
-                                onChange={e => setQuantity(e.target.value)}
-                                autoFocus
-                                placeholder={mode === 'adjust' ? String(item.quantityOnHand) : '0'}
-                            />
-                        </div>
-                        <div className="field">
-                            <label className="field-label">Notes (optional)</label>
-                            <input className="field-input" value={notes} onChange={e => setNotes(e.target.value)} placeholder="e.g. PO #1234, physical count" />
-                        </div>
-                    </div>
-                    <div className="modal-footer">
-                        <button type="button" className="btn-cancel" onClick={onClose}>Cancel</button>
-                        <button type="submit" className={config.btnClass} disabled={saving || (!Number(quantity) && mode !== 'adjust')}>
-                            {saving ? 'Saving...' : config.btnLabel}
-                        </button>
-                    </div>
-                </form>
+        <Modal
+            title={config.title}
+            size="sm"
+            contentClassName="creation-modal"
+            onClose={onClose}
+            footer={
+                <>
+                    <Button variant="secondary" type="button" onClick={onClose}>Cancel</Button>
+                    <Button
+                        variant={config.variant}
+                        type="submit"
+                        form="receive-form"
+                        disabled={saving || !canSubmit}
+                    >
+                        {saving ? 'Saving…' : config.btnLabel}
+                    </Button>
+                </>
+            }
+        >
+            <div className="modal-meta">
+                <span><strong>{item.name}</strong></span>
+                <span>Current: <strong>{item.quantityOnHand} {item.unit}</strong></span>
             </div>
-        </div>
+            <form id="receive-form" onSubmit={handleSubmit}>
+                <div className="field">
+                    <label className="field-label">{config.label}</label>
+                    <input
+                        className="field-input"
+                        type="number"
+                        min={mode === 'adjust' ? '0' : '0.01'}
+                        step="any"
+                        value={quantity}
+                        onChange={e => setQuantity(e.target.value)}
+                        autoFocus
+                        placeholder={mode === 'adjust' ? String(item.quantityOnHand) : '0'}
+                    />
+                </div>
+                <div className="field">
+                    <label className="field-label">Notes <span style={{ color: 'var(--text-secondary)', fontWeight: 400 }}>(optional)</span></label>
+                    <input
+                        className="field-input"
+                        value={notes}
+                        onChange={e => setNotes(e.target.value)}
+                        placeholder="e.g. PO #1234, physical count"
+                    />
+                </div>
+            </form>
+        </Modal>
     );
 };

@@ -12,7 +12,7 @@ interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
 const variantClasses: Record<ButtonVariant, string> = {
     primary: 'btn-primary',
     secondary: 'btn-cancel',
-    danger: 'btn-delete-confirm',
+    danger: 'btn-danger',
     ghost: 'btn-delete-roster',
     outline: 'btn-new-batch',
     lion: 'btn-lion',

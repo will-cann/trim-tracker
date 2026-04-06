@@ -274,32 +274,43 @@ export const HarvestDayCockpit: React.FC<HarvestDayCockpitProps> = ({ onExit }) 
             {showSubmitConfirm && activeHarvest && (
                 <Modal
                     title="Submit Harvest Batch"
-                    contentClassName="max-w-md"
+                    size="sm"
                     onClose={() => setShowSubmitConfirm(false)}
                     footer={
                         <>
                             <Button variant="secondary" onClick={() => setShowSubmitConfirm(false)}>Cancel</Button>
                             <Button variant="primary" onClick={handleSubmitBatch} disabled={submitting}>
-                                {submitting && <Loader2 size={16} className="animate-spin" style={{ marginRight: 4 }} />}
+                                {submitting && <Loader2 size={14} className="animate-spin" />}
                                 Submit for Review
                             </Button>
                         </>
                     }
                 >
-                    <p style={{ color: 'var(--text-color)', margin: 0 }}>
+                    <p className="submit-modal-prompt">
                         Submit <strong>{activeHarvest.batchId}</strong> for admin review?
                     </p>
-                    <div style={{ marginTop: 'var(--space-md)', fontSize: '0.875rem', color: 'var(--text-secondary)' }}>
-                        <p style={{ margin: '0 0 4px' }}>{activeHarvest.plantCount} plants, {activeHarvest.totalWetWeight.toFixed(0)}g wet weight</p>
+                    <dl className="submit-summary">
+                        <div className="submit-summary-row">
+                            <dt>Plants</dt>
+                            <dd>{activeHarvest.plantCount}</dd>
+                        </div>
+                        <div className="submit-summary-row">
+                            <dt>Wet weight</dt>
+                            <dd>{activeHarvest.totalWetWeight.toFixed(0)} g</dd>
+                        </div>
                         {activeHarvest.allocations.map(a => (
-                            <p key={a.id} style={{ margin: '0 0 4px' }}>
-                                {a.allocationType === 'flower' ? 'Flower' : 'Frozen'}: {a.targetWeight.toFixed(0)}g
-                            </p>
+                            <div key={a.id} className="submit-summary-row">
+                                <dt>{a.allocationType === 'flower' ? 'Flower' : 'Frozen'}</dt>
+                                <dd>{a.targetWeight.toFixed(0)} g</dd>
+                            </div>
                         ))}
                         {activeHarvest.totalWasteWeight > 0 && (
-                            <p style={{ margin: 0 }}>Waste: {activeHarvest.totalWasteWeight.toFixed(0)}g</p>
+                            <div className="submit-summary-row submit-summary-row--waste">
+                                <dt>Waste</dt>
+                                <dd>{activeHarvest.totalWasteWeight.toFixed(0)} g</dd>
+                            </div>
                         )}
-                    </div>
+                    </dl>
                 </Modal>
             )}
         </div>

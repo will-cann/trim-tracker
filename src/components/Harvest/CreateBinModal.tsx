@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { X, Plus, Minus } from 'lucide-react';
+import { Plus, Minus } from 'lucide-react';
 import type { Harvest, HarvestBin, CreateBinDTO } from '../../types/definitions';
 import { apiService } from '../../services/apiService';
+import { Modal, Button } from '../ui';
 
 interface CreateBinModalProps {
     harvest: Harvest;
@@ -46,91 +47,80 @@ export const CreateBinModal: React.FC<CreateBinModalProps> = ({ harvest, rooms, 
     };
 
     return (
-        <div className="modal-overlay" onClick={onClose}>
-            <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 480 }}>
-                <div className="modal-header">
-                    <h3 style={{ margin: 0, fontSize: '1rem' }}>Create Bins from {harvest.batchId}</h3>
-                    <button className="icon-button" onClick={onClose}><X size={18} /></button>
-                </div>
+        <Modal
+            title={`Create Bins from ${harvest.batchId}`}
+            contentClassName="creation-modal"
+            onClose={onClose}
+            footer={
+                <>
+                    <Button variant="secondary" type="button" onClick={onClose}>Cancel</Button>
+                    <Button variant="primary" type="button" onClick={handleSubmit} disabled={saving}>
+                        {saving ? 'Creating…' : `Create ${binCount} Bin${binCount > 1 ? 's' : ''}`}
+                    </Button>
+                </>
+            }
+        >
+            <div className="modal-meta">
+                <span>Strain: <strong>{harvest.strain}</strong></span>
+                <span>License: <strong>{harvest.licenseNumber}</strong></span>
+            </div>
 
-                <div style={{ padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: 16 }}>
-                    {/* Info */}
-                    <div style={{ display: 'flex', gap: 16, fontSize: '0.813rem', color: '#6B7280' }}>
-                        <span>Strain: <strong style={{ color: '#1A1A1A' }}>{harvest.strain}</strong></span>
-                        <span>License: <strong style={{ color: '#1A1A1A' }}>{harvest.licenseNumber}</strong></span>
-                    </div>
-
-                    {/* Bin count */}
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                        <label style={{ fontSize: '0.813rem', fontWeight: 500, color: '#374151' }}>Number of bins:</label>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                            <button
-                                className="icon-button"
-                                onClick={() => handleCountChange(-1)}
-                                disabled={binCount <= 1}
-                                style={{ width: 28, height: 28, borderRadius: 6, border: '1px solid #E5E7EB' }}
-                            >
-                                <Minus size={14} />
-                            </button>
-                            <span style={{ width: 32, textAlign: 'center', fontWeight: 600 }}>{binCount}</span>
-                            <button
-                                className="icon-button"
-                                onClick={() => handleCountChange(1)}
-                                disabled={binCount >= 20}
-                                style={{ width: 28, height: 28, borderRadius: 6, border: '1px solid #E5E7EB' }}
-                            >
-                                <Plus size={14} />
-                            </button>
-                        </div>
-                    </div>
-
-                    {/* Per-bin fields */}
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8, maxHeight: 300, overflowY: 'auto' }}>
-                        {bins.map((bin, idx) => (
-                            <div key={idx} style={{
-                                display: 'flex', gap: 8, alignItems: 'center',
-                                padding: '8px 12px', background: '#F9FAFB', borderRadius: 8,
-                                border: '1px solid #F1F1F1',
-                            }}>
-                                <span style={{ fontSize: '0.75rem', fontWeight: 600, color: '#959595', width: 52, flexShrink: 0 }}>
-                                    BIN-{String((harvest.bins?.length || 0) + idx + 1).padStart(3, '0')}
-                                </span>
-                                <input
-                                    type="number"
-                                    placeholder="Weight (g)"
-                                    value={bin.weight ?? ''}
-                                    onChange={e => updateBin(idx, 'weight', e.target.value ? parseFloat(e.target.value) : undefined)}
-                                    style={{ width: 100, padding: '6px 8px', borderRadius: 6, border: '1px solid #E5E7EB', fontSize: '0.813rem' }}
-                                />
-                                <select
-                                    value={bin.location || ''}
-                                    onChange={e => updateBin(idx, 'location', e.target.value)}
-                                    style={{ flex: 1, padding: '6px 8px', borderRadius: 6, border: '1px solid #E5E7EB', fontSize: '0.813rem' }}
-                                >
-                                    <option value="">Location...</option>
-                                    {rooms.map(r => (
-                                        <option key={r.id} value={r.name}>{r.name}</option>
-                                    ))}
-                                </select>
-                            </div>
-                        ))}
-                    </div>
-
-                    {error && (
-                        <div style={{ color: '#DF5B59', fontSize: '0.813rem' }}>{error}</div>
-                    )}
-                </div>
-
-                <div style={{
-                    display: 'flex', justifyContent: 'flex-end', gap: 8,
-                    padding: '12px 20px', borderTop: '1px solid #F1F1F1',
-                }}>
-                    <button className="btn btn-secondary" onClick={onClose}>Cancel</button>
-                    <button className="btn btn-primary" onClick={handleSubmit} disabled={saving}>
-                        {saving ? 'Creating...' : `Create ${binCount} Bin${binCount > 1 ? 's' : ''}`}
+            <div className="field" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <label className="field-label" style={{ margin: 0 }}>Number of bins</label>
+                <div className="qty-stepper">
+                    <button
+                        type="button"
+                        className="qty-stepper-btn"
+                        onClick={() => handleCountChange(-1)}
+                        disabled={binCount <= 1}
+                        aria-label="Decrease"
+                    >
+                        <Minus size={14} />
+                    </button>
+                    <span className="qty-stepper-value">{binCount}</span>
+                    <button
+                        type="button"
+                        className="qty-stepper-btn"
+                        onClick={() => handleCountChange(1)}
+                        disabled={binCount >= 20}
+                        aria-label="Increase"
+                    >
+                        <Plus size={14} />
                     </button>
                 </div>
             </div>
-        </div>
+
+            <div className="field">
+                <label className="field-label">Bins</label>
+                <div className="bin-row-list">
+                    {bins.map((bin, idx) => (
+                        <div key={idx} className="bin-row">
+                            <span className="bin-row-label">
+                                BIN-{String((harvest.bins?.length || 0) + idx + 1).padStart(3, '0')}
+                            </span>
+                            <input
+                                type="number"
+                                className="field-input bin-row-weight"
+                                placeholder="Weight (g)"
+                                value={bin.weight ?? ''}
+                                onChange={e => updateBin(idx, 'weight', e.target.value ? parseFloat(e.target.value) : undefined)}
+                            />
+                            <select
+                                className="field-input bin-row-location"
+                                value={bin.location || ''}
+                                onChange={e => updateBin(idx, 'location', e.target.value)}
+                            >
+                                <option value="">Location…</option>
+                                {rooms.map(r => (
+                                    <option key={r.id} value={r.name}>{r.name}</option>
+                                ))}
+                            </select>
+                        </div>
+                    ))}
+                </div>
+            </div>
+
+            {error && <div className="modal-error">{error}</div>}
+        </Modal>
     );
 };

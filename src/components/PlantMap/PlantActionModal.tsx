@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { X, AlertTriangle, Loader2, Calendar, Flower2, Snowflake, ArrowRightLeft } from 'lucide-react';
+import { AlertTriangle, Loader2, Calendar, Flower2, Snowflake, ArrowRightLeft } from 'lucide-react';
 import type { PlantPhase, PlantGroup } from '../../types/plantMap';
 import { CONTAMINANT_MAP } from '../../types/plantMap';
 import type { Strain, AllocationChoice, License } from '../../types/definitions';
 import { apiService } from '../../services/apiService';
+import { Modal, Button } from '../ui';
 
 export type PlantActionType = 'destroy' | 'change-phase' | 'change-room' | 'plant-health' | 'create-harvest';
 
@@ -303,41 +304,47 @@ export const PlantActionModal: React.FC<PlantActionModalProps> = ({
         ? [{ value: 'vegetative', label: 'Vegetative' }]
         : PHASE_OPTIONS.filter(o => o.value !== phase);
 
-    return (
-        <div className="modal-overlay" onClick={onClose}>
-            <div
-                className={`modal-content ${isDestructive ? 'delete-modal' : ''}`}
-                onClick={e => e.stopPropagation()}
-            >
-                {/* Header */}
-                <div className="modal-header">
-                    <div className="flex items-center gap-2">
-                        {isDestructive && (
-                            <div className="w-8 h-8 rounded-full bg-red-50 flex items-center justify-center">
-                                <AlertTriangle size={16} className="text-red-500" />
-                            </div>
-                        )}
-                        <h3 className="text-base font-semibold text-gray-900">
-                            {ACTION_TITLES[action]}
-                        </h3>
-                    </div>
-                    <button onClick={onClose} className="close-btn">
-                        <X size={20} />
-                    </button>
-                </div>
+    const submitLabel = submitting ? null
+        : isDestructive ? `Destroy ${totalPlants} Plant${totalPlants !== 1 ? 's' : ''}`
+        : action === 'create-harvest'
+            ? (selectedStrainNames.length > 1
+                ? `Schedule ${selectedStrainNames.length} Strains (${totalPlants} plants)`
+                : `Schedule ${totalPlants} Plant${totalPlants !== 1 ? 's' : ''}`)
+            : 'Apply';
 
+    const submitVariant: 'primary' | 'danger' | 'lion' = isDestructive ? 'danger'
+        : action === 'create-harvest' ? 'lion'
+        : 'primary';
+
+    return (
+        <Modal
+            title={ACTION_TITLES[action]}
+            contentClassName={`creation-modal ${isDestructive ? 'delete-modal' : ''}`}
+            titleIcon={isDestructive ? (
+                <div className="warning-icon-wrapper">
+                    <AlertTriangle size={16} style={{ color: 'var(--danger-color)' }} />
+                </div>
+            ) : undefined}
+            onClose={onClose}
+            footer={
+                <>
+                    <Button variant="secondary" onClick={onClose}>Cancel</Button>
+                    <Button variant={submitVariant} onClick={handleSubmit} disabled={submitting}>
+                        {submitting ? <Loader2 size={14} className="animate-spin" /> : submitLabel}
+                    </Button>
+                </>
+            }
+        >
+            <>
                 {/* Summary */}
-                <div className="rounded-lg bg-gray-50 px-4 py-3 mb-4 text-xs text-gray-600">
-                    <span className="font-semibold text-gray-900">{totalPlants} plant{totalPlants !== 1 ? 's' : ''}</span>
-                    {' '}from{' '}
-                    <span className="font-semibold text-gray-900">{selectedGroups.length} strain group{selectedGroups.length !== 1 ? 's' : ''}</span>
-                    {' '}in{' '}
-                    <span className="font-medium">{roomName}</span>
-                    {' '}({phaseLabel})
+                <div className="modal-meta">
+                    <span><strong>{totalPlants} plant{totalPlants !== 1 ? 's' : ''}</strong></span>
+                    <span>from <strong>{selectedGroups.length} strain group{selectedGroups.length !== 1 ? 's' : ''}</strong></span>
+                    <span>in <strong>{roomName}</strong> ({phaseLabel})</span>
                 </div>
 
                 {/* Action-specific content */}
-                <div className="modal-body">
+                <div>
                     {action === 'destroy' && (
                         <div className="text-sm text-gray-600">
                             <p className="mb-2">
@@ -720,33 +727,9 @@ export const PlantActionModal: React.FC<PlantActionModalProps> = ({
 
                 {/* Error */}
                 {error && (
-                    <p className="text-xs text-red-500 mt-3">{error}</p>
+                    <div className="modal-error">{error}</div>
                 )}
-
-                {/* Actions */}
-                <div className="modal-actions">
-                    <button onClick={onClose} className="btn-cancel">
-                        Cancel
-                    </button>
-                    <button
-                        onClick={handleSubmit}
-                        disabled={submitting}
-                        className={isDestructive ? 'btn-delete-confirm' : action === 'create-harvest' ? 'btn-lion' : 'btn-primary'}
-                    >
-                        {submitting ? (
-                            <Loader2 size={14} className="animate-spin" />
-                        ) : isDestructive ? (
-                            `Destroy ${totalPlants} Plant${totalPlants !== 1 ? 's' : ''}`
-                        ) : action === 'create-harvest' ? (
-                            selectedStrainNames.length > 1
-                                ? `Schedule ${selectedStrainNames.length} Strains (${totalPlants} plants)`
-                                : `Schedule ${totalPlants} Plant${totalPlants !== 1 ? 's' : ''}`
-                        ) : (
-                            'Apply'
-                        )}
-                    </button>
-                </div>
-            </div>
-        </div>
+            </>
+        </Modal>
     );
 };

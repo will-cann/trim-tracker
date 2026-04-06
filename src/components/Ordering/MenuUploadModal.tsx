@@ -2,7 +2,7 @@ import { useState, useRef, useCallback } from 'react';
 import { Upload, Check, X, Loader2, AlertCircle, FileText, CheckCircle2, ChevronDown } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { apiService } from '../../services/apiService';
-import { Modal } from '../ui';
+import { Modal, Button } from '../ui';
 
 // ── Shared types (used by dashboard too) ──────────────────────────────────
 
@@ -251,13 +251,13 @@ export const MenuUploadModal: React.FC<Props> = ({
             footer={
                 isReview ? (
                     <>
-                        <button className="btn-cancel" onClick={handleBack}>Back</button>
-                        <button className="btn-primary" disabled={selectedCount === 0 || !vendorName.trim() || saving} onClick={handleSave}>
-                            {saving ? 'Saving...' : `Save ${selectedCount} Product${selectedCount !== 1 ? 's' : ''}`}
-                        </button>
+                        <Button variant="secondary" onClick={handleBack}>Back</Button>
+                        <Button variant="primary" disabled={selectedCount === 0 || !vendorName.trim() || saving} onClick={handleSave}>
+                            {saving ? 'Saving…' : `Save ${selectedCount} Product${selectedCount !== 1 ? 's' : ''}`}
+                        </Button>
                     </>
                 ) : isUpload ? (
-                    <button className="btn-cancel" onClick={onClose}>Cancel</button>
+                    <Button variant="secondary" onClick={onClose}>Cancel</Button>
                 ) : undefined
             }
         >
@@ -265,25 +265,15 @@ export const MenuUploadModal: React.FC<Props> = ({
             {isUpload && (
                 <>
                     <div
+                        className={`dropzone ${dragging ? 'is-dragging' : ''}`}
                         onDragOver={e => { e.preventDefault(); setDragging(true); }}
                         onDragLeave={() => setDragging(false)}
                         onDrop={handleDrop}
                         onClick={() => fileRef.current?.click()}
-                        style={{
-                            border: `2px dashed ${dragging ? '#3BB570' : '#E8E8E8'}`,
-                            borderRadius: 12,
-                            padding: '40px 20px',
-                            textAlign: 'center',
-                            cursor: 'pointer',
-                            background: dragging ? '#F0FDF4' : '#FAFAFA',
-                            transition: 'all 0.15s ease',
-                        }}
                     >
-                        <Upload size={32} color={dragging ? '#3BB570' : '#959595'} style={{ margin: '0 auto 12px' }} />
-                        <div style={{ fontSize: '0.875rem', fontWeight: 500, color: '#1A1A1A' }}>
-                            Drop vendor menus here or click to browse
-                        </div>
-                        <div style={{ fontSize: '0.75rem', color: '#959595', marginTop: 6 }}>
+                        <Upload size={28} style={{ margin: '0 auto 12px', color: dragging ? 'var(--primary-color)' : 'var(--text-secondary)' }} />
+                        <div className="dropzone-title">Drop vendor menus here or click to browse</div>
+                        <div className="dropzone-hint">
                             Excel (.xlsx), CSV, PDF, or image — select multiple files to bulk upload
                         </div>
                         <input
@@ -297,8 +287,8 @@ export const MenuUploadModal: React.FC<Props> = ({
                     </div>
 
                     {error && (
-                        <div style={{ marginTop: 12, padding: '10px 14px', background: '#FEF2F2', borderRadius: 8, color: '#DF5B59', fontSize: '0.8125rem' }}>
-                            {error}
+                        <div className="info-panel info-panel--danger" style={{ marginTop: 12 }}>
+                            <AlertCircle size={14} /> {error}
                         </div>
                     )}
                 </>
@@ -306,53 +296,36 @@ export const MenuUploadModal: React.FC<Props> = ({
 
             {/* Step: Parsing */}
             {isParsing && (
-                <div style={{ padding: '32px 20px' }}>
+                <div className="menu-upload-status">
                     {fileStatuses.length === 1 ? (
-                        <div style={{ textAlign: 'center' }}>
-                            <Loader2 size={32} color="#3BB570" style={{ animation: 'spin 1s linear infinite', margin: '0 auto 16px' }} />
-                            <div style={{ fontSize: '0.875rem', fontWeight: 500, color: '#1A1A1A' }}>
-                                Parsing {fileStatuses[0].name}...
-                            </div>
-                            <div style={{ fontSize: '0.75rem', color: '#959595', marginTop: 6 }}>
+                        <div className="menu-upload-status-center">
+                            <Loader2 size={28} className="menu-upload-spinner" />
+                            <div className="menu-upload-status-title">Parsing {fileStatuses[0].name}…</div>
+                            <div className="menu-upload-status-hint">
                                 AI is extracting products. You can close this and keep working — we'll notify you when it's done.
                             </div>
                         </div>
                     ) : (
                         <>
-                            <div style={{ fontSize: '0.875rem', fontWeight: 500, color: '#1A1A1A', marginBottom: 4 }}>
-                                Parsing {fileStatuses.length} files...
-                            </div>
-                            <div style={{ fontSize: '0.75rem', color: '#959595', marginBottom: 16 }}>
+                            <div className="menu-upload-status-title">Parsing {fileStatuses.length} files…</div>
+                            <div className="menu-upload-status-hint" style={{ marginBottom: 16 }}>
                                 You can close this and keep working — we'll notify you when it's done.
                             </div>
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                            <div className="menu-upload-file-list">
                                 {fileStatuses.map((fs, idx) => (
-                                    <div
-                                        key={idx}
-                                        style={{
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            gap: 10,
-                                            padding: '8px 12px',
-                                            background: '#FAFAFA',
-                                            borderRadius: 8,
-                                            fontSize: '0.8125rem',
-                                        }}
-                                    >
-                                        {fs.status === 'pending' && <FileText size={14} color="#959595" />}
-                                        {fs.status === 'parsing' && <Loader2 size={14} color="#3BB570" style={{ animation: 'spin 1s linear infinite' }} />}
-                                        {fs.status === 'done' && <CheckCircle2 size={14} color="#3BB570" />}
-                                        {fs.status === 'error' && <AlertCircle size={14} color="#DF5B59" />}
-                                        <span style={{ flex: 1, color: fs.status === 'error' ? '#DF5B59' : '#1A1A1A' }}>
-                                            {fs.name}
-                                        </span>
+                                    <div key={idx} className={`menu-upload-file menu-upload-file--${fs.status}`}>
+                                        {fs.status === 'pending' && <FileText size={14} />}
+                                        {fs.status === 'parsing' && <Loader2 size={14} className="menu-upload-spinner" />}
+                                        {fs.status === 'done' && <CheckCircle2 size={14} />}
+                                        {fs.status === 'error' && <AlertCircle size={14} />}
+                                        <span className="menu-upload-file-name">{fs.name}</span>
                                         {fs.status === 'done' && (
-                                            <span style={{ color: '#959595', fontSize: '0.75rem' }}>
+                                            <span className="menu-upload-file-meta">
                                                 {fs.productCount} product{fs.productCount !== 1 ? 's' : ''}
                                             </span>
                                         )}
                                         {fs.status === 'error' && (
-                                            <span style={{ color: '#DF5B59', fontSize: '0.75rem' }}>failed</span>
+                                            <span className="menu-upload-file-meta menu-upload-file-meta--error">failed</span>
                                         )}
                                     </div>
                                 ))}
@@ -364,10 +337,10 @@ export const MenuUploadModal: React.FC<Props> = ({
 
             {/* Step: Saving */}
             {saving && (
-                <div style={{ textAlign: 'center', padding: '48px 20px' }}>
-                    <Loader2 size={32} color="#3BB570" style={{ animation: 'spin 1s linear infinite', margin: '0 auto 16px' }} />
-                    <div style={{ fontSize: '0.875rem', fontWeight: 500, color: '#1A1A1A' }}>
-                        Creating vendor and saving {selectedCount} products...
+                <div className="menu-upload-status menu-upload-status-center">
+                    <Loader2 size={28} className="menu-upload-spinner" />
+                    <div className="menu-upload-status-title">
+                        Creating vendor and saving {selectedCount} products…
                     </div>
                 </div>
             )}
@@ -376,119 +349,74 @@ export const MenuUploadModal: React.FC<Props> = ({
             {isReview && !saving && (
                 <>
                     {/* Editable vendor name */}
-                    <div className="field" style={{ marginBottom: 16 }}>
+                    <div className="field">
                         <label className="field-label">Vendor Name</label>
                         <input
                             className="field-input"
                             value={vendorName}
                             onChange={e => setVendorName(e.target.value)}
-                            placeholder="Enter vendor name..."
-                            style={{ fontWeight: 500 }}
+                            placeholder="Enter vendor name…"
                         />
-                        <div style={{ fontSize: '0.6875rem', color: '#959595', marginTop: 4 }}>
+                        <div className="field-hint">
                             {vendorName ? 'Detected from file — edit if needed' : 'Could not detect vendor name — please enter it'}
                         </div>
                     </div>
 
                     {/* AI Notes summary */}
                     {notes && (
-                        <div style={{
-                            marginBottom: 16,
-                            background: '#FFFBEB',
-                            border: '1px solid #F5D98B',
-                            borderRadius: 8,
-                            fontSize: '0.8125rem',
-                            color: '#78600F',
-                            lineHeight: 1.5,
-                        }}>
+                        <div className="info-panel info-panel--warning" style={{ padding: 0 }}>
                             <button
                                 onClick={() => setNotesExpanded(!notesExpanded)}
-                                style={{
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    gap: 8,
-                                    width: '100%',
-                                    padding: '8px 14px',
-                                    background: 'none',
-                                    border: 'none',
-                                    cursor: 'pointer',
-                                    color: '#78600F',
-                                    fontSize: '0.8125rem',
-                                    fontWeight: 600,
-                                    textAlign: 'left',
-                                }}
+                                className="menu-upload-notes-toggle"
                             >
-                                <AlertCircle size={13} style={{ flexShrink: 0 }} />
-                                <span style={{ flex: 1 }}>AI parsing notes</span>
-                                <ChevronDown size={14} style={{ transform: notesExpanded ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s ease' }} />
+                                <AlertCircle size={13} />
+                                <span>AI parsing notes</span>
+                                <ChevronDown size={14} style={{ transform: notesExpanded ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s ease', marginLeft: 'auto' }} />
                             </button>
                             {notesExpanded && (
-                                <div style={{
-                                    padding: '0 14px 10px',
-                                    whiteSpace: 'pre-wrap',
-                                    maxHeight: 180,
-                                    overflowY: 'auto',
-                                    fontSize: '0.75rem',
-                                    lineHeight: 1.6,
-                                }}>
-                                    {notes}
-                                </div>
+                                <div className="menu-upload-notes-body">{notes}</div>
                             )}
                         </div>
                     )}
 
                     {/* File breakdown for bulk uploads */}
                     {hasMultipleFiles && (
-                        <div style={{
-                            marginBottom: 12,
-                            padding: '8px 12px',
-                            background: '#F0FDF4',
-                            border: '1px solid #BBF0D0',
-                            borderRadius: 8,
-                            fontSize: '0.75rem',
-                            color: '#1A6B3C',
-                            display: 'flex',
-                            flexWrap: 'wrap',
-                            gap: '4px 12px',
-                        }}>
+                        <div className="info-panel info-panel--success" style={{ flexWrap: 'wrap', gap: '4px 12px' }}>
                             {fileStatuses.filter(f => f.status === 'done').map((fs, idx) => (
                                 <span key={idx}>{fs.name}: {fs.productCount}</span>
                             ))}
                             {fileStatuses.some(f => f.status === 'error') && (
-                                <span style={{ color: '#DF5B59' }}>
+                                <span style={{ color: 'var(--danger-color)' }}>
                                     {fileStatuses.filter(f => f.status === 'error').length} file(s) failed
                                 </span>
                             )}
                         </div>
                     )}
 
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-                        <span style={{ fontSize: '0.875rem', fontWeight: 500 }}>
+                    <div className="menu-upload-review-header">
+                        <span className="menu-upload-review-count">
                             {products.length} products found
                         </span>
-                        <button
-                            onClick={toggleAll}
-                            style={{ fontSize: '0.75rem', color: '#3BB570', background: 'none', border: 'none', cursor: 'pointer' }}
-                        >
+                        <button onClick={toggleAll} className="menu-upload-toggle-all">
                             {products.every(p => p._selected) ? 'Deselect All' : 'Select All'}
                         </button>
                     </div>
 
                     {error && (
-                        <div style={{ marginBottom: 12, padding: '10px 14px', background: '#FEF2F2', borderRadius: 8, color: '#DF5B59', fontSize: '0.8125rem' }}>
-                            {error}
+                        <div className="info-panel info-panel--danger">
+                            <AlertCircle size={13} /> {error}
                         </div>
                     )}
 
-                    <div style={{ maxHeight: '50vh', overflowY: 'auto', border: '1px solid #E8E8E8', borderRadius: 8 }}>
-                        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8125rem' }}>
+                    <div className="menu-upload-table-wrap">
+                        <table className="menu-upload-table">
                             <thead>
-                                <tr style={{ background: '#FAFAFA', position: 'sticky', top: 0 }}>
-                                    <th style={{ padding: '8px 10px', textAlign: 'left', width: 30 }}></th>
-                                    <th style={{ padding: '8px 10px', textAlign: 'left' }}>Product</th>
-                                    <th style={{ padding: '8px 10px', textAlign: 'left' }}>Category</th>
-                                    <th style={{ padding: '8px 10px', textAlign: 'right' }}>Unit $</th>
-                                    <th style={{ padding: '8px 10px', textAlign: 'right' }}>Case $</th>
+                                <tr>
+                                    <th style={{ width: 30 }}></th>
+                                    <th>Product</th>
+                                    <th>Category</th>
+                                    <th style={{ textAlign: 'right' }}>Unit $</th>
+                                    <th style={{ textAlign: 'right' }}>Case $</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -496,31 +424,24 @@ export const MenuUploadModal: React.FC<Props> = ({
                                     <tr
                                         key={idx}
                                         onClick={() => toggleProduct(idx)}
-                                        style={{
-                                            cursor: 'pointer',
-                                            borderTop: '1px solid #F1F1F1',
-                                            opacity: p._selected ? 1 : 0.45,
-                                            background: p._selected ? '#fff' : '#FAFAFA',
-                                        }}
+                                        className={p._selected ? '' : 'menu-upload-row--deselected'}
                                     >
-                                        <td style={{ padding: '6px 10px', textAlign: 'center' }}>
+                                        <td style={{ textAlign: 'center' }}>
                                             {p._selected
-                                                ? <Check size={14} color="#3BB570" />
-                                                : <X size={14} color="#959595" />}
+                                                ? <Check size={14} className="text-primary" />
+                                                : <X size={14} className="text-muted" />}
                                         </td>
-                                        <td style={{ padding: '6px 10px' }}>
-                                            <div style={{ fontWeight: 500 }}>{p.name}</div>
+                                        <td>
+                                            <div className="menu-upload-product-name">{p.name}</div>
                                             {(p.brand || p.unitSize || p.sku) && (
-                                                <div style={{ fontSize: '0.6875rem', color: '#959595' }}>
+                                                <div className="menu-upload-product-meta">
                                                     {[p.brand, p.unitSize, p.sku].filter(Boolean).join(' · ')}
                                                 </div>
                                             )}
                                         </td>
-                                        <td style={{ padding: '6px 10px', color: '#959595' }}>
-                                            {p.category || '--'}
-                                        </td>
-                                        <td style={{ padding: '6px 10px', textAlign: 'right' }}>{fmt(p.unitPrice)}</td>
-                                        <td style={{ padding: '6px 10px', textAlign: 'right' }}>{fmt(p.casePrice)}</td>
+                                        <td className="text-muted">{p.category || '—'}</td>
+                                        <td style={{ textAlign: 'right' }}>{fmt(p.unitPrice)}</td>
+                                        <td style={{ textAlign: 'right' }}>{fmt(p.casePrice)}</td>
                                     </tr>
                                 ))}
                             </tbody>

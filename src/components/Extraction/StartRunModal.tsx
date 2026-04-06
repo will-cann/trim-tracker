@@ -1,7 +1,8 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { X, Snowflake, Flame, Beaker, Wrench, ChevronRight, Check, ChevronDown, AlertTriangle } from 'lucide-react';
+import { Snowflake, Flame, Beaker, Wrench, ChevronRight, Check, ChevronDown, AlertTriangle } from 'lucide-react';
 import type { ProcessTemplate, Package, ExtractionEquipment } from '../../types/definitions';
 import { apiService } from '../../services/apiService';
+import { Modal, Button } from '../ui';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -360,21 +361,41 @@ export const StartRunModal: React.FC<StartRunModalProps> = ({ templates, onClose
     // Steps that need equipment
     const equipSteps = selectedTemplate?.steps.filter(s => s.equipmentType) || [];
 
-    return (
-        <div className="modal-overlay" onClick={onClose}>
-            <div className="modal-content start-run-modal" onClick={e => e.stopPropagation()}>
-                <div className="modal-header">
-                    <h2 className="modal-title">
-                        {step === 'template' ? 'Choose a Process'
-                            : step === 'packages' ? 'Select Source Material'
-                            : step === 'product' ? 'Configure Run'
-                            : 'Run Details'}
-                    </h2>
-                    <button onClick={onClose} className="modal-close">
-                        <X size={18} />
-                    </button>
-                </div>
+    const title = step === 'template' ? 'Choose a Process'
+        : step === 'packages' ? 'Select Source Material'
+        : step === 'product' ? 'Configure Run'
+        : 'Run Details';
 
+    const footer = step === 'template' ? null
+        : step === 'packages' ? (
+            <>
+                <Button variant="secondary" onClick={handleBack}>Back</Button>
+                <Button variant="primary" onClick={handleContinueToProduct} disabled={selectedPackageIds.length === 0}>
+                    Continue
+                </Button>
+            </>
+        ) : step === 'product' ? (
+            <>
+                <Button variant="secondary" onClick={handleBack}>Back</Button>
+                <Button variant="primary" onClick={handleContinueToDetails}>Continue</Button>
+            </>
+        ) : (
+            <>
+                <Button variant="secondary" onClick={() => setStep('product')}>Back</Button>
+                <Button variant="primary" onClick={handleCreate} disabled={!name.trim() || submitting}>
+                    {submitting ? 'Creating…' : 'Create Run'}
+                </Button>
+            </>
+        );
+
+    return (
+        <Modal
+            title={title}
+            contentClassName="creation-modal start-run-modal"
+            onClose={onClose}
+            footer={footer}
+        >
+            <>
                 {/* ── Step 1: Template ────────────────────────────────────── */}
                 {step === 'template' && (
                     <div className="start-run-templates">
@@ -572,16 +593,6 @@ export const StartRunModal: React.FC<StartRunModalProps> = ({ templates, onClose
                             </div>
                         )}
 
-                        <div className="start-run-actions">
-                            <button
-                                className="btn-primary"
-                                onClick={handleContinueToProduct}
-                                disabled={selectedPackageIds.length === 0}
-                            >
-                                Continue
-                            </button>
-                            <button className="btn-cancel" onClick={handleBack}>Back</button>
-                        </div>
                     </div>
                 )}
 
@@ -710,12 +721,6 @@ export const StartRunModal: React.FC<StartRunModalProps> = ({ templates, onClose
                             </div>
                         )}
 
-                        <div className="start-run-actions">
-                            <button className="btn-primary" onClick={handleContinueToDetails}>
-                                Continue
-                            </button>
-                            <button className="btn-cancel" onClick={handleBack}>Back</button>
-                        </div>
                     </div>
                 )}
 
@@ -766,19 +771,9 @@ export const StartRunModal: React.FC<StartRunModalProps> = ({ templates, onClose
                             />
                         </label>
 
-                        <div className="start-run-actions">
-                            <button
-                                className="btn-primary"
-                                onClick={handleCreate}
-                                disabled={!name.trim() || submitting}
-                            >
-                                {submitting ? 'Creating...' : 'Create Run'}
-                            </button>
-                            <button className="btn-cancel" onClick={() => setStep('product')}>Back</button>
-                        </div>
                     </div>
                 )}
-            </div>
-        </div>
+            </>
+        </Modal>
     );
 };
