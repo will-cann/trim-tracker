@@ -20,7 +20,7 @@ export const handler: Handler = async (event) => {
             return { statusCode: 400, body: JSON.stringify({ error: 'Name is required' }) };
         }
 
-        // Inviting users (with email) requires manager+; adding roster-only profiles is open
+        // Inviting users (with email) requires director+; adding roster-only profiles is open
         if (email) {
             const denied = authorize(context, 'director');
             if (denied) return denied;

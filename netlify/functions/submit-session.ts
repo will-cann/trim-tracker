@@ -18,7 +18,7 @@ export const handler: Handler = async (event) => {
             };
         }
 
-        const denied = authorize(context, 'lead');
+        const denied = authorize(context, 'technician');
         if (denied) return denied;
 
         const { sessionId } = JSON.parse(event.body || '{}');

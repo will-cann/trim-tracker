@@ -18,7 +18,7 @@ export const handler: Handler = async (event) => {
             return { statusCode: 401, body: JSON.stringify({ error: 'Unauthorized' }) };
         }
 
-        const denied = authorize(context, 'lead');
+        const denied = authorize(context, 'technician');
         if (denied) return denied;
 
         const { harvestId, ...updates } = JSON.parse(event.body || '{}');
