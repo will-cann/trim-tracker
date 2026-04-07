@@ -303,6 +303,11 @@ export const AmbientProvider: React.FC<AmbientProviderProps> = ({
             });
             const allActions = result.actions as ProposedAction[];
 
+            // Captured = "auto-applied, no further action needed".
+            // Review queue = "needs the user's OK before applying".
+            // An action belongs to ONE list, never both. Reviewable items
+            // get added to captures only after the user confirms them in
+            // confirmPending().
             const reviewable: ProposedAction[] = [];
             const humanTaskActions: ProposedAction[] = [];
 
@@ -316,7 +321,6 @@ export const AmbientProvider: React.FC<AmbientProviderProps> = ({
                     pushCapture(action);
                 } else {
                     reviewable.push(action);
-                    pushCapture(action);
                 }
             }
 
@@ -521,13 +525,18 @@ export const AmbientProvider: React.FC<AmbientProviderProps> = ({
             if (humanTaskUpdates.length > 0 || humanTaskDeletes.length > 0) {
                 console.warn('[ambient] update/delete human tasks not yet wired in ambient confirm path');
             }
+            // Promote every confirmed action to the Captured list so the
+            // user has a record of what they approved during this session.
+            for (const action of pendingActions) {
+                pushCapture(action);
+            }
             setPendingActions(null);
         } catch (err) {
             setMicError(err instanceof Error ? err.message : 'Failed to apply actions');
         } finally {
             setIsExecutingPending(false);
         }
-    }, [pendingActions, isExecutingPending]);
+    }, [pendingActions, isExecutingPending, pushCapture]);
 
     const cancelPending = useCallback(() => {
         setPendingActions(null);
