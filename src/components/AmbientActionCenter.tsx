@@ -387,18 +387,18 @@ export const AmbientActionCenter: React.FC<AmbientActionCenterProps> = ({
 
                 <div className="ambient-drawer-panel">
                     <div className="ambient-drawer-inner">
+                        {transcript.map(line => (
+                            <div className="ambient-drawer-line" key={line.id}>
+                                <span className="ambient-drawer-time tabular">{formatClock(line.timestamp)}</span>
+                                <span className="ambient-drawer-text">{line.text}</span>
+                            </div>
+                        ))}
                         {interimText && (
                             <div className="ambient-drawer-line interim">
                                 <span className="ambient-drawer-time">now</span>
                                 <span className="ambient-drawer-text">{interimText}</span>
                             </div>
                         )}
-                        {[...transcript].reverse().map(line => (
-                            <div className="ambient-drawer-line" key={line.id}>
-                                <span className="ambient-drawer-time tabular">{formatClock(line.timestamp)}</span>
-                                <span className="ambient-drawer-text">{line.text}</span>
-                            </div>
-                        ))}
                         {transcript.length === 0 && !interimText && (
                             <div className="ambient-drawer-empty">No speech captured yet.</div>
                         )}
