@@ -1,5 +1,5 @@
 import Dexie, { type Table } from 'dexie';
-import type { ChatMessage, Task, HumanTask } from '../types/definitions';
+import type { ChatMessage, ConversationKind, Task, HumanTask } from '../types/definitions';
 
 interface ConversationRecord {
     id: string;
@@ -7,6 +7,7 @@ interface ConversationRecord {
     messages: ChatMessage[];
     createdAt: string;
     updatedAt: string;
+    kind?: ConversationKind; // undefined = legacy chat, set explicitly for ambient
 }
 
 interface TaskRecord {
@@ -36,6 +37,13 @@ class ChatDatabase extends Dexie {
         });
         this.version(4).stores({
             conversations: 'id, updatedAt, createdAt',
+            tasks: 'id, conversationId, createdAt, updatedAt',
+            humanTasks: 'id, status, category, priority, dueDate, createdAt',
+        });
+        this.version(5).stores({
+            // Add kind index so we can distinguish chat vs ambient conversations
+            // in the Recent list without scanning payloads.
+            conversations: 'id, updatedAt, createdAt, kind',
             tasks: 'id, conversationId, createdAt, updatedAt',
             humanTasks: 'id, status, category, priority, dueDate, createdAt',
         });

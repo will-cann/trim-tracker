@@ -412,27 +412,30 @@ export const AIEmptyState: React.FC<AIEmptyStateProps> = ({
                 <div className="ai-recent">
                     <span className="ai-recent-label">Recent</span>
                     <div className="ai-recent-list">
-                        {conversations.slice(0, 5).map((convo) => (
-                            <div
-                                key={convo.id}
-                                className="ai-recent-item"
-                                onClick={() => onSelectConversation(convo.id)}
-                            >
-                                <MessageSquare size={13} className="ai-recent-icon" />
-                                <span className="ai-recent-title">{convo.title}</span>
-                                <span className="ai-recent-time">{formatRelativeTime(convo.updatedAt)}</span>
-                                <button
-                                    onClick={(e) => {
-                                        e.stopPropagation();
-                                        onDeleteConversation(convo.id);
-                                    }}
-                                    className="ai-recent-delete"
-                                    type="button"
+                        {conversations.slice(0, 5).map((convo) => {
+                            const Icon = convo.kind === 'ambient' ? Radio : MessageSquare;
+                            return (
+                                <div
+                                    key={convo.id}
+                                    className="ai-recent-item"
+                                    onClick={() => onSelectConversation(convo.id)}
                                 >
-                                    <Trash2 size={11} />
-                                </button>
-                            </div>
-                        ))}
+                                    <Icon size={13} className="ai-recent-icon" />
+                                    <span className="ai-recent-title">{convo.title}</span>
+                                    <span className="ai-recent-time">{formatRelativeTime(convo.updatedAt)}</span>
+                                    <button
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            onDeleteConversation(convo.id);
+                                        }}
+                                        className="ai-recent-delete"
+                                        type="button"
+                                    >
+                                        <Trash2 size={11} />
+                                    </button>
+                                </div>
+                            );
+                        })}
                     </div>
                 </div>
             )}

@@ -296,6 +296,7 @@ function AppContent() {
     <AmbientProvider
       getContext={buildAmbientContext}
       onCreateHumanTasks={handleCreateHumanTasks}
+      onSaveSession={saveConversation}
     >
     <div className="app-container">
       <Sidebar

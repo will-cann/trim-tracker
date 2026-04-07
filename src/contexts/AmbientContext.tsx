@@ -3,7 +3,7 @@ import { useDeepgram } from '../hooks/useDeepgram';
 import { apiService } from '../services/apiService';
 import { describeAction } from '../components/AmbientActionCenter';
 import type { AmbientCapture, TranscriptLine } from '../components/AmbientActionCenter';
-import type { ProposedAction } from '../types/definitions';
+import type { ChatMessage, ProposedAction } from '../types/definitions';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Ambient session context
@@ -29,6 +29,11 @@ interface AmbientProviderProps {
     onCreateHumanTasks?: (tasks: Array<{ title: string; description?: string; priority: string; category: string; dueDate?: string; assignee?: string; location?: string }>) => Promise<void>;
     /** Return true to swallow an action (e.g. extraction card intercepts). */
     onInterceptAction?: (action: ProposedAction) => boolean;
+    /**
+     * Persist a completed ambient session to the conversation history store.
+     * Called from end() when the session has any captures or transcript.
+     */
+    onSaveSession?: (id: string, title: string, messages: ChatMessage[], kind: 'ambient') => Promise<void>;
 }
 
 interface AmbientContextValue {
@@ -70,11 +75,57 @@ export const useAmbientOptional = (): AmbientContextValue | null => useContext(A
 
 const SILENCE_FLUSH_MS = 5000;
 
+// ─── Session serialization helpers ───────────────────────────────────────
+function formatElapsedShort(ms: number): string {
+    const total = Math.max(0, Math.floor(ms / 1000));
+    const m = Math.floor(total / 60);
+    const s = total % 60;
+    if (m === 0) return `${s}s`;
+    if (s === 0) return `${m}m`;
+    return `${m}m ${s}s`;
+}
+
+function formatClock(ts: number): string {
+    return new Date(ts).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+}
+
+function formatSessionTitle(captureCount: number, elapsedMs: number): string {
+    const duration = formatElapsedShort(elapsedMs);
+    if (captureCount === 0) return `Transcript only · ${duration}`;
+    return `${captureCount} captured · ${duration}`;
+}
+
+function formatSessionBody(
+    captures: AmbientCapture[],
+    transcript: TranscriptLine[],
+    elapsedMs: number,
+): string {
+    const parts: string[] = [];
+    parts.push(`**Ambient session · ${formatElapsedShort(elapsedMs)}**`);
+    parts.push('');
+    if (captures.length > 0) {
+        parts.push(`**Captured (${captures.length})**`);
+        for (const cap of captures) {
+            const suffix = cap.summary ? ` — ${cap.summary}` : '';
+            parts.push(`- ${cap.label}${suffix}`);
+        }
+        parts.push('');
+    }
+    if (transcript.length > 0) {
+        parts.push(`**Transcript (${transcript.length})**`);
+        for (const line of transcript) {
+            parts.push(`> ${formatClock(line.timestamp)} — ${line.text}`);
+        }
+    }
+    return parts.join('\n');
+}
+
 export const AmbientProvider: React.FC<AmbientProviderProps> = ({
     children,
     getContext,
     onCreateHumanTasks,
     onInterceptAction,
+    onSaveSession,
 }) => {
     // ── Session lifecycle ────────────────────────────────────────────────
     const [sessionActive, setSessionActive] = useState(false);
@@ -99,9 +150,15 @@ export const AmbientProvider: React.FC<AmbientProviderProps> = ({
     const getContextRef = useRef(getContext);
     const onCreateHumanTasksRef = useRef(onCreateHumanTasks);
     const onInterceptActionRef = useRef(onInterceptAction);
+    const onSaveSessionRef = useRef(onSaveSession);
     useEffect(() => { getContextRef.current = getContext; }, [getContext]);
     useEffect(() => { onCreateHumanTasksRef.current = onCreateHumanTasks; }, [onCreateHumanTasks]);
     useEffect(() => { onInterceptActionRef.current = onInterceptAction; }, [onInterceptAction]);
+    useEffect(() => { onSaveSessionRef.current = onSaveSession; }, [onSaveSession]);
+
+    // Track the session id so end() knows what to write. Generated on start.
+    const sessionIdRef = useRef<string | null>(null);
+    const sessionStartedAtRef = useRef<number | null>(null);
 
     // ── Tick elapsed time every second while listening ───────────────────
     useEffect(() => {
@@ -225,7 +282,9 @@ export const AmbientProvider: React.FC<AmbientProviderProps> = ({
     // ── Controls ─────────────────────────────────────────────────────────
     const start = useCallback(async () => {
         setMicError(null);
-        // Fresh session — reset everything.
+        // Fresh session — reset everything and stamp a new id.
+        sessionIdRef.current = crypto.randomUUID();
+        sessionStartedAtRef.current = Date.now();
         bufferRef.current = '';
         setInterimText('');
         setTranscriptLines([]);
@@ -241,6 +300,8 @@ export const AmbientProvider: React.FC<AmbientProviderProps> = ({
         } catch (err) {
             setSessionActive(false);
             setRunStartedAt(null);
+            sessionIdRef.current = null;
+            sessionStartedAtRef.current = null;
             setMicError(err instanceof Error ? err.message : 'Failed to start mic');
         }
     }, [startListening]);
@@ -284,6 +345,28 @@ export const AmbientProvider: React.FC<AmbientProviderProps> = ({
         if (isListening) stopListening();
         bufferRef.current = '';
         setInterimText('');
+
+        // Persist the session to the Recent list if it had any content.
+        // We do this BEFORE clearing state so the serializer reads the
+        // final values directly from the React state snapshot.
+        const sid = sessionIdRef.current;
+        const hasContent = captures.length > 0 || transcriptLines.length > 0;
+        if (sid && hasContent && onSaveSessionRef.current) {
+            const title = formatSessionTitle(captures.length, elapsedMs);
+            const content = formatSessionBody(captures, transcriptLines, elapsedMs);
+            const message: ChatMessage = {
+                id: crypto.randomUUID(),
+                role: 'assistant',
+                content,
+            };
+            // Fire and forget — we don't want to block the UI teardown.
+            onSaveSessionRef.current(sid, title, [message], 'ambient').catch(err => {
+                console.error('[ambient] failed to save session:', err);
+            });
+        }
+
+        sessionIdRef.current = null;
+        sessionStartedAtRef.current = null;
         setSessionActive(false);
         setIsPaused(false);
         setRunStartedAt(null);
@@ -293,7 +376,7 @@ export const AmbientProvider: React.FC<AmbientProviderProps> = ({
         setCaptures([]);
         setPendingActions(null);
         setMicError(null);
-    }, [isListening, stopListening]);
+    }, [isListening, stopListening, captures, transcriptLines, elapsedMs]);
 
     // ── Pending review handling (ambient-only queue) ─────────────────────
     // This is deliberately separate from the main chat pending queue in

@@ -734,18 +734,22 @@ export interface ChatMessage {
   results?: ActionResultItem[];
 }
 
+export type ConversationKind = 'chat' | 'ambient';
+
 export interface Conversation {
   id: string;
   title: string;
   messages: ChatMessage[];
   createdAt: string;
   updatedAt: string;
+  kind?: ConversationKind; // defaults to 'chat' when absent
 }
 
 export interface ConversationSummary {
   id: string;
   title: string;
   updatedAt: string;
+  kind?: ConversationKind;
 }
 
 // ============================================================================

@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { chatDb } from '../services/chatDb';
-import type { ChatMessage, ConversationSummary } from '../types/definitions';
+import type { ChatMessage, ConversationKind, ConversationSummary } from '../types/definitions';
 
 export const useConversationHistory = () => {
     const [conversations, setConversations] = useState<ConversationSummary[]>([]);
@@ -14,6 +14,7 @@ export const useConversationHistory = () => {
             id: r.id,
             title: r.title,
             updatedAt: r.updatedAt,
+            kind: r.kind,
         })));
     }, []);
 
@@ -25,13 +26,13 @@ export const useConversationHistory = () => {
         return crypto.randomUUID();
     }, []);
 
-    const saveConversation = useCallback(async (id: string, title: string, messages: ChatMessage[]) => {
+    const saveConversation = useCallback(async (id: string, title: string, messages: ChatMessage[], kind: ConversationKind = 'chat') => {
         const now = new Date().toISOString();
         const existing = await chatDb.conversations.get(id);
         if (existing) {
-            await chatDb.conversations.update(id, { title, messages, updatedAt: now });
+            await chatDb.conversations.update(id, { title, messages, updatedAt: now, kind });
         } else {
-            await chatDb.conversations.add({ id, title, messages, createdAt: now, updatedAt: now });
+            await chatDb.conversations.add({ id, title, messages, createdAt: now, updatedAt: now, kind });
         }
         await loadConversations();
     }, [loadConversations]);
