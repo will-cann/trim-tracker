@@ -4592,7 +4592,8 @@ select.field-input {
   display: flex;
   flex-direction: column;
   min-height: 0;
-  height: calc(100vh - 64px);
+  height: 100vh;
+  overflow-y: auto;
 }
 
 /* Empty state — command center.
@@ -4965,15 +4966,22 @@ select.field-input {
    Calm, quiet, confident — Apple-tier polish in light mode only.
    ──────────────────────────────────────────────────────────────────────── */
 /* ────────────────────────────────────────────────────────────────────────
-   AI Home brand block — persistent identity across empty / ambient states
+   AI Home brand block — persistent identity across empty / ambient states.
+   Sticky so it never scrolls away regardless of which container scrolls.
    ──────────────────────────────────────────────────────────────────────── */
 .ai-home-brand-block {
+  position: sticky;
+  top: 0;
+  z-index: 5;
   flex-shrink: 0;
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 0.875rem;
-  padding: 2.25rem 1.5rem 0.5rem;
+  padding: 2.25rem 1.5rem 1rem;
+  background: white;
+  background:
+    linear-gradient(180deg, white 0%, white 78%, rgba(255, 255, 255, 0.8) 100%);
 }
 
 /* When the brand block is present, the empty state below it gets less
