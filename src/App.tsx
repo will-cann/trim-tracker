@@ -4,6 +4,8 @@ import { apiService } from './services/apiService';
 import { AIHome } from './components/AIHome';
 import { AIAssistant } from './components/AIAssistant';
 import { ChatPanel } from './components/ChatPanel';
+import { AmbientProvider, useAmbient } from './contexts/AmbientContext';
+import { AmbientHeaderIndicator } from './components/AmbientHeaderIndicator';
 import { Dashboard } from './components/Dashboard';
 import { ReportsDashboard } from './components/Reports/ReportsDashboard';
 import { HarvestDashboard } from './components/Harvest/HarvestDashboard';
@@ -147,6 +149,29 @@ function AppContent() {
     }
   }, [user, loadSession, loadTrimmerProfiles, loadHarvests, loadCompletedSessions, loadLicenses]);
 
+  // Snapshot builder used by the AmbientProvider on every utterance flush.
+  // This is what the AI sees when it parses an ambient chunk. We rebuild it
+  // fresh each call so it reflects the latest session / harvest / task state.
+  // Declared before any early returns so hook order is stable.
+  const buildAmbientContext = useCallback(() => ({
+    hasActiveSession: !!session,
+    sessionId: session?.id,
+    trimmerProfiles: trimmerProfiles.map(p => ({ id: p.id, name: p.name })),
+    existingEntries: (session?.entries || []).map(e => ({
+      id: e.id, harvestName: e.harvestName, strain: e.strain, status: e.status,
+    })),
+    harvests: (harvests || []).map(h => ({
+      id: h.id, batchId: h.batchId, strain: h.strain, status: h.status,
+    })),
+    activeLicenseNumber: myLicenses.find(l => l.id === activeLicenseId)?.licenseNumber || undefined,
+    humanTasks: (humanTasks || []).map(t => ({
+      id: t.id, title: t.title, status: t.status, priority: t.priority,
+      category: t.category, assignee: t.assignee, location: t.location,
+    })),
+    plantMapSummary: plantMapSummary || undefined,
+    screenContext: VIEW_SCREEN_CONTEXT[currentView],
+  }), [session, trimmerProfiles, harvests, myLicenses, activeLicenseId, humanTasks, plantMapSummary, currentView]);
+
   if (authLoading) {
     return (
       <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center gap-5">
@@ -268,6 +293,10 @@ function AppContent() {
   }
 
   return (
+    <AmbientProvider
+      getContext={buildAmbientContext}
+      onCreateHumanTasks={handleCreateHumanTasks}
+    >
     <div className="app-container">
       <Sidebar
         currentView={currentView}
@@ -275,6 +304,7 @@ function AppContent() {
         onNewConversation={handleNewConversation}
         taskCount={taskPendingCount}
       />
+      <AmbientHeaderIndicator onNavigateToAI={() => handleViewChange('ai')} />
       <div className="main-content">
         <header className="app-header">
         </header>
@@ -394,9 +424,12 @@ function AppContent() {
           />
         )}
 
-        {/* Floating AI Chat — available on non-AI views except reports */}
+        {/* Floating AI Chat — available on non-AI views except reports,
+            and hidden while an ambient session is active (the header
+            indicator + Action Center on AI home are the only ambient
+            surfaces during a session). */}
         {currentView !== 'ai' && currentView !== 'reports' && (
-          <ChatPanel
+          <ChatPanelGate
             session={session}
             trimmerProfiles={trimmerProfiles}
             harvests={harvests}
@@ -422,7 +455,16 @@ function AppContent() {
         {/* Task panel edge controls — excluded from AI home (has its own) and reports */}
       </div>
     </div>
+    </AmbientProvider>
   );
+}
+
+// Small wrapper that short-circuits ChatPanel while an ambient session is
+// active. This lives inside the AmbientProvider so it can read useAmbient().
+function ChatPanelGate(props: React.ComponentProps<typeof ChatPanel>) {
+  const ambient = useAmbient();
+  if (ambient.sessionActive) return null;
+  return <ChatPanel {...props} />;
 }
 
 export default function App() {
