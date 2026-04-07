@@ -75,6 +75,31 @@ export const useAmbientOptional = (): AmbientContextValue | null => useContext(A
 
 const SILENCE_FLUSH_MS = 5000;
 
+// Static cannabis cultivation / processing vocabulary. Primes Deepgram on
+// every ambient session so domain terms (room types, processing verbs,
+// material categories, common units) are recognized correctly. Dynamic
+// terms (strain names, room names, trimmer names) are appended at start.
+const STATIC_KEYTERMS: readonly string[] = [
+    // Material categories
+    'flower', 'shake', 'trim', 'waste', 'biomass', 'fresh frozen',
+    'bubble hash', 'rosin', 'live rosin', 'live resin', 'distillate',
+    'kief', 'hash', 'cart', 'cartridge', 'terpenes',
+    // Lifecycle stages
+    'clone', 'mother', 'veg', 'vegetative', 'flower room', 'dry room',
+    'cure', 'curing', 'bucking', 'trimming',
+    // Common verbs
+    'harvest', 'allocate', 'submit', 'package', 'weigh', 'record',
+    'assign', 'bin', 'tag', 'transfer',
+    // Units
+    'grams', 'milliliters', 'ounces', 'pounds', 'milligrams',
+    // Domain nouns
+    'strain', 'batch', 'session', 'license', 'METRC', 'manifest',
+    'plant batch', 'wet weight', 'dry weight', 'extraction run',
+    // Common strain families
+    'OG', 'Kush', 'Diesel', 'Gelato', 'Haze', 'Runtz', 'Cake',
+    'Sativa', 'Indica', 'Hybrid',
+];
+
 // ─── Session serialization helpers ───────────────────────────────────────
 function formatElapsedShort(ms: number): string {
     const total = Math.max(0, Math.floor(ms / 1000));
@@ -159,6 +184,45 @@ export const AmbientProvider: React.FC<AmbientProviderProps> = ({
     // Track the session id so end() knows what to write. Generated on start.
     const sessionIdRef = useRef<string | null>(null);
     const sessionStartedAtRef = useRef<number | null>(null);
+
+    // ── Dynamic Deepgram keyterms ────────────────────────────────────────
+    // Pulled once on mount + refreshed before each session start. These are
+    // the proper nouns most likely to be mistranscribed: strain names, room
+    // names, trimmer profile names, active harvest names. Combined with the
+    // static cannabis vocab list at connect time.
+    const dynamicKeytermsRef = useRef<string[]>([]);
+
+    const refreshDynamicKeyterms = useCallback(async () => {
+        try {
+            const [strains, rooms, trimmers, harvests] = await Promise.all([
+                apiService.getStrains().catch(() => []),
+                apiService.getRooms().catch(() => []),
+                apiService.getTrimmerProfiles().catch(() => []),
+                apiService.getHarvests().catch(() => []),
+            ]);
+            const terms: string[] = [];
+            for (const s of strains) if (s.name) terms.push(s.name);
+            for (const r of rooms) if (r.name) terms.push(r.name);
+            for (const t of trimmers) if (t.name) terms.push(t.name);
+            for (const h of harvests) {
+                if (h.batchId) terms.push(h.batchId);
+                if (h.strain) terms.push(h.strain);
+            }
+            dynamicKeytermsRef.current = terms;
+        } catch (err) {
+            console.warn('[ambient] failed to refresh dynamic keyterms:', err);
+        }
+    }, []);
+
+    // Prime the dynamic keyterms on mount so the first session starts with
+    // them already in hand. Refreshed again on each start() call.
+    useEffect(() => {
+        refreshDynamicKeyterms();
+    }, [refreshDynamicKeyterms]);
+
+    const getKeyterms = useCallback((): string[] => {
+        return [...STATIC_KEYTERMS, ...dynamicKeytermsRef.current];
+    }, []);
 
     // ── Tick elapsed time every second while listening ───────────────────
     useEffect(() => {
@@ -277,11 +341,17 @@ export const AmbientProvider: React.FC<AmbientProviderProps> = ({
         onTranscript: handleTranscript,
         onUtteranceEnd: handleUtteranceEnd,
         onError: handleError,
+        getKeyterms,
     });
 
     // ── Controls ─────────────────────────────────────────────────────────
     const start = useCallback(async () => {
         setMicError(null);
+        // Refresh keyterms so anything added since mount (new strain, new
+        // room, etc.) is included in this session's recognition prime.
+        // Fire and forget — Deepgram will use whatever's already cached if
+        // this hasn't completed by the time the WS opens.
+        refreshDynamicKeyterms();
         // Fresh session — reset everything and stamp a new id.
         sessionIdRef.current = crypto.randomUUID();
         sessionStartedAtRef.current = Date.now();
@@ -304,7 +374,7 @@ export const AmbientProvider: React.FC<AmbientProviderProps> = ({
             sessionStartedAtRef.current = null;
             setMicError(err instanceof Error ? err.message : 'Failed to start mic');
         }
-    }, [startListening]);
+    }, [startListening, refreshDynamicKeyterms]);
 
     const pause = useCallback(() => {
         if (flushTimerRef.current) {

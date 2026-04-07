@@ -7,6 +7,12 @@ interface UseDeepgramOptions {
     onTranscript: (text: string, isFinal: boolean) => void;
     onUtteranceEnd?: () => void;
     onError?: (error: string) => void;
+    /**
+     * Returns a list of terms to prime the recognizer with at connect time.
+     * Called once per startListening() — Deepgram does not support changing
+     * keyterms on a live connection. Capped at 100 terms server-side.
+     */
+    getKeyterms?: () => string[];
 }
 
 interface UseDeepgramReturn {
@@ -45,6 +51,7 @@ export const useDeepgram = ({
     onTranscript,
     onUtteranceEnd,
     onError,
+    getKeyterms,
 }: UseDeepgramOptions): UseDeepgramReturn => {
     const [isConnected, setIsConnected] = useState(false);
     const [isListening, setIsListening] = useState(false);
@@ -63,12 +70,14 @@ export const useDeepgram = ({
     const onTranscriptRef = useRef(onTranscript);
     const onUtteranceEndRef = useRef(onUtteranceEnd);
     const onErrorRef = useRef(onError);
+    const getKeytermsRef = useRef(getKeyterms);
 
     // Sync refs in effects to satisfy React 19 lint rules
     useEffect(() => { modeRef.current = mode; }, [mode]);
     useEffect(() => { onTranscriptRef.current = onTranscript; }, [onTranscript]);
     useEffect(() => { onUtteranceEndRef.current = onUtteranceEnd; }, [onUtteranceEnd]);
     useEffect(() => { onErrorRef.current = onError; }, [onError]);
+    useEffect(() => { getKeytermsRef.current = getKeyterms; }, [getKeyterms]);
 
     const cleanup = useCallback(() => {
         if (processorRef.current) {
@@ -124,10 +133,12 @@ export const useDeepgram = ({
                 encoding: 'linear16',
                 sample_rate: '16000',
                 channels: '1',
-                model: 'nova-2',
+                model: 'nova-3',
+                language: 'en-US',
                 punctuate: 'true',
                 interim_results: 'true',
                 smart_format: 'true',
+                numerals: 'true',
             });
 
             if (modeRef.current === 'ambient') {
@@ -138,6 +149,17 @@ export const useDeepgram = ({
                 // Push-to-talk: detect end of speech
                 params.set('endpointing', '300');
                 params.set('utterance_end_ms', '1500');
+            }
+
+            // Keyterm boosting — primes the recognizer with domain vocabulary
+            // and dynamic proper nouns (strain names, room names, trimmer
+            // names) so they get heard correctly. Nova-3 supports up to 100
+            // keyterms via repeated keyterm= params.
+            const keyterms = getKeytermsRef.current?.() || [];
+            const dedupedKeyterms = Array.from(new Set(keyterms.map(t => t.trim()).filter(Boolean))).slice(0, 100);
+            // URLSearchParams.append handles repeated params natively.
+            for (const term of dedupedKeyterms) {
+                params.append('keyterm', term);
             }
 
             const wsUrl = `wss://api.deepgram.com/v1/listen?${params.toString()}`;
