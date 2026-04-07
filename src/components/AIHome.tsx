@@ -207,6 +207,15 @@ export const AIHome: React.FC<AIHomeProps> = ({
         }));
     }, []);
 
+    // Register the extraction-card intercept with the ambient provider so
+    // record_extraction actions emitted from ambient mode build inline cards
+    // here instead of falling through to the pending review queue. The
+    // chat-mode flow already uses handleInterceptAction directly via useAIChat
+    // (see onInterceptAction below).
+    useEffect(() => {
+        return ambient.registerInterceptHandler(handleInterceptAction);
+    }, [ambient, handleInterceptAction]);
+
     // ── AI Chat hook ──
     const {
         messages, isLoading, pendingActions, isExecuting,
@@ -500,6 +509,10 @@ export const AIHome: React.FC<AIHomeProps> = ({
                             onCancel={ambient.cancelPending}
                             transcript={ambient.transcriptLines}
                             onUpdateCapture={ambient.updateCapture}
+                            extractionRunCards={extractionRunCards}
+                            onExtractionSubmit={handleExtractionSubmit}
+                            onExtractionDismiss={handleExtractionDismiss}
+                            onExtractionCardUpdate={handleExtractionCardUpdate}
                             micError={combinedError}
                         />
                     ) : (

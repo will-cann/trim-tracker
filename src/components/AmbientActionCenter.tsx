@@ -4,6 +4,8 @@ import {
     Package, Thermometer, Scale, Shield, Dna, DoorOpen, Tag,
     type LucideIcon,
 } from 'lucide-react';
+import { ExtractionRunCard } from './ExtractionRunCard';
+import type { ExtractionRunCardData } from './ExtractionRunCard';
 import type { ProposedAction, ProposedActionType } from '../types/definitions';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -36,6 +38,12 @@ interface AmbientActionCenterProps {
     onCancel: () => void;
     transcript: TranscriptLine[];
     onUpdateCapture?: (capture: AmbientCapture, updates: { title?: string }) => Promise<boolean>;
+    // Extraction run cards — build-as-you-speak inline cards for
+    // record_extraction actions captured during ambient mode
+    extractionRunCards?: ExtractionRunCardData[];
+    onExtractionSubmit?: (cardId: string) => void;
+    onExtractionDismiss?: (cardId: string) => void;
+    onExtractionCardUpdate?: (cardId: string, updates: Partial<ExtractionRunCardData>) => void;
     micError?: string | null;
 }
 
@@ -129,6 +137,10 @@ export const AmbientActionCenter: React.FC<AmbientActionCenterProps> = ({
     onCancel,
     transcript,
     onUpdateCapture,
+    extractionRunCards,
+    onExtractionSubmit,
+    onExtractionDismiss,
+    onExtractionCardUpdate,
     micError,
 }) => {
     const [transcriptOpen, setTranscriptOpen] = useState(false);
@@ -289,6 +301,23 @@ export const AmbientActionCenter: React.FC<AmbientActionCenterProps> = ({
                             {isExecuting ? 'Applying…' : 'Confirm all'}
                         </button>
                     </div>
+                </div>
+            )}
+
+            {/* Extraction run cards — build-as-you-speak inline cards.
+                Sit between review and captures because they're an
+                in-progress workspace, not a passive log entry. */}
+            {extractionRunCards && extractionRunCards.length > 0 && (
+                <div className="ambient-extraction-stack">
+                    {extractionRunCards.map(card => (
+                        <ExtractionRunCard
+                            key={card.id}
+                            card={card}
+                            onSubmit={onExtractionSubmit || (() => {})}
+                            onDismiss={onExtractionDismiss || (() => {})}
+                            onUpdateCard={onExtractionCardUpdate || (() => {})}
+                        />
+                    ))}
                 </div>
             )}
 

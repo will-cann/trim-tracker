@@ -5481,6 +5481,19 @@ select.field-input {
   background: #2FA161;
 }
 
+/* ── Extraction run cards — sit between review and the captures log.
+       Build-as-you-speak workspace for record_extraction actions. ──── */
+.ambient-extraction-stack {
+  width: 100%;
+  max-width: 520px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.625rem;
+  margin-bottom: 1.75rem;
+  animation: ai-body-in 360ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation-delay: 220ms;
+}
+
 /* ── Captured log — hairline-divided rows, no card chrome.
        Reads like a log of moments, not a list of cards. ────────────── */
 .ambient-log {

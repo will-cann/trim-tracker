@@ -67,6 +67,14 @@ interface AmbientContextValue {
     cancelPending: () => void;
     /** Inline-edit a capture's underlying entity (e.g. task title). */
     updateCapture: (capture: AmbientCapture, updates: { title?: string }) => Promise<boolean>;
+    /**
+     * Register a child-owned intercept handler. The handler is called on
+     * every parsed action; returning true swallows the action so it doesn't
+     * land in captures or pending review. Used by view-scoped UI like the
+     * extraction run cards in AIHome that need to consume specific action
+     * types from the ambient stream. Returns an unregister function.
+     */
+    registerInterceptHandler: (fn: (action: ProposedAction) => boolean) => () => void;
 }
 
 const AmbientContext = createContext<AmbientContextValue | null>(null);
@@ -193,11 +201,24 @@ export const AmbientProvider: React.FC<AmbientProviderProps> = ({
     const onInterceptActionRef = useRef(onInterceptAction);
     const onSaveSessionRef = useRef(onSaveSession);
     const onUpdateCaptureRef = useRef(onUpdateCapture);
+    // Child-registered intercept handler (e.g. extraction run card builder
+    // in AIHome). Distinct from the prop-based onInterceptAction so a
+    // descendant component can plug in without lifting state.
+    const childInterceptRef = useRef<((action: ProposedAction) => boolean) | null>(null);
     useEffect(() => { getContextRef.current = getContext; }, [getContext]);
     useEffect(() => { onCreateHumanTasksRef.current = onCreateHumanTasks; }, [onCreateHumanTasks]);
     useEffect(() => { onInterceptActionRef.current = onInterceptAction; }, [onInterceptAction]);
     useEffect(() => { onSaveSessionRef.current = onSaveSession; }, [onSaveSession]);
     useEffect(() => { onUpdateCaptureRef.current = onUpdateCapture; }, [onUpdateCapture]);
+
+    const registerInterceptHandler = useCallback((fn: (action: ProposedAction) => boolean) => {
+        childInterceptRef.current = fn;
+        return () => {
+            if (childInterceptRef.current === fn) {
+                childInterceptRef.current = null;
+            }
+        };
+    }, []);
 
     // Track the session id so end() knows what to write. Generated on start.
     const sessionIdRef = useRef<string | null>(null);
@@ -324,7 +345,12 @@ export const AmbientProvider: React.FC<AmbientProviderProps> = ({
             const humanTaskActions: ProposedAction[] = [];
 
             for (const action of allActions) {
-                if (onInterceptActionRef.current?.(action)) {
+                // Check both the prop-based intercept and any child-registered
+                // intercept (e.g. extraction run cards in AIHome). Either
+                // returning true swallows the action — it goes to its own
+                // surface and we still surface it as a capture chip so the
+                // user can see something happened.
+                if (onInterceptActionRef.current?.(action) || childInterceptRef.current?.(action)) {
                     pushCapture(action);
                     continue;
                 }
@@ -595,6 +621,7 @@ export const AmbientProvider: React.FC<AmbientProviderProps> = ({
         confirmPending,
         cancelPending,
         updateCapture,
+        registerInterceptHandler,
     };
 
     return <AmbientContext.Provider value={value}>{children}</AmbientContext.Provider>;
