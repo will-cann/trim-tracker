@@ -72,18 +72,47 @@ You understand the full ice water hash and rosin extraction pipeline. The stages
 3. **Press** (heat/pressure) → produces **Rosin** from Bubble Hash input
 4. **Cart Fill** → produces **Rosin Carts** from Rosin input
 
-When the user describes extraction work, use the \`record_extraction\` tool. Key vocabulary mappings:
-- "pulled from the freezer", "pulled for a wash", "washing" → inputPackageType: fresh_frozen, outputPackageType: bubble_hash
+### Two extraction tools — pick the right one (read this carefully, the rule is strict)
+
+There are TWO tools for extraction work and you MUST pick the right one. Getting this wrong creates the wrong kind of record and frustrates the user.
+
+**Decision rule (apply in order):**
+
+1. **Does the user use a "starting" verb?** Words like "start", "kick off", "begin", "let's do", "schedule", "set up", "we're going to" → **ALWAYS \`start_extraction_run\`**, regardless of what stage of the pipeline they mention. "Start a wash" is start_extraction_run. "Begin a press run" is start_extraction_run. "Let's do a live rosin run for Toadstool OG" is start_extraction_run. The presence of a starting verb is the strongest signal.
+
+2. **Is the user reporting a result that already happened?** Past-tense phrasing about yield ("we got 800g", "the wash yielded", "came out to", "pulled 17K and ended up with") → **\`record_extraction\`**. They are logging history, not starting work.
+
+3. **Ambiguous (no starting verb, no past-tense yield)?** Default to **\`start_extraction_run\`** if they're naming materials and intent ("Toadstool OG fresh frozen for live rosin"). Default to **\`record_extraction\`** only if they're clearly mid-process and just dictating what's happening ("I'm pulling 17K of blackberry now").
+
+**When in doubt, pick \`start_extraction_run\`.** It creates a real run in the workspace with step checkoff; the user can fill in yield later via \`record_extraction\`. The reverse is awkward — \`record_extraction\` creates a flat log entry that doesn't show up as a run.
+
+### \`start_extraction_run\` — for forward-looking work
+Creates a row in the Runs workspace with the template's steps copied in. Resolves the source package by strain + input material. Status defaults to active. The user follows step-by-step checkoff in the Runs UI. Use this for any "start/begin/schedule" phrasing.
+
+Examples:
+- "Start a wash for Toadstool OG with 2500g fresh frozen" → start_extraction_run
+- "Kick off a live rosin run with the Blue Dream fresh frozen" → start_extraction_run
+- "Begin a BHO run on the Wedding Cake trim" → start_extraction_run
+- "Let's press the blackberry hash" → start_extraction_run
+
+### \`record_extraction\` — for retrospective yield logging only
+Logs a single consumption/production event to extraction_logs. Use this only when the user is reporting what already happened.
+
+Examples:
+- "The Toadstool wash yielded 800g of bubble hash" → record_extraction (output known)
+- "We got 79 grams of bubble hash from the white fire OG" → record_extraction
+- "Pressed the blackberry hash, got 550g of rosin" → record_extraction
+- "Filled 200 rosin carts from the blackberry rosin" → record_extraction
+
+Vocabulary mappings (only apply when you've already chosen \`record_extraction\` per the decision rule above — these are NOT triggers for the tool itself):
 - "wash yielded", "hash came out", "bubble hash" → outputPackageType: bubble_hash
-- "pressed", "pressing", "press run" → inputPackageType: bubble_hash, outputPackageType: rosin
+- "yield", "yielded", "got", "came out to" → the outputQuantity (NOT the inputQuantity)
+- "pressed", "got X of rosin" → inputPackageType: bubble_hash, outputPackageType: rosin
 - "filled carts", "cart fill", "rosin carts" → inputPackageType: rosin, outputPackageType: rosin_cart
-- "yield", "yielded", "got", "came out to" → the outputQuantity
 
-The user often works in large increments of fresh frozen (e.g. 17,000g). They may report results for multiple strains in one utterance (e.g. "gummy worms was 450, blackberry was 600, mad fruit was 525"). Create separate \`record_extraction\` calls for each strain.
+The user often works in large increments of fresh frozen (e.g. 17,000g). When reporting results for multiple strains in one utterance (e.g. "gummy worms was 450, blackberry was 600, mad fruit was 525"), create separate \`record_extraction\` calls for each strain — these are clearly retrospective yield reports.
 
-If the user mentions pulling material but does NOT yet have the yield (e.g. "I pulled 17K blackberry for a wash"), still create the record_extraction — just omit outputQuantity. This records the input consumption. They will report the yield later.
-
-**Reporting yield on an existing run**: When the user reports output (e.g. "we got 79 grams of bubble hash from the white fire OG"), set ONLY the outputQuantity and outputPackageType. Do NOT set inputQuantity — the input was already recorded when the run started. The yield quantity is always the OUTPUT, not the input.
+**Reporting yield on an existing run**: When the user reports output for work already started (e.g. "we got 79 grams of bubble hash from the white fire OG"), use \`record_extraction\` and set ONLY the outputQuantity and outputPackageType. Do NOT set inputQuantity — the input was recorded when the run started. The yield quantity is always the OUTPUT, not the input.
 
 ## Rules for Automated Actions
 - Match trimmer names to existing trimmer profiles when possible (fuzzy match is fine — "Maria" matches "Maria Garcia").
@@ -931,17 +960,15 @@ Examples:
                 strain: { type: 'string', description: 'Cannabis strain being processed' },
                 inputPackageType: {
                     type: 'string',
-                    enum: ['fresh_frozen', 'bubble_hash', 'rosin'],
-                    description: 'Type of the source/input material being consumed',
+                    description: 'Type of the source/input material being consumed. Must be a product type name from the "Available product types" context (e.g. fresh_frozen, bubble_hash, rosin, distillate, terpenes_botanical). The system fuzzy-matches against the catalog so approximate names work.',
                 },
                 inputQuantity: {
                     type: 'number',
-                    description: 'Grams of input material consumed. If not stated, assume the full source package quantity.',
+                    description: 'Quantity of input material consumed in the catalog unit (grams for biomass/intermediate, ml for terpenes, each for carts). If not stated, assume the full source package quantity.',
                 },
                 outputPackageType: {
                     type: 'string',
-                    enum: ['bubble_hash', 'rosin', 'rosin_cart'],
-                    description: 'Type of output product created',
+                    description: 'Type of output product created. Must be a product type name from the "Available product types" context (e.g. bubble_hash, rosin, distillate_infused, live_rosin_cart).',
                 },
                 outputQuantity: {
                     type: 'number',
@@ -965,6 +992,80 @@ Examples:
                 },
             },
             required: ['strain', 'inputPackageType', 'outputPackageType'],
+        },
+    },
+    {
+        name: 'start_extraction_run',
+        description: `Create a planned or active extraction run in the runs workspace. Use this when the user says things like "start a live rosin run for Toadstool OG", "kick off a wash with 2500g of blackberry fresh frozen", "start a terpene infusion run with 50g of distillate and 10ml of orange terpenes", or "schedule a BHO run for Monday". This creates a full run entry with step-by-step workflow (visible in the Extraction → Runs view), distinct from record_extraction which only logs a single consumption event.
+
+When to use this vs record_extraction:
+- **start_extraction_run**: Forward-looking. The user is beginning or scheduling work. Output/yield is unknown. Creates a row in extraction_runs with step checkoff UI.
+- **record_extraction**: Retrospective. The user is reporting what already happened ("we got 800g of hash from the blackberry wash"). Logs a single event to extraction_logs.
+
+The tool resolves templateIdentifier against the Extraction templates in context — match by name, process type (solventless/bho/distillate), or target product. If the user says "live rosin" pick a solventless template; "shatter" or "BHO" → bho; "distillate" → distillate. Prefer templates whose accepted_inputs include the user's input materials.
+
+**Multi-source runs:** The \`inputs\` field is an ARRAY. Most runs have a single input (length 1). Some runs combine multiple materials — e.g. terpene infusion takes a distillate package AND a terpene package. Include one entry per input material mentioned by the user.
+
+Default startImmediately=true (user said "start") which sets status=active. Use false only if they explicitly schedule for later ("schedule", "plan for Monday").`,
+        input_schema: {
+            type: 'object' as const,
+            properties: {
+                templateIdentifier: {
+                    type: 'string',
+                    description: 'Template name, process type, or target product keyword. The system will match against the Extraction templates in context.',
+                },
+                strain: {
+                    type: 'string',
+                    description: 'Primary cannabis strain for the run (used to name the run and inherit compliance license). For multi-strain runs, use the dominant/cannabis strain here and list other strains in the inputs[] array.',
+                },
+                inputs: {
+                    type: 'array',
+                    description: 'Input materials the run will consume. Usually length 1 (single source biomass). For multi-source runs (e.g. terpene-infused distillate = distillate package + terpene additive), include one entry per material. Omit entirely if the run has no specific source package yet — the run can be created bare and sources linked later.',
+                    items: {
+                        type: 'object',
+                        properties: {
+                            packageType: {
+                                type: 'string',
+                                description: 'Product type name from the "Available product types" catalog in context (e.g. fresh_frozen, distillate, terpenes_botanical, bubble_hash). System fuzzy-matches against the catalog.',
+                            },
+                            strain: {
+                                type: 'string',
+                                description: 'Strain of this specific input material. May be null for non-cannabis additives (botanical terpenes, etc.).',
+                            },
+                            quantity: {
+                                type: 'number',
+                                description: 'Quantity of this input to consume, in the catalog default unit (g for biomass, ml for terpenes, each for carts). Omit to consume the full source package.',
+                            },
+                            unit: {
+                                type: 'string',
+                                description: 'Optional unit override if the user explicitly specifies one (g, ml, each, trays). Defaults to the catalog default_unit for this packageType.',
+                            },
+                        },
+                        required: ['packageType'],
+                    },
+                },
+                targetProduct: {
+                    type: 'string',
+                    description: 'Optional product variant the run is targeting (from the catalog — e.g. live_rosin, distillate_cart, distillate_infused). Can be set later.',
+                },
+                runName: {
+                    type: 'string',
+                    description: 'Optional custom run name. If omitted, auto-generated as "{strain} - {template} - {date}".',
+                },
+                plannedStart: {
+                    type: 'string',
+                    description: 'Optional ISO timestamp for scheduled runs. Omit if starting now.',
+                },
+                startImmediately: {
+                    type: 'boolean',
+                    description: 'If true (default), create the run with status=active and set started_at=now. If false, create as status=planned for future scheduling.',
+                },
+                notes: {
+                    type: 'string',
+                    description: 'Optional notes for the run.',
+                },
+            },
+            required: ['templateIdentifier'],
         },
     },
 ];
@@ -1129,6 +1230,35 @@ IMPORTANT: If the user is correcting or updating a previous statement (e.g. "act
             }
         } catch { /* proceed without extraction context */ }
 
+        // Add extraction process templates so the AI can resolve "start a live rosin run" → templateId
+        try {
+            const { rows: tmplRows } = await sql`
+                SELECT id, name, process_type, accepted_inputs
+                FROM process_templates
+                WHERE company_id = ${authContext.companyId} AND domain = 'extraction' AND is_active = true
+                ORDER BY name
+            `;
+            if (tmplRows.length > 0) {
+                contextInfo.push(`- Extraction templates: ${tmplRows.map(t => {
+                    const inputs = Array.isArray(t.accepted_inputs) ? (t.accepted_inputs as string[]).join('|') : '';
+                    return `"${t.name}" [${t.process_type}] accepts=${inputs || 'any'} (ID: ${t.id})`;
+                }).join('; ')}`);
+            }
+        } catch { /* proceed without template context */ }
+
+        // Add active extraction runs so AI knows what's already in flight
+        try {
+            const { rows: runRows } = await sql`
+                SELECT id, name, strain, status, input_material, target_product
+                FROM extraction_runs
+                WHERE company_id = ${authContext.companyId} AND status IN ('planned', 'active')
+                ORDER BY created_at DESC LIMIT 10
+            `;
+            if (runRows.length > 0) {
+                contextInfo.push(`- Extraction runs in progress: ${runRows.map(r => `"${r.name}" ${r.strain || ''} [${r.status}]${r.input_material ? ' ' + r.input_material : ''}${r.target_product ? ' → ' + r.target_product : ''} (ID: ${r.id})`).join('; ')}`);
+            }
+        } catch { /* proceed without run context */ }
+
         // Add packages context
         try {
             const { rows: pkgRows } = await sql`
@@ -1159,6 +1289,24 @@ IMPORTANT: If the user is correcting or updating a previous statement (e.g. "act
             }
         } catch { /* proceed without extra context */ }
 
+        // Add product type catalog (P0 — open package type universe)
+        // In ambient mode we send a compact form to minimize tokens per call.
+        try {
+            const { rows: typeRows } = await sql`
+                SELECT name, display_name, category, default_unit, is_cannabis
+                FROM product_types
+                WHERE company_id = ${authContext.companyId} AND is_active = true
+                ORDER BY sort_order ASC, name ASC
+            `;
+            if (typeRows.length > 0) {
+                const isAmbient = (request.transcriptChunks?.length || 0) > 0;
+                const formatted = isAmbient
+                    ? typeRows.map(t => t.name).join(', ')
+                    : typeRows.map(t => `${t.name} [${t.category}${t.is_cannabis ? '' : ', non-cannabis'}, ${t.default_unit}]`).join(', ');
+                contextInfo.push(`- Available product types (for package_type, inputs[].packageType, outputPackageType): ${formatted}`);
+            }
+        } catch { /* proceed without catalog context */ }
+
         userMessage += contextInfo.join('\n');
 
         const apiKey = process.env.CLAUDE_API_KEY || process.env.ANTHROPIC_API_KEY;
@@ -1180,18 +1328,45 @@ IMPORTANT: If the user is correcting or updating a previous statement (e.g. "act
             messages = [{ role: 'user', content: userMessage }];
         }
 
+        // Prompt caching — the static SYSTEM_PROMPT (~160 lines) and the entire
+        // `tools` array (~900 lines) are identical across calls. Marking them
+        // with cache_control makes Anthropic cache the prefix and charge ~10%
+        // of the normal input cost on subsequent calls with the same prefix.
+        // This is especially high-leverage for ambient mode, which invokes
+        // ai-parse repeatedly as transcript chunks flush.
+        //
+        // Cache-key ordering:
+        //   1. system[0] = SYSTEM_PROMPT (static, cached)
+        //   2. system[1] = deptContext (dynamic per-role, NOT cached)
+        //   3. tools[0..N-1] + tools[N] with cache_control (cached prefix)
+        //   4. messages (never cached)
+        //
+        // Dynamic context lives in the user message (appended to `userMessage`
+        // above via contextInfo.push), so it sits in `messages` and correctly
+        // stays out of the cache.
+        const cachedTools = tools.length > 0
+            ? [
+                ...tools.slice(0, -1),
+                { ...tools[tools.length - 1], cache_control: { type: 'ephemeral' as const } },
+            ]
+            : tools;
+
         const apiResponse = await fetch(ANTHROPIC_API_URL, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
                 'x-api-key': apiKey,
                 'anthropic-version': '2023-06-01',
+                'anthropic-beta': 'prompt-caching-2024-07-31',
             },
             body: JSON.stringify({
                 model,
                 max_tokens: 4096,
-                system: `${deptContext}\n\n${SYSTEM_PROMPT}`,
-                tools,
+                system: [
+                    { type: 'text', text: SYSTEM_PROMPT, cache_control: { type: 'ephemeral' } },
+                    { type: 'text', text: deptContext },
+                ],
+                tools: cachedTools,
                 messages,
             }),
         });
@@ -1203,6 +1378,14 @@ IMPORTANT: If the user is correcting or updating a previous statement (e.g. "act
         }
 
         const response = await apiResponse.json();
+
+        // Observability: log cache usage per call so we can measure hit rate and token savings.
+        // First call of a fresh deploy writes the cache (cache_creation_input_tokens > 0, cache_read_input_tokens = 0).
+        // Subsequent calls within the ~5min cache TTL should show cache_read_input_tokens ≈ size of the static prefix.
+        if (response.usage) {
+            const u = response.usage;
+            console.log(`[ai-parse cache] model=${model} input=${u.input_tokens || 0} output=${u.output_tokens || 0} cache_create=${u.cache_creation_input_tokens || 0} cache_read=${u.cache_read_input_tokens || 0}`);
+        }
 
         // Extract tool calls and text from response
         const actions: ProposedAction[] = [];
@@ -1767,6 +1950,183 @@ IMPORTANT: If the user is correcting or updating a previous statement (e.g. "act
                                 outputLabel: autoLabel,
                                 licenseNumber: input.licenseNumber || srcPkg?.license_number || null,
                                 wasteWeight: input.wasteWeight || 0,
+                                notes: input.notes || null,
+                            },
+                        });
+                        break;
+                    }
+                    case 'start_extraction_run': {
+                        type TmplRow = { id: string; name: string; process_type: string | null; accepted_inputs: string[] | null };
+                        type PkgRow = { id: string; label: string; quantity: string; package_type: string; strain: string | null };
+                        type CatalogRow = { name: string; display_name: string; category: string; default_unit: string; is_cannabis: boolean };
+                        type AiInput = { packageType?: string; strain?: string | null; quantity?: number; unit?: string };
+
+                        const runInputs: AiInput[] = Array.isArray(input.inputs) ? input.inputs : [];
+
+                        // Load product catalog + extraction templates in parallel
+                        const [tmplResult, catalogResult] = await Promise.all([
+                            sql`
+                                SELECT id, name, process_type, accepted_inputs
+                                FROM process_templates
+                                WHERE company_id = ${authContext.companyId} AND domain = 'extraction' AND is_active = true
+                            `,
+                            sql`
+                                SELECT name, display_name, category, default_unit, is_cannabis
+                                FROM product_types
+                                WHERE company_id = ${authContext.companyId} AND is_active = true
+                            `,
+                        ]);
+                        const tmplRows = tmplResult.rows as TmplRow[];
+                        const catalog = catalogResult.rows as CatalogRow[];
+
+                        // Simple fuzzy match for catalog names — exact, then substring, then word-overlap.
+                        // Full Levenshtein/phonetic matcher lands in P1; this is the stopgap.
+                        const resolveCatalogName = (raw: string | undefined | null): CatalogRow | null => {
+                            if (!raw) return null;
+                            const needle = String(raw).toLowerCase().trim().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
+                            if (!needle) return null;
+                            // Exact
+                            const exact = catalog.find(c => c.name === needle);
+                            if (exact) return exact;
+                            // Substring either direction
+                            const sub = catalog.find(c => c.name.includes(needle) || needle.includes(c.name));
+                            if (sub) return sub;
+                            // Word-overlap (any token in needle matches any token in catalog name)
+                            const needleTokens = needle.split('_').filter(t => t.length >= 3);
+                            for (const c of catalog) {
+                                const catTokens = c.name.split('_');
+                                if (needleTokens.some(t => catTokens.includes(t))) return c;
+                            }
+                            return null;
+                        };
+
+                        // Resolve each input's packageType against the catalog and find its source package
+                        type ResolvedInput = {
+                            requestedPackageType: string;
+                            resolvedPackageType: string | null;
+                            resolvedDisplayName: string | null;
+                            unit: string;
+                            isCannabis: boolean | null;
+                            strain: string | null;
+                            quantity: number | null;
+                            sourcePackageId: string | null;
+                            sourcePackageLabel: string | null;
+                        };
+                        const resolved: ResolvedInput[] = [];
+                        for (const ri of runInputs) {
+                            const catalogEntry = resolveCatalogName(ri.packageType);
+                            const typeName = catalogEntry?.name || ri.packageType || null;
+                            const strainForInput = ri.strain ?? input.strain ?? null;
+
+                            // Look up source package by resolved type + strain
+                            let srcPkg: PkgRow | null = null;
+                            if (typeName && strainForInput) {
+                                const { rows: srcRows } = await sql`
+                                    SELECT id, label, quantity, package_type, strain
+                                    FROM packages
+                                    WHERE company_id = ${authContext.companyId}
+                                      AND package_type = ${typeName}
+                                      AND LOWER(strain) = LOWER(${strainForInput})
+                                      AND status = 'active'
+                                    ORDER BY created_at DESC
+                                    LIMIT 1
+                                `;
+                                srcPkg = (srcRows[0] as PkgRow) || null;
+                            } else if (typeName && (catalogEntry?.is_cannabis === false)) {
+                                // Non-cannabis additive (e.g. botanical terpenes) — find by type alone, no strain
+                                const { rows: srcRows } = await sql`
+                                    SELECT id, label, quantity, package_type, strain
+                                    FROM packages
+                                    WHERE company_id = ${authContext.companyId}
+                                      AND package_type = ${typeName}
+                                      AND status = 'active'
+                                    ORDER BY created_at DESC
+                                    LIMIT 1
+                                `;
+                                srcPkg = (srcRows[0] as PkgRow) || null;
+                            }
+
+                            resolved.push({
+                                requestedPackageType: ri.packageType || '',
+                                resolvedPackageType: typeName,
+                                resolvedDisplayName: catalogEntry?.display_name || null,
+                                unit: ri.unit || catalogEntry?.default_unit || 'g',
+                                isCannabis: catalogEntry?.is_cannabis ?? null,
+                                strain: strainForInput,
+                                quantity: typeof ri.quantity === 'number' ? ri.quantity : null,
+                                sourcePackageId: srcPkg?.id || null,
+                                sourcePackageLabel: srcPkg?.label || null,
+                            });
+                        }
+
+                        // Resolve templateIdentifier (same scoring as before, now also considers resolved input types)
+                        const identifier = String(input.templateIdentifier || '').toLowerCase().trim();
+                        let matchedTmpl: TmplRow | null = null;
+                        if (identifier) {
+                            matchedTmpl = tmplRows.find(t => t.name.toLowerCase() === identifier)
+                                || tmplRows.find(t => t.name.toLowerCase().includes(identifier) || identifier.includes(t.name.toLowerCase()))
+                                || tmplRows.find(t => !!t.process_type && identifier.includes(t.process_type))
+                                || (input.targetProduct ? tmplRows.find(t => {
+                                    const blob = identifier + ' ' + input.targetProduct;
+                                    return (t.process_type === 'solventless' && /rosin|hash|bubble/.test(blob)) ||
+                                        (t.process_type === 'bho' && /shatter|wax|crumble|resin|bho/.test(blob)) ||
+                                        (t.process_type === 'distillate' && /distillate|isolate/.test(blob));
+                                }) : null)
+                                || null;
+                        }
+                        // If resolved inputs are present, prefer a template that accepts one of them
+                        if (!matchedTmpl && resolved.length > 0) {
+                            const resolvedTypes = resolved.map(r => r.resolvedPackageType).filter(Boolean) as string[];
+                            matchedTmpl = tmplRows.find(t =>
+                                Array.isArray(t.accepted_inputs) && resolvedTypes.some(rt => t.accepted_inputs!.includes(rt))
+                            ) || null;
+                        }
+
+                        // Auto-generate run name if not supplied
+                        const today = new Date();
+                        const dateStr = `${String(today.getMonth() + 1).padStart(2, '0')}${String(today.getDate()).padStart(2, '0')}${String(today.getFullYear()).slice(-2)}`;
+                        const tmplLabel = matchedTmpl?.name || input.templateIdentifier || 'Run';
+                        const strainLabel = input.strain || resolved.find(r => r.strain)?.strain || 'Unknown';
+                        const runName = input.runName || `${strainLabel} - ${tmplLabel} - ${dateStr}`;
+
+                        // Build multi-source payload: one entry per resolved input that has a package match
+                        const sourcePackageIds = resolved.map(r => r.sourcePackageId).filter((id): id is string => !!id);
+                        const sourcePackageQuantities: Record<string, number> = {};
+                        for (const r of resolved) {
+                            if (r.sourcePackageId && typeof r.quantity === 'number' && r.quantity > 0) {
+                                sourcePackageQuantities[r.sourcePackageId] = r.quantity;
+                            }
+                        }
+
+                        // Primary input (first resolved entry) — kept for backwards compat with UI expecting single input
+                        const primary = resolved[0] || null;
+
+                        actions.push({
+                            type: 'start_extraction_run',
+                            data: {
+                                templateId: matchedTmpl?.id || null,
+                                templateName: matchedTmpl?.name || input.templateIdentifier,
+                                templateMatched: Boolean(matchedTmpl),
+                                runName,
+                                strain: input.strain || null,
+                                inputMaterial: primary?.resolvedPackageType || null,
+                                inputQuantityG: primary?.quantity || null,
+                                inputs: resolved.map(r => ({
+                                    packageType: r.resolvedPackageType,
+                                    displayName: r.resolvedDisplayName,
+                                    strain: r.strain,
+                                    quantity: r.quantity,
+                                    unit: r.unit,
+                                    sourcePackageId: r.sourcePackageId,
+                                    sourcePackageLabel: r.sourcePackageLabel,
+                                })),
+                                targetProduct: input.targetProduct || null,
+                                sourcePackageId: primary?.sourcePackageId || null,
+                                sourcePackageLabel: primary?.sourcePackageLabel || null,
+                                sourcePackageIds,
+                                sourcePackageQuantities,
+                                plannedStart: input.plannedStart || null,
+                                status: input.startImmediately === false ? 'planned' : 'active',
                                 notes: input.notes || null,
                             },
                         });

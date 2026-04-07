@@ -290,7 +290,7 @@ export const StartRunModal: React.FC<StartRunModalProps> = ({ templates, onClose
     };
 
     const handleContinueToProduct = () => {
-        if (selectedPackageIds.length === 0) return;
+        // Packages are optional — backend allows runs without source packages.
         // Auto-assign equipment
         setStepEquipment(autoAssignEquipment());
         setStep('product');
@@ -327,7 +327,7 @@ export const StartRunModal: React.FC<StartRunModalProps> = ({ templates, onClose
     };
 
     const handleCreate = async () => {
-        if (!selectedTemplate || !name.trim() || selectedPackageIds.length === 0) return;
+        if (!selectedTemplate || !name.trim()) return;
         setSubmitting(true);
         try {
             // Build quantity map: pkgId → quantity to use
@@ -370,8 +370,8 @@ export const StartRunModal: React.FC<StartRunModalProps> = ({ templates, onClose
         : step === 'packages' ? (
             <>
                 <Button variant="secondary" onClick={handleBack}>Back</Button>
-                <Button variant="primary" onClick={handleContinueToProduct} disabled={selectedPackageIds.length === 0}>
-                    Continue
+                <Button variant="primary" onClick={handleContinueToProduct}>
+                    {selectedPackageIds.length === 0 ? 'Skip' : 'Continue'}
                 </Button>
             </>
         ) : step === 'product' ? (

@@ -62,6 +62,7 @@ const ACTION_CONFIG: Record<string, { icon: typeof Package; label: string; color
     delete_package: { icon: Trash2, label: 'Delete Package', color: 'text-red-600', bgColor: 'bg-red-50' },
     // Extraction
     record_extraction: { icon: ArrowRightLeft, label: 'Extraction', color: 'text-amber-600', bgColor: 'bg-amber-50' },
+    start_extraction_run: { icon: Flame, label: 'Start Run', color: 'text-emerald-600', bgColor: 'bg-emerald-50' },
 };
 
 const FIELD_LABELS: Record<string, string> = {
@@ -181,6 +182,7 @@ const KEY_FIELDS: Record<string, string[]> = {
     delete_package: ['label'],
     // Extraction
     record_extraction: ['strain', 'inputPackageType', 'inputQuantity', 'outputPackageType', 'outputQuantity'],
+    start_extraction_run: ['templateName', 'runName', 'strain', 'inputMaterial', 'inputQuantityG', 'targetProduct', 'status'],
 };
 
 /** Build a human-readable one-liner from action data */
@@ -236,6 +238,32 @@ function summarizeAction(action: ProposedAction): string {
                 d.inputQuantity && `${d.inputQuantity}g ${d.inputPackageType?.replace('_', ' ')}`,
                 d.outputQuantity ? `→ ${d.outputQuantity}g ${d.outputPackageType?.replace('_', ' ')}` : `→ ${d.outputPackageType?.replace('_', ' ')} (pending)`,
             ].filter(Boolean).join(' ');
+        case 'start_extraction_run': {
+            // Prefer inputs[] array; fall back to legacy singular fields.
+            const inputsArr = Array.isArray(d.inputs) ? d.inputs : [];
+            let inputsText = '';
+            if (inputsArr.length > 0) {
+                inputsText = inputsArr
+                    .map((i: { packageType?: string; quantity?: number; unit?: string }) => {
+                        const typ = (i.packageType || '').replace(/_/g, ' ');
+                        if (i.quantity) return `${i.quantity}${i.unit || 'g'} ${typ}`.trim();
+                        return typ;
+                    })
+                    .filter(Boolean)
+                    .join(' + ');
+            } else if (d.inputQuantityG) {
+                inputsText = `${d.inputQuantityG}g ${(d.inputMaterial || '').replace(/_/g, ' ')}`.trim();
+            } else if (d.inputMaterial) {
+                inputsText = d.inputMaterial.replace(/_/g, ' ');
+            }
+            return [
+                d.strain,
+                d.templateName,
+                inputsText,
+                d.targetProduct && `→ ${d.targetProduct.replace(/_/g, ' ')}`,
+                d.status === 'planned' && '(scheduled)',
+            ].filter(Boolean).join(' · ');
+        }
         case 'update_trimmer_profile':
             return [d.profileName, d.name && `→ ${d.name}`, d.role, d.status].filter(Boolean).join(' · ');
         case 'update_batch_weight':
@@ -744,7 +772,7 @@ export const ActionPreview = ({ actions, onConfirm, onCancel, onEditAction, isEx
     const isReadonly = readonly || status === 'confirmed' || status === 'cancelled';
 
     return (
-        <div className="space-y-2">
+        <div className="space-y-2 action-preview-enter">
             {/* Status header */}
             <div className="flex items-center gap-2 px-1">
                 <span className={`text-xs font-medium uppercase tracking-wider flex items-center gap-1 ${

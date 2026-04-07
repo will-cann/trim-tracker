@@ -296,7 +296,33 @@ export interface TagStats {
 // PACKAGE TYPES
 // ============================================================================
 
-export type PackageType = 'flower' | 'trim' | 'shake' | 'fresh_frozen' | 'bubble_hash' | 'rosin' | 'rosin_cart';
+/**
+ * @deprecated Use `ProductType.name` from the company-scoped catalog instead.
+ * This type is kept as a loose hint for legacy code but `packages.package_type`
+ * is now a freeform varchar validated against the `product_types` catalog at
+ * the application layer (not a DB-level enum). Any string is technically
+ * valid; prefer loading `getProductTypes()` and using catalog names.
+ */
+export type PackageType = string;
+
+// ── Product Type Catalog (migration 046) ────────────────────────────────────
+
+export type ProductCategory = 'biomass' | 'intermediate' | 'finished' | 'additive';
+
+export interface ProductType {
+  id: string;
+  name: string;              // snake_case machine name, e.g. "live_rosin"
+  displayName: string;       // human label, e.g. "Live Rosin"
+  category: ProductCategory;
+  defaultUnit: string;       // 'g' | 'each' | 'ml' | 'trays' | ...
+  isCannabis: boolean;       // false for botanical terpenes, butane, etc.
+  metrcItemCategory: string | null;
+  isActive: boolean;
+  sortOrder: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export type PackageStatus = 'active' | 'on_hold' | 'finished' | 'archived';
 export type LabTestingState = 'not_submitted' | 'submitted' | 'passed' | 'failed';
 export type ExtractionType = 'ice_water' | 'rosin_press' | 'cart_fill' | 'other';
@@ -622,7 +648,7 @@ export type ProposedActionType =
   | 'create_strain' | 'delete_strain' | 'create_license' | 'delete_license' | 'update_license'
   | 'import_tags' | 'assign_tag' | 'auto_assign_tags'
   | 'create_package' | 'update_package' | 'finish_package' | 'delete_package'
-  | 'record_extraction'
+  | 'record_extraction' | 'start_extraction_run'
   | 'create_room' | 'update_room' | 'delete_room'
   | 'record_plant_weight' | 'flag_contamination' | 'submit_harvest_batch' | 'approve_harvest_day'
   | 'create_vendor' | 'update_vendor' | 'delete_vendor'

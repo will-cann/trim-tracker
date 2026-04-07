@@ -13,10 +13,12 @@ export const handler: Handler = async (event) => {
             return { statusCode: 401, body: JSON.stringify({ error: 'Unauthorized' }) };
         }
 
-        const { templateId, name, strain, notes, inputMaterial, targetProduct, sourcePackageIds, sourcePackageQuantities, plannedStart, stepEquipment } = JSON.parse(event.body || '{}');
+        const { templateId, name, strain, notes, inputMaterial, targetProduct, sourcePackageIds, sourcePackageQuantities, plannedStart, stepEquipment, status } = JSON.parse(event.body || '{}');
         if (!templateId || !name) {
             return { statusCode: 400, body: JSON.stringify({ error: 'templateId and name are required' }) };
         }
+        const initialStatus = status === 'active' || status === 'planned' ? status : 'planned';
+        const startedAt = initialStatus === 'active' ? new Date().toISOString() : null;
 
         // Get template steps to copy into the run
         const stepsResult = await sql`
@@ -36,10 +38,10 @@ export const handler: Handler = async (event) => {
 
             // Create the run
             const runResult = await client.query(
-                `INSERT INTO extraction_runs (company_id, template_id, name, strain, input_material, target_product, status, planned_start, notes)
-                 VALUES ($1, $2, $3, $4, $5, $6, 'planned', $7, $8)
+                `INSERT INTO extraction_runs (company_id, template_id, name, strain, input_material, target_product, status, planned_start, started_at, notes)
+                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
                  RETURNING *`,
-                [context.companyId, templateId, name.trim(), strain?.trim() || null, derivedInputMaterial, targetProduct || null, plannedStart || null, notes?.trim() || null]
+                [context.companyId, templateId, name.trim(), strain?.trim() || null, derivedInputMaterial, targetProduct || null, initialStatus, plannedStart || null, startedAt, notes?.trim() || null]
             );
             const run = runResult.rows[0];
 

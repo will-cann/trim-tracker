@@ -1,4 +1,4 @@
-import type { TrimSession, CreateTrimSessionDTO, Trimmer, TrimmerProfile, ProposedAction, Harvest, CreateHarvestDTO, HarvestWasteType, HarvestAllocation, HarvestPlantWeight, HarvestBin, BinCureLog, CreateBinDTO, FloweringBatchGroup, Strain, License, SpeechMode, HumanTask, TeamRole, Tag, TagType, TagStats, TagSettings, Package, CreatePackageDTO, MetrcItem, PackageAdjustment, AdjustmentReason, ReportSpec, SavedReport, TaskViewSpec, SavedTaskView, SupplyPool, SupplyItem, SupplyLedgerEntry, SupplyChangeType, SupplyPoolSlug } from '../types/definitions';
+import type { TrimSession, CreateTrimSessionDTO, Trimmer, TrimmerProfile, ProposedAction, Harvest, CreateHarvestDTO, HarvestWasteType, HarvestAllocation, HarvestPlantWeight, HarvestBin, BinCureLog, CreateBinDTO, FloweringBatchGroup, Strain, License, SpeechMode, HumanTask, TeamRole, Tag, TagType, TagStats, TagSettings, Package, CreatePackageDTO, MetrcItem, PackageAdjustment, AdjustmentReason, ProductType, ReportSpec, SavedReport, TaskViewSpec, SavedTaskView, SupplyPool, SupplyItem, SupplyLedgerEntry, SupplyChangeType, SupplyPoolSlug } from '../types/definitions';
 
 const API_BASE = '/.netlify/functions';
 
@@ -902,6 +902,40 @@ export const getExtractionLogs = async (params?: { type?: string; strain?: strin
     return await response.json();
 };
 
+// ── Product Type Catalog ───────────────────────────────────────────────────
+
+export const getProductTypes = async (options?: { includeInactive?: boolean }): Promise<ProductType[]> => {
+    const params = new URLSearchParams();
+    if (options?.includeInactive) params.set('includeInactive', '1');
+    const qs = params.toString();
+    const response = await fetchWithAuth(`${API_BASE}/get-product-types${qs ? `?${qs}` : ''}`);
+    if (!response.ok) return [];
+    return await response.json();
+};
+
+export const upsertProductType = async (data: {
+    id?: string;
+    name: string;
+    displayName: string;
+    category: 'biomass' | 'intermediate' | 'finished' | 'additive';
+    defaultUnit?: string;
+    isCannabis?: boolean;
+    metrcItemCategory?: string | null;
+    isActive?: boolean;
+    sortOrder?: number;
+}): Promise<ProductType> => {
+    const response = await fetchWithAuth(`${API_BASE}/upsert-product-type`, {
+        method: data.id ? 'PUT' : 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+    });
+    if (!response.ok) {
+        const err = await response.json().catch(() => ({ error: 'Failed to upsert product type' }));
+        throw new Error(err.error);
+    }
+    return await response.json();
+};
+
 // ── METRC Items ────────────────────────────────────────────────────────────
 
 export const getMetrcItems = async (licenseNumber?: string): Promise<MetrcItem[]> => {
@@ -1061,6 +1095,8 @@ export const createExtractionRun = async (data: {
     plannedStart?: string;
     stepEquipment?: Record<number, string>;
     notes?: string;
+    status?: 'planned' | 'active';
+    inputMaterial?: string;
 }): Promise<any> => {
     const response = await fetchWithAuth(`${API_BASE}/create-extraction-run`, {
         method: 'POST',
@@ -1467,6 +1503,9 @@ export const apiService = {
     createPackages,
     updatePackage,
     deletePackage,
+    // Product Type Catalog
+    getProductTypes,
+    upsertProductType,
     // METRC Items
     getMetrcItems,
     upsertMetrcItem,

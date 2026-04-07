@@ -407,7 +407,9 @@ export async function executeAction(action: ProposedAction): Promise<ActionOutco
         case 'record_extraction': {
             const d = action.data;
             if (!d.inputPackageType || !d.outputPackageType || !d.strain) return SKIPPED('missing extraction data');
-            if (!d.outputQuantity || d.outputQuantity <= 0) return SKIPPED('missing output quantity — needed to create output package');
+            // outputQuantity is intentionally optional: "I pulled 17K blackberry for a wash" starts
+            // the run and records input consumption; the yield is reported later. The backend
+            // record-extraction.ts handles null outputQuantity by skipping output package creation.
             await apiService.recordExtraction({
                 sourcePackageId: d.sourcePackageId,
                 inputPackageType: d.inputPackageType,
@@ -421,8 +423,47 @@ export async function executeAction(action: ProposedAction): Promise<ActionOutco
                 notes: d.notes,
             });
             const parts = [d.inputQuantity ? `${d.inputQuantity}g` : '', d.inputPackageType?.replace('_', ' ')];
-            if (d.outputQuantity) parts.push('→', `${d.outputQuantity}g`, d.outputPackageType?.replace('_', ' '));
-            return OK(`Extraction: ${parts.filter(Boolean).join(' ')}`);
+            if (d.outputQuantity) {
+                parts.push('→', `${d.outputQuantity}g`, d.outputPackageType?.replace('_', ' '));
+                return OK(`Extraction: ${parts.filter(Boolean).join(' ')}`);
+            }
+            parts.push('→', `${d.outputPackageType?.replace('_', ' ')} (pending)`);
+            return OK(`Started: ${parts.filter(Boolean).join(' ')}`);
+        }
+        case 'start_extraction_run': {
+            const d = action.data;
+            if (!d.templateId) return SKIPPED(`template not found: "${d.templateName || 'unknown'}"`);
+            if (!d.runName) return SKIPPED('missing run name');
+            await apiService.createExtractionRun({
+                templateId: d.templateId,
+                name: d.runName,
+                strain: d.strain || undefined,
+                inputMaterial: d.inputMaterial || undefined,
+                targetProduct: d.targetProduct || undefined,
+                sourcePackageIds: d.sourcePackageIds?.length ? d.sourcePackageIds : undefined,
+                sourcePackageQuantities: Object.keys(d.sourcePackageQuantities || {}).length ? d.sourcePackageQuantities : undefined,
+                plannedStart: d.plannedStart || undefined,
+                notes: d.notes || undefined,
+                status: d.status === 'active' ? 'active' : 'planned',
+            });
+            const statusLabel = d.status === 'active' ? 'Started' : 'Scheduled';
+            // Multi-input-aware summary: prefer the inputs[] array, fall back to legacy fields
+            const inputsArray: Array<{ packageType?: string | null; quantity?: number | null; unit?: string | null }> = Array.isArray(d.inputs) ? d.inputs : [];
+            let inputSummary = '';
+            if (inputsArray.length > 0) {
+                inputSummary = inputsArray
+                    .map(i => {
+                        const typ = (i.packageType || '').replace(/_/g, ' ');
+                        if (i.quantity) return `${i.quantity}${i.unit || 'g'} ${typ}`.trim();
+                        return typ;
+                    })
+                    .filter(Boolean)
+                    .join(' + ');
+            } else if (d.inputQuantityG) {
+                inputSummary = `${d.inputQuantityG}g ${(d.inputMaterial || '').replace(/_/g, ' ')}`.trim();
+            }
+            const bits = [d.strain, d.templateName, inputSummary].filter(Boolean);
+            return OK(`${statusLabel}: ${bits.join(' · ')}`);
         }
         case 'create_room':
             await apiService.createRoom({
