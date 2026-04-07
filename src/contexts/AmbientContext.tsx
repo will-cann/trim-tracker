@@ -243,6 +243,43 @@ export const AmbientProvider: React.FC<AmbientProviderProps> = ({
         return () => clearInterval(id);
     }, [sessionActive, isPaused, runStartedAt, elapsedBeforeRun]);
 
+    // ── Continuously persist the session to the Recent list ─────────────
+    // Without this, an accidental refresh / tab close mid-session wipes
+    // every capture before the user gets a chance to hit End. Now the
+    // session record is upserted to chatDb whenever captures or transcript
+    // lines change (debounced) so the in-progress work survives a reload.
+    // The record appears in Recent immediately and stays current.
+    const persistTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    useEffect(() => {
+        if (!sessionActive) return;
+        const sid = sessionIdRef.current;
+        if (!sid) return;
+        const hasContent = captures.length > 0 || transcriptLines.length > 0;
+        if (!hasContent) return;
+        if (!onSaveSessionRef.current) return;
+
+        if (persistTimerRef.current) clearTimeout(persistTimerRef.current);
+        persistTimerRef.current = setTimeout(() => {
+            const title = formatSessionTitle(captures.length, elapsedMs);
+            const content = formatSessionBody(captures, transcriptLines, elapsedMs);
+            const message: ChatMessage = {
+                id: crypto.randomUUID(),
+                role: 'assistant',
+                content,
+            };
+            onSaveSessionRef.current?.(sid, title, [message], 'ambient').catch(err => {
+                console.warn('[ambient] continuous save failed:', err);
+            });
+        }, 500);
+
+        return () => {
+            if (persistTimerRef.current) {
+                clearTimeout(persistTimerRef.current);
+                persistTimerRef.current = null;
+            }
+        };
+    }, [sessionActive, captures, transcriptLines, elapsedMs]);
+
     // ── Capture push ─────────────────────────────────────────────────────
     const pushCapture = useCallback((action: ProposedAction) => {
         const described = describeAction(action);
@@ -418,13 +455,17 @@ export const AmbientProvider: React.FC<AmbientProviderProps> = ({
             clearTimeout(flushTimerRef.current);
             flushTimerRef.current = null;
         }
+        if (persistTimerRef.current) {
+            clearTimeout(persistTimerRef.current);
+            persistTimerRef.current = null;
+        }
         if (isListening) stopListening();
         bufferRef.current = '';
         setInterimText('');
 
-        // Persist the session to the Recent list if it had any content.
-        // We do this BEFORE clearing state so the serializer reads the
-        // final values directly from the React state snapshot.
+        // Final synchronous save so a session ended right after a capture
+        // doesn't lose the most recent content to the debounce window.
+        // The continuous persist effect already handles the steady state.
         const sid = sessionIdRef.current;
         const hasContent = captures.length > 0 || transcriptLines.length > 0;
         if (sid && hasContent && onSaveSessionRef.current) {
@@ -435,9 +476,8 @@ export const AmbientProvider: React.FC<AmbientProviderProps> = ({
                 role: 'assistant',
                 content,
             };
-            // Fire and forget — we don't want to block the UI teardown.
             onSaveSessionRef.current(sid, title, [message], 'ambient').catch(err => {
-                console.error('[ambient] failed to save session:', err);
+                console.error('[ambient] failed to save session on end:', err);
             });
         }
 
