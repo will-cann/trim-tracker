@@ -80,6 +80,13 @@ const SILENCE_FLUSH_MS = 5000;
 // material categories, common units) are recognized correctly. Dynamic
 // terms (strain names, room names, trimmer names) are appended at start.
 const STATIC_KEYTERMS: readonly string[] = [
+    // Imperative speech acts the user is most likely to issue. These bias
+    // the recognizer away from phonetically similar function words —
+    // "remind me" stops becoming "find me", "log it" stops becoming "lock
+    // it", etc. Keep this list focused on verbs that drive real actions.
+    'remind me', 'tell', 'schedule', 'create', 'add', 'start', 'begin',
+    'record', 'log', 'note', 'assign', 'move', 'transfer', 'submit',
+    'finish', 'complete', 'mark', 'flag', 'pause', 'resume', 'cancel',
     // Material categories
     'flower', 'shake', 'trim', 'waste', 'biomass', 'fresh frozen',
     'bubble hash', 'rosin', 'live rosin', 'live resin', 'distillate',
@@ -87,9 +94,8 @@ const STATIC_KEYTERMS: readonly string[] = [
     // Lifecycle stages
     'clone', 'mother', 'veg', 'vegetative', 'flower room', 'dry room',
     'cure', 'curing', 'bucking', 'trimming',
-    // Common verbs
-    'harvest', 'allocate', 'submit', 'package', 'weigh', 'record',
-    'assign', 'bin', 'tag', 'transfer',
+    // Domain verbs
+    'harvest', 'allocate', 'package', 'weigh', 'bin', 'tag',
     // Units
     'grams', 'milliliters', 'ounces', 'pounds', 'milligrams',
     // Domain nouns
