@@ -7,7 +7,6 @@ import {
 } from 'lucide-react';
 import { VoicePill } from './VoicePill';
 import type { ConversationSummary, SpeechMode } from '../types/definitions';
-import logo from '../assets/logo.png';
 
 // ── Setup status for first-run checklist ──
 export interface FacilitySetupStatus {
@@ -236,8 +235,6 @@ interface AIEmptyStateProps {
     conversations: ConversationSummary[];
     onSelectConversation: (id: string) => void;
     onDeleteConversation: (id: string) => void;
-    // License selector (rendered by parent)
-    licenseSelector?: React.ReactNode;
     // Drag state
     isDragOver: boolean;
     onDragOver: (e: React.DragEvent) => void;
@@ -268,7 +265,6 @@ export const AIEmptyState: React.FC<AIEmptyStateProps> = ({
     conversations,
     onSelectConversation,
     onDeleteConversation,
-    licenseSelector,
     isDragOver,
     onDragOver,
     onDragLeave,
@@ -291,16 +287,7 @@ export const AIEmptyState: React.FC<AIEmptyStateProps> = ({
             onDragOver={onDragOver}
             onDragLeave={onDragLeave}
         >
-            {/* Brand */}
-            <div className="ai-hero">
-                <img src={logo} alt="neurocann" className="ai-hero-logo" />
-                <h1 className="ai-hero-brand">
-                    <span className="ai-hero-accent">neuro</span>cann
-                </h1>
-            </div>
-
-            {/* License selector */}
-            {licenseSelector}
+            {/* Brand block lifted to AIHome — see ai-home-brand-block */}
 
             {/* Setup checklist — shown when facility config is incomplete */}
             {facilitySetup && onNavigateToSettings && (

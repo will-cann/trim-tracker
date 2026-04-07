@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
-    Square, Play, X, ChevronDown, ClipboardList, Scissors, Sprout, Leaf,
+    ChevronDown, ClipboardList, Scissors, Sprout, Leaf,
     Package, Thermometer, Scale, Shield, Dna, DoorOpen, Tag,
     type LucideIcon,
 } from 'lucide-react';
@@ -26,24 +26,15 @@ export interface TranscriptLine {
 }
 
 interface AmbientActionCenterProps {
-    // session state
-    elapsedMs: number;
     isPaused: boolean;
     interimText: string;
     hasVoiceSignal: boolean;
-    // captures
     captures: AmbientCapture[];
-    // pending review (actions that need confirmation)
     pendingActions: ProposedAction[] | null;
     isExecuting: boolean;
     onConfirm: () => void;
     onCancel: () => void;
-    // transcript
     transcript: TranscriptLine[];
-    // controls
-    onPause: () => void;
-    onResume: () => void;
-    onEnd: () => void;
     micError?: string | null;
 }
 
@@ -82,6 +73,7 @@ const ACTION_META: Partial<Record<ProposedActionType, { icon: LucideIcon; color:
     import_tags:         { icon: Tag,           color: '#959595', label: 'Tags imported' },
 };
 
+// eslint-disable-next-line react-refresh/only-export-components
 export function describeAction(action: ProposedAction): { label: string; summary: string; color: string; icon: LucideIcon; kind: 'task' | 'action' | 'review' } {
     const meta = ACTION_META[action.type] || { icon: ClipboardList, color: '#959595', label: action.type.replace(/_/g, ' ') };
     const d = action.data || {};
@@ -116,13 +108,6 @@ export function describeAction(action: ProposedAction): { label: string; summary
     return { ...meta, summary, kind };
 }
 
-function formatElapsed(ms: number): string {
-    const total = Math.max(0, Math.floor(ms / 1000));
-    const m = Math.floor(total / 60);
-    const s = total % 60;
-    return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
-}
-
 function formatClock(ts: number): string {
     const d = new Date(ts);
     return d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
@@ -133,7 +118,6 @@ function formatClock(ts: number): string {
 // ─────────────────────────────────────────────────────────────────────────────
 
 export const AmbientActionCenter: React.FC<AmbientActionCenterProps> = ({
-    elapsedMs,
     isPaused,
     interimText,
     hasVoiceSignal,
@@ -143,114 +127,88 @@ export const AmbientActionCenter: React.FC<AmbientActionCenterProps> = ({
     onConfirm,
     onCancel,
     transcript,
-    onPause,
-    onResume,
-    onEnd,
     micError,
 }) => {
     const [transcriptOpen, setTranscriptOpen] = useState(false);
     const [pulse, setPulse] = useState(0);
+    // Tagline shows the most recent capture for ~6s after it arrives,
+    // then reverts to the default. Tracked as state so render is pure.
+    const [recentCaptureLabel, setRecentCaptureLabel] = useState<string | null>(null);
     const lastCaptureIdRef = useRef<string | null>(null);
 
-    // Pulse the orb label when a new capture arrives
     useEffect(() => {
         const last = captures[captures.length - 1];
-        if (last && last.id !== lastCaptureIdRef.current) {
-            lastCaptureIdRef.current = last.id;
-            setPulse(p => p + 1);
-        }
+        if (!last || last.id === lastCaptureIdRef.current) return;
+        lastCaptureIdRef.current = last.id;
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+        setPulse(p => p + 1);
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+        setRecentCaptureLabel(last.label.toLowerCase());
+        const id = setTimeout(() => setRecentCaptureLabel(null), 6000);
+        return () => clearTimeout(id);
     }, [captures]);
 
-    const lastCapture = captures[captures.length - 1];
-    const sinceLast = lastCapture ? Date.now() - lastCapture.timestamp : Infinity;
     const tagline = useMemo(() => {
         if (micError) return micError;
         if (isPaused) {
             return captures.length > 0
-                ? 'Stopped — review captures or resume listening'
-                : 'Stopped — press resume to continue';
+                ? 'Stopped — review captures or resume to keep listening'
+                : 'Stopped — resume to keep listening';
         }
-        if (lastCapture && sinceLast < 6000) return `Heard "${lastCapture.label.toLowerCase()}"`;
-        if (interimText) return 'Hearing you…';
+        if (recentCaptureLabel) return `Heard "${recentCaptureLabel}"`;
+        if (interimText) return 'Hearing you';
         return 'Listening for tasks';
-    }, [micError, lastCapture, sinceLast, interimText, isPaused, captures.length]);
+    }, [micError, recentCaptureLabel, interimText, isPaused, captures.length]);
 
     const taskCount = captures.filter(c => c.kind === 'task').length;
     const actionCount = captures.filter(c => c.kind === 'action').length;
 
-    // Most recent 6 for visible strip (newest first)
-    const recentCaptures = useMemo(() => [...captures].reverse().slice(0, 6), [captures]);
+    // Newest first for the captures log
+    const recentCaptures = useMemo(() => [...captures].reverse().slice(0, 8), [captures]);
 
     return (
-        <div className="ambient-center">
-            {/* Ambient background wash */}
-            <div className="ambient-wash" aria-hidden />
+        <div className="ambient-body">
+            {/* Subtle radial wash — bleeds into the AI home white */}
+            <div className="ambient-body-wash" aria-hidden />
 
-            {/* Top status bar */}
-            <div className="ambient-top">
-                <div className="ambient-status">
-                    <span className={`ambient-dot${hasVoiceSignal ? ' hot' : ''}${isPaused ? ' paused' : ''}`} />
-                    <span className="ambient-status-label">
-                        {isPaused ? 'Session paused' : 'Ambient listening'}
-                    </span>
-                    <span className="ambient-sep">·</span>
-                    <span className="ambient-timer tabular">{formatElapsed(elapsedMs)}</span>
-                </div>
-                <div className="ambient-top-controls">
-                    {isPaused && (
-                        <button type="button" className="ambient-end-link" onClick={onEnd}>
-                            <X size={12} />
-                            End session
-                        </button>
-                    )}
-                    {isPaused ? (
-                        <button type="button" className="ambient-resume-pill" onClick={onResume}>
-                            <Play size={11} fill="currentColor" />
-                            Resume
-                        </button>
-                    ) : (
-                        <button type="button" className="ambient-stop-pill" onClick={onPause}>
-                            <Square size={11} fill="currentColor" />
-                            Stop
-                        </button>
-                    )}
-                </div>
-            </div>
-
-            {/* Orb + headline */}
+            {/* Orb anchor — sits where the input textarea was */}
             <div className="ambient-stage">
-                <div className={`ambient-orb${hasVoiceSignal ? ' active' : ''}${isPaused ? ' paused' : ''}`} aria-hidden>
+                <div
+                    className={`ambient-orb${hasVoiceSignal ? ' active' : ''}${isPaused ? ' paused' : ''}`}
+                    aria-hidden
+                >
                     <div className="ambient-orb-ring r1" />
                     <div className="ambient-orb-ring r2" />
                     <div className="ambient-orb-ring r3" />
                     <div className="ambient-orb-core" />
                 </div>
+                <p
+                    key={pulse}
+                    className={`ambient-tagline${micError ? ' error' : ''}`}
+                >
+                    {tagline}
+                </p>
+            </div>
 
-                <div className="ambient-headline">
-                    <h1 className="ambient-title">Action Center</h1>
-                    <p key={pulse} className={`ambient-tagline${micError ? ' error' : ''}`}>{tagline}</p>
+            {/* Tally — free-floating, no card */}
+            <div className="ambient-tally">
+                <div className="ambient-tally-cell">
+                    <span className="ambient-tally-num tabular">{actionCount}</span>
+                    <span className="ambient-tally-label">Actions</span>
                 </div>
-
-                {/* Tally */}
-                <div className="ambient-tally">
-                    <div className="ambient-tally-cell">
-                        <span className="ambient-tally-num tabular">{actionCount}</span>
-                        <span className="ambient-tally-label">Actions</span>
-                    </div>
-                    <div className="ambient-tally-divider" />
-                    <div className="ambient-tally-cell">
-                        <span className="ambient-tally-num tabular">{taskCount}</span>
-                        <span className="ambient-tally-label">Tasks</span>
-                    </div>
-                    <div className="ambient-tally-divider" />
-                    <div className="ambient-tally-cell">
-                        <span className="ambient-tally-num tabular">{pendingActions?.length || 0}</span>
-                        <span className="ambient-tally-label">Review</span>
-                    </div>
+                <span className="ambient-tally-rule" />
+                <div className="ambient-tally-cell">
+                    <span className="ambient-tally-num tabular">{taskCount}</span>
+                    <span className="ambient-tally-label">Tasks</span>
+                </div>
+                <span className="ambient-tally-rule" />
+                <div className="ambient-tally-cell">
+                    <span className="ambient-tally-num tabular">{pendingActions?.length || 0}</span>
+                    <span className="ambient-tally-label">Review</span>
                 </div>
             </div>
 
-            {/* Pending review card */}
+            {/* Pending review — the only legitimate card on this surface */}
             {pendingActions && pendingActions.length > 0 && (
                 <div className="ambient-review">
                     <div className="ambient-review-head">
@@ -290,24 +248,24 @@ export const AmbientActionCenter: React.FC<AmbientActionCenterProps> = ({
                 </div>
             )}
 
-            {/* Recent captures strip */}
+            {/* Captures log — hairline-divided rows, no card chrome */}
             {recentCaptures.length > 0 && (
-                <div className="ambient-captures">
-                    <div className="ambient-captures-label">Captured</div>
-                    <div className="ambient-captures-list">
+                <div className="ambient-log">
+                    <div className="ambient-log-label">Captured</div>
+                    <div className="ambient-log-list">
                         {recentCaptures.map(cap => {
                             const meta = ACTION_META[cap.actionType] || { icon: ClipboardList, color: '#959595', label: cap.label };
                             const Icon = meta.icon;
                             return (
-                                <div className="ambient-capture" key={cap.id}>
-                                    <div className="ambient-capture-icon" style={{ color: meta.color, background: `${meta.color}12` }}>
+                                <div className="ambient-log-row" key={cap.id}>
+                                    <div className="ambient-log-icon" style={{ color: meta.color, background: `${meta.color}12` }}>
                                         <Icon size={13} />
                                     </div>
-                                    <div className="ambient-capture-text">
-                                        <span className="ambient-capture-label">{cap.label}</span>
-                                        {cap.summary && <span className="ambient-capture-summary">{cap.summary}</span>}
+                                    <div className="ambient-log-text">
+                                        <span className="ambient-log-row-label">{cap.label}</span>
+                                        {cap.summary && <span className="ambient-log-row-summary">{cap.summary}</span>}
                                     </div>
-                                    <span className="ambient-capture-time tabular">{formatClock(cap.timestamp)}</span>
+                                    <span className="ambient-log-time tabular">{formatClock(cap.timestamp)}</span>
                                 </div>
                             );
                         })}
@@ -317,12 +275,12 @@ export const AmbientActionCenter: React.FC<AmbientActionCenterProps> = ({
 
             {/* Empty state hint when nothing yet */}
             {recentCaptures.length === 0 && !pendingActions?.length && (
-                <div className="ambient-hint">
+                <p className="ambient-hint">
                     Talk through your day. Tasks and actions will surface here as you mention them.
-                </div>
+                </p>
             )}
 
-            {/* Transcript drawer — out of view by default, tucked under a low-profile handle */}
+            {/* Transcript drawer — pinned to the bottom of the body */}
             <div className={`ambient-drawer${transcriptOpen ? ' open' : ''}`}>
                 <button
                     type="button"
@@ -330,7 +288,7 @@ export const AmbientActionCenter: React.FC<AmbientActionCenterProps> = ({
                     onClick={() => setTranscriptOpen(v => !v)}
                     aria-expanded={transcriptOpen}
                 >
-                    <ChevronDown size={14} className="ambient-drawer-chevron" />
+                    <ChevronDown size={13} className="ambient-drawer-chevron" />
                     <span>Transcript</span>
                     <span className="ambient-drawer-count tabular">{transcript.length}</span>
                 </button>

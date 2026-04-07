@@ -4595,34 +4595,36 @@ select.field-input {
   height: calc(100vh - 64px);
 }
 
-/* Empty state — command center */
+/* Empty state — command center.
+   Top padding is small because the brand block lives above this in
+   AIHome and supplies the top breathing room. */
 .ai-home-empty {
   flex: 1;
   display: flex;
   flex-direction: column;
   align-items: center;
   overflow-y: auto;
-  padding: 3.5rem 1.5rem 2rem;
+  padding: 1.25rem 1.5rem 2rem;
 }
 
-/* ── Brand hero ── */
+/* ── Brand hero — anchored, not hero-y ── */
 .ai-hero {
   text-align: center;
-  margin-bottom: 1.75rem;
+  margin: 0;
   animation: ai-enter 0.45s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
 .ai-hero-logo {
-  width: 64px;
-  height: 64px;
+  width: 56px;
+  height: 56px;
   object-fit: contain;
-  margin: 0 auto 0.5rem;
+  margin: 0 auto 0.4375rem;
 }
 
 .ai-hero-brand {
   font-family: 'Lato', sans-serif;
   font-weight: 900;
-  font-size: 2rem;
+  font-size: 1.75rem;
   letter-spacing: -0.03em;
   color: var(--text-color);
   line-height: 1;
@@ -4962,210 +4964,231 @@ select.field-input {
    Replaces the AI Home layout while ambient listening is active.
    Calm, quiet, confident — Apple-tier polish in light mode only.
    ──────────────────────────────────────────────────────────────────────── */
-.ambient-center {
+/* ────────────────────────────────────────────────────────────────────────
+   AI Home brand block — persistent identity across empty / ambient states
+   ──────────────────────────────────────────────────────────────────────── */
+.ai-home-brand-block {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.875rem;
+  padding: 2.25rem 1.5rem 0.5rem;
+}
+
+/* When the brand block is present, the empty state below it gets less
+   top padding since the brand already supplies the top breathing room. */
+.ai-home-brand-block + .ai-home-body .ai-home-empty {
+  padding-top: 1.5rem;
+}
+
+/* The body wrapper takes the rest of the column. Animation fires on
+   `key` change in React (empty ↔ ambient swap), so the new content
+   fades in while the brand block stays still. No layout shift. */
+.ai-home-body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  animation: ai-body-in 320ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes ai-body-in {
+  from { opacity: 0; transform: translateY(-4px) scale(0.99); }
+  to   { opacity: 1; transform: translateY(0)    scale(1);    }
+}
+
+/* ────────────────────────────────────────────────────────────────────────
+   Ambient status pill — watch-face complication that lives in the
+   brand block when a session is active. Reads as one continuous control:
+   dot · label · timer · stop. Reverses to resume + end on pause.
+   ──────────────────────────────────────────────────────────────────────── */
+.ambient-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.375rem 0.4375rem 0.375rem 0.75rem;
+  background: white;
+  border: 1px solid #E6E6E6;
+  border-radius: 9999px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03), 0 8px 22px -10px rgba(28, 158, 255, 0.18);
+  font-size: 0.75rem;
+  animation: ambient-pill-in 320ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation-delay: 60ms;
+}
+
+.ambient-pill.paused {
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+  border-color: #ECECEC;
+}
+
+@keyframes ambient-pill-in {
+  from { opacity: 0; transform: translateY(-3px) scale(0.97); }
+  to   { opacity: 1; transform: translateY(0)    scale(1);    }
+}
+
+.ambient-pill-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #1C9EFF;
+  box-shadow: 0 0 0 0 rgba(28, 158, 255, 0.45);
+  animation: ambient-pill-pulse 2.2s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+  flex-shrink: 0;
+}
+
+.ambient-pill-dot.hot {
+  background: #3BB570;
+  animation-duration: 1.1s;
+  box-shadow: 0 0 0 0 rgba(59, 181, 112, 0.55);
+}
+
+.ambient-pill-dot.paused {
+  background: #C0C0C0;
+  animation: none;
+  box-shadow: none;
+}
+
+@keyframes ambient-pill-pulse {
+  0%   { box-shadow: 0 0 0 0    rgba(28, 158, 255, 0.45); }
+  70%  { box-shadow: 0 0 0 8px  rgba(28, 158, 255, 0);    }
+  100% { box-shadow: 0 0 0 0    rgba(28, 158, 255, 0);    }
+}
+
+.ambient-pill-label {
+  font-weight: 700;
+  color: var(--text-color);
+  letter-spacing: 0.01em;
+}
+
+.ambient-pill.paused .ambient-pill-label {
+  color: var(--text-secondary);
+}
+
+.ambient-pill-rule {
+  width: 1px;
+  height: 12px;
+  background: #ECECEC;
+  flex-shrink: 0;
+}
+
+.ambient-pill-timer {
+  font-weight: 500;
+  color: var(--text-secondary);
+  font-feature-settings: "tnum" 1;
+  font-variant-numeric: tabular-nums;
+}
+
+.ambient-pill-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3125rem;
+  padding: 0.3125rem 0.6875rem 0.3125rem 0.5625rem;
+  border-radius: 9999px;
+  border: none;
+  font-family: inherit;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, transform 0.1s;
+}
+
+.ambient-pill-action.stop {
+  background: rgba(223, 91, 89, 0.1);
+  color: #DF5B59;
+}
+.ambient-pill-action.stop:hover {
+  background: rgba(223, 91, 89, 0.18);
+}
+
+.ambient-pill-action.resume {
+  background: #3BB570;
+  color: white;
+  box-shadow: 0 1px 2px rgba(59, 181, 112, 0.18);
+}
+.ambient-pill-action.resume:hover {
+  background: #2FA161;
+}
+
+.ambient-pill-action:active {
+  transform: scale(0.95);
+}
+
+.ambient-pill-end {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-family: inherit;
+  margin-left: -0.125rem;
+  transition: background 0.15s, color 0.15s;
+}
+
+.ambient-pill-end:hover {
+  background: #F1F1F1;
+  color: var(--text-color);
+}
+
+/* ────────────────────────────────────────────────────────────────────────
+   Ambient body — sits inside .ai-home-body when sessionActive. No
+   standalone background; the AI home white shows through. The radial
+   wash is a subtle hint, not a takeover.
+   ──────────────────────────────────────────────────────────────────────── */
+.ambient-body {
   position: relative;
   flex: 1;
   min-height: 0;
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 2rem 1.5rem 5.5rem;
+  padding: 1.5rem 1.5rem 5rem;
   overflow-y: auto;
-  background: #FCFDFE;
-  animation: ai-enter 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
-.ambient-wash {
+.ambient-body-wash {
   position: absolute;
   inset: 0;
   pointer-events: none;
   background:
-    radial-gradient(ellipse 70% 55% at 50% 18%, rgba(28, 158, 255, 0.07), transparent 65%),
-    radial-gradient(ellipse 90% 50% at 50% 0%,  rgba(59, 181, 112, 0.035), transparent 70%);
+    radial-gradient(ellipse 60% 45% at 50% 22%, rgba(28, 158, 255, 0.05), transparent 70%);
   z-index: 0;
 }
 
-.ambient-center > *:not(.ambient-wash) {
+.ambient-body > *:not(.ambient-body-wash) {
   position: relative;
   z-index: 1;
 }
 
-/* ── Top status bar ─────────────────────────────────────────── */
-.ambient-top {
-  width: 100%;
-  max-width: 720px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 2.5rem;
-}
-
-.ambient-status {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
-  font-size: 0.75rem;
-  font-weight: 500;
-  color: var(--text-secondary);
-  letter-spacing: 0.01em;
-}
-
-.ambient-status-label {
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  font-weight: 700;
-  color: var(--text-color);
-  font-size: 0.6875rem;
-}
-
-.ambient-sep {
-  color: #D8D8D8;
-}
-
-.ambient-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: #1C9EFF;
-  box-shadow: 0 0 0 0 rgba(28, 158, 255, 0.45);
-  animation: ambient-dot-pulse 2.2s cubic-bezier(0.4, 0, 0.2, 1) infinite;
-}
-
-.ambient-dot.hot {
-  background: #3BB570;
-  box-shadow: 0 0 0 0 rgba(59, 181, 112, 0.55);
-  animation-duration: 1.1s;
-}
-
-@keyframes ambient-dot-pulse {
-  0%   { box-shadow: 0 0 0 0 rgba(28, 158, 255, 0.45); }
-  70%  { box-shadow: 0 0 0 10px rgba(28, 158, 255, 0); }
-  100% { box-shadow: 0 0 0 0 rgba(28, 158, 255, 0); }
-}
-
-.ambient-timer {
-  font-weight: 500;
-  color: var(--text-secondary);
-  font-feature-settings: "tnum" 1;
-}
-
-.ambient-top-controls {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-.ambient-stop-pill {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.375rem;
-  padding: 0.4375rem 0.875rem;
-  font-size: 0.75rem;
-  font-weight: 600;
-  color: #DF5B59;
-  background: rgba(223, 91, 89, 0.08);
-  border: 1px solid rgba(223, 91, 89, 0.18);
-  border-radius: 9999px;
-  cursor: pointer;
-  font-family: inherit;
-  transition: background 0.15s, border-color 0.15s, transform 0.1s;
-}
-
-.ambient-stop-pill:hover {
-  background: rgba(223, 91, 89, 0.14);
-  border-color: rgba(223, 91, 89, 0.32);
-}
-
-.ambient-stop-pill:active {
-  transform: scale(0.97);
-}
-
-.ambient-resume-pill {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.375rem;
-  padding: 0.4375rem 0.9375rem;
-  font-size: 0.75rem;
-  font-weight: 700;
-  color: white;
-  background: #3BB570;
-  border: 1px solid #3BB570;
-  border-radius: 9999px;
-  cursor: pointer;
-  font-family: inherit;
-  letter-spacing: 0.01em;
-  box-shadow: 0 1px 2px rgba(59, 181, 112, 0.2), 0 4px 12px -2px rgba(59, 181, 112, 0.35);
-  transition: background 0.15s, border-color 0.15s, transform 0.1s, box-shadow 0.15s;
-}
-
-.ambient-resume-pill:hover {
-  background: #2FA161;
-  border-color: #2FA161;
-}
-
-.ambient-resume-pill:active {
-  transform: scale(0.97);
-}
-
-.ambient-end-link {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.3125rem;
-  padding: 0.4375rem 0.625rem;
-  font-size: 0.75rem;
-  font-weight: 500;
-  color: var(--text-secondary);
-  background: transparent;
-  border: none;
-  cursor: pointer;
-  font-family: inherit;
-  border-radius: 6px;
-  transition: background 0.15s, color 0.15s;
-}
-
-.ambient-end-link:hover {
-  background: #F6F6F6;
-  color: var(--text-color);
-}
-
-/* Paused state — dim the breathing orb and dot */
-.ambient-dot.paused {
-  background: #C0C0C0;
-  box-shadow: none;
-  animation: none;
-}
-
-.ambient-orb.paused .ambient-orb-ring {
-  animation: none;
-  opacity: 0.25;
-}
-
-.ambient-orb.paused .ambient-orb-core {
-  animation: none;
-  filter: saturate(0.3) brightness(0.95);
-  background: radial-gradient(circle at 38% 32%, #D0D7DE 0%, #B8C1CB 60%, #959CA3 100%);
-  box-shadow:
-    0 0 0 1px rgba(0, 0, 0, 0.06),
-    0 6px 20px -8px rgba(0, 0, 0, 0.15),
-    inset 0 -4px 10px rgba(0, 0, 0, 0.08),
-    inset 0 4px 8px rgba(255, 255, 255, 0.4);
-}
-
-/* ── Stage: breathing orb + headline + tally ─────────────────── */
+/* ── Stage: breathing orb + tagline ─────────────────────────── */
 .ambient-stage {
   display: flex;
   flex-direction: column;
   align-items: center;
-  margin-bottom: 2rem;
+  margin-bottom: 1.5rem;
+  animation: ai-body-in 360ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation-delay: 100ms;
 }
 
 .ambient-orb {
   position: relative;
-  width: 168px;
-  height: 168px;
-  margin-bottom: 1.75rem;
+  width: 152px;
+  height: 152px;
+  margin-bottom: 1.25rem;
   display: grid;
   place-items: center;
+  animation: ambient-orb-in 480ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes ambient-orb-in {
+  from { opacity: 0; transform: scale(0.92); }
+  to   { opacity: 1; transform: scale(1);    }
 }
 
 .ambient-orb-ring {
@@ -5177,13 +5200,13 @@ select.field-input {
 }
 
 .ambient-orb-ring.r1 {
-  inset: 18px;
+  inset: 16px;
   border-color: rgba(28, 158, 255, 0.14);
   animation-delay: 0s;
 }
 
 .ambient-orb-ring.r2 {
-  inset: 34px;
+  inset: 30px;
   border-color: rgba(28, 158, 255, 0.22);
   animation-delay: 0.35s;
 }
@@ -5195,14 +5218,14 @@ select.field-input {
 }
 
 .ambient-orb-core {
-  width: 64px;
-  height: 64px;
+  width: 56px;
+  height: 56px;
   border-radius: 50%;
   background:
     radial-gradient(circle at 38% 32%, #6BC0FF 0%, #1C9EFF 58%, #0F7ACC 100%);
   box-shadow:
     0 0 0 1px rgba(28, 158, 255, 0.25),
-    0 14px 40px -8px rgba(28, 158, 255, 0.35),
+    0 12px 32px -8px rgba(28, 158, 255, 0.32),
     inset 0 -6px 14px rgba(15, 122, 204, 0.3),
     inset 0 4px 10px rgba(255, 255, 255, 0.4);
   animation: ambient-core 3.4s cubic-bezier(0.4, 0, 0.4, 1) infinite;
@@ -5215,6 +5238,22 @@ select.field-input {
   animation-duration: 1.8s;
 }
 
+.ambient-orb.paused .ambient-orb-ring {
+  animation: none;
+  opacity: 0.22;
+}
+
+.ambient-orb.paused .ambient-orb-core {
+  animation: none;
+  filter: saturate(0.25) brightness(0.96);
+  background: radial-gradient(circle at 38% 32%, #D0D7DE 0%, #B8C1CB 60%, #959CA3 100%);
+  box-shadow:
+    0 0 0 1px rgba(0, 0, 0, 0.05),
+    0 6px 18px -8px rgba(0, 0, 0, 0.14),
+    inset 0 -4px 10px rgba(0, 0, 0, 0.08),
+    inset 0 4px 8px rgba(255, 255, 255, 0.4);
+}
+
 @keyframes ambient-breath {
   0%, 100% { transform: scale(1);   opacity: 0.55; }
   50%      { transform: scale(1.08); opacity: 1; }
@@ -5225,27 +5264,13 @@ select.field-input {
   50%      { transform: scale(1.07); }
 }
 
-.ambient-headline {
-  text-align: center;
-  margin-bottom: 1.75rem;
-}
-
-.ambient-title {
-  font-family: 'Lato', sans-serif;
-  font-weight: 900;
-  font-size: 1.75rem;
-  letter-spacing: -0.025em;
-  color: var(--text-color);
-  line-height: 1;
-  margin: 0 0 0.5rem;
-}
-
 .ambient-tagline {
   font-size: 0.8125rem;
-  font-weight: 400;
+  font-weight: 500;
   color: var(--text-secondary);
   margin: 0;
   letter-spacing: 0.005em;
+  text-align: center;
   animation: ambient-tagline-in 0.35s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
@@ -5258,49 +5283,49 @@ select.field-input {
   to   { opacity: 1; transform: translateY(0); }
 }
 
-/* ── Tally ────────────────────────────────────────────────────── */
+/* ── Tally — free-floating numbers, hairline rules, no card ──── */
 .ambient-tally {
   display: flex;
   align-items: stretch;
   gap: 0;
-  padding: 0.75rem 0.25rem;
-  background: white;
-  border: 1px solid #ECECEC;
-  border-radius: 14px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03), 0 10px 28px -10px rgba(0, 0, 0, 0.06);
+  margin-bottom: 2rem;
+  animation: ai-body-in 360ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation-delay: 160ms;
 }
 
 .ambient-tally-cell {
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 0.125rem 1.5rem;
-  min-width: 88px;
+  padding: 0 1.625rem;
+  min-width: 90px;
 }
 
 .ambient-tally-num {
   font-family: 'Lato', sans-serif;
-  font-size: 1.5rem;
+  font-size: 1.625rem;
   font-weight: 700;
   color: var(--text-color);
   line-height: 1;
   font-feature-settings: "tnum" 1;
-  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.025em;
 }
 
 .ambient-tally-label {
   font-size: 0.6875rem;
   text-transform: uppercase;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.09em;
   color: var(--text-secondary);
   font-weight: 600;
-  margin-top: 0.375rem;
+  margin-top: 0.5rem;
 }
 
-.ambient-tally-divider {
+.ambient-tally-rule {
   width: 1px;
-  background: #F1F1F1;
+  background: #ECECEC;
   margin: 0.25rem 0;
+  align-self: stretch;
 }
 
 .tabular {
@@ -5308,17 +5333,21 @@ select.field-input {
   font-variant-numeric: tabular-nums;
 }
 
-/* ── Review card ─────────────────────────────────────────────── */
+/* ── Review card — the only legitimate card on this surface.
+       It's an interrupt that wants attention, deserves containment. ───── */
 .ambient-review {
   width: 100%;
   max-width: 520px;
-  background: white;
-  border: 1px solid #E6E6E6;
-  border-radius: 16px;
+  background: linear-gradient(180deg, rgba(28, 158, 255, 0.025) 0%, white 60%);
+  border: 1px solid #E2E8EE;
+  border-radius: 14px;
   padding: 1rem 1.125rem 0.875rem;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04), 0 18px 40px -16px rgba(28, 158, 255, 0.14);
-  margin-bottom: 1.5rem;
+  box-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.03),
+    0 16px 36px -18px rgba(28, 158, 255, 0.18);
+  margin-bottom: 1.75rem;
   animation: ambient-review-in 0.4s cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation-delay: 200ms;
 }
 
 @keyframes ambient-review-in {
@@ -5444,75 +5473,74 @@ select.field-input {
   background: #2FA161;
 }
 
-/* ── Captures strip ──────────────────────────────────────────── */
-.ambient-captures {
+/* ── Captured log — hairline-divided rows, no card chrome.
+       Reads like a log of moments, not a list of cards. ────────────── */
+.ambient-log {
   width: 100%;
   max-width: 520px;
+  animation: ai-body-in 360ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation-delay: 240ms;
 }
 
-.ambient-captures-label {
+.ambient-log-label {
   font-size: 0.6875rem;
   text-transform: uppercase;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.09em;
   color: var(--text-secondary);
   font-weight: 600;
-  margin-bottom: 0.5rem;
-  padding: 0 0.25rem;
+  margin-bottom: 0.625rem;
+  padding: 0 0.125rem;
 }
 
-.ambient-captures-list {
+.ambient-log-list {
   display: flex;
   flex-direction: column;
-  gap: 2px;
 }
 
-.ambient-capture {
+.ambient-log-row {
   display: flex;
   align-items: center;
-  gap: 0.625rem;
-  padding: 0.5625rem 0.75rem;
-  background: white;
-  border: 1px solid #EFEFEF;
-  border-radius: 10px;
-  animation: ambient-capture-in 0.45s cubic-bezier(0.16, 1, 0.3, 1) both;
+  gap: 0.75rem;
+  padding: 0.625rem 0.125rem;
+  border-top: 1px solid #F1F1F1;
+  animation: ambient-log-row-in 0.4s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
-.ambient-capture:first-child {
-  border-color: #E4E4E4;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.02);
+.ambient-log-row:first-child {
+  border-top: none;
 }
 
-@keyframes ambient-capture-in {
-  from { opacity: 0; transform: translateY(-4px); }
+@keyframes ambient-log-row-in {
+  from { opacity: 0; transform: translateY(-3px); }
   to   { opacity: 1; transform: translateY(0); }
 }
 
-.ambient-capture-icon {
+.ambient-log-icon {
   width: 24px;
   height: 24px;
-  border-radius: 6px;
+  border-radius: 7px;
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
 }
 
-.ambient-capture-text {
+.ambient-log-text {
   flex: 1;
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 0;
-  line-height: 1.25;
+  gap: 1px;
+  line-height: 1.3;
 }
 
-.ambient-capture-label {
+.ambient-log-row-label {
   font-size: 0.8125rem;
   font-weight: 600;
   color: var(--text-color);
 }
 
-.ambient-capture-summary {
+.ambient-log-row-summary {
   font-size: 0.6875rem;
   color: var(--text-secondary);
   overflow: hidden;
@@ -5520,7 +5548,7 @@ select.field-input {
   white-space: nowrap;
 }
 
-.ambient-capture-time {
+.ambient-log-time {
   font-size: 0.6875rem;
   color: #B8B8B8;
   flex-shrink: 0;
@@ -5530,13 +5558,16 @@ select.field-input {
 /* ── Hint (empty state) ──────────────────────────────────────── */
 .ambient-hint {
   width: 100%;
-  max-width: 420px;
+  max-width: 380px;
   text-align: center;
   font-size: 0.8125rem;
   color: var(--text-secondary);
   line-height: 1.55;
   font-weight: 400;
   padding: 0 1rem;
+  margin: 0;
+  animation: ai-body-in 360ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation-delay: 240ms;
 }
 
 /* ── Transcript drawer (pinned to bottom, hidden by default) ── */
@@ -5555,23 +5586,22 @@ select.field-input {
 .ambient-drawer-handle {
   display: inline-flex;
   align-items: center;
-  gap: 0.5rem;
-  padding: 0.5rem 0.875rem;
+  gap: 0.4375rem;
+  padding: 0.4375rem 0.8125rem;
   margin-bottom: 0;
   background: white;
   border: 1px solid #ECECEC;
   border-bottom: none;
-  border-radius: 12px 12px 0 0;
-  font-size: 0.6875rem;
-  font-weight: 600;
+  border-radius: 11px 11px 0 0;
+  font-size: 0.625rem;
+  font-weight: 700;
   color: var(--text-secondary);
   text-transform: uppercase;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.09em;
   font-family: inherit;
   cursor: pointer;
   pointer-events: auto;
   transition: color 0.15s, background 0.15s;
-  box-shadow: 0 -2px 12px rgba(0, 0, 0, 0.03);
 }
 
 .ambient-drawer-handle:hover {

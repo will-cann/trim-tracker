@@ -8,6 +8,8 @@ import { AIChat } from './AIChat';
 import { isCardReady } from './ExtractionRunCard';
 import type { ExtractionRunCardData } from './ExtractionRunCard';
 import { AmbientActionCenter } from './AmbientActionCenter';
+import { AmbientStatusPill } from './AmbientStatusPill';
+import logo from '../assets/logo.png';
 import { apiService } from '../services/apiService';
 import type { TrimSession, TrimmerProfile, Harvest, ChatMessage, License, HumanTask, SpeechMode, ConversationSummary, ProposedAction } from '../types/definitions';
 
@@ -408,59 +410,53 @@ export const AIHome: React.FC<AIHomeProps> = ({
     // action mode reflects the local action-Deepgram.
     const pillListening = voiceMode === 'ambient' ? ambient.isListening : actionListening;
 
+    // The body key drives the fade transition: when it changes, the
+    // outgoing body fades + drifts down, the incoming body fades + drifts
+    // in from a slight scale. The brand block above never moves.
+    const bodyKey = showAmbientCenter ? 'ambient' : hasMessages ? 'chat' : 'empty';
+
     return (
         <div className="ai-home">
-            {showAmbientCenter ? (
-                <AmbientActionCenter
-                    elapsedMs={ambient.elapsedMs}
-                    isPaused={ambient.isPaused}
-                    interimText={ambient.interimText}
-                    hasVoiceSignal={ambient.hasVoiceSignal}
-                    captures={ambient.captures}
-                    pendingActions={ambient.pendingActions}
-                    isExecuting={ambient.isExecutingPending}
-                    onConfirm={ambient.confirmPending}
-                    onCancel={ambient.cancelPending}
-                    transcript={ambient.transcriptLines}
-                    onPause={ambient.pause}
-                    onResume={ambient.resume}
-                    onEnd={ambient.end}
-                    micError={combinedError}
-                />
-            ) : !hasMessages ? (
-                <AIEmptyState
-                    onSend={handleSend}
-                    onStartAmbient={handleStartAmbient}
-                    onFileUpload={handleFileUpload}
-                    isLoading={isLoading}
-                    isExecuting={isExecuting}
-                    isListening={pillListening}
-                    voiceMode={voiceMode}
-                    onToggleListening={handleVoiceToggle}
-                    onSwitchMode={handleModeSwitch}
-                    micError={combinedError}
-                    conversations={conversations}
-                    onSelectConversation={onSelectConversation}
-                    onDeleteConversation={onDeleteConversation}
-                    licenseSelector={licenseSelector}
-                    isDragOver={isDragOver}
-                    onDragOver={(e) => { e.preventDefault(); setIsDragOver(true); }}
-                    onDragLeave={() => setIsDragOver(false)}
-                    onDrop={(e) => {
-                        e.preventDefault();
-                        setIsDragOver(false);
-                        const file = e.dataTransfer.files[0];
-                        if (file) handleFileUpload(file);
-                    }}
-                    textareaRef={textareaRef}
-                    inputText={inputText}
-                    onInputChange={setInputText}
-                    onSubmit={handleSubmit}
-                    onKeyDown={handleKeyDown}
-                    facilitySetup={facilitySetup}
-                    onNavigateToSettings={() => onViewChange?.('settings')}
-                />
-            ) : (
+            {/* Brand block — persistent across empty / ambient states. Skipped
+                for the chat view which owns its own full-bleed scroll layout. */}
+            {!hasMessages && (
+                <div className="ai-home-brand-block">
+                    <div className="ai-hero">
+                        <img src={logo} alt="neurocann" className="ai-hero-logo" />
+                        <h1 className="ai-hero-brand">
+                            <span className="ai-hero-accent">neuro</span>cann
+                        </h1>
+                    </div>
+                    {licenses.length > 0 && (
+                        <div className="ai-license-selector">
+                            {licenses.map(lic => (
+                                <button
+                                    key={lic.id}
+                                    className={`ai-license-pill ${lic.id === activeLicenseId ? 'active' : ''}`}
+                                    onClick={() => onLicenseChange?.(lic.id)}
+                                    title={lic.label || lic.licenseNumber}
+                                >
+                                    {lic.label || lic.licenseNumber}
+                                </button>
+                            ))}
+                        </div>
+                    )}
+                    {showAmbientCenter && (
+                        <AmbientStatusPill
+                            isPaused={ambient.isPaused}
+                            hasVoiceSignal={ambient.hasVoiceSignal}
+                            elapsedMs={ambient.elapsedMs}
+                            onPause={ambient.pause}
+                            onResume={ambient.resume}
+                            onEnd={ambient.end}
+                        />
+                    )}
+                </div>
+            )}
+
+            {/* Body — fades between empty and ambient. Chat replaces the
+                whole AIHome surface so it lives outside the brand-block tree. */}
+            {hasMessages ? (
                 <AIChat
                     messages={messages}
                     isLoading={isLoading}
@@ -490,6 +486,55 @@ export const AIHome: React.FC<AIHomeProps> = ({
                     onExtractionDismiss={handleExtractionDismiss}
                     onExtractionCardUpdate={handleExtractionCardUpdate}
                 />
+            ) : (
+                <div className="ai-home-body" key={bodyKey}>
+                    {showAmbientCenter ? (
+                        <AmbientActionCenter
+                            isPaused={ambient.isPaused}
+                            interimText={ambient.interimText}
+                            hasVoiceSignal={ambient.hasVoiceSignal}
+                            captures={ambient.captures}
+                            pendingActions={ambient.pendingActions}
+                            isExecuting={ambient.isExecutingPending}
+                            onConfirm={ambient.confirmPending}
+                            onCancel={ambient.cancelPending}
+                            transcript={ambient.transcriptLines}
+                            micError={combinedError}
+                        />
+                    ) : (
+                        <AIEmptyState
+                            onSend={handleSend}
+                            onStartAmbient={handleStartAmbient}
+                            onFileUpload={handleFileUpload}
+                            isLoading={isLoading}
+                            isExecuting={isExecuting}
+                            isListening={pillListening}
+                            voiceMode={voiceMode}
+                            onToggleListening={handleVoiceToggle}
+                            onSwitchMode={handleModeSwitch}
+                            micError={combinedError}
+                            conversations={conversations}
+                            onSelectConversation={onSelectConversation}
+                            onDeleteConversation={onDeleteConversation}
+                            isDragOver={isDragOver}
+                            onDragOver={(e) => { e.preventDefault(); setIsDragOver(true); }}
+                            onDragLeave={() => setIsDragOver(false)}
+                            onDrop={(e) => {
+                                e.preventDefault();
+                                setIsDragOver(false);
+                                const file = e.dataTransfer.files[0];
+                                if (file) handleFileUpload(file);
+                            }}
+                            textareaRef={textareaRef}
+                            inputText={inputText}
+                            onInputChange={setInputText}
+                            onSubmit={handleSubmit}
+                            onKeyDown={handleKeyDown}
+                            facilitySetup={facilitySetup}
+                            onNavigateToSettings={() => onViewChange?.('settings')}
+                        />
+                    )}
+                </div>
             )}
         </div>
     );
