@@ -6,6 +6,8 @@ import type { FacilitySetupStatus } from './AIEmptyState';
 import { AIChat } from './AIChat';
 import { isCardReady } from './ExtractionRunCard';
 import type { ExtractionRunCardData } from './ExtractionRunCard';
+import { AmbientActionCenter, describeAction } from './AmbientActionCenter';
+import type { AmbientCapture, TranscriptLine } from './AmbientActionCenter';
 import { apiService } from '../services/apiService';
 import type { TrimSession, TrimmerProfile, Harvest, ChatMessage, License, HumanTask, SpeechMode, ConversationSummary, ProposedAction } from '../types/definitions';
 
@@ -98,6 +100,32 @@ export const AIHome: React.FC<AIHomeProps> = ({
     const voiceModeRef = useRef(voiceMode);
     voiceModeRef.current = voiceMode;
     const ambientDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+    // ── Ambient session state (transcript + captures kept out of the chat UI) ──
+    // Session lifecycle is independent of Deepgram's listening state: the user
+    // can Stop (mute mic, freeze timer, keep the Action Center visible with
+    // all captures intact) and Resume (restart mic, continue the same session).
+    // Only "End session" actually tears the state down.
+    const [ambientSessionActive, setAmbientSessionActive] = useState(false);
+    const [ambientPaused, setAmbientPaused] = useState(false);
+    const [ambientRunStartedAt, setAmbientRunStartedAt] = useState<number | null>(null); // start of the CURRENT listening run
+    const [ambientElapsedBeforeRun, setAmbientElapsedBeforeRun] = useState(0);            // accumulated elapsed ms from prior runs
+    const [ambientElapsedMs, setAmbientElapsedMs] = useState(0);
+    const [transcriptLines, setTranscriptLines] = useState<TranscriptLine[]>([]);
+    const [ambientCaptures, setAmbientCaptures] = useState<AmbientCapture[]>([]);
+
+    // Tick the elapsed counter every second while listening (not while paused).
+    useEffect(() => {
+        if (!ambientSessionActive) return;
+        if (ambientPaused || ambientRunStartedAt == null) {
+            setAmbientElapsedMs(ambientElapsedBeforeRun);
+            return;
+        }
+        const update = () => setAmbientElapsedMs(ambientElapsedBeforeRun + (Date.now() - ambientRunStartedAt));
+        update();
+        const id = setInterval(update, 1000);
+        return () => clearInterval(id);
+    }, [ambientSessionActive, ambientPaused, ambientRunStartedAt, ambientElapsedBeforeRun]);
 
     // ── Ambient mode context + analysis ──
     const buildAmbientContext = useCallback(() => ({
@@ -219,6 +247,36 @@ export const AIHome: React.FC<AIHomeProps> = ({
         }));
     }, []);
 
+    // ── AI Chat hook (must be before analyzeAmbientChunk so proposeAmbientActions is available) ──
+    const {
+        messages, isLoading, pendingActions, isExecuting,
+        sendMessage, sendCSV, confirmActions, cancelActions,
+        editAction, editMessage, clearMessages, loadMessages, setConversationId,
+        proposeAmbientActions,
+    } = useAIChat({
+        session, trimmerProfiles, harvests, onSessionUpdate, conversationId, onSaveConversation,
+        activeLicense: licenses.find(l => l.id === activeLicenseId)?.licenseNumber || null,
+        onInterceptAction: handleInterceptAction,
+        onCreateHumanTasks, onUpdateHumanTask, onDeleteHumanTask,
+        humanTasks: humanTasks?.map(t => ({
+            id: t.id, title: t.title, status: t.status, priority: t.priority,
+            category: t.category, assignee: t.assignee, location: t.location,
+        })),
+        plantMapSummary, screenContext,
+    });
+
+    const pushCapture = useCallback((action: ProposedAction) => {
+        const described = describeAction(action);
+        setAmbientCaptures(prev => [...prev, {
+            id: crypto.randomUUID(),
+            actionType: action.type,
+            label: described.label,
+            summary: described.summary,
+            kind: described.kind,
+            timestamp: Date.now(),
+        }]);
+    }, []);
+
     const analyzeAmbientChunk = useCallback(async (text: string) => {
         if (!text.trim()) return;
         try {
@@ -226,20 +284,51 @@ export const AIHome: React.FC<AIHomeProps> = ({
                 transcriptChunks: [text],
                 context: buildAmbientContext(),
             });
-            if (result.actions.length > 0) {
-                for (const action of result.actions) {
-                    if (handleInterceptAction(action as ProposedAction)) continue;
-                    if (action.type === 'create_human_task' && onCreateHumanTasks) {
-                        await onCreateHumanTasks([action.data as any]);
-                    }
+            const allActions = result.actions as ProposedAction[];
+
+            // Split: extraction-card intercepts → handled inline,
+            // create_human_task → auto-captured (passive), surfaced as a capture chip,
+            // everything else → pending review in the Action Center.
+            const reviewable: ProposedAction[] = [];
+            const humanTaskActions: ProposedAction[] = [];
+
+            for (const action of allActions) {
+                if (handleInterceptAction(action)) {
+                    pushCapture(action);
+                    continue;
+                }
+                if (action.type === 'create_human_task') {
+                    humanTaskActions.push(action);
+                    pushCapture(action);
+                } else {
+                    reviewable.push(action);
+                    pushCapture(action);
                 }
             }
-        } catch {
-            // Silent fail for ambient
+
+            if (humanTaskActions.length > 0 && onCreateHumanTasks) {
+                await onCreateHumanTasks(humanTaskActions.map(a => a.data as { title: string; description?: string; priority: string; category: string; dueDate?: string; assignee?: string; location?: string }));
+            }
+
+            if (reviewable.length > 0) {
+                // Surface via the existing pending-actions gate so the Action
+                // Center can confirm/cancel them — but do NOT inject a chat
+                // message (the ambient UI is the source of truth while
+                // listening). The chat log stays clean.
+                proposeAmbientActions('', reviewable, true);
+            }
+        } catch (err) {
+            // Surface ambient analysis failures to the tagline instead of
+            // dropping silently — the Action Center will show the message.
+            setMicError(err instanceof Error ? err.message : 'Ambient parse failed');
         }
-    }, [buildAmbientContext, onCreateHumanTasks, handleInterceptAction]);
+    }, [buildAmbientContext, onCreateHumanTasks, handleInterceptAction, proposeAmbientActions, pushCapture]);
 
     // ── Deepgram voice hooks ──
+    // Action mode: transcript flows into the textarea so the user can edit/send.
+    // Ambient mode: transcript is silent — it accumulates into a background log
+    // and a live "interim" line that the Ambient Action Center can choose to
+    // surface. We never touch inputText in ambient mode.
     const handleInlineTranscript = useCallback((text: string, isFinal: boolean) => {
         if (voiceModeRef.current === 'action') {
             if (isFinal) {
@@ -257,31 +346,55 @@ export const AIHome: React.FC<AIHomeProps> = ({
                     return base ? `${base} ${text}` : text;
                 });
             }
-        } else {
-            if (isFinal) {
-                inlineTranscriptRef.current = inlineTranscriptRef.current
-                    ? `${inlineTranscriptRef.current} ${text}` : text;
-                setInputText(inlineTranscriptRef.current);
-                setInlineInterim('');
-            } else {
-                setInlineInterim(text);
-                setInputText(inlineTranscriptRef.current ? `${inlineTranscriptRef.current} ${text}` : text);
-            }
+            return;
         }
-    }, [inlineInterim]);
 
-    const handleUtteranceEnd = useCallback(() => {
-        if (voiceModeRef.current === 'ambient' && inlineTranscriptRef.current.trim()) {
-            if (ambientDebounceRef.current) clearTimeout(ambientDebounceRef.current);
-            ambientDebounceRef.current = setTimeout(() => {
-                const text = inlineTranscriptRef.current;
-                if (text.trim()) {
-                    inlineTranscriptRef.current = '';
-                    setInputText('');
-                    analyzeAmbientChunk(text);
-                }
-            }, 5000);
+        // Ambient mode — silent capture only.
+        // Deepgram runs with endpointing=false + vad_events=true in ambient
+        // mode, which means UtteranceEnd messages are unreliable. Instead,
+        // we flush on silence: every final transcript resets a 5-second
+        // timer; when the timer fires with no new speech, we analyze.
+        if (isFinal) {
+            const trimmed = text.trim();
+            if (trimmed) {
+                inlineTranscriptRef.current = inlineTranscriptRef.current
+                    ? `${inlineTranscriptRef.current} ${trimmed}` : trimmed;
+                setTranscriptLines(prev => [...prev, {
+                    id: crypto.randomUUID(),
+                    text: trimmed,
+                    timestamp: Date.now(),
+                }]);
+
+                // Reset silence debounce on every final chunk.
+                if (ambientDebounceRef.current) clearTimeout(ambientDebounceRef.current);
+                ambientDebounceRef.current = setTimeout(() => {
+                    const buffered = inlineTranscriptRef.current;
+                    if (buffered.trim()) {
+                        inlineTranscriptRef.current = '';
+                        analyzeAmbientChunk(buffered);
+                    }
+                }, 5000);
+            }
+            setInlineInterim('');
+        } else {
+            setInlineInterim(text);
         }
+    }, [inlineInterim, analyzeAmbientChunk]);
+
+    // Backup: if Deepgram does emit UtteranceEnd, nudge the debounce.
+    // Never flushes immediately — just keeps the silence timer alive so a
+    // mid-thought pause doesn't split a single intent across two analyses.
+    const handleUtteranceEnd = useCallback(() => {
+        if (voiceModeRef.current !== 'ambient') return;
+        if (!inlineTranscriptRef.current.trim()) return;
+        if (ambientDebounceRef.current) clearTimeout(ambientDebounceRef.current);
+        ambientDebounceRef.current = setTimeout(() => {
+            const buffered = inlineTranscriptRef.current;
+            if (buffered.trim()) {
+                inlineTranscriptRef.current = '';
+                analyzeAmbientChunk(buffered);
+            }
+        }, 5000);
     }, [analyzeAmbientChunk]);
 
     const handleInlineError = useCallback((err: string) => {
@@ -306,17 +419,38 @@ export const AIHome: React.FC<AIHomeProps> = ({
             if (voiceModeRef.current === 'ambient' && inlineTranscriptRef.current.trim()) {
                 analyzeAmbientChunk(inlineTranscriptRef.current);
                 inlineTranscriptRef.current = '';
-                setInputText('');
+            }
+            // Action mode: just stop. Ambient mode: the VoicePill routes through
+            // the pause path below so we don't tear down the session.
+            if (voiceModeRef.current === 'ambient') {
+                setAmbientPaused(true);
+                setAmbientElapsedBeforeRun(prev => prev + (ambientRunStartedAt ? Date.now() - ambientRunStartedAt : 0));
+                setAmbientRunStartedAt(null);
             }
             stopListening();
         } else {
             inlineTranscriptRef.current = voiceMode === 'action' ? inputText : '';
             setInlineInterim('');
-            if (voiceMode === 'ambient') setInputText('');
+            if (voiceMode === 'ambient') {
+                setInputText('');
+                // Starting fresh from the VoicePill: reset all session state.
+                setTranscriptLines([]);
+                setAmbientCaptures([]);
+                setAmbientElapsedBeforeRun(0);
+                setAmbientRunStartedAt(Date.now());
+                setAmbientPaused(false);
+                setAmbientSessionActive(true);
+            }
             try { await startListening(); }
-            catch (err) { setMicError(err instanceof Error ? err.message : 'Failed to start mic'); }
+            catch (err) {
+                if (voiceMode === 'ambient') {
+                    setAmbientSessionActive(false);
+                    setAmbientRunStartedAt(null);
+                }
+                setMicError(err instanceof Error ? err.message : 'Failed to start mic');
+            }
         }
-    }, [isListening, startListening, stopListening, inputText, voiceMode, analyzeAmbientChunk]);
+    }, [isListening, startListening, stopListening, inputText, voiceMode, analyzeAmbientChunk, ambientRunStartedAt]);
 
     const handleModeSwitch = useCallback((mode: SpeechMode) => {
         if (ambientDebounceRef.current) { clearTimeout(ambientDebounceRef.current); ambientDebounceRef.current = null; }
@@ -331,13 +465,16 @@ export const AIHome: React.FC<AIHomeProps> = ({
     const [wantAmbientStart, setWantAmbientStart] = useState(false);
 
     const handleStartAmbient = useCallback(() => {
+        // If ambient is already listening, toggle to paused (same as Stop button).
         if (isListening && voiceMode === 'ambient') {
             if (ambientDebounceRef.current) { clearTimeout(ambientDebounceRef.current); ambientDebounceRef.current = null; }
             if (inlineTranscriptRef.current.trim()) {
                 analyzeAmbientChunk(inlineTranscriptRef.current);
                 inlineTranscriptRef.current = '';
-                setInputText('');
             }
+            setAmbientPaused(true);
+            setAmbientElapsedBeforeRun(prev => prev + (ambientRunStartedAt ? Date.now() - ambientRunStartedAt : 0));
+            setAmbientRunStartedAt(null);
             stopListening();
             return;
         }
@@ -346,34 +483,76 @@ export const AIHome: React.FC<AIHomeProps> = ({
         inlineTranscriptRef.current = '';
         setInputText('');
         setInlineInterim('');
+        // Fresh session — reset everything.
+        setTranscriptLines([]);
+        setAmbientCaptures([]);
+        setAmbientElapsedBeforeRun(0);
+        setAmbientPaused(false);
+        setAmbientSessionActive(true);
         setWantAmbientStart(true);
-    }, [isListening, stopListening, voiceMode, analyzeAmbientChunk]);
+    }, [isListening, stopListening, voiceMode, analyzeAmbientChunk, ambientRunStartedAt]);
 
     useEffect(() => {
         if (wantAmbientStart && voiceMode === 'ambient' && !isListening) {
             setWantAmbientStart(false);
+            setAmbientRunStartedAt(Date.now());
             startListening().catch(err => {
+                setAmbientSessionActive(false);
+                setAmbientRunStartedAt(null);
                 setMicError(err instanceof Error ? err.message : 'Failed to start mic');
             });
         }
     }, [wantAmbientStart, voiceMode, isListening, startListening]);
 
-    // ── AI Chat hook ──
-    const {
-        messages, isLoading, pendingActions, isExecuting,
-        sendMessage, sendCSV, confirmActions, cancelActions,
-        editAction, editMessage, clearMessages, loadMessages, setConversationId,
-    } = useAIChat({
-        session, trimmerProfiles, harvests, onSessionUpdate, conversationId, onSaveConversation,
-        activeLicense: licenses.find(l => l.id === activeLicenseId)?.licenseNumber || null,
-        onInterceptAction: handleInterceptAction,
-        onCreateHumanTasks, onUpdateHumanTask, onDeleteHumanTask,
-        humanTasks: humanTasks?.map(t => ({
-            id: t.id, title: t.title, status: t.status, priority: t.priority,
-            category: t.category, assignee: t.assignee, location: t.location,
-        })),
-        plantMapSummary, screenContext,
-    });
+    // Pause — mute mic, freeze timer, keep all session state intact.
+    const handleAmbientPause = useCallback(() => {
+        if (ambientDebounceRef.current) {
+            clearTimeout(ambientDebounceRef.current);
+            ambientDebounceRef.current = null;
+        }
+        if (inlineTranscriptRef.current.trim()) {
+            analyzeAmbientChunk(inlineTranscriptRef.current);
+            inlineTranscriptRef.current = '';
+        }
+        setInlineInterim('');
+        setAmbientPaused(true);
+        setAmbientElapsedBeforeRun(prev => prev + (ambientRunStartedAt ? Date.now() - ambientRunStartedAt : 0));
+        setAmbientRunStartedAt(null);
+        stopListening();
+    }, [analyzeAmbientChunk, stopListening, ambientRunStartedAt]);
+
+    // Resume — restart mic, timer continues from where it was paused.
+    const handleAmbientResume = useCallback(async () => {
+        setMicError(null);
+        try {
+            setAmbientRunStartedAt(Date.now());
+            setAmbientPaused(false);
+            await startListening();
+        } catch (err) {
+            setAmbientPaused(true);
+            setAmbientRunStartedAt(null);
+            setMicError(err instanceof Error ? err.message : 'Failed to resume mic');
+        }
+    }, [startListening]);
+
+    // End session — explicit exit. Clears all ambient state and returns
+    // the user to the regular AI home (or chat if there are messages).
+    const handleAmbientEnd = useCallback(() => {
+        if (ambientDebounceRef.current) {
+            clearTimeout(ambientDebounceRef.current);
+            ambientDebounceRef.current = null;
+        }
+        if (isListening) stopListening();
+        inlineTranscriptRef.current = '';
+        setInlineInterim('');
+        setAmbientSessionActive(false);
+        setAmbientPaused(false);
+        setAmbientRunStartedAt(null);
+        setAmbientElapsedBeforeRun(0);
+        setAmbientElapsedMs(0);
+        setTranscriptLines([]);
+        setAmbientCaptures([]);
+    }, [isListening, stopListening]);
 
     // ── Conversation lifecycle ──
     const isNewConversationRef = useRef(false);
@@ -462,10 +641,30 @@ export const AIHome: React.FC<AIHomeProps> = ({
 
     const combinedError = micError || deepgramError || null;
     const hasMessages = messages.length > 0;
+    // The Action Center stays visible as long as the session is active,
+    // regardless of whether the mic is currently listening or paused.
+    const showAmbientCenter = voiceMode === 'ambient' && ambientSessionActive;
 
     return (
         <div className="ai-home">
-            {!hasMessages ? (
+            {showAmbientCenter ? (
+                <AmbientActionCenter
+                    elapsedMs={ambientElapsedMs}
+                    isPaused={ambientPaused}
+                    interimText={inlineInterim}
+                    hasVoiceSignal={!ambientPaused && inlineInterim.trim().length > 0}
+                    captures={ambientCaptures}
+                    pendingActions={pendingActions}
+                    isExecuting={isExecuting}
+                    onConfirm={confirmActions}
+                    onCancel={cancelActions}
+                    transcript={transcriptLines}
+                    onPause={handleAmbientPause}
+                    onResume={handleAmbientResume}
+                    onEnd={handleAmbientEnd}
+                    micError={combinedError}
+                />
+            ) : !hasMessages ? (
                 <AIEmptyState
                     onSend={handleSend}
                     onStartAmbient={handleStartAmbient}

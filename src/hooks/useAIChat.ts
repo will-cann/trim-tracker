@@ -452,6 +452,39 @@ export const useAIChat = ({
         setPendingActions(null);
     }, []);
 
+    /**
+     * Surface a batch of proposed actions captured from ambient listening.
+     * Inserts a single assistant turn that quotes the transcript inline above
+     * the proposed actions (no separate user bubble — keeps the transcript and
+     * the actions visually adjacent so auto-scroll can't separate them). The
+     * actions land in `pending` state and the existing confirm/cancel/edit
+     * machinery takes over. No auto-execution.
+     *
+     * The caller is responsible for filtering out actions that should NOT go
+     * through the confirmation gate (currently: create_human_task, which is
+     * passive capture, and any action handled by an intercept like the
+     * extraction card). Anything passed in will require explicit user confirm.
+     */
+    const proposeAmbientActions = useCallback((transcript: string, actions: ProposedAction[], silent = false) => {
+        if (!actions.length) return;
+        if (silent) {
+            // Ambient Action Center owns the review UI — don't pollute the
+            // chat log. Merge into any existing pending queue so multiple
+            // utterances stack cleanly.
+            setPendingActions(prev => (prev && prev.length > 0 ? [...prev, ...actions] : actions));
+            return;
+        }
+        const trimmedTranscript = transcript.trim();
+        const heardLine = trimmedTranscript
+            ? `> 🎙️ *${trimmedTranscript}*`
+            : '> 🎙️ *(ambient)*';
+        const verb = actions.length === 1
+            ? 'Heard one action from ambient — review and confirm below.'
+            : `Heard ${actions.length} actions from ambient — review and confirm below.`;
+        addMessage('assistant', `${heardLine}\n\n${verb}`, { actions });
+        setPendingActions(actions);
+    }, [addMessage]);
+
     const editAction = useCallback((index: number, updatedData: Record<string, any>) => {
         setPendingActions(prev => {
             if (!prev) return prev;
@@ -490,5 +523,6 @@ export const useAIChat = ({
         clearMessages,
         loadMessages,
         setConversationId,
+        proposeAmbientActions,
     };
 };

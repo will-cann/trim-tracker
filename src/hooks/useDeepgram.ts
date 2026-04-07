@@ -54,6 +54,11 @@ export const useDeepgram = ({
     const streamRef = useRef<MediaStream | null>(null);
     const audioContextRef = useRef<AudioContext | null>(null);
     const processorRef = useRef<ScriptProcessorNode | null>(null);
+    // Tracks whether the current close was initiated by the user (stopListening
+    // or unmount) vs. a true connection failure. User-initiated closes should
+    // not surface as errors — Deepgram frequently returns code 1005 (no
+    // status) on clean close, which would otherwise trip the onError path.
+    const userInitiatedCloseRef = useRef(false);
     const modeRef = useRef(mode);
     const onTranscriptRef = useRef(onTranscript);
     const onUtteranceEndRef = useRef(onUtteranceEnd);
@@ -88,11 +93,16 @@ export const useDeepgram = ({
         setIsListening(false);
     }, []);
 
-    // Cleanup on unmount
-    useEffect(() => cleanup, [cleanup]);
+    // Cleanup on unmount — also flag as user-initiated so the onclose
+    // handler doesn't surface an "unexpected close" error.
+    useEffect(() => () => {
+        userInitiatedCloseRef.current = true;
+        cleanup();
+    }, [cleanup]);
 
     const startListening = useCallback(async () => {
         setError(null);
+        userInitiatedCloseRef.current = false;
 
         try {
             // 1. Get Deepgram API key from our auth-gated endpoint
@@ -189,7 +199,12 @@ export const useDeepgram = ({
             };
 
             ws.onclose = (event) => {
-                if (event.code !== 1000) {
+                // Suppress errors for user-initiated closes (stopListening or
+                // unmount). Deepgram commonly returns 1005 (no status) on a
+                // clean close and the browser reports 1006 when we close the
+                // WS from the client side — neither is a failure.
+                const isClean = event.code === 1000 || event.code === 1005 || event.code === 1006;
+                if (!userInitiatedCloseRef.current && !isClean) {
                     const msg = `Speech connection closed unexpectedly (${event.code})`;
                     setError(msg);
                     onErrorRef.current?.(msg);
@@ -205,6 +220,10 @@ export const useDeepgram = ({
     }, [cleanup]);
 
     const stopListening = useCallback(() => {
+        // Mark this close as user-initiated so the onclose handler doesn't
+        // surface it as an error.
+        userInitiatedCloseRef.current = true;
+
         // Stop audio pipeline immediately so no more audio is sent
         if (processorRef.current) {
             processorRef.current.disconnect();
