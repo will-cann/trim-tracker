@@ -5506,10 +5506,6 @@ select.field-input {
 }
 
 .ambient-log-row {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  padding: 0.625rem 0.125rem;
   border-top: 1px solid #F1F1F1;
   animation: ambient-log-row-in 0.4s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
@@ -5521,6 +5517,126 @@ select.field-input {
 @keyframes ambient-log-row-in {
   from { opacity: 0; transform: translateY(-3px); }
   to   { opacity: 1; transform: translateY(0); }
+}
+
+.ambient-log-row-body {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.625rem 0.5rem;
+  margin: 0 -0.5rem;
+  width: calc(100% + 1rem);
+  background: transparent;
+  border: none;
+  border-radius: 7px;
+  font-family: inherit;
+  text-align: left;
+  cursor: default;
+  transition: background 0.12s;
+}
+
+.ambient-log-row.editable .ambient-log-row-body {
+  cursor: pointer;
+}
+
+.ambient-log-row.editable .ambient-log-row-body:hover {
+  background: #F8F8F8;
+}
+
+.ambient-log-row.editing .ambient-log-row-body {
+  background: #F8F8F8;
+}
+
+/* Inline edit popover — expands within the log row */
+.ambient-log-edit {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0.5rem 0.5rem 0.75rem 2.625rem;
+  margin: 0 -0.5rem;
+  animation: ambient-log-edit-in 0.28s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes ambient-log-edit-in {
+  from { opacity: 0; transform: translateY(-3px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.ambient-log-edit-input {
+  width: 100%;
+  padding: 0.4375rem 0.625rem;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  font-family: inherit;
+  color: var(--text-color);
+  background: white;
+  border: 1px solid #D8D8D8;
+  border-radius: 7px;
+  outline: none;
+  transition: border-color 0.12s, box-shadow 0.12s;
+}
+
+.ambient-log-edit-input:focus {
+  border-color: #1C9EFF;
+  box-shadow: 0 0 0 3px rgba(28, 158, 255, 0.12);
+}
+
+.ambient-log-edit-input:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.ambient-log-edit-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.4375rem;
+}
+
+.ambient-log-edit-error {
+  flex: 1;
+  font-size: 0.6875rem;
+  color: #DF5B59;
+  font-weight: 500;
+}
+
+.ambient-log-edit-btn {
+  padding: 0.3125rem 0.75rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  font-family: inherit;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s, transform 0.1s;
+}
+
+.ambient-log-edit-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.ambient-log-edit-btn:active:not(:disabled) {
+  transform: scale(0.97);
+}
+
+.ambient-log-edit-btn.ghost {
+  color: var(--text-secondary);
+  background: transparent;
+}
+
+.ambient-log-edit-btn.ghost:hover:not(:disabled) {
+  background: #EFEFEF;
+  color: var(--text-color);
+}
+
+.ambient-log-edit-btn.primary {
+  color: white;
+  background: var(--primary-color);
+}
+
+.ambient-log-edit-btn.primary:hover:not(:disabled) {
+  background: #2FA161;
 }
 
 .ambient-log-icon {

@@ -499,6 +499,7 @@ export const AIHome: React.FC<AIHomeProps> = ({
                             onConfirm={ambient.confirmPending}
                             onCancel={ambient.cancelPending}
                             transcript={ambient.transcriptLines}
+                            onUpdateCapture={ambient.updateCapture}
                             micError={combinedError}
                         />
                     ) : (

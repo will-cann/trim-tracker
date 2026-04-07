@@ -34,6 +34,13 @@ interface AmbientProviderProps {
      * Called from end() when the session has any captures or transcript.
      */
     onSaveSession?: (id: string, title: string, messages: ChatMessage[], kind: 'ambient') => Promise<void>;
+    /**
+     * Edit the entity behind a capture chip. Currently used by the
+     * Action Center's inline-edit affordance for task captures: the
+     * user clicks a chip, fixes the title, and the parent looks up
+     * the matching human task and updates it. Returns true on success.
+     */
+    onUpdateCapture?: (capture: AmbientCapture, updates: { title?: string }) => Promise<boolean>;
 }
 
 interface AmbientContextValue {
@@ -58,6 +65,8 @@ interface AmbientContextValue {
     end: () => void;
     confirmPending: () => Promise<void>;
     cancelPending: () => void;
+    /** Inline-edit a capture's underlying entity (e.g. task title). */
+    updateCapture: (capture: AmbientCapture, updates: { title?: string }) => Promise<boolean>;
 }
 
 const AmbientContext = createContext<AmbientContextValue | null>(null);
@@ -157,6 +166,7 @@ export const AmbientProvider: React.FC<AmbientProviderProps> = ({
     onCreateHumanTasks,
     onInterceptAction,
     onSaveSession,
+    onUpdateCapture,
 }) => {
     // ── Session lifecycle ────────────────────────────────────────────────
     const [sessionActive, setSessionActive] = useState(false);
@@ -182,10 +192,12 @@ export const AmbientProvider: React.FC<AmbientProviderProps> = ({
     const onCreateHumanTasksRef = useRef(onCreateHumanTasks);
     const onInterceptActionRef = useRef(onInterceptAction);
     const onSaveSessionRef = useRef(onSaveSession);
+    const onUpdateCaptureRef = useRef(onUpdateCapture);
     useEffect(() => { getContextRef.current = getContext; }, [getContext]);
     useEffect(() => { onCreateHumanTasksRef.current = onCreateHumanTasks; }, [onCreateHumanTasks]);
     useEffect(() => { onInterceptActionRef.current = onInterceptAction; }, [onInterceptAction]);
     useEffect(() => { onSaveSessionRef.current = onSaveSession; }, [onSaveSession]);
+    useEffect(() => { onUpdateCaptureRef.current = onUpdateCapture; }, [onUpdateCapture]);
 
     // Track the session id so end() knows what to write. Generated on start.
     const sessionIdRef = useRef<string | null>(null);
@@ -542,6 +554,28 @@ export const AmbientProvider: React.FC<AmbientProviderProps> = ({
         setPendingActions(null);
     }, []);
 
+    // Edit a capture's underlying entity. Currently only handles task
+    // captures (the most common STT-mistake target). Returns true on
+    // success so the inline editor can collapse / show feedback.
+    const updateCapture = useCallback(async (capture: AmbientCapture, updates: { title?: string }): Promise<boolean> => {
+        if (!onUpdateCaptureRef.current) return false;
+        try {
+            const ok = await onUpdateCaptureRef.current(capture, updates);
+            if (!ok) return false;
+            // Reflect the update in the local capture list so the chip
+            // immediately shows the new label.
+            setCaptures(prev => prev.map(c =>
+                c.id === capture.id
+                    ? { ...c, summary: updates.title ?? c.summary }
+                    : c
+            ));
+            return true;
+        } catch (err) {
+            console.warn('[ambient] updateCapture failed:', err);
+            return false;
+        }
+    }, []);
+
     const value: AmbientContextValue = {
         sessionActive,
         isListening,
@@ -560,6 +594,7 @@ export const AmbientProvider: React.FC<AmbientProviderProps> = ({
         end,
         confirmPending,
         cancelPending,
+        updateCapture,
     };
 
     return <AmbientContext.Provider value={value}>{children}</AmbientContext.Provider>;

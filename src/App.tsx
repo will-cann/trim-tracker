@@ -297,6 +297,21 @@ function AppContent() {
       getContext={buildAmbientContext}
       onCreateHumanTasks={handleCreateHumanTasks}
       onSaveSession={saveConversation}
+      onUpdateCapture={async (capture, updates) => {
+        // Task captures: look up the human task by current title and patch it.
+        // The capture's summary IS the task title (set by describeAction).
+        if (capture.kind !== 'task') return false;
+        if (!updates.title?.trim()) return false;
+        const currentTitle = capture.summary;
+        const match = humanTasks.find(t => t.title === currentTitle);
+        if (!match) return false;
+        try {
+          await updateHumanTask(match.id, { title: updates.title.trim() });
+          return true;
+        } catch {
+          return false;
+        }
+      }}
     >
     <div className="app-container">
       <Sidebar

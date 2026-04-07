@@ -35,6 +35,7 @@ interface AmbientActionCenterProps {
     onConfirm: () => void;
     onCancel: () => void;
     transcript: TranscriptLine[];
+    onUpdateCapture?: (capture: AmbientCapture, updates: { title?: string }) => Promise<boolean>;
     micError?: string | null;
 }
 
@@ -127,6 +128,7 @@ export const AmbientActionCenter: React.FC<AmbientActionCenterProps> = ({
     onConfirm,
     onCancel,
     transcript,
+    onUpdateCapture,
     micError,
 }) => {
     const [transcriptOpen, setTranscriptOpen] = useState(false);
@@ -135,6 +137,48 @@ export const AmbientActionCenter: React.FC<AmbientActionCenterProps> = ({
     // then reverts to the default. Tracked as state so render is pure.
     const [recentCaptureLabel, setRecentCaptureLabel] = useState<string | null>(null);
     const lastCaptureIdRef = useRef<string | null>(null);
+
+    // Inline-edit state for capture chips
+    const [editingCaptureId, setEditingCaptureId] = useState<string | null>(null);
+    const [editDraft, setEditDraft] = useState('');
+    const [editSaving, setEditSaving] = useState(false);
+    const [editError, setEditError] = useState<string | null>(null);
+
+    const startEditing = (cap: AmbientCapture) => {
+        if (cap.kind !== 'task' || !onUpdateCapture) return;
+        setEditingCaptureId(cap.id);
+        setEditDraft(cap.summary || cap.label);
+        setEditError(null);
+    };
+
+    const cancelEditing = () => {
+        setEditingCaptureId(null);
+        setEditDraft('');
+        setEditError(null);
+    };
+
+    const saveEditing = async (cap: AmbientCapture) => {
+        if (!onUpdateCapture) return;
+        const trimmed = editDraft.trim();
+        if (!trimmed || trimmed === cap.summary) {
+            cancelEditing();
+            return;
+        }
+        setEditSaving(true);
+        setEditError(null);
+        try {
+            const ok = await onUpdateCapture(cap, { title: trimmed });
+            if (ok) {
+                cancelEditing();
+            } else {
+                setEditError('Could not find the task to update.');
+            }
+        } catch {
+            setEditError('Update failed.');
+        } finally {
+            setEditSaving(false);
+        }
+    };
 
     useEffect(() => {
         const last = captures[captures.length - 1];
@@ -248,7 +292,8 @@ export const AmbientActionCenter: React.FC<AmbientActionCenterProps> = ({
                 </div>
             )}
 
-            {/* Captures log — hairline-divided rows, no card chrome */}
+            {/* Captures log — hairline-divided rows, no card chrome.
+                Task captures expand inline on click for quick title edits. */}
             {recentCaptures.length > 0 && (
                 <div className="ambient-log">
                     <div className="ambient-log-label">Captured</div>
@@ -256,16 +301,63 @@ export const AmbientActionCenter: React.FC<AmbientActionCenterProps> = ({
                         {recentCaptures.map(cap => {
                             const meta = ACTION_META[cap.actionType] || { icon: ClipboardList, color: '#959595', label: cap.label };
                             const Icon = meta.icon;
+                            const isEditing = editingCaptureId === cap.id;
+                            const isEditable = cap.kind === 'task' && !!onUpdateCapture;
                             return (
-                                <div className="ambient-log-row" key={cap.id}>
-                                    <div className="ambient-log-icon" style={{ color: meta.color, background: `${meta.color}12` }}>
-                                        <Icon size={13} />
-                                    </div>
-                                    <div className="ambient-log-text">
-                                        <span className="ambient-log-row-label">{cap.label}</span>
-                                        {cap.summary && <span className="ambient-log-row-summary">{cap.summary}</span>}
-                                    </div>
-                                    <span className="ambient-log-time tabular">{formatClock(cap.timestamp)}</span>
+                                <div
+                                    key={cap.id}
+                                    className={`ambient-log-row${isEditable ? ' editable' : ''}${isEditing ? ' editing' : ''}`}
+                                >
+                                    <button
+                                        type="button"
+                                        className="ambient-log-row-body"
+                                        onClick={() => isEditable && (isEditing ? cancelEditing() : startEditing(cap))}
+                                        disabled={!isEditable}
+                                    >
+                                        <div className="ambient-log-icon" style={{ color: meta.color, background: `${meta.color}12` }}>
+                                            <Icon size={13} />
+                                        </div>
+                                        <div className="ambient-log-text">
+                                            <span className="ambient-log-row-label">{cap.label}</span>
+                                            {cap.summary && <span className="ambient-log-row-summary">{cap.summary}</span>}
+                                        </div>
+                                        <span className="ambient-log-time tabular">{formatClock(cap.timestamp)}</span>
+                                    </button>
+                                    {isEditing && (
+                                        <div className="ambient-log-edit">
+                                            <input
+                                                type="text"
+                                                className="ambient-log-edit-input"
+                                                value={editDraft}
+                                                onChange={(e) => setEditDraft(e.target.value)}
+                                                onKeyDown={(e) => {
+                                                    if (e.key === 'Enter') saveEditing(cap);
+                                                    if (e.key === 'Escape') cancelEditing();
+                                                }}
+                                                disabled={editSaving}
+                                                autoFocus
+                                            />
+                                            <div className="ambient-log-edit-actions">
+                                                {editError && <span className="ambient-log-edit-error">{editError}</span>}
+                                                <button
+                                                    type="button"
+                                                    className="ambient-log-edit-btn ghost"
+                                                    onClick={cancelEditing}
+                                                    disabled={editSaving}
+                                                >
+                                                    Cancel
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    className="ambient-log-edit-btn primary"
+                                                    onClick={() => saveEditing(cap)}
+                                                    disabled={editSaving || !editDraft.trim()}
+                                                >
+                                                    {editSaving ? 'Saving…' : 'Save'}
+                                                </button>
+                                            </div>
+                                        </div>
+                                    )}
                                 </div>
                             );
                         })}
