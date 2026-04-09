@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { Package, Plus, UserPlus, User, Loader2, Check, X, Sprout, Scale, ArrowRightLeft, Trash2, MapPin, CheckCircle2, XCircle, ChevronDown, Scissors, ClipboardList, Send, UserMinus, RefreshCw, Pencil, Leaf, MoveRight, TrendingUp, Skull, KeyRound, Tag, Upload, LayoutGrid, ArrowRight, Percent, Snowflake, Flame, Droplets } from 'lucide-react';
+import { Package, Plus, UserPlus, User, Loader2, Check, X, Sprout, Scale, ArrowRightLeft, Trash2, MapPin, CheckCircle2, XCircle, ChevronDown, Scissors, ClipboardList, Send, UserMinus, RefreshCw, Pencil, Leaf, MoveRight, TrendingUp, Skull, KeyRound, Tag, Upload, LayoutGrid, ArrowRight, Percent, Snowflake, Flame, Droplets, Wind, FlaskConical } from 'lucide-react';
+import type { ReactNode } from 'react';
 import type { ProposedAction } from '../types/definitions';
 
 interface ActionPreviewProps {
@@ -63,6 +64,8 @@ const ACTION_CONFIG: Record<string, { icon: typeof Package; label: string; color
     // Extraction
     record_extraction: { icon: ArrowRightLeft, label: 'Extraction', color: 'text-amber-600', bgColor: 'bg-amber-50' },
     start_extraction_run: { icon: Flame, label: 'Start Run', color: 'text-emerald-600', bgColor: 'bg-emerald-50' },
+    amend_extraction_run_inputs: { icon: Plus, label: 'Add to Run', color: 'text-blue-600', bgColor: 'bg-blue-50' },
+    cancel_extraction_run: { icon: X, label: 'Cancel Run', color: 'text-red-600', bgColor: 'bg-red-50' },
 };
 
 const FIELD_LABELS: Record<string, string> = {
@@ -127,16 +130,39 @@ const FIELD_LABELS: Record<string, string> = {
     itemName: 'Item Name',
     packageId: 'Package ID',
     labTestingState: 'Lab Testing',
-    // Extraction fields
+    // Extraction fields (record_extraction)
     sourcePackageLabel: 'Source',
-    inputPackageType: 'Input Type',
+    inputPackageType: 'Input',
     inputQuantity: 'Input (g)',
-    outputPackageType: 'Output Type',
+    outputPackageType: 'Output',
     outputQuantity: 'Output (g)',
     outputLabel: 'Output Label',
+    // Extraction run fields (start_extraction_run)
+    templateName: 'Template',
+    runName: 'Run name',
+    inputMaterial: 'Input',
+    inputQuantityG: 'Quantity (g)',
+    targetProduct: 'Target',
+    plannedStart: 'Scheduled for',
+    runIdentifier: 'Run',
+    notes: 'Notes',
 };
 
-const HIDDEN_FIELDS = new Set(['entryId', 'profileId', 'harvestId', 'taskId', 'onCompleteAction', 'sourcePackageId', 'sourcePackageLabel']);
+const HIDDEN_FIELDS = new Set([
+    // Internal DB IDs — never user-facing
+    'entryId', 'profileId', 'harvestId', 'taskId', 'strainId', 'licenseId',
+    'packageId', 'runId', 'templateId',
+    // Hybrid task completion wrapper — rendered separately with its own label
+    'onCompleteAction',
+    // Extraction — source package resolution is server-side
+    'sourcePackageId', 'sourcePackageLabel',
+    'sourcePackageIds', 'sourcePackageQuantities',
+    'addedSourcePackageIds', 'addedSourcePackageQuantities',
+    // Extraction — complex array payloads rendered via the summary line
+    'inputs', 'addedInputs',
+    // Extraction — backend bookkeeping
+    'templateMatched',
+]);
 
 /** Key fields shown inline per action type — everything else is behind expand */
 const KEY_FIELDS: Record<string, string[]> = {
@@ -256,14 +282,36 @@ function summarizeAction(action: ProposedAction): string {
             } else if (d.inputMaterial) {
                 inputsText = d.inputMaterial.replace(/_/g, ' ');
             }
+            const targetLabel = d.targetProduct
+                ? String(d.targetProduct).replace(/_/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase())
+                : null;
             return [
                 d.strain,
                 d.templateName,
                 inputsText,
-                d.targetProduct && `→ ${d.targetProduct.replace(/_/g, ' ')}`,
+                targetLabel && `→ ${targetLabel}`,
                 d.status === 'planned' && '(scheduled)',
             ].filter(Boolean).join(' · ');
         }
+        case 'amend_extraction_run_inputs': {
+            // "Add 4 more packages to the Multi-Strain Trim to Distillate run"
+            const addedArr = Array.isArray(d.addedInputs) ? d.addedInputs : [];
+            const addedText = addedArr
+                .map((i: { packageType?: string; quantity?: number; unit?: string; strain?: string }) => {
+                    const typ = (i.packageType || '').replace(/_/g, ' ');
+                    const strainLabel = i.strain ? `${i.strain} ` : '';
+                    if (i.quantity) return `${strainLabel}${i.quantity}${i.unit || 'g'} ${typ}`.trim();
+                    return `${strainLabel}${typ}`.trim();
+                })
+                .filter(Boolean)
+                .join(' + ');
+            return [
+                d.runName,
+                addedText && `+ ${addedText}`,
+            ].filter(Boolean).join(' · ');
+        }
+        case 'cancel_extraction_run':
+            return d.runName || d.runId || '';
         case 'update_trimmer_profile':
             return [d.profileName, d.name && `→ ${d.name}`, d.role, d.status].filter(Boolean).join(' · ');
         case 'update_batch_weight':
@@ -271,7 +319,21 @@ function summarizeAction(action: ProposedAction): string {
         case 'update_license':
             return [d.licenseNumber, `label → "${d.label}"`].filter(Boolean).join(' · ');
         default:
-            return Object.values(d).filter(v => v && !HIDDEN_FIELDS.has(String(v))).slice(0, 3).join(' · ');
+            // Generic fallback: take the first few primitive, user-facing
+            // values. Filter by KEY (not value) against HIDDEN_FIELDS, and
+            // skip arrays/objects so we never render "[object Object]" in
+            // the summary row.
+            return Object.entries(d)
+                .filter(([k, v]) =>
+                    !HIDDEN_FIELDS.has(k)
+                    && v !== null
+                    && v !== undefined
+                    && v !== ''
+                    && typeof v !== 'object'
+                )
+                .slice(0, 3)
+                .map(([, v]) => String(v))
+                .join(' · ');
     }
 }
 
@@ -357,31 +419,188 @@ const SELECT_OPTIONS: Record<string, Array<{ value: string; label: string }>> = 
     ],
 };
 
+/**
+ * Fields whose value is a cultivation/extraction material type and should
+ * render as an iconed, colored category chip instead of an editable text
+ * input. The chip style mirrors `CategoryBadge` in the Ordering module
+ * (`src/components/Ordering/ProductCatalog.tsx`) — small 11px uppercase-ish
+ * pill with a type-specific color + lucide icon.
+ *
+ * TODO: The Packages inventory (`src/components/Packages/PackageCard.tsx`)
+ * still uses the older `.status-badge` treatment (src/index.css line 4268+).
+ * Migrate it to this same chip so every package-type reference across the
+ * app reads identically. See project memory:
+ * `project_chip_system_consolidation.md`.
+ */
+const PACKAGE_TYPE_FIELDS = new Set([
+    'packageType', 'inputPackageType', 'outputPackageType',
+    'inputMaterial', 'targetProduct',
+]);
+
+/**
+ * Fields whose value is a reference to a DB entity or catalog entry.
+ * These render as locked read-only text — allowing free-text edits here
+ * would let users silently create mismatches with the canonical record
+ * (e.g., typing "Sour Deisel" instead of "Sour Diesel"). If a reference
+ * is wrong, users should cancel and re-prompt the agent, not type a fix.
+ */
+const DISPLAY_ONLY_FIELDS = new Set([
+    // Strain references
+    'strain', 'strainName',
+    // Extraction template + run identifier
+    'templateName', 'runName', 'runIdentifier',
+    // Harvest / batch identifiers
+    'harvestName', 'harvestIdentifier', 'entryName',
+    // Room references
+    'roomName', 'sourceRoomName', 'targetRoomName', 'dryingLocation',
+    // License references
+    'licenseNumber',
+    // Trimmer / task references
+    'profileName', 'trimmerName', 'taskTitle', 'plantIdentifier',
+]);
+
+/**
+ * Per-action-type label overrides. Lets a single schema key read
+ * differently depending on the action it's attached to — e.g., `status`
+ * on an extraction run is really "when does this run start", not a
+ * generic database status, so we label it "Start when".
+ */
+const LABELS_BY_ACTION: Record<string, Record<string, string>> = {
+    start_extraction_run: {
+        status: 'Start when',
+    },
+};
+
+/**
+ * Per-action-type dropdown option overrides. The global SELECT_OPTIONS
+ * map is shared across every action and — for keys like `status` — the
+ * valid values depend on which entity the action mutates. Extraction
+ * runs use `active` / `planned`; human tasks use `pending` / `in_progress`
+ * / `completed`. Without this override the dropdown ends up offering the
+ * wrong set and the user can silently set an invalid status.
+ */
+const OPTIONS_BY_ACTION: Record<string, Record<string, Array<{ value: string; label: string }>>> = {
+    start_extraction_run: {
+        status: [
+            { value: 'active', label: 'Start immediately' },
+            { value: 'planned', label: 'Schedule for later' },
+        ],
+    },
+};
+
+const TYPE_CHIP: Record<string, { bg: string; color: string; icon: ReactNode; label: string }> = {
+    // Raw biomass — mint green family
+    flower:       { bg: '#E8F8EE', color: '#1A7A42', icon: <Leaf size={11} />,         label: 'Flower' },
+    trim:         { bg: '#E8F8EE', color: '#1A7A42', icon: <Scissors size={11} />,     label: 'Trim' },
+    shake:        { bg: '#F0FAF3', color: '#2F8A54', icon: <Leaf size={11} />,         label: 'Shake' },
+    // Fresh frozen — cyan
+    fresh_frozen: { bg: '#E8F6FA', color: '#0E7490', icon: <Snowflake size={11} />,    label: 'Fresh Frozen' },
+    // Solventless — amber / flame family
+    bubble_hash:  { bg: '#FFF3E8', color: '#B06A1F', icon: <Droplets size={11} />,     label: 'Bubble Hash' },
+    rosin:        { bg: '#FFF3E8', color: '#B06A1F', icon: <Flame size={11} />,        label: 'Rosin' },
+    live_rosin:   { bg: '#FFF3E8', color: '#B06A1F', icon: <Flame size={11} />,        label: 'Live Rosin' },
+    // Solvent concentrates — sand / teal
+    live_resin:   { bg: '#FEF3E2', color: '#8B5E14', icon: <Droplets size={11} />,     label: 'Live Resin' },
+    distillate:   { bg: '#E8FEFA', color: '#167A6F', icon: <FlaskConical size={11} />, label: 'Distillate' },
+    // Vape / cartridge — blue
+    cart:         { bg: '#E8F0FE', color: '#1B5EB5', icon: <Wind size={11} />,         label: 'Cart' },
+    rosin_cart:   { bg: '#E8F0FE', color: '#1B5EB5', icon: <Wind size={11} />,         label: 'Rosin Cart' },
+    vape:         { bg: '#E8F0FE', color: '#1B5EB5', icon: <Wind size={11} />,         label: 'Vape' },
+};
+
+function TypeChip({ value }: { value: unknown }) {
+    if (value === null || value === undefined || value === '') {
+        return <span style={{ color: '#959595' }}>—</span>;
+    }
+    const key = String(value).toLowerCase().replace(/\s+/g, '_');
+    const style = TYPE_CHIP[key] || {
+        bg: '#F1F1F1',
+        color: '#1A1A1A',
+        icon: <Package size={11} />,
+        label: String(value).replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()),
+    };
+    return (
+        <span style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 4,
+            padding: '2px 8px',
+            borderRadius: 6,
+            fontSize: '0.6875rem',
+            fontWeight: 700,
+            lineHeight: 1.4,
+            whiteSpace: 'nowrap',
+            background: style.bg,
+            color: style.color,
+        }}>
+            {style.icon}
+            {style.label}
+        </span>
+    );
+}
+
 function FieldRow({
     fieldKey,
     value,
     isExecuting,
     isReadonly,
+    actionType,
     onChange,
 }: {
     fieldKey: string;
     value: any;
     isExecuting?: boolean;
     isReadonly: boolean;
+    actionType?: string;
     onChange: (newVal: any) => void;
 }) {
-    const options = SELECT_OPTIONS[fieldKey];
+    // Look up options / label with per-action overrides first. Lets a single
+    // schema key (`status`, etc.) render differently based on the action
+    // context without forking the whole dispatcher.
+    const options = (actionType && OPTIONS_BY_ACTION[actionType]?.[fieldKey])
+        || SELECT_OPTIONS[fieldKey];
+    const label = (actionType && LABELS_BY_ACTION[actionType]?.[fieldKey])
+        || FIELD_LABELS[fieldKey]
+        || fieldKey;
+    const isTypeField = PACKAGE_TYPE_FIELDS.has(fieldKey);
+    const isDisplayOnly = DISPLAY_ONLY_FIELDS.has(fieldKey);
+    // Shared humanizer for readonly text — "active" → "Active",
+    // "in_progress" → "In Progress".
+    const humanize = (v: unknown): string => {
+        if (v === null || v === undefined || v === '') return '—';
+        if (options) {
+            const match = options.find(o => o.value === v);
+            if (match) return match.label;
+        }
+        if (typeof v === 'object') return JSON.stringify(v);
+        const str = String(v);
+        return /^[a-z][a-z0-9_]*$/.test(str)
+            ? str.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
+            : str;
+    };
 
     return (
         <div className="flex items-center gap-2">
             <label className="text-xs text-gray-400 w-24 flex-shrink-0 text-right">
-                {FIELD_LABELS[fieldKey] || fieldKey}
+                {label}
             </label>
-            {isReadonly ? (
+            {isTypeField ? (
+                // Package/material type — render as an ordering-style chip.
+                // This is display-only in the preview card: the agent resolves
+                // the type from the catalog and users who need to change it
+                // should cancel and re-prompt rather than edit the raw value.
+                <div className="flex-1 min-w-0">
+                    <TypeChip value={value} />
+                </div>
+            ) : isDisplayOnly ? (
+                // DB / catalog reference — locked. Rendered as plain text so
+                // it reads as a value, not an editable field.
+                <span className="flex-1 text-sm px-2 py-1" style={{ color: '#1A1A1A' }}>
+                    {humanize(value)}
+                </span>
+            ) : isReadonly ? (
                 <span className="flex-1 text-sm text-gray-700 px-2 py-1">
-                    {options
-                        ? options.find(o => o.value === value)?.label || String(value ?? '—')
-                        : typeof value === 'object' ? JSON.stringify(value) : String(value ?? '—')}
+                    {humanize(value)}
                 </span>
             ) : options ? (
                 <select
@@ -715,6 +934,7 @@ function ActionItem({
                                     value={value}
                                     isExecuting={isExecuting}
                                     isReadonly={isReadonly}
+                                    actionType={action.type}
                                     onChange={(newVal) => onEditAction?.(index, { [key]: newVal })}
                                 />
                             ))}
@@ -741,6 +961,7 @@ function ActionItem({
                                             value={value}
                                             isExecuting={isExecuting}
                                             isReadonly={isReadonly}
+                                            actionType={action.type}
                                             onChange={(newVal) => onEditAction?.(index, { [key]: newVal })}
                                         />
                                     ))}
