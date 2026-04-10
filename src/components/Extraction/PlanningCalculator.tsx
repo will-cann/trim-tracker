@@ -1,10 +1,11 @@
 import { useState, useMemo, useEffect } from 'react';
 import { ArrowRight, AlertTriangle, Loader2 } from 'lucide-react';
-import type { BackwardPlan, ProductType } from '../../types/definitions';
+import type { BackwardPlan, ProductType, Strain } from '../../types/definitions';
 import { apiService } from '../../services/apiService';
 
 export const PlanningCalculator: React.FC = () => {
     const [productTypes, setProductTypes] = useState<ProductType[]>([]);
+    const [strains, setStrains] = useState<Strain[]>([]);
     const [loading, setLoading] = useState(true);
 
     // Form state
@@ -18,8 +19,12 @@ export const PlanningCalculator: React.FC = () => {
     const [error, setError] = useState<string | null>(null);
 
     useEffect(() => {
-        apiService.getProductTypes().then(pt => {
+        Promise.all([
+            apiService.getProductTypes(),
+            apiService.getStrains(),
+        ]).then(([pt, st]) => {
             setProductTypes(pt);
+            setStrains(st);
             setLoading(false);
         });
     }, []);
@@ -93,14 +98,16 @@ export const PlanningCalculator: React.FC = () => {
                     </select>
                 </div>
                 <div className="planning-form-row">
-                    <input
-                        type="text"
+                    <select
                         className="planning-input planning-input--strain"
-                        placeholder="Strain (optional — enables historical yield data)"
                         value={strain}
                         onChange={e => setStrain(e.target.value)}
-                        onKeyDown={e => e.key === 'Enter' && handlePlan()}
-                    />
+                    >
+                        <option value="">Any strain (template yields)</option>
+                        {strains.map(s => (
+                            <option key={s.id} value={s.name}>{s.name}</option>
+                        ))}
+                    </select>
                     <button
                         className="planning-btn"
                         onClick={handlePlan}
