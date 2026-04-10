@@ -701,15 +701,86 @@ export const StartRunModal: React.FC<StartRunModalProps> = ({ templates, onClose
                             />
                         </label>
 
-                        <label className="start-run-label">
+                        <div className="start-run-label">
                             Planned Start
-                            <input
-                                type="datetime-local"
-                                className="field-input"
-                                value={plannedStart}
-                                onChange={e => setPlannedStart(e.target.value)}
-                            />
-                        </label>
+                            <div className="start-run-date-picker">
+                                {(() => {
+                                    const now = new Date();
+                                    const tomorrow7am = new Date(now);
+                                    tomorrow7am.setDate(tomorrow7am.getDate() + 1);
+                                    tomorrow7am.setHours(7, 0, 0, 0);
+                                    const monday7am = new Date(now);
+                                    monday7am.setDate(monday7am.getDate() + ((8 - monday7am.getDay()) % 7 || 7));
+                                    monday7am.setHours(7, 0, 0, 0);
+
+                                    const toLocal = (d: Date) => {
+                                        const pad = (n: number) => String(n).padStart(2, '0');
+                                        return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+                                    };
+                                    const nowVal = toLocal(now);
+                                    const tomorrowVal = toLocal(tomorrow7am);
+                                    const mondayVal = toLocal(monday7am);
+
+                                    const isCustom = plannedStart && plannedStart !== nowVal && plannedStart !== tomorrowVal && plannedStart !== mondayVal;
+
+                                    const formatPreview = (val: string) => {
+                                        if (!val) return '';
+                                        const d = new Date(val);
+                                        return d.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })
+                                            + ' at '
+                                            + d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+                                    };
+
+                                    return (
+                                        <>
+                                            <div className="start-run-date-presets">
+                                                <button
+                                                    type="button"
+                                                    className={`start-run-date-preset ${!plannedStart ? 'start-run-date-preset--active' : ''}`}
+                                                    onClick={() => setPlannedStart('')}
+                                                >
+                                                    Now
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    className={`start-run-date-preset ${plannedStart === tomorrowVal ? 'start-run-date-preset--active' : ''}`}
+                                                    onClick={() => setPlannedStart(tomorrowVal)}
+                                                >
+                                                    Tomorrow 7am
+                                                </button>
+                                                {monday7am > tomorrow7am && (
+                                                    <button
+                                                        type="button"
+                                                        className={`start-run-date-preset ${plannedStart === mondayVal ? 'start-run-date-preset--active' : ''}`}
+                                                        onClick={() => setPlannedStart(mondayVal)}
+                                                    >
+                                                        Monday 7am
+                                                    </button>
+                                                )}
+                                                <button
+                                                    type="button"
+                                                    className={`start-run-date-preset ${isCustom ? 'start-run-date-preset--active' : ''}`}
+                                                    onClick={() => setPlannedStart(tomorrowVal)}
+                                                >
+                                                    Pick date
+                                                </button>
+                                            </div>
+                                            {(isCustom || plannedStart) && plannedStart && (
+                                                <div className="start-run-date-custom">
+                                                    <input
+                                                        type="datetime-local"
+                                                        className="field-input"
+                                                        value={plannedStart}
+                                                        onChange={e => setPlannedStart(e.target.value)}
+                                                    />
+                                                    <span className="start-run-date-preview">{formatPreview(plannedStart)}</span>
+                                                </div>
+                                            )}
+                                        </>
+                                    );
+                                })()}
+                            </div>
+                        </div>
 
                         <label className="start-run-label">
                             Notes
