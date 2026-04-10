@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { Snowflake, Flame, Beaker, ChevronRight, ChevronDown, Clock, Percent, Wrench, ArrowRight, Plus, Trash2, GripVertical, Pencil, Check, X, Copy, User, Cog } from 'lucide-react';
+import { Snowflake, Flame, Beaker, ChevronRight, ChevronDown, Clock, Percent, Wrench, ArrowRight, Plus, Trash2, GripVertical, Pencil, Check, X, Copy, User, Cog, Info } from 'lucide-react';
 import type { ProcessTemplate, ProcessStep, ProductType, SupplyItem } from '../../types/definitions';
 import { apiService } from '../../services/apiService';
 import { CenteredSpinner } from '../Spinner';
@@ -801,7 +801,15 @@ const TemplateEditor: React.FC<TemplateEditorProps> = ({ template, onSave, onCan
                         </div>
                     </div>
                     <div className="sop-editor-io-row">
-                        <span className="sop-editor-io-label">Batch size</span>
+                        <span className="sop-editor-io-label" style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                            Batch size
+                            <span
+                                className="sop-editor-info-icon"
+                                title="Standard input weight per run in grams. Testing labs typically require 500g minimums, so batch sizes are usually in 500g increments. Used for planning estimates — never blocks run creation."
+                            >
+                                <Info size={11} />
+                            </span>
+                        </span>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                             <input
                                 className="sop-edit-input sop-edit-input--sm"
@@ -813,7 +821,7 @@ const TemplateEditor: React.FC<TemplateEditorProps> = ({ template, onSave, onCan
                                 step="500"
                                 style={{ width: '90px' }}
                             />
-                            <span style={{ fontSize: '11px', color: '#959595' }}>g (standard)</span>
+                            <span style={{ fontSize: '11px', color: '#959595' }}>g per run</span>
                         </div>
                     </div>
                 </div>

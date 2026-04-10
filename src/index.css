@@ -10874,6 +10874,18 @@ select.settings-inline-input {
 .planning-supply-detail { color: #959595; }
 .planning-supply-gap { color: #DC3545; font-weight: 600; margin-left: 4px; }
 
+.sop-editor-info-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #C0C0C0;
+  cursor: help;
+  transition: color 0.15s;
+}
+.sop-editor-info-icon:hover {
+  color: #1C9EFF;
+}
+
 /* Shared edit inputs */
 .sop-edit-input {
   border: 1px solid #E8E8E8;
