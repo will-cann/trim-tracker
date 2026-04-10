@@ -1,3 +1,12 @@
+/**
+ * @deprecated Auto-executes data-mutating actions from ambient transcripts without user
+ * confirmation, which violates the universal rule "all data tasks in ambient mode require
+ * UI confirmation." Replaced by `useAIChat.proposeAmbientActions(transcript, actions)`,
+ * which routes ambient-captured actions through the same preview/confirm cards used by
+ * action mode. Existing call sites in ChatPanel/AIHome have been migrated. This file is
+ * kept temporarily so the existing test suite still has something to import; remove once
+ * those tests are rewritten or deleted.
+ */
 import type { ProposedAction } from '../types/definitions';
 import { apiService } from './apiService';
 import { executeAction } from './actionExecutor';
@@ -52,6 +61,15 @@ function actionLabel(action: ProposedAction): string {
         case 'assign_tag': return `Assign tag`;
         case 'auto_assign_tags': return `Auto-assign tags`;
         case 'record_extraction': return `Extraction${d.strain ? ` — ${d.strain}` : ''}${d.outputPackageType ? ` → ${d.outputPackageType.replace('_', ' ')}` : ''}`;
+        case 'amend_extraction_run_inputs': {
+            const added = Array.isArray(d.addedInputs) ? d.addedInputs.length : 0;
+            return `Amend run${d.runName ? ` — ${d.runName}` : ''} (+${added || '…'} input${added === 1 ? '' : 's'})`;
+        }
+        case 'cancel_extraction_run': return `Cancel run${d.runName ? ` — ${d.runName}` : ''}`;
+        case 'find_plants_result': {
+            const total = d.totalMatches ?? 0;
+            return `Find plants — ${total} match${total === 1 ? '' : 'es'}`;
+        }
         case 'create_package': return `Create package`;
         case 'update_package': return `Update package`;
         case 'finish_package': return `Finish package`;

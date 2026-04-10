@@ -6,6 +6,7 @@ import { AIAssistant } from './components/AIAssistant';
 import { ChatPanel } from './components/ChatPanel';
 import { AmbientProvider, useAmbient } from './contexts/AmbientContext';
 import { AmbientHeaderIndicator } from './components/AmbientHeaderIndicator';
+import { AMBIENT_ENABLED } from './lib/featureFlags';
 import { Dashboard } from './components/Dashboard';
 import { ReportsDashboard } from './components/Reports/ReportsDashboard';
 import { HarvestDashboard } from './components/Harvest/HarvestDashboard';
@@ -320,7 +321,7 @@ function AppContent() {
         onNewConversation={handleNewConversation}
         taskCount={taskPendingCount}
       />
-      <AmbientHeaderIndicator onNavigateToAI={() => handleViewChange('ai')} />
+      {AMBIENT_ENABLED && <AmbientHeaderIndicator onNavigateToAI={() => handleViewChange('ai')} />}
       <div className="main-content">
         <header className="app-header">
         </header>

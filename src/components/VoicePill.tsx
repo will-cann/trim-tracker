@@ -1,5 +1,6 @@
 import React, { useState, useCallback, useRef } from 'react';
 import { Mic, Square, Radio } from 'lucide-react';
+import { AMBIENT_ENABLED } from '../lib/featureFlags';
 import type { SpeechMode } from '../types/definitions';
 
 interface VoicePillProps {
@@ -32,6 +33,10 @@ export const VoicePill: React.FC<VoicePillProps> = ({
 
     const handlePointerDown = useCallback(() => {
         didLongPress.current = false;
+        // Long-press opens the mode menu. Skipped entirely when ambient is
+        // disabled — there's only one mode (action) so the menu has nothing
+        // to switch between.
+        if (!AMBIENT_ENABLED) return;
         longPressTimer.current = setTimeout(() => {
             didLongPress.current = true;
             setShowModeMenu(true);
@@ -68,7 +73,7 @@ export const VoicePill: React.FC<VoicePillProps> = ({
                 onPointerUp={handlePointerUp}
                 onPointerLeave={handlePointerLeave}
                 className={`voice-pill ${isListening ? 'voice-pill-active' : ''} ${mode === 'ambient' && isListening ? 'voice-pill-ambient' : ''}`}
-                title={isListening ? 'Stop recording' : `Voice input (hold for mode) · ${mode}`}
+                title={isListening ? 'Stop recording' : (AMBIENT_ENABLED ? `Voice input (hold for mode) · ${mode}` : 'Voice input')}
             >
                 {isListening ? (
                     <>
@@ -86,8 +91,8 @@ export const VoicePill: React.FC<VoicePillProps> = ({
                 )}
             </button>
 
-            {/* Mode selector on long-press */}
-            {showModeMenu && (
+            {/* Mode selector on long-press — gated behind AMBIENT_ENABLED. */}
+            {showModeMenu && AMBIENT_ENABLED && (
                 <>
                     <div className="fixed inset-0 z-40" onClick={() => setShowModeMenu(false)} />
                     <div className="voice-mode-menu">

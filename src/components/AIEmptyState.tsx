@@ -6,6 +6,7 @@ import {
     MessageSquare, Check, Shield, Dna, DoorOpen,
 } from 'lucide-react';
 import { VoicePill } from './VoicePill';
+import { AMBIENT_ENABLED } from '../lib/featureFlags';
 import type { ConversationSummary, SpeechMode } from '../types/definitions';
 
 // ── Setup status for first-run checklist ──
@@ -359,25 +360,27 @@ export const AIEmptyState: React.FC<AIEmptyStateProps> = ({
                 })}
             </div>
 
-            {/* Feature cards: Ambient + Import */}
+            {/* Feature cards: Ambient (gated) + Import */}
             <div className="ai-features">
-                <button
-                    className={`ai-feature-card${isListening && voiceMode === 'ambient' ? ' ai-feature-active' : ''}`}
-                    onClick={onStartAmbient}
-                    type="button"
-                >
-                    <div className="ai-feature-icon" style={{ background: 'rgba(28,158,255,0.08)', color: '#1C9EFF' }}>
-                        <Radio size={20} />
-                    </div>
-                    <div className="ai-feature-text">
-                        <span className="ai-feature-title">Ambient Listening</span>
-                        <span className="ai-feature-desc">
-                            {isListening && voiceMode === 'ambient'
-                                ? 'Listening — tasks created automatically'
-                                : 'Leave the mic on — tasks captured as your team talks'}
-                        </span>
-                    </div>
-                </button>
+                {AMBIENT_ENABLED && (
+                    <button
+                        className={`ai-feature-card${isListening && voiceMode === 'ambient' ? ' ai-feature-active' : ''}`}
+                        onClick={onStartAmbient}
+                        type="button"
+                    >
+                        <div className="ai-feature-icon" style={{ background: 'rgba(28,158,255,0.08)', color: '#1C9EFF' }}>
+                            <Radio size={20} />
+                        </div>
+                        <div className="ai-feature-text">
+                            <span className="ai-feature-title">Ambient Listening</span>
+                            <span className="ai-feature-desc">
+                                {isListening && voiceMode === 'ambient'
+                                    ? 'Listening — tasks created automatically'
+                                    : 'Leave the mic on — tasks captured as your team talks'}
+                            </span>
+                        </div>
+                    </button>
+                )}
 
                 <button
                     className={`ai-feature-card${isDragOver ? ' ai-feature-drop' : ''}`}

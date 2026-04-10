@@ -5306,50 +5306,10 @@ select.field-input {
   to   { opacity: 1; transform: translateY(0); }
 }
 
-/* ── Tally — free-floating numbers, hairline rules, no card ──── */
-.ambient-tally {
-  display: flex;
-  align-items: stretch;
-  gap: 0;
-  margin-bottom: 2rem;
-  animation: ai-body-in 360ms cubic-bezier(0.16, 1, 0.3, 1) both;
-  animation-delay: 160ms;
-}
-
-.ambient-tally-cell {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding: 0 1.625rem;
-  min-width: 90px;
-}
-
-.ambient-tally-num {
-  font-family: 'Lato', sans-serif;
-  font-size: 1.625rem;
-  font-weight: 700;
-  color: var(--text-color);
-  line-height: 1;
-  font-feature-settings: "tnum" 1;
-  font-variant-numeric: tabular-nums;
-  letter-spacing: -0.025em;
-}
-
-.ambient-tally-label {
-  font-size: 0.6875rem;
-  text-transform: uppercase;
-  letter-spacing: 0.09em;
-  color: var(--text-secondary);
-  font-weight: 600;
-  margin-top: 0.5rem;
-}
-
-.ambient-tally-rule {
-  width: 1px;
-  background: #ECECEC;
-  margin: 0.25rem 0;
-  align-self: stretch;
-}
+/* Tally removed in PR #2 — rich cards carry their own counts via the
+ * "Captured N" log header and the "Needs your OK" review card. The old
+ * 0/0/0 billboard duplicated information that's now visible in detail
+ * below, so it became noise. */
 
 .tabular {
   font-feature-settings: "tnum" 1;
@@ -5519,6 +5479,9 @@ select.field-input {
 }
 
 .ambient-log-label {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
   font-size: 0.6875rem;
   text-transform: uppercase;
   letter-spacing: 0.09em;
@@ -5526,6 +5489,22 @@ select.field-input {
   font-weight: 600;
   margin-bottom: 0.625rem;
   padding: 0 0.125rem;
+}
+
+.ambient-log-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 0.375rem;
+  border-radius: 9px;
+  background: #EFEFEF;
+  color: var(--text-secondary);
+  font-size: 0.625rem;
+  font-weight: 700;
+  letter-spacing: 0;
+  text-transform: none;
 }
 
 .ambient-log-list {
@@ -5705,6 +5684,82 @@ select.field-input {
   color: #B8B8B8;
   flex-shrink: 0;
   font-weight: 500;
+}
+
+/* ── Answer captures (PR #2) ─────────────────────────────────── */
+/* Agent text responses from read-only queries (e.g. "list all Blue
+ * Dream packages") show up here. The row body is clickable to collapse
+ * the expanded markdown body underneath. */
+.ambient-log-row.answer .ambient-log-row-body {
+  cursor: pointer;
+}
+
+.ambient-log-row.answer .ambient-log-row-body:hover {
+  background: #F8F8F8;
+}
+
+.ambient-log-row.answer.expanded .ambient-log-row-body {
+  background: #F8F8F8;
+}
+
+.ambient-log-answer-body {
+  padding: 0.5rem 0.75rem 0.875rem 2.625rem;
+  margin: 0 -0.5rem;
+  font-size: 0.8125rem;
+  color: var(--text-color);
+  line-height: 1.55;
+  animation: ambient-log-edit-in 0.28s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.ambient-log-answer-body > *:first-child { margin-top: 0; }
+.ambient-log-answer-body > *:last-child { margin-bottom: 0; }
+
+.ambient-log-answer-body p {
+  margin: 0 0 0.5rem 0;
+}
+
+.ambient-log-answer-body p:last-child {
+  margin-bottom: 0;
+}
+
+.ambient-log-answer-body table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 0.25rem 0 0.5rem 0;
+  font-size: 0.75rem;
+}
+
+.ambient-log-answer-body th,
+.ambient-log-answer-body td {
+  padding: 0.3125rem 0.5rem;
+  text-align: left;
+  border-bottom: 1px solid #ECECEC;
+}
+
+.ambient-log-answer-body th {
+  font-weight: 600;
+  color: var(--text-secondary);
+  font-size: 0.6875rem;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.ambient-log-answer-body code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.75rem;
+  background: #F1F1F1;
+  padding: 0.0625rem 0.3125rem;
+  border-radius: 4px;
+}
+
+.ambient-log-answer-body ul,
+.ambient-log-answer-body ol {
+  margin: 0 0 0.5rem 0;
+  padding-left: 1.25rem;
+}
+
+.ambient-log-answer-body li {
+  margin: 0.125rem 0;
 }
 
 /* ── Hint (empty state) ──────────────────────────────────────── */
@@ -6183,45 +6238,97 @@ select.field-input {
   border-radius: 4px;
 }
 
-.ai-cmd-response table {
+/* Markdown tables in AI chat responses. Styled to match .menu-upload-table
+ * and other app-level tables — bordered rounded container, subtle
+ * detail-bg header, --border-color row dividers, hover state, accented
+ * tfoot for totals. Uses brand tokens throughout (no hardcoded grays).
+ *
+ * Applied to BOTH the command-log chat surface (.ai-cmd-response, used by
+ * AIChat.tsx) and the floating chat widget (.ai-msg-bubble-assistant, used
+ * by ChatPanel.tsx) so table rendering is consistent across both.
+ */
+.ai-cmd-response table,
+.ai-msg-bubble-assistant table {
   width: 100%;
-  border-collapse: collapse;
-  margin: 0.5rem 0;
+  border-collapse: separate;
+  border-spacing: 0;
+  margin: 0.75rem 0;
   font-size: 0.8125rem;
   font-variant-numeric: tabular-nums;
+  background: var(--card-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  overflow: hidden;
 }
 
-.ai-cmd-response thead th {
+.ai-cmd-response thead th,
+.ai-msg-bubble-assistant thead th {
   text-align: left;
-  font-weight: 700;
+  font-weight: 600;
   font-size: 0.6875rem;
   text-transform: uppercase;
-  letter-spacing: 0.03em;
-  color: #959595;
-  padding: 0.375rem 0.625rem;
-  border-bottom: 2px solid #E8E8E8;
+  letter-spacing: 0.045em;
+  color: var(--text-secondary);
+  background: var(--detail-bg);
+  padding: 0.5rem 0.75rem;
+  border-bottom: 1px solid var(--border-color);
   white-space: nowrap;
 }
 
-.ai-cmd-response tbody td {
-  padding: 0.375rem 0.625rem;
-  border-bottom: 1px solid #F1F1F1;
+.ai-cmd-response tbody td,
+.ai-msg-bubble-assistant tbody td {
+  padding: 0.5rem 0.75rem;
+  border-bottom: 1px solid var(--border-color);
   color: var(--text-color);
 }
 
-.ai-cmd-response tbody tr:last-child td {
+.ai-cmd-response tbody tr:last-child td,
+.ai-msg-bubble-assistant tbody tr:last-child td {
   border-bottom: none;
 }
 
-.ai-cmd-response tbody tr:hover td {
-  background: #FAFAFA;
+.ai-cmd-response tbody tr,
+.ai-msg-bubble-assistant tbody tr {
+  transition: background 0.12s ease;
 }
 
-.ai-cmd-response tfoot td {
-  padding: 0.375rem 0.625rem;
-  border-top: 2px solid #E8E8E8;
+.ai-cmd-response tbody tr:hover td,
+.ai-msg-bubble-assistant tbody tr:hover td {
+  background: var(--detail-bg);
+}
+
+/* First column gets slightly stronger weight — the label/subject column
+ * is typically an entity name (strain, package label) that anchors the row. */
+.ai-cmd-response tbody td:first-child,
+.ai-msg-bubble-assistant tbody td:first-child {
+  font-weight: 600;
+}
+
+/* Totals / summary row gets the primary-light tint + stronger weight so
+ * it visually separates from body rows. */
+.ai-cmd-response tfoot td,
+.ai-msg-bubble-assistant tfoot td {
+  padding: 0.5rem 0.75rem;
+  border-top: 1px solid var(--border-color);
+  background: var(--primary-light);
   font-weight: 700;
   font-size: 0.75rem;
+  color: var(--text-color);
+}
+
+/* remark-gfm emits align="right" / inline style="text-align:right" on
+ * th/td when the markdown uses ---: alignment markers. The prompt asks
+ * the agent to use these for numeric columns; these rules ensure the
+ * alignment sticks regardless of which attribute path remark-gfm picked. */
+.ai-cmd-response th[align="right"],
+.ai-cmd-response td[align="right"],
+.ai-cmd-response th[style*="text-align:right"],
+.ai-cmd-response td[style*="text-align:right"],
+.ai-msg-bubble-assistant th[align="right"],
+.ai-msg-bubble-assistant td[align="right"],
+.ai-msg-bubble-assistant th[style*="text-align:right"],
+.ai-msg-bubble-assistant td[style*="text-align:right"] {
+  text-align: right !important;
 }
 
 .ai-cmd-loading {

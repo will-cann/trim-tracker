@@ -1,7 +1,10 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import {
     ChevronDown, ClipboardList, Scissors, Sprout, Leaf,
     Package, Thermometer, Scale, Shield, Dna, DoorOpen, Tag,
+    MessageSquare,
     type LucideIcon,
 } from 'lucide-react';
 import { ExtractionRunCard } from './ExtractionRunCard';
@@ -14,10 +17,15 @@ import type { ProposedAction, ProposedActionType } from '../types/definitions';
 
 export interface AmbientCapture {
     id: string;
-    actionType: ProposedActionType;
-    label: string;      // "Task created", "Trim session started"
-    summary: string;    // strain · weight · etc
-    kind: 'task' | 'action' | 'review';
+    // actionType is set for action/task/review captures; 'answer' captures
+    // are agent text responses and don't wrap a ProposedAction.
+    actionType: ProposedActionType | null;
+    label: string;      // "Task created", "Trim session started", "Answer"
+    summary: string;    // strain · weight · etc (short)
+    // For 'answer' kind: full markdown body of the agent's response.
+    // Rendered inline in the capture log with a markdown renderer.
+    body?: string;
+    kind: 'task' | 'action' | 'review' | 'answer';
     timestamp: number;
 }
 
@@ -66,6 +74,9 @@ const ACTION_META: Partial<Record<ProposedActionType, { icon: LucideIcon; color:
     record_harvest_waste:{ icon: Sprout,        color: '#DF5B59', label: 'Waste recorded' },
     move_harvest:        { icon: Sprout,        color: '#FA9E52', label: 'Harvest moved' },
     record_extraction:   { icon: Thermometer,   color: '#FA9E52', label: 'Extraction run' },
+    start_extraction_run:{ icon: Thermometer,   color: '#FA9E52', label: 'Extraction run' },
+    amend_extraction_run_inputs: { icon: Thermometer, color: '#FA9E52', label: 'Amend run inputs' },
+    cancel_extraction_run: { icon: Thermometer, color: '#959595', label: 'Cancel run' },
     create_planting:     { icon: Leaf,          color: '#3BB570', label: 'Plants added' },
     move_plants:         { icon: Leaf,          color: '#3BB570', label: 'Plants moved' },
     change_plant_phase:  { icon: Leaf,          color: '#3BB570', label: 'Phase changed' },
@@ -83,7 +94,7 @@ const ACTION_META: Partial<Record<ProposedActionType, { icon: LucideIcon; color:
 };
 
 // eslint-disable-next-line react-refresh/only-export-components
-export function describeAction(action: ProposedAction): { label: string; summary: string; color: string; icon: LucideIcon; kind: 'task' | 'action' | 'review' } {
+export function describeAction(action: ProposedAction): { label: string; summary: string; color: string; icon: LucideIcon; kind: 'task' | 'action' | 'review' | 'answer' } {
     const meta = ACTION_META[action.type] || { icon: ClipboardList, color: '#959595', label: action.type.replace(/_/g, ' ') };
     const d = action.data || {};
     let summary = '';
@@ -103,6 +114,40 @@ export function describeAction(action: ProposedAction): { label: string; summary
             summary = [d.harvestIdentifier, d.weight && `${d.weight}g`].filter(Boolean).join(' · '); break;
         case 'record_extraction':
             summary = [d.strain, d.inputPackageType?.replace('_', ' '), '→', d.outputPackageType?.replace('_', ' ')].filter(Boolean).join(' '); break;
+        case 'start_extraction_run': {
+            // Multi-input runs: don't flatten to the primary strain — say
+            // "Multi-strain · N pkgs · Xkg" so the user can see at a glance
+            // that the run consumes more than one source package. Single
+            // input falls back to the strain + template name.
+            const inputs = Array.isArray(d.inputs) ? d.inputs : [];
+            const uniqueIds = new Set(inputs.map((i: { sourcePackageId?: string | null }) => i.sourcePackageId).filter(Boolean));
+            if (uniqueIds.size > 1) {
+                const uniqueStrains = new Set(
+                    inputs.map((i: { strain?: string | null }) => i.strain).filter(Boolean)
+                );
+                const totalQty = inputs.reduce(
+                    (sum: number, i: { quantity?: number | null }) => sum + (typeof i.quantity === 'number' ? i.quantity : 0),
+                    0
+                );
+                const totalLabel = totalQty >= 1000
+                    ? `${(totalQty / 1000).toLocaleString(undefined, { maximumFractionDigits: 1 })}kg`
+                    : totalQty > 0 ? `${totalQty.toLocaleString()}g` : '';
+                const strainLabel = uniqueStrains.size > 1
+                    ? `${uniqueStrains.size}-strain`
+                    : (Array.from(uniqueStrains)[0] as string || 'Multi-strain');
+                summary = [strainLabel, `${uniqueIds.size} pkgs`, totalLabel].filter(Boolean).join(' · ');
+            } else {
+                summary = [d.strain, d.templateName].filter(Boolean).join(' · ');
+            }
+            break;
+        }
+        case 'amend_extraction_run_inputs': {
+            const added = Array.isArray(d.addedInputs) ? d.addedInputs.length : 0;
+            summary = [d.runName, added > 0 && `+${added} input${added === 1 ? '' : 's'}`].filter(Boolean).join(' · ');
+            break;
+        }
+        case 'cancel_extraction_run':
+            summary = d.runName || ''; break;
         case 'create_planting':
             summary = [d.strainName, d.count && `${d.count} plants`].filter(Boolean).join(' · '); break;
         case 'move_plants':
@@ -156,6 +201,11 @@ export const AmbientActionCenter: React.FC<AmbientActionCenterProps> = ({
     const [editSaving, setEditSaving] = useState(false);
     const [editError, setEditError] = useState<string | null>(null);
 
+    // Expanded-answer state: which answer capture is currently showing its
+    // full markdown body. Only one at a time; clicking a different answer
+    // collapses the previous.
+    const [expandedAnswerId, setExpandedAnswerId] = useState<string | null>(null);
+
     const startEditing = (cap: AmbientCapture) => {
         if (cap.kind !== 'task' || !onUpdateCapture) return;
         setEditingCaptureId(cap.id);
@@ -196,10 +246,13 @@ export const AmbientActionCenter: React.FC<AmbientActionCenterProps> = ({
         const last = captures[captures.length - 1];
         if (!last || last.id === lastCaptureIdRef.current) return;
         lastCaptureIdRef.current = last.id;
-        // eslint-disable-next-line react-hooks/set-state-in-effect
         setPulse(p => p + 1);
-        // eslint-disable-next-line react-hooks/set-state-in-effect
         setRecentCaptureLabel(last.label.toLowerCase());
+        // Auto-expand the newest answer capture so the user sees the agent's
+        // reply immediately. They can still collapse by clicking the row.
+        if (last.kind === 'answer') {
+            setExpandedAnswerId(last.id);
+        }
         const id = setTimeout(() => setRecentCaptureLabel(null), 6000);
         return () => clearTimeout(id);
     }, [captures]);
@@ -215,9 +268,6 @@ export const AmbientActionCenter: React.FC<AmbientActionCenterProps> = ({
         if (interimText) return 'Hearing you';
         return 'Listening for tasks';
     }, [micError, recentCaptureLabel, interimText, isPaused, captures.length]);
-
-    const taskCount = captures.filter(c => c.kind === 'task').length;
-    const actionCount = captures.filter(c => c.kind === 'action').length;
 
     // Newest first for the captures log
     const recentCaptures = useMemo(() => [...captures].reverse().slice(0, 8), [captures]);
@@ -244,24 +294,6 @@ export const AmbientActionCenter: React.FC<AmbientActionCenterProps> = ({
                 >
                     {tagline}
                 </p>
-            </div>
-
-            {/* Tally — free-floating, no card */}
-            <div className="ambient-tally">
-                <div className="ambient-tally-cell">
-                    <span className="ambient-tally-num tabular">{actionCount}</span>
-                    <span className="ambient-tally-label">Actions</span>
-                </div>
-                <span className="ambient-tally-rule" />
-                <div className="ambient-tally-cell">
-                    <span className="ambient-tally-num tabular">{taskCount}</span>
-                    <span className="ambient-tally-label">Tasks</span>
-                </div>
-                <span className="ambient-tally-rule" />
-                <div className="ambient-tally-cell">
-                    <span className="ambient-tally-num tabular">{pendingActions?.length || 0}</span>
-                    <span className="ambient-tally-label">Review</span>
-                </div>
             </div>
 
             {/* Pending review — the only legitimate card on this surface */}
@@ -322,26 +354,40 @@ export const AmbientActionCenter: React.FC<AmbientActionCenterProps> = ({
             )}
 
             {/* Captures log — hairline-divided rows, no card chrome.
-                Task captures expand inline on click for quick title edits. */}
+                Task captures expand inline on click for quick title edits.
+                Answer captures expand to show the full markdown body. */}
             {recentCaptures.length > 0 && (
                 <div className="ambient-log">
-                    <div className="ambient-log-label">Captured</div>
+                    <div className="ambient-log-label">
+                        <span>Captured</span>
+                        <span className="ambient-log-count tabular">{captures.length}</span>
+                    </div>
                     <div className="ambient-log-list">
                         {recentCaptures.map(cap => {
-                            const meta = ACTION_META[cap.actionType] || { icon: ClipboardList, color: '#959595', label: cap.label };
+                            const meta = cap.kind === 'answer'
+                                ? { icon: MessageSquare, color: '#6366F1', label: cap.label }
+                                : (cap.actionType ? ACTION_META[cap.actionType] : null) || { icon: ClipboardList, color: '#959595', label: cap.label };
                             const Icon = meta.icon;
                             const isEditing = editingCaptureId === cap.id;
                             const isEditable = cap.kind === 'task' && !!onUpdateCapture;
+                            const isExpanded = expandedAnswerId === cap.id;
                             return (
                                 <div
                                     key={cap.id}
-                                    className={`ambient-log-row${isEditable ? ' editable' : ''}${isEditing ? ' editing' : ''}`}
+                                    className={`ambient-log-row${isEditable ? ' editable' : ''}${isEditing ? ' editing' : ''}${cap.kind === 'answer' ? ' answer' : ''}${isExpanded ? ' expanded' : ''}`}
                                 >
                                     <button
                                         type="button"
                                         className="ambient-log-row-body"
-                                        onClick={() => isEditable && (isEditing ? cancelEditing() : startEditing(cap))}
-                                        disabled={!isEditable}
+                                        onClick={() => {
+                                            if (isEditable) {
+                                                if (isEditing) cancelEditing();
+                                                else startEditing(cap);
+                                            } else if (cap.kind === 'answer') {
+                                                setExpandedAnswerId(isExpanded ? null : cap.id);
+                                            }
+                                        }}
+                                        disabled={!isEditable && cap.kind !== 'answer'}
                                     >
                                         <div className="ambient-log-icon" style={{ color: meta.color, background: `${meta.color}12` }}>
                                             <Icon size={13} />
@@ -352,6 +398,11 @@ export const AmbientActionCenter: React.FC<AmbientActionCenterProps> = ({
                                         </div>
                                         <span className="ambient-log-time tabular">{formatClock(cap.timestamp)}</span>
                                     </button>
+                                    {cap.kind === 'answer' && isExpanded && cap.body && (
+                                        <div className="ambient-log-answer-body">
+                                            <ReactMarkdown remarkPlugins={[remarkGfm]}>{cap.body}</ReactMarkdown>
+                                        </div>
+                                    )}
                                     {isEditing && (
                                         <div className="ambient-log-edit">
                                             <input

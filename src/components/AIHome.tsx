@@ -11,6 +11,7 @@ import { AmbientActionCenter } from './AmbientActionCenter';
 import { AmbientStatusPill } from './AmbientStatusPill';
 import logo from '../assets/logo.png';
 import { apiService } from '../services/apiService';
+import { AMBIENT_ENABLED } from '../lib/featureFlags';
 import type { TrimSession, TrimmerProfile, Harvest, ChatMessage, License, HumanTask, SpeechMode, ConversationSummary, ProposedAction } from '../types/definitions';
 
 interface AIHomeProps {
@@ -294,6 +295,12 @@ export const AIHome: React.FC<AIHomeProps> = ({
     }, [voiceMode, ambient, actionListening, startActionMic, stopActionMic, inputText]);
 
     const handleModeSwitch = useCallback((mode: SpeechMode) => {
+        // Safety net: if ambient is gated off, ignore any attempt to
+        // switch into it. The UI should never call this with 'ambient'
+        // when the flag is off (VoicePill's long-press menu is hidden),
+        // but we enforce here so future wiring can't accidentally leak
+        // ambient access through another code path.
+        if (mode === 'ambient' && !AMBIENT_ENABLED) return;
         if (actionListening) stopActionMic();
         setVoiceMode(mode);
         inlineTranscriptRef.current = '';
@@ -413,7 +420,11 @@ export const AIHome: React.FC<AIHomeProps> = ({
     // The Action Center is visible on the AI home whenever an ambient
     // session exists — even while paused. The session is owned by
     // AmbientContext so it survives navigation.
-    const showAmbientCenter = ambient.sessionActive;
+    // Ambient surface only renders when the flag is on AND a session is
+    // active. The flag is the primary gate; the sessionActive check is the
+    // runtime condition for when ambient IS enabled. Both false here means
+    // the body always falls through to the chat / empty states.
+    const showAmbientCenter = AMBIENT_ENABLED && ambient.sessionActive;
     // VoicePill display listening state: follows whichever mode the user
     // has selected. Ambient mode reflects the context's actual mic state;
     // action mode reflects the local action-Deepgram.

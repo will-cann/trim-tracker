@@ -4,6 +4,7 @@ import { apiService } from '../services/apiService';
 import { describeAction } from '../components/AmbientActionCenter';
 import type { AmbientCapture, TranscriptLine } from '../components/AmbientActionCenter';
 import type { ChatMessage, ProposedAction } from '../types/definitions';
+import { SILENCE_FLUSH_MS, retainTail } from '../lib/ambientChunker';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Ambient session context
@@ -21,12 +22,15 @@ import type { ChatMessage, ProposedAction } from '../types/definitions';
 // belongs.
 // ─────────────────────────────────────────────────────────────────────────────
 
+// Context shape expected by ai-parse — derived from the apiService call
+// signature so the provider's getContext callback stays aligned with the
+// backend's input schema without a second source of truth.
+type AmbientAiContext = Parameters<typeof apiService.aiParse>[0]['context'];
+
 interface AmbientProviderProps {
     children: React.ReactNode;
-    /** Snapshot builder — called on every utterance flush. Typed as
-     *  Parameters<typeof apiService.aiParse>[0]['context'] so the provider
-     *  stays automatically aligned with the backend's input schema. */
-    getContext: () => Parameters<typeof apiService.aiParse>[0]['context'];
+    /** Snapshot builder — called on every utterance flush. */
+    getContext: () => AmbientAiContext;
     /** Invoked for every non-intercepted task-style action (passive capture). */
     onCreateHumanTasks?: (tasks: Array<{ title: string; description?: string; priority: string; category: string; dueDate?: string; assignee?: string; location?: string }>) => Promise<void>;
     /** Return true to swallow an action (e.g. extraction card intercepts). */
@@ -91,8 +95,6 @@ export const useAmbient = (): AmbientContextValue => {
 /** Safe variant for surfaces that may render outside the provider (unlikely but defensive). */
 // eslint-disable-next-line react-refresh/only-export-components
 export const useAmbientOptional = (): AmbientContextValue | null => useContext(AmbientContext);
-
-const SILENCE_FLUSH_MS = 5000;
 
 // Static cannabis cultivation / processing vocabulary. Primes Deepgram on
 // every ambient session so domain terms (room types, processing verbs,
@@ -328,6 +330,56 @@ export const AmbientProvider: React.FC<AmbientProviderProps> = ({
         }]);
     }, []);
 
+    // Push an agent text response as a capture chip. Used when the loop's
+    // final turn contains only assistant text (no mutations) — typical for
+    // read-only queries like "list all Blue Dream packages". Without this,
+    // the agent's answer would silently disappear because the pre-PR-2
+    // ambient flow only knew how to surface ProposedActions.
+    const pushAnswerCapture = useCallback((body: string) => {
+        // Strip common reasoning preambles. The system prompt tells Claude
+        // not to emit these, but it occasionally ignores that rule. This is
+        // a safety net so the ambient chip shows the answer, not the
+        // thinking-out-loud. Each pattern matches a sentence-ending
+        // preamble followed by an optional colon/newline.
+        const preamblePatterns: RegExp[] = [
+            /^Looking at (?:this|the)[^.!?]*(?:transcript|voice|request|query|message|data|user)[^.!?]*[.!?]\s*/i,
+            /^Let me (?:check|look up|find|search|query|first|analyze)[^.!?]*[.!?:]\s*/i,
+            /^I(?:'| wi)ll (?:look up|check|find|search|query|analyze|help|first|need to)[^.!?]*[.!?:]\s*/i,
+            /^Based on (?:this|the|your)[^.!?]*[.!?]\s*/i,
+            /^Here(?:'| i)s (?:what I (?:found|have|see)|your current)[^.!?]*[.!?:]\s*/i,
+            /^I (?:found|see|understand)(?: that)?[^.!?]*[.!?]\s*/i,
+            /^(?:Analyzing|Checking|Reading|Reviewing) (?:this|the|your)[^.!?]*[.!?:]\s*/i,
+        ];
+        let stripped = body.trim();
+        // Loop in case there are stacked preambles ("Looking at X. Let me
+        // check Y."). Keep stripping until no pattern matches.
+        let changed = true;
+        while (changed) {
+            changed = false;
+            for (const pat of preamblePatterns) {
+                const next = stripped.replace(pat, '');
+                if (next !== stripped) {
+                    stripped = next.trimStart();
+                    changed = true;
+                }
+            }
+        }
+        if (!stripped) return;
+        // Derive a short summary from the first line, truncated. The full
+        // markdown body is stored separately and rendered inline on expand.
+        const firstLine = stripped.split(/\n/).find(l => l.trim()) || stripped;
+        const summary = firstLine.length > 120 ? firstLine.slice(0, 117) + '…' : firstLine;
+        setCaptures(prev => [...prev, {
+            id: crypto.randomUUID(),
+            actionType: null,
+            label: 'Answer',
+            summary,
+            body: stripped,
+            kind: 'answer',
+            timestamp: Date.now(),
+        }]);
+    }, []);
+
     // ── Analyzer ─────────────────────────────────────────────────────────
     const analyzeChunk = useCallback(async (text: string) => {
         if (!text.trim()) return;
@@ -372,15 +424,55 @@ export const AmbientProvider: React.FC<AmbientProviderProps> = ({
                 // Merge into any existing pending queue so multiple utterances stack.
                 setPendingActions(prev => (prev && prev.length > 0 ? [...prev, ...reviewable] : reviewable));
             }
+
+            // PR #2: surface agent text responses that don't come with any
+            // mutations. Happens when the user asks a read-only question
+            // like "list all Blue Dream packages" — the agent calls find_*
+            // tools inside the loop, then replies with text only. Without
+            // this, the reply would disappear because ambient used to treat
+            // zero-action responses as no_action.
+            //
+            // Guardrails:
+            // - Only push if there are NO actions at all (mutations carry
+            //   their own visual preview via the review queue / captures).
+            // - Skip the boilerplate "I've prepared N actions..." fallback
+            //   added in PR #1 as a last-resort assistantMessage.
+            const message = (result.message || '').trim();
+            const isBoilerplate = /^I've prepared \d+ action/.test(message);
+            if (allActions.length === 0 && message && !isBoilerplate) {
+                pushAnswerCapture(message);
+            }
         } catch (err) {
             setMicError(err instanceof Error ? err.message : 'Ambient parse failed');
         }
-    }, [pushCapture]);
+    }, [pushCapture, pushAnswerCapture]);
 
     // ── Deepgram wiring ──────────────────────────────────────────────────
+    // Shared flush-timer reset so interim transcripts and finals extend the
+    // silence window identically. Previously only finals reset the timer,
+    // which meant a user speaking continuously with long Deepgram final gaps
+    // would have the buffer flushed mid-utterance.
+    const resetFlushTimer = useCallback(() => {
+        if (flushTimerRef.current) clearTimeout(flushTimerRef.current);
+        flushTimerRef.current = setTimeout(() => {
+            const text = bufferRef.current;
+            if (text.trim()) {
+                // Tail overlap: keep the last sentence (or last ~150 chars)
+                // in the buffer so the next chunk has continuity across the
+                // flush boundary. Prevents "7 strains split across 2 chunks"
+                // style context loss.
+                bufferRef.current = retainTail(text);
+                analyzeChunk(text);
+            }
+        }, SILENCE_FLUSH_MS);
+    }, [analyzeChunk]);
+
     const handleTranscript = useCallback((text: string, isFinal: boolean) => {
         if (!isFinal) {
             setInterimText(text);
+            // Interim speech still means the user is actively talking.
+            // Extend the silence window so we don't flush mid-utterance.
+            if (text.trim()) resetFlushTimer();
             return;
         }
         const trimmed = text.trim();
@@ -394,29 +486,14 @@ export const AmbientProvider: React.FC<AmbientProviderProps> = ({
             timestamp: Date.now(),
         }]);
 
-        // Reset the silence debounce on every final chunk.
-        if (flushTimerRef.current) clearTimeout(flushTimerRef.current);
-        flushTimerRef.current = setTimeout(() => {
-            const text = bufferRef.current;
-            if (text.trim()) {
-                bufferRef.current = '';
-                analyzeChunk(text);
-            }
-        }, SILENCE_FLUSH_MS);
-    }, [analyzeChunk]);
+        resetFlushTimer();
+    }, [resetFlushTimer]);
 
     const handleUtteranceEnd = useCallback(() => {
         // Backup path if Deepgram does emit it — just nudge the silence timer.
         if (!bufferRef.current.trim()) return;
-        if (flushTimerRef.current) clearTimeout(flushTimerRef.current);
-        flushTimerRef.current = setTimeout(() => {
-            const text = bufferRef.current;
-            if (text.trim()) {
-                bufferRef.current = '';
-                analyzeChunk(text);
-            }
-        }, SILENCE_FLUSH_MS);
-    }, [analyzeChunk]);
+        resetFlushTimer();
+    }, [resetFlushTimer]);
 
     const handleError = useCallback((err: string) => {
         setMicError(err);

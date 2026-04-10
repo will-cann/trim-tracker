@@ -11,11 +11,30 @@ import { useAIChat } from '../hooks/useAIChat';
 import { ActionPreview } from './ActionPreview';
 import { ExtractionRunCard, isCardReady } from './ExtractionRunCard';
 import type { ExtractionRunCardData } from './ExtractionRunCard';
-import { analyzeAmbientChunk as analyzeChunk } from '../services/ambientAnalyzer';
-import type { ActionItemState } from '../services/ambientAnalyzer';
 import { apiService } from '../services/apiService';
-import type { TrimSession, TrimmerProfile, Harvest, SpeechMode, ProposedAction } from '../types/definitions';
+import { chatDb } from '../services/chatDb';
+import { SILENCE_FLUSH_MS, retainTail } from '../lib/ambientChunker';
+import { AMBIENT_ENABLED } from '../lib/featureFlags';
+import type { TrimSession, TrimmerProfile, Harvest, SpeechMode, ProposedAction, ChatMessage } from '../types/definitions';
 import logo from '../assets/logo.png';
+
+// Stable localStorage key for ChatPanel's persistent conversation. The chat
+// modal carries one ongoing conversation that survives close/reopen and page
+// refreshes. AIHome uses its own separate conversation flow with sidebar.
+const CHAT_PANEL_CONVERSATION_KEY = 'neurocann.chatPanel.conversationId';
+
+function getOrCreateChatPanelConversationId(): string {
+    try {
+        const existing = localStorage.getItem(CHAT_PANEL_CONVERSATION_KEY);
+        if (existing) return existing;
+        const id = crypto.randomUUID();
+        localStorage.setItem(CHAT_PANEL_CONVERSATION_KEY, id);
+        return id;
+    } catch {
+        // localStorage unavailable (private mode, etc.) — fall back to in-memory
+        return crypto.randomUUID();
+    }
+}
 
 type PanelTab = 'chat' | 'transcript';
 
@@ -31,12 +50,6 @@ interface TranscriptEntry {
     timestamp: Date;
     status: 'processing' | 'created' | 'partial' | 'no_action' | 'error';
     actions?: ActionItem[];
-}
-
-interface ActiveActionGroup {
-    id: string;
-    timestamp: Date;
-    items: ActionItem[];
 }
 
 interface ChatPanelProps {
@@ -124,7 +137,6 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
     const [transcriptEntries, setTranscriptEntries] = useState<TranscriptEntry[]>([]);
     const transcriptEntriesRef = useRef<TranscriptEntry[]>([]);
     transcriptEntriesRef.current = transcriptEntries;
-    const [, setActiveActionGroups] = useState<ActiveActionGroup[]>([]);
     const [extractionRunCards, setExtractionRunCards] = useState<ExtractionRunCardData[]>([]);
 
     // --- Action mic deepgram ---
@@ -294,20 +306,69 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
         }));
     }, []);
 
+    // Stable persistent conversation ID — survives close/reopen and page refresh
+    const persistentConversationIdRef = useRef<string>(getOrCreateChatPanelConversationId());
+
+    // saveConversation writes the latest messages list to chatDb whenever
+    // useAIChat's internal effect fires (i.e. on every message change).
+    const saveConversation = useCallback(async (id: string, title: string, messages: ChatMessage[]) => {
+        const now = new Date().toISOString();
+        const existing = await chatDb.conversations.get(id);
+        if (existing) {
+            await chatDb.conversations.update(id, { title, messages, updatedAt: now });
+        } else {
+            await chatDb.conversations.add({ id, title, messages, createdAt: now, updatedAt: now });
+        }
+    }, []);
+
+    // --- Chat hook (must be before analyzeAmbientChunk so proposeAmbientActions is available) ---
+    const {
+        messages,
+        isLoading,
+        pendingActions,
+        isExecuting,
+        sendMessage,
+        sendCSV,
+        confirmActions,
+        cancelActions,
+        editAction,
+        proposeAmbientActions,
+        loadMessages,
+    } = useAIChat({
+        session,
+        trimmerProfiles,
+        harvests,
+        onSessionUpdate,
+        screenContext,
+        onInterceptAction: handleInterceptAction,
+        conversationId: persistentConversationIdRef.current,
+        onSaveConversation: saveConversation,
+    });
+
+    // On mount, hydrate any prior conversation from chatDb. Runs once.
+    const hydratedRef = useRef(false);
+    useEffect(() => {
+        if (hydratedRef.current) return;
+        hydratedRef.current = true;
+        const id = persistentConversationIdRef.current;
+        chatDb.conversations.get(id).then(record => {
+            if (record?.messages?.length) {
+                loadMessages(record.messages);
+            }
+        }).catch(() => { /* DB unavailable, start fresh */ });
+    }, [loadMessages]);
+
     const analyzeAmbientChunk = useCallback(async (text: string, existingEntryId?: string) => {
         if (!text.trim()) return;
 
         // Reuse existing transcript entry (created live) or make a new one
         const entryId = existingEntryId || crypto.randomUUID();
-        const groupId = entryId;
 
         if (existingEntryId) {
-            // Entry already exists from live transcript — mark as processing
             setTranscriptEntries(prev =>
                 prev.map(e => e.id === entryId ? { ...e, status: 'processing' as const } : e)
             );
         } else {
-            // Fallback: create entry now (e.g., flush on stop)
             setTranscriptEntries(prev => [...prev, {
                 id: entryId, text, timestamp: new Date(), status: 'processing',
             }]);
@@ -320,94 +381,126 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
             .map(e => e.text);
 
         try {
-            const { status } = await analyzeChunk(text, buildAmbientContext(), {
-                onCreateHumanTasks,
-                onSessionUpdate,
-                onInterceptAction: handleInterceptAction,
-                onProgress: (items: ActionItemState[]) => {
-                    const mapped = items.map(i => ({ label: i.label, status: i.status, detail: i.detail }));
-                    // Update both transcript entry and tasks tab group
-                    setTranscriptEntries(prev =>
-                        prev.map(e => e.id === entryId ? { ...e, actions: mapped } : e)
-                    );
-                    setActiveActionGroups(prev => {
-                        const group: ActiveActionGroup = { id: groupId, timestamp: new Date(), items: mapped };
-                        const exists = prev.find(g => g.id === groupId);
-                        return exists
-                            ? prev.map(g => g.id === groupId ? group : g)
-                            : [...prev, group];
-                    });
-                },
-            }, recentHistory);
+            const result = await apiService.aiParse({
+                transcriptChunks: [text],
+                context: buildAmbientContext(),
+                recentTranscriptHistory: recentHistory,
+            });
 
-            // Update transcript status
+            const allActions = result.actions as ProposedAction[];
+
+            // Split: extraction-card intercepts → handled inline (their own confirm UI),
+            // create_human_task → directly created (passive capture),
+            // everything else → routed through chat panel preview cards for explicit confirmation.
+            const intercepted: ProposedAction[] = [];
+            const humanTasks: ProposedAction[] = [];
+            const reviewable: ProposedAction[] = [];
+
+            for (const action of allActions) {
+                if (handleInterceptAction(action)) {
+                    intercepted.push(action);
+                } else if (action.type === 'create_human_task') {
+                    humanTasks.push(action);
+                } else {
+                    reviewable.push(action);
+                }
+            }
+
+            if (humanTasks.length > 0 && onCreateHumanTasks) {
+                try {
+                    await onCreateHumanTasks(humanTasks.map(a => a.data as { title: string; description?: string; priority: string; category: string; dueDate?: string; assignee?: string; location?: string }));
+                } catch {
+                    // Task creation failure is logged below via the entry status
+                }
+            }
+
+            if (reviewable.length > 0) {
+                proposeAmbientActions(text, reviewable);
+            }
+
+            // Update transcript entry status:
+            // - 'created' if any action surfaced (review pending or already routed)
+            // - 'no_action' if literally nothing came back
+            // - 'partial' if we got something but couldn't route it
+            const anyHandled = intercepted.length + humanTasks.length + reviewable.length > 0;
+            const status: TranscriptEntry['status'] = !allActions.length
+                ? 'no_action'
+                : anyHandled
+                    ? 'created'
+                    : 'partial';
+
             setTranscriptEntries(prev =>
                 prev.map(e => e.id === entryId ? { ...e, status } : e)
             );
-
-            // Auto-remove completed groups after a delay
-            setTimeout(() => {
-                setActiveActionGroups(prev => prev.filter(g => g.id !== groupId));
-            }, 5000);
         } catch {
             setTranscriptEntries(prev =>
                 prev.map(e => e.id === entryId ? { ...e, status: 'error' as const } : e)
             );
-            // Remove failed group
-            setActiveActionGroups(prev => prev.filter(g => g.id !== groupId));
         }
-    }, [buildAmbientContext, onCreateHumanTasks, onSessionUpdate, handleInterceptAction]);
+    }, [buildAmbientContext, onCreateHumanTasks, handleInterceptAction, proposeAmbientActions]);
 
     // Track the live transcript entry ID so we can update it as words arrive
     const liveEntryIdRef = useRef<string | null>(null);
     const silenceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-    const SILENCE_FLUSH_MS = 5000; // Flush after 5s of silence
 
     const flushAmbientTranscript = useCallback(() => {
         if (ambientTranscriptRef.current.trim()) {
             const text = ambientTranscriptRef.current;
             const existingEntryId = liveEntryIdRef.current;
-            ambientTranscriptRef.current = '';
+            // Tail overlap: retain the last sentence across the flush so the
+            // next chunk has continuity. The system prompt tells the AI to
+            // amend (not duplicate) actions from already-seen tail content.
+            ambientTranscriptRef.current = retainTail(text);
             liveEntryIdRef.current = null;
             analyzeAmbientChunk(text, existingEntryId || undefined);
         }
     }, [analyzeAmbientChunk]);
 
-    const handleAmbientTranscript = useCallback((text: string, isFinal: boolean) => {
-        if (isFinal) {
-            ambientTranscriptRef.current = ambientTranscriptRef.current
-                ? `${ambientTranscriptRef.current} ${text}`
-                : text;
-
-            // Show/update a live transcript entry immediately
-            if (!liveEntryIdRef.current) {
-                liveEntryIdRef.current = crypto.randomUUID();
-                setTranscriptEntries(prev => [...prev, {
-                    id: liveEntryIdRef.current!,
-                    text: ambientTranscriptRef.current,
-                    timestamp: new Date(),
-                    status: 'no_action' as const, // neutral until parsed
-                }]);
-            } else {
-                const id = liveEntryIdRef.current;
-                setTranscriptEntries(prev =>
-                    prev.map(e => e.id === id ? { ...e, text: ambientTranscriptRef.current } : e)
-                );
-            }
-
-            // Reset silence timer — flush after SILENCE_FLUSH_MS of no new speech
-            if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
-            silenceTimerRef.current = setTimeout(flushAmbientTranscript, SILENCE_FLUSH_MS);
-        }
+    // Shared timer reset — called from both final and interim transcripts,
+    // so any speech activity (not just Deepgram-emitted finals) extends the
+    // silence window. Previously only finals reset the timer, causing
+    // mid-utterance flushes during continuous speech with long final gaps.
+    const resetAmbientSilenceTimer = useCallback(() => {
+        if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
+        silenceTimerRef.current = setTimeout(flushAmbientTranscript, SILENCE_FLUSH_MS);
     }, [flushAmbientTranscript]);
+
+    const handleAmbientTranscript = useCallback((text: string, isFinal: boolean) => {
+        if (!isFinal) {
+            // Interim speech means the user is still talking — extend the
+            // silence window so we don't flush mid-utterance.
+            if (text.trim()) resetAmbientSilenceTimer();
+            return;
+        }
+        ambientTranscriptRef.current = ambientTranscriptRef.current
+            ? `${ambientTranscriptRef.current} ${text}`
+            : text;
+
+        // Show/update a live transcript entry immediately
+        if (!liveEntryIdRef.current) {
+            liveEntryIdRef.current = crypto.randomUUID();
+            setTranscriptEntries(prev => [...prev, {
+                id: liveEntryIdRef.current!,
+                text: ambientTranscriptRef.current,
+                timestamp: new Date(),
+                status: 'no_action' as const, // neutral until parsed
+            }]);
+        } else {
+            const id = liveEntryIdRef.current;
+            setTranscriptEntries(prev =>
+                prev.map(e => e.id === id ? { ...e, text: ambientTranscriptRef.current } : e)
+            );
+        }
+
+        resetAmbientSilenceTimer();
+    }, [resetAmbientSilenceTimer]);
 
     const handleAmbientUtteranceEnd = useCallback(() => {
         // Don't flush immediately — reset the silence timer so we wait for
         // the full pause. This prevents mid-thought pauses from splitting
         // the transcript into incomplete chunks.
-        if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
-        silenceTimerRef.current = setTimeout(flushAmbientTranscript, SILENCE_FLUSH_MS);
-    }, [flushAmbientTranscript]);
+        resetAmbientSilenceTimer();
+    }, [resetAmbientSilenceTimer]);
 
     const {
         isListening: ambientListening,
@@ -435,19 +528,6 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
             await ambientStart();
         }
     }, [ambientListening, ambientStart, ambientStop, flushAmbientTranscript, activeTab]);
-
-    // --- Chat hook ---
-    const {
-        messages,
-        isLoading,
-        pendingActions,
-        isExecuting,
-        sendMessage,
-        sendCSV,
-        confirmActions,
-        cancelActions,
-        editAction,
-    } = useAIChat({ session, trimmerProfiles, harvests, onSessionUpdate, screenContext, onInterceptAction: handleInterceptAction });
 
     // Auto-scroll chat
     useEffect(() => {
@@ -785,23 +865,25 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
                                 </div>
                             </div>
 
-                            {/* Ambient Toggle */}
-                            <div className="relative group">
-                                <button
-                                    type="button"
-                                    onClick={handleAmbientToggle}
-                                    className={`chatpanel-icon-btn ${ambientActive ? 'chatpanel-icon-btn-ambient' : ''}`}
-                                    title={ambientActive ? 'Stop ambient listening' : 'Ambient — transcribes speech in background'}
-                                >
-                                    <Radio size={16} />
-                                    {ambientActive && (
-                                        <span className="chatpanel-ambient-ring" />
-                                    )}
-                                </button>
-                                <div className="chatpanel-tooltip">
-                                    {ambientActive ? 'Stop ambient listening' : 'Ambient — transcribes speech in background'}
+                            {/* Ambient Toggle — gated behind AMBIENT_ENABLED */}
+                            {AMBIENT_ENABLED && (
+                                <div className="relative group">
+                                    <button
+                                        type="button"
+                                        onClick={handleAmbientToggle}
+                                        className={`chatpanel-icon-btn ${ambientActive ? 'chatpanel-icon-btn-ambient' : ''}`}
+                                        title={ambientActive ? 'Stop ambient listening' : 'Ambient — transcribes speech in background'}
+                                    >
+                                        <Radio size={16} />
+                                        {ambientActive && (
+                                            <span className="chatpanel-ambient-ring" />
+                                        )}
+                                    </button>
+                                    <div className="chatpanel-tooltip">
+                                        {ambientActive ? 'Stop ambient listening' : 'Ambient — transcribes speech in background'}
+                                    </div>
                                 </div>
-                            </div>
+                            )}
 
                             {/* Send */}
                             <button
