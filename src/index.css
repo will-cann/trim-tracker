@@ -9431,7 +9431,383 @@ select.settings-inline-input {
   line-height: 1.5;
 }
 
-/* ── Extraction Cockpit ─────────────────────────────────────────────────── */
+/* ── Schedule-driven Run Detail (P2/P3 rewrite) ─────────────────────────── */
+
+.run-step-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 0.5rem 0;
+}
+
+.run-step-row {
+  display: flex;
+  gap: 0.75rem;
+  padding: 0.625rem 0.75rem;
+  border-radius: 8px;
+  transition: background 0.15s;
+}
+
+.run-step-row--current {
+  background: rgba(28, 158, 255, 0.06);
+  border-left: 3px solid #1C9EFF;
+  padding-left: calc(0.75rem - 3px);
+}
+
+.run-step-row--done {
+  opacity: 0.55;
+}
+
+.run-step-row--upcoming {
+  opacity: 0.75;
+}
+
+.run-step-marker {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  flex-shrink: 0;
+  padding-top: 2px;
+}
+
+.run-step-num {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 600;
+  background: #F1F1F1;
+  color: #959595;
+}
+
+.run-step-row--current .run-step-num {
+  background: #1C9EFF;
+  color: #fff;
+}
+
+.run-step-row--done .run-step-num {
+  background: #E8F5E9;
+  color: #3BB570;
+}
+
+.run-step-check {
+  color: #3BB570;
+}
+
+.run-step-body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.run-step-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.run-step-name {
+  font-size: 13px;
+  font-weight: 500;
+  color: #2C2C2C;
+}
+
+.run-step-row--done .run-step-name {
+  color: #959595;
+}
+
+.run-step-optional {
+  font-size: 10px;
+  color: #C0C0C0;
+  background: #F7F7F7;
+  padding: 1px 6px;
+  border-radius: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.run-step-desc {
+  font-size: 12px;
+  color: #959595;
+  margin: 0;
+  line-height: 1.4;
+}
+
+.run-step-meta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.run-step-meta-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 11px;
+  color: #C0C0C0;
+}
+
+.run-step-row--current .run-step-meta-item {
+  color: #959595;
+}
+
+/* ── Weight check-in inline input ─── */
+
+.run-step-checkin {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 2px;
+}
+
+.run-step-checkin--filled {
+  color: #3BB570;
+}
+
+.run-step-checkin--missing {
+  color: #FA9E52;
+}
+
+.run-step-checkin-input {
+  width: 80px;
+  padding: 3px 6px;
+  font-size: 13px;
+  border: 1px solid #E0E0E0;
+  border-radius: 4px;
+  text-align: right;
+}
+
+.run-step-checkin-input:focus {
+  border-color: #1C9EFF;
+  outline: none;
+}
+
+.run-step-checkin-unit {
+  font-size: 11px;
+  color: #959595;
+}
+
+.run-step-checkin-badge {
+  font-size: 10px;
+  color: #FA9E52;
+  background: rgba(250, 158, 82, 0.08);
+  padding: 1px 6px;
+  border-radius: 4px;
+}
+
+.run-step-checkin-value {
+  font-size: 13px;
+  font-weight: 500;
+}
+
+/* ── Finalize bar ─── */
+
+.run-finalize-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 0;
+  border-top: 1px solid #F1F1F1;
+  margin-top: 0.5rem;
+}
+
+.run-finalize-hint {
+  font-size: 11px;
+  color: #FA9E52;
+  flex: 1;
+}
+
+/* ── Finish Run modal ─── */
+
+.finish-run-body {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.finish-run-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.finish-run-section-title {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #959595;
+  margin: 0;
+}
+
+.finish-run-checkins {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.finish-run-checkin-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 6px 10px;
+  border-radius: 6px;
+  background: #FAFAFA;
+}
+
+.finish-run-checkin-row--filled {
+  border-left: 3px solid #3BB570;
+}
+
+.finish-run-checkin-row--missing {
+  border-left: 3px solid #FA9E52;
+}
+
+.finish-run-checkin-step {
+  font-size: 12px;
+  color: #6B6B6B;
+  flex: 1;
+}
+
+.finish-run-checkin-input {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.finish-run-checkin-input input {
+  width: 80px;
+  text-align: right;
+}
+
+.finish-run-checkin-unit {
+  font-size: 11px;
+  color: #959595;
+  min-width: 30px;
+}
+
+.finish-run-outputs {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.finish-run-output-row {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px 10px;
+  background: #FAFAFA;
+  border-radius: 6px;
+}
+
+.finish-run-output-fields {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.finish-run-output-qty {
+  width: 80px;
+  text-align: right;
+}
+
+.finish-run-output-unit {
+  font-size: 11px;
+  color: #959595;
+  min-width: 20px;
+}
+
+.finish-run-output-remove {
+  border: none;
+  background: transparent;
+  color: #C0C0C0;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+  transition: color 0.15s;
+}
+
+.finish-run-output-remove:hover {
+  color: #DF5B59;
+}
+
+.finish-run-output-label {
+  font-size: 12px;
+}
+
+.finish-run-add-output {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border: none;
+  background: transparent;
+  color: #C0C0C0;
+  font-size: 12px;
+  cursor: pointer;
+  padding: 4px 0;
+  transition: color 0.15s;
+}
+
+.finish-run-add-output:hover {
+  color: #1C9EFF;
+}
+
+.finish-run-sources {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.finish-run-source-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 10px;
+  background: #FAFAFA;
+  border-radius: 6px;
+  font-size: 12px;
+}
+
+.finish-run-source-label {
+  color: #6B6B6B;
+}
+
+.finish-run-source-delta {
+  color: #959595;
+  font-variant-numeric: tabular-nums;
+}
+
+.finish-run-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 2rem;
+  color: #C0C0C0;
+  font-size: 13px;
+}
+
+.finish-run-error {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  background: rgba(223, 91, 89, 0.06);
+  border-radius: 6px;
+  color: #DF5B59;
+  font-size: 12px;
+}
+
+/* ── Extraction Cockpit (legacy — kept for completed run display) ────────── */
 
 /* Done steps (collapsed summary lines) */
 .cockpit-done-zone {

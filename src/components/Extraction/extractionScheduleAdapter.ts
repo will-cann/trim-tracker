@@ -25,7 +25,7 @@ const PROCESS_COLORS: Record<ProcessType, string> = {
   custom: '#959595',
 };
 
-const DEFAULT_STEP_DURATION_MS = 4 * 60 * 60 * 1000; // 4 hours
+const DEFAULT_STEP_DURATION_MS = 4 * 60 * 60 * 1000; // fallback when step has no estDurationHours
 
 // ── Adapter ─────────────────────────────────────────────────────────────────
 
@@ -65,6 +65,14 @@ export function buildExtractionSchedule(
         continue;
       }
 
+      // Use the step's actual duration from the SOP template (surfaced by
+      // get-extraction-runs JOIN on process_steps). Falls back to 4h if
+      // the step has no estDurationHours (legacy runs, or SOPs without
+      // durations set).
+      const stepDurationMs = step.estDurationHours
+        ? step.estDurationHours * 60 * 60 * 1000
+        : DEFAULT_STEP_DURATION_MS;
+
       let blockStart: Date;
       let blockEnd: Date;
       let isProjected = false;
@@ -74,14 +82,14 @@ export function buildExtractionSchedule(
         blockStart = new Date(step.startedAt);
         blockEnd = new Date(step.completedAt);
       } else if (step.startedAt) {
-        // Active — use actual start, project end
+        // Active — use actual start, project end from step duration
         blockStart = new Date(step.startedAt);
-        blockEnd = new Date(blockStart.getTime() + DEFAULT_STEP_DURATION_MS);
+        blockEnd = new Date(blockStart.getTime() + stepDurationMs);
         isProjected = true;
       } else {
-        // Pending — chain from cursor
+        // Pending — chain from cursor using step duration
         blockStart = new Date(cursor);
-        blockEnd = new Date(cursor.getTime() + DEFAULT_STEP_DURATION_MS);
+        blockEnd = new Date(cursor.getTime() + stepDurationMs);
         isProjected = true;
       }
 
