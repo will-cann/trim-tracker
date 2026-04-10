@@ -17,6 +17,8 @@ export interface ParsedProduct {
     casePrice?: number;
     _selected: boolean;
     _sourceFile?: string;
+    /** Group key — derived from the source file's detected vendor name. Mutable in the review UI. */
+    _vendorGroup: string;
 }
 
 export interface FileStatus {
@@ -24,6 +26,7 @@ export interface FileStatus {
     status: 'pending' | 'parsing' | 'done' | 'error';
     productCount?: number;
     error?: string;
+    detectedVendor?: string;
 }
 
 export interface ParseState {
@@ -100,7 +103,7 @@ export async function processFiles(
 
     const allProducts: ParsedProduct[] = [];
     const allNotes: string[] = [];
-    let detectedVendor = '';
+    let firstDetectedVendor = '';
 
     for (let i = 0; i < files.length; i++) {
         onUpdate(prev => ({
@@ -111,9 +114,11 @@ export async function processFiles(
         try {
             const result = await parseOneFile(files[i]);
 
-            if (result.vendorName && !detectedVendor) {
-                detectedVendor = result.vendorName;
-            }
+            // Each file gets its OWN detected vendor — don't collapse into one
+            const fileVendor = result.vendorName?.trim()
+                || files[i].name.replace(/\.[^.]+$/, '');
+
+            if (!firstDetectedVendor) firstDetectedVendor = fileVendor;
 
             if (result.notes) {
                 allNotes.push(files.length > 1 ? `**${files[i].name}:** ${result.notes}` : result.notes);
@@ -123,13 +128,14 @@ export async function processFiles(
                 ...p,
                 _selected: true,
                 _sourceFile: files[i].name,
+                _vendorGroup: fileVendor,
             }));
             allProducts.push(...fileProducts);
 
             onUpdate(prev => ({
                 ...prev,
                 fileStatuses: prev.fileStatuses.map((s, idx) =>
-                    idx === i ? { ...s, status: 'done', productCount: fileProducts.length } : s
+                    idx === i ? { ...s, status: 'done', productCount: fileProducts.length, detectedVendor: fileVendor } : s
                 ),
             }));
         } catch (err: any) {
@@ -151,7 +157,7 @@ export async function processFiles(
         ...prev,
         step: 'review',
         products: allProducts,
-        vendorName: detectedVendor || prev.vendorName,
+        vendorName: firstDetectedVendor || prev.vendorName,
         notes: allNotes.join('\n\n'),
     }));
 }
@@ -178,13 +184,31 @@ export const MenuUploadModal: React.FC<Props> = ({
     const [saving, setSaving] = useState(false);
     const [notesExpanded, setNotesExpanded] = useState(false);
 
-    const { step, fileStatuses, products, vendorName, notes, error, fileName } = parseState;
+    const { step, fileStatuses, products, notes, error, fileName } = parseState;
     const isUpload = !parseState.active;
     const isParsing = step === 'parsing' && parseState.active;
     const isReview = step === 'review' && parseState.active;
 
-    const setVendorName = (name: string) => onUpdateParseState(prev => ({ ...prev, vendorName: name }));
     const setError = (err: string) => onUpdateParseState(prev => ({ ...prev, error: err }));
+
+    // Group products by vendor for the review UI
+    const vendorGroups = products.reduce<Record<string, ParsedProduct[]>>((acc, p) => {
+        const key = p._vendorGroup || 'Unknown Vendor';
+        if (!acc[key]) acc[key] = [];
+        acc[key].push(p);
+        return acc;
+    }, {});
+    const vendorGroupKeys = Object.keys(vendorGroups);
+
+    const renameVendorGroup = (oldName: string, newName: string) => {
+        if (!newName.trim() || newName === oldName) return;
+        onUpdateParseState(prev => ({
+            ...prev,
+            products: prev.products.map(p =>
+                p._vendorGroup === oldName ? { ...p, _vendorGroup: newName } : p
+            ),
+        }));
+    };
 
     const handleDrop = useCallback((e: React.DragEvent) => {
         e.preventDefault();
@@ -205,29 +229,49 @@ export const MenuUploadModal: React.FC<Props> = ({
         }));
     };
 
-    const toggleAll = () => {
-        const allSelected = products.every(p => p._selected);
+    const toggleAllInGroup = (groupKey: string) => {
+        const group = products.filter(p => p._vendorGroup === groupKey);
+        const allSelected = group.every(p => p._selected);
         onUpdateParseState(prev => ({
             ...prev,
-            products: prev.products.map(p => ({ ...p, _selected: !allSelected })),
+            products: prev.products.map(p =>
+                p._vendorGroup === groupKey ? { ...p, _selected: !allSelected } : p
+            ),
         }));
     };
 
     const handleSave = async () => {
         const selected = products.filter(p => p._selected);
-        if (!selected.length || !vendorName.trim()) return;
+        if (!selected.length) return;
+
+        // Group selected products by vendor and save each group separately
+        const groups = selected.reduce<Record<string, ParsedProduct[]>>((acc, p) => {
+            const key = (p._vendorGroup || '').trim();
+            if (!key) return acc;
+            if (!acc[key]) acc[key] = [];
+            acc[key].push(p);
+            return acc;
+        }, {});
+
+        const groupKeys = Object.keys(groups);
+        if (!groupKeys.length) {
+            setError('All selected products are missing a vendor name.');
+            return;
+        }
 
         setSaving(true);
         onUpdateParseState(prev => ({ ...prev, step: 'saving' }));
         try {
-            await apiService.bulkSaveVendorProducts({
-                vendorName: vendorName.trim(),
-                fileName,
-                products: selected.map(({ _selected, _sourceFile, ...p }) => p),
-            });
+            for (const vName of groupKeys) {
+                await apiService.bulkSaveVendorProducts({
+                    vendorName: vName,
+                    fileName,
+                    products: groups[vName].map(({ _selected, _sourceFile, _vendorGroup, ...p }) => p),
+                });
+            }
             onUpdateParseState(() => EMPTY_PARSE_STATE);
             onSaved();
-        } catch (err: any) {
+        } catch (err: unknown) {
             setError((err as Error).message || 'Failed to save products');
             onUpdateParseState(prev => ({ ...prev, step: 'review' }));
         } finally {
@@ -252,8 +296,10 @@ export const MenuUploadModal: React.FC<Props> = ({
                 isReview ? (
                     <>
                         <Button variant="secondary" onClick={handleBack}>Back</Button>
-                        <Button variant="primary" disabled={selectedCount === 0 || !vendorName.trim() || saving} onClick={handleSave}>
-                            {saving ? 'Saving…' : `Save ${selectedCount} Product${selectedCount !== 1 ? 's' : ''}`}
+                        <Button variant="primary" disabled={selectedCount === 0 || saving} onClick={handleSave}>
+                            {saving
+                                ? 'Saving…'
+                                : `Save ${selectedCount} Product${selectedCount !== 1 ? 's' : ''} (${vendorGroupKeys.length} vendor${vendorGroupKeys.length !== 1 ? 's' : ''})`}
                         </Button>
                     </>
                 ) : isUpload ? (
@@ -348,20 +394,6 @@ export const MenuUploadModal: React.FC<Props> = ({
             {/* Step: Review */}
             {isReview && !saving && (
                 <>
-                    {/* Editable vendor name */}
-                    <div className="field">
-                        <label className="field-label">Vendor Name</label>
-                        <input
-                            className="field-input"
-                            value={vendorName}
-                            onChange={e => setVendorName(e.target.value)}
-                            placeholder="Enter vendor name…"
-                        />
-                        <div className="field-hint">
-                            {vendorName ? 'Detected from file — edit if needed' : 'Could not detect vendor name — please enter it'}
-                        </div>
-                    </div>
-
                     {/* AI Notes summary */}
                     {notes && (
                         <div className="info-panel info-panel--warning" style={{ padding: 0 }}>
@@ -383,7 +415,10 @@ export const MenuUploadModal: React.FC<Props> = ({
                     {hasMultipleFiles && (
                         <div className="info-panel info-panel--success" style={{ flexWrap: 'wrap', gap: '4px 12px' }}>
                             {fileStatuses.filter(f => f.status === 'done').map((fs, idx) => (
-                                <span key={idx}>{fs.name}: {fs.productCount}</span>
+                                <span key={idx}>
+                                    {fs.name}: {fs.productCount}
+                                    {fs.detectedVendor && <em style={{ color: '#959595' }}> → {fs.detectedVendor}</em>}
+                                </span>
                             ))}
                             {fileStatuses.some(f => f.status === 'error') && (
                                 <span style={{ color: 'var(--danger-color)' }}>
@@ -395,11 +430,8 @@ export const MenuUploadModal: React.FC<Props> = ({
 
                     <div className="menu-upload-review-header">
                         <span className="menu-upload-review-count">
-                            {products.length} products found
+                            {products.length} products across {vendorGroupKeys.length} vendor{vendorGroupKeys.length !== 1 ? 's' : ''}
                         </span>
-                        <button onClick={toggleAll} className="menu-upload-toggle-all">
-                            {products.every(p => p._selected) ? 'Deselect All' : 'Select All'}
-                        </button>
                     </div>
 
                     {error && (
@@ -408,45 +440,75 @@ export const MenuUploadModal: React.FC<Props> = ({
                         </div>
                     )}
 
-                    <div className="menu-upload-table-wrap">
-                        <table className="menu-upload-table">
-                            <thead>
-                                <tr>
-                                    <th style={{ width: 30 }}></th>
-                                    <th>Product</th>
-                                    <th>Category</th>
-                                    <th style={{ textAlign: 'right' }}>Unit $</th>
-                                    <th style={{ textAlign: 'right' }}>Case $</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {products.map((p, idx) => (
-                                    <tr
-                                        key={idx}
-                                        onClick={() => toggleProduct(idx)}
-                                        className={p._selected ? '' : 'menu-upload-row--deselected'}
+                    {/* One section per vendor group */}
+                    {vendorGroupKeys.map(groupKey => {
+                        const groupProducts = vendorGroups[groupKey];
+                        const groupSelectedCount = groupProducts.filter(p => p._selected).length;
+                        return (
+                            <div key={groupKey} style={{ marginTop: 16, border: '1px solid #E8E8E8', borderRadius: 8, padding: 12 }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+                                    <input
+                                        className="field-input"
+                                        defaultValue={groupKey}
+                                        onBlur={e => renameVendorGroup(groupKey, e.target.value.trim())}
+                                        placeholder="Vendor name"
+                                        style={{ flex: 1, fontWeight: 600 }}
+                                    />
+                                    <span style={{ fontSize: '0.75rem', color: '#959595', whiteSpace: 'nowrap' }}>
+                                        {groupSelectedCount}/{groupProducts.length} selected
+                                    </span>
+                                    <button
+                                        onClick={() => toggleAllInGroup(groupKey)}
+                                        className="menu-upload-toggle-all"
                                     >
-                                        <td style={{ textAlign: 'center' }}>
-                                            {p._selected
-                                                ? <Check size={14} className="text-primary" />
-                                                : <X size={14} className="text-muted" />}
-                                        </td>
-                                        <td>
-                                            <div className="menu-upload-product-name">{p.name}</div>
-                                            {(p.brand || p.unitSize || p.sku) && (
-                                                <div className="menu-upload-product-meta">
-                                                    {[p.brand, p.unitSize, p.sku].filter(Boolean).join(' · ')}
-                                                </div>
-                                            )}
-                                        </td>
-                                        <td className="text-muted">{p.category || '—'}</td>
-                                        <td style={{ textAlign: 'right' }}>{fmt(p.unitPrice)}</td>
-                                        <td style={{ textAlign: 'right' }}>{fmt(p.casePrice)}</td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
+                                        {groupProducts.every(p => p._selected) ? 'Deselect All' : 'Select All'}
+                                    </button>
+                                </div>
+                                <div className="menu-upload-table-wrap">
+                                    <table className="menu-upload-table">
+                                        <thead>
+                                            <tr>
+                                                <th style={{ width: 30 }}></th>
+                                                <th>Product</th>
+                                                <th>Category</th>
+                                                <th style={{ textAlign: 'right' }}>Unit $</th>
+                                                <th style={{ textAlign: 'right' }}>Case $</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {groupProducts.map(p => {
+                                                const idx = products.indexOf(p);
+                                                return (
+                                                    <tr
+                                                        key={idx}
+                                                        onClick={() => toggleProduct(idx)}
+                                                        className={p._selected ? '' : 'menu-upload-row--deselected'}
+                                                    >
+                                                        <td style={{ textAlign: 'center' }}>
+                                                            {p._selected
+                                                                ? <Check size={14} className="text-primary" />
+                                                                : <X size={14} className="text-muted" />}
+                                                        </td>
+                                                        <td>
+                                                            <div className="menu-upload-product-name">{p.name}</div>
+                                                            {(p.brand || p.unitSize || p.sku) && (
+                                                                <div className="menu-upload-product-meta">
+                                                                    {[p.brand, p.unitSize, p.sku].filter(Boolean).join(' · ')}
+                                                                </div>
+                                                            )}
+                                                        </td>
+                                                        <td className="text-muted">{p.category || '—'}</td>
+                                                        <td style={{ textAlign: 'right' }}>{fmt(p.unitPrice)}</td>
+                                                        <td style={{ textAlign: 'right' }}>{fmt(p.casePrice)}</td>
+                                                    </tr>
+                                                );
+                                            })}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        );
+                    })}
                 </>
             )}
         </Modal>

@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { ArrowLeft, Send, Save } from 'lucide-react';
+import { ArrowLeft, Send, Save, Sparkles, TrendingUp, TrendingDown, Minus } from 'lucide-react';
 import type { Vendor, VendorProduct, Store, PurchaseOrder, PurchaseOrderLine } from '../../types/definitions';
-import { apiService } from '../../services/apiService';
+import { apiService, type OrderSuggestion } from '../../services/apiService';
 import { CenteredSpinner } from '../Spinner';
 
 interface Props {
@@ -20,8 +20,28 @@ export const OrderBuilder: React.FC<Props> = ({ vendorId: initVendorId, orderId,
     const [notes, setNotes] = useState('');
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
+    const [suggestions, setSuggestions] = useState<Record<string, OrderSuggestion>>({});
+    const [loadingSuggestions, setLoadingSuggestions] = useState(false);
 
     const cellKey = (productId: string, storeId: string) => `${productId}::${storeId}`;
+
+    const loadSuggestions = useCallback(async (vid: string) => {
+        if (!vid) return;
+        setLoadingSuggestions(true);
+        try {
+            const result = await apiService.getOrderSuggestions(vid);
+            const idx: Record<string, OrderSuggestion> = {};
+            for (const s of result.suggestions) {
+                idx[`${s.vendorProductId}::${s.storeId}`] = s;
+            }
+            setSuggestions(idx);
+        } catch (e) {
+            console.error('Failed to load suggestions', e);
+            setSuggestions({});
+        } finally {
+            setLoadingSuggestions(false);
+        }
+    }, []);
 
     const loadData = useCallback(async () => {
         setLoading(true);
@@ -41,25 +61,28 @@ export const OrderBuilder: React.FC<Props> = ({ vendorId: initVendorId, orderId,
 
             const prods = await apiService.getVendorProducts(detail.vendorId);
             setProducts(prods.filter(p => p.isActive));
+            loadSuggestions(detail.vendorId);
         } else if (initVendorId) {
             const prods = await apiService.getVendorProducts(initVendorId);
             setProducts(prods.filter(p => p.isActive));
+            loadSuggestions(initVendorId);
         }
 
         setLoading(false);
-    }, [orderId, initVendorId]);
+    }, [orderId, initVendorId, loadSuggestions]);
 
     useEffect(() => { loadData(); }, [loadData]);
 
-    // When vendor changes on new order, reload products
+    // When vendor changes on new order, reload products + suggestions
     useEffect(() => {
         if (!orderId && selectedVendorId) {
             apiService.getVendorProducts(selectedVendorId).then(prods => {
                 setProducts(prods.filter(p => p.isActive));
                 setMatrix({});
             });
+            loadSuggestions(selectedVendorId);
         }
-    }, [selectedVendorId, orderId]);
+    }, [selectedVendorId, orderId, loadSuggestions]);
 
     const activeStores = useMemo(() => stores.filter(s => s.isActive), [stores]);
 
@@ -86,16 +109,60 @@ export const OrderBuilder: React.FC<Props> = ({ vendorId: initVendorId, orderId,
 
     const grandCostTotal = activeStores.reduce((sum, s) => sum + storeCostTotal(s.id), 0);
 
-    const buildLines = (): Array<{ storeId: string; vendorProductId: string; finalQty: number; unitPrice?: number }> => {
-        const lines: Array<{ storeId: string; vendorProductId: string; finalQty: number; unitPrice?: number }> = [];
+    const getSuggestion = (productId: string, storeId: string) => suggestions[`${productId}::${storeId}`];
+
+    const applySuggestions = () => {
+        const m: Record<string, number> = { ...matrix };
+        let applied = 0;
+        for (const p of products) {
+            for (const s of activeStores) {
+                const sug = getSuggestion(p.id, s.id);
+                if (sug && sug.suggestedQty > 0) {
+                    m[cellKey(p.id, s.id)] = sug.suggestedQty;
+                    applied++;
+                }
+            }
+        }
+        setMatrix(m);
+        return applied;
+    };
+
+    const totalSuggestedQty = useMemo(
+        () => Object.values(suggestions).reduce((sum, s) => sum + s.suggestedQty, 0),
+        [suggestions]
+    );
+
+    // Background color for status
+    const statusBg = (status: OrderSuggestion['status'], hasQty: boolean) => {
+        if (hasQty) return '#F0FDF4';
+        switch (status) {
+            case 'red': return '#FEF2F2';
+            case 'yellow': return '#FFFBEB';
+            case 'green': return '#F0FDF4';
+            case 'gray': default: return '#fff';
+        }
+    };
+    const statusBorder = (status: OrderSuggestion['status']) => {
+        switch (status) {
+            case 'red': return '#FCA5A5';
+            case 'yellow': return '#FCD34D';
+            case 'green': return '#86EFAC';
+            case 'gray': default: return '#E8E8E8';
+        }
+    };
+
+    const buildLines = (): Array<{ storeId: string; vendorProductId: string; finalQty: number; autoSuggestedQty?: number; unitPrice?: number }> => {
+        const lines: Array<{ storeId: string; vendorProductId: string; finalQty: number; autoSuggestedQty?: number; unitPrice?: number }> = [];
         for (const p of products) {
             for (const s of activeStores) {
                 const qty = getQty(p.id, s.id);
                 if (qty > 0) {
+                    const sug = getSuggestion(p.id, s.id);
                     lines.push({
                         storeId: s.id,
                         vendorProductId: p.id,
                         finalQty: qty,
+                        autoSuggestedQty: sug?.suggestedQty,
                         unitPrice: p.unitPrice || undefined,
                     });
                 }
@@ -152,6 +219,17 @@ export const OrderBuilder: React.FC<Props> = ({ vendorId: initVendorId, orderId,
                     )}
                 </div>
                 <div style={{ display: 'flex', gap: 8 }}>
+                    {totalSuggestedQty > 0 && (
+                        <button
+                            className="btn-cancel"
+                            onClick={applySuggestions}
+                            disabled={saving || loadingSuggestions}
+                            title="Auto-fill quantities from sales velocity"
+                        >
+                            <Sparkles size={14} style={{ marginRight: 4 }} />
+                            Apply Suggestions ({totalSuggestedQty})
+                        </button>
+                    )}
                     <button className="btn-cancel" onClick={() => handleSave()} disabled={saving}>
                         <Save size={14} style={{ marginRight: 4 }} /> {saving ? 'Saving...' : 'Save Draft'}
                     </button>
@@ -211,22 +289,43 @@ export const OrderBuilder: React.FC<Props> = ({ vendorId: initVendorId, orderId,
                                             <span style={{ fontSize: '0.6875rem', color: '#959595' }}>${p.unitPrice.toFixed(2)}/ea</span>
                                         )}
                                     </td>
-                                    {activeStores.map(s => (
-                                        <td key={s.id} className="data-table-td" style={{ textAlign: 'center', padding: '4px 6px' }}>
-                                            <input
-                                                type="number"
-                                                min={0}
-                                                value={getQty(p.id, s.id) || ''}
-                                                onChange={e => setQty(p.id, s.id, e.target.value ? +e.target.value : 0)}
-                                                placeholder="0"
-                                                style={{
-                                                    width: 60, textAlign: 'center', padding: '4px 6px',
-                                                    border: '1.5px solid #E8E8E8', borderRadius: 6, fontSize: '0.8125rem',
-                                                    background: getQty(p.id, s.id) > 0 ? '#F0FDF4' : '#fff',
-                                                }}
-                                            />
-                                        </td>
-                                    ))}
+                                    {activeStores.map(s => {
+                                        const qty = getQty(p.id, s.id);
+                                        const sug = getSuggestion(p.id, s.id);
+                                        const status = sug?.status || 'gray';
+                                        const TrendIcon = sug?.trend === 'accelerating' ? TrendingUp
+                                            : sug?.trend === 'declining' ? TrendingDown
+                                            : sug?.trend === 'stable' ? Minus : null;
+                                        return (
+                                            <td key={s.id} className="data-table-td" style={{ textAlign: 'center', padding: '4px 6px' }}>
+                                                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
+                                                    <input
+                                                        type="number"
+                                                        min={0}
+                                                        value={qty || ''}
+                                                        onChange={e => setQty(p.id, s.id, e.target.value ? +e.target.value : 0)}
+                                                        placeholder={sug && sug.suggestedQty > 0 ? String(sug.suggestedQty) : '0'}
+                                                        title={sug?.reasoning || undefined}
+                                                        style={{
+                                                            width: 60, textAlign: 'center', padding: '4px 6px',
+                                                            border: `1.5px solid ${statusBorder(status)}`,
+                                                            borderRadius: 6, fontSize: '0.8125rem',
+                                                            background: statusBg(status, qty > 0),
+                                                        }}
+                                                    />
+                                                    {sug && sug.suggestedQty > 0 && qty !== sug.suggestedQty && (
+                                                        <span
+                                                            title={sug.reasoning}
+                                                            style={{ fontSize: '0.625rem', color: '#959595', display: 'flex', alignItems: 'center', gap: 2 }}
+                                                        >
+                                                            sug {sug.suggestedQty}
+                                                            {TrendIcon && <TrendIcon size={9} />}
+                                                        </span>
+                                                    )}
+                                                </div>
+                                            </td>
+                                        );
+                                    })}
                                     <td className="data-table-td" style={{ textAlign: 'center', fontWeight: 600, fontSize: '0.8125rem' }}>
                                         {productTotal(p.id) || <span style={{ color: '#ccc' }}>0</span>}
                                     </td>

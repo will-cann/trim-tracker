@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { Store as StoreIcon, ShoppingCart, Package, Building2, Upload, Loader2, CheckCircle2, X } from 'lucide-react';
+import { Store as StoreIcon, ShoppingCart, Package, Building2, Upload, Loader2, CheckCircle2, X, TrendingUp, Link2, Trash2 } from 'lucide-react';
 import { apiService } from '../../services/apiService';
 import type { Vendor, VendorProduct, Store, PurchaseOrder } from '../../types/definitions';
 import { VendorList } from './VendorList';
@@ -10,6 +10,8 @@ import { OrderList } from './OrderList';
 import { OrderBuilder } from './OrderBuilder';
 import { MenuUploadModal, processFiles, EMPTY_PARSE_STATE } from './MenuUploadModal';
 import type { ParseState } from './MenuUploadModal';
+import { SalesImportModal } from './SalesImportModal';
+import { SkuMatcherModal } from './SkuMatcherModal';
 
 type Tab = 'vendors' | 'products' | 'stores' | 'orders';
 
@@ -22,6 +24,9 @@ export const OrderingDashboard = () => {
     const [loading, setLoading] = useState(true);
 
     const [showUpload, setShowUpload] = useState(false);
+    const [showSalesImport, setShowSalesImport] = useState(false);
+    const [showSkuMatcher, setShowSkuMatcher] = useState(false);
+    const [unmatchedCount, setUnmatchedCount] = useState(0);
     const [buildingOrderVendorId, setBuildingOrderVendorId] = useState<string | null>(null);
     const [editingOrderId, setEditingOrderId] = useState<string | null>(null);
 
@@ -29,6 +34,37 @@ export const OrderingDashboard = () => {
     const [parseState, setParseState] = useState<ParseState>(EMPTY_PARSE_STATE);
     const parseStateRef = useRef(parseState);
     parseStateRef.current = parseState;
+
+    const refreshUnmatchedCount = useCallback(async () => {
+        try {
+            const result = await apiService.getUnmatchedSkus(500);
+            setUnmatchedCount(result.unmatched.length);
+        } catch (e) {
+            console.error('Failed to load unmatched SKU count', e);
+            setUnmatchedCount(0);
+        }
+    }, []);
+
+    const handleClearSales = async () => {
+        const ok = window.confirm(
+            'Delete all imported sales data, inventory snapshots, and AI-generated SKU aliases?\n\n' +
+            'Manual SKU aliases and vendor products will be preserved. This cannot be undone.'
+        );
+        if (!ok) return;
+        try {
+            const result = await apiService.clearSalesData();
+            alert(
+                `Cleared:\n` +
+                `• ${result.salesDeleted} sales rows\n` +
+                `• ${result.inventoryDeleted} inventory snapshots\n` +
+                `• ${result.importsDeleted} import records\n` +
+                `• ${result.aiAliasesDeleted} AI-generated aliases`
+            );
+            refreshUnmatchedCount();
+        } catch (e) {
+            alert('Failed to clear sales data: ' + (e instanceof Error ? e.message : 'unknown error'));
+        }
+    };
 
     const loadAll = useCallback(async () => {
         setLoading(true);
@@ -43,7 +79,8 @@ export const OrderingDashboard = () => {
         setStores(s);
         setOrders(o);
         setLoading(false);
-    }, []);
+        refreshUnmatchedCount();
+    }, [refreshUnmatchedCount]);
 
     useEffect(() => { loadAll(); }, [loadAll]);
 
@@ -136,9 +173,41 @@ export const OrderingDashboard = () => {
                 <div className="header-title">
                     <h4>Ordering</h4>
                 </div>
-                <button className="btn-primary" onClick={() => setShowUpload(true)}>
-                    <Upload size={15} style={{ marginRight: 4 }} /> Upload Menu
-                </button>
+                <div style={{ display: 'flex', gap: 8 }}>
+                    <button
+                        className="btn-cancel"
+                        onClick={() => setShowSkuMatcher(true)}
+                        title={
+                            unmatchedCount > 0
+                                ? `${unmatchedCount} POS SKU${unmatchedCount !== 1 ? 's' : ''} in your sales data don't match any vendor product yet. Click to run AI matching.`
+                                : 'Map POS SKUs from imported sales data to canonical vendor products so order suggestions can use sales velocity.'
+                        }
+                    >
+                        <Link2 size={15} style={{ marginRight: 4 }} />
+                        Match SKUs
+                        {unmatchedCount > 0 && (
+                            <span style={{
+                                marginLeft: 6, fontSize: '0.6875rem', background: '#DC8B47', color: '#fff',
+                                borderRadius: 10, padding: '1px 7px', fontWeight: 600,
+                            }}>
+                                {unmatchedCount}
+                            </span>
+                        )}
+                    </button>
+                    <button
+                        className="btn-cancel"
+                        onClick={handleClearSales}
+                        title="Wipe all imported sales data, inventory snapshots, and AI-generated aliases for this company"
+                    >
+                        <Trash2 size={15} style={{ marginRight: 4 }} /> Clear Sales
+                    </button>
+                    <button className="btn-cancel" onClick={() => setShowSalesImport(true)}>
+                        <TrendingUp size={15} style={{ marginRight: 4 }} /> Import Sales
+                    </button>
+                    <button className="btn-primary" onClick={() => setShowUpload(true)}>
+                        <Upload size={15} style={{ marginRight: 4 }} /> Upload Menu
+                    </button>
+                </div>
             </div>
 
             <div className="extraction-tabs">
@@ -201,6 +270,23 @@ export const OrderingDashboard = () => {
                     onStartParse={handleStartParse}
                     onClose={() => setShowUpload(false)}
                     onSaved={handleUploadSaved}
+                />
+            )}
+
+            {showSalesImport && (
+                <SalesImportModal
+                    stores={stores}
+                    onClose={() => { setShowSalesImport(false); refreshUnmatchedCount(); }}
+                    onImported={refreshUnmatchedCount}
+                />
+            )}
+
+            {showSkuMatcher && (
+                <SkuMatcherModal
+                    products={products}
+                    vendors={vendors}
+                    onClose={() => setShowSkuMatcher(false)}
+                    onSaved={refreshUnmatchedCount}
                 />
             )}
 
