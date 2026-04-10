@@ -41,3 +41,6 @@ Sticker Sheet.png
 # Test data
 test-*.csv
 extraction-transcript.txt
+
+# Meeting minutes (local only)
+meeting-minutes/

@@ -1,0 +1,376 @@
+Meeting Title: neurocann.ai demo
+Date: Apr 6
+Meeting participants: 7thstringstudios
+
+Transcript:
+ 
+Me: Maddie. What up, man?  
+Them: What up, baby?  
+Me: Yo, how you doing, bro?  
+Them: Yo, I don't. I'm on my desktop. I don't have a. I don't have a cam. But it's good to see you looking well, dude.  
+Me: That's all good, dude. Thanks, bro. Yeah. Been. Been an interesting last 18 months. But, yeah, I was working for this healthcare company. And then I got let go, which is over performance and some because I was on track to hit quota and they all my deal end up closing. So there's, I think, some political, honestly. But anyway, so I've been working on. Yeah, exactly. Sales. I've been.  
+Them: Sales. I mean, dude, it's. It's always the chopping block, brother.  
+Me: It's a grind. And.  
+Them: Let me see if I can get my camera up really quickly. I might actually have a web camera, but keep talking. Keep talking. I'm listening.  
+Me: Yeah. Yeah. No. Anyway, it's created a good reason for me to. Work on this narcan. And so originally, like, a couple months ago, I'd rebuilt a couple small features using cloud code, and then I have just been expanding it and, like, really, you know, using what I learned when I was leading the development team a while back and some stuff I learned intermittently and then kind of applying it. And, yeah, I don't know if you got the chance to log in when I sent you. That stuff earlier, did you?  
+Them: No, I have been slammed all day.  
+Me: Okay. All good. All good. No, dude, totally all good. That's. I wasn't expecting it, but I figured if you had, I wouldn't.  
+Them: Yeah.  
+Me: You know, like, start the basics for you. But let me just share my screen really quick. I have, like, four of the same windows open because I'm doing a bunch of local editing. All right, this is the one that's online right now. And so. Whole idea is, like, operations management. Syncs with metric. Right. And sync with other, other platforms as well. I'm working on an ordering workflow. No, no, no, no, no. Yeah. The idea was this would work with metric. Yeah, yeah, yeah, yeah, yeah. Not yet. I haven't actually built the API integrations yet. I'm looking to forget, like, actual testers and customers. And because a lot of the states that require you to spend money to do that, and I'm just, like, not going to spend money until I have actually.  
+Them: Of course. Yeah. It definitely costs money. It's terrible.  
+Me: Yeah. I've got. I've got. Yeah, exactly. And so I'm just trying to get, like, actual people who are interested. So I've got all these different workflows. Like, I don't have anything for, like, edible manufacturing really explicitly yet. Wait, wait.  
+Them: It's cool. No one cares about that.  
+Me: Why is my extraction workspace completely empty? Yeah, I feel like it could be kind of cool to do. Like, right now, I've got, like, a few different things. All right, so I was walking through the basics. This is, like, the main interface if you wanted, you know, start workflows. The idea is that you can start them here. So say, like, what fresh frozen do we have on hand, for example? And do you use, like, chat GPT and stuff? Me too. Okay, cool. Yeah, I don't use chat.  
+Them: Yeah. I mean, I code and cloth, too. Yeah. No.  
+Me: Yeah. Okay, cool, cool, cool. So you're familiar with all the basic.  
+Them: So. I've been building out pos ends of this.  
+Me: Nice, dude. Okay, cool. Sick. I would love to see what you've been working on. So if I want to say, like, you know, let's wash the gelato today or something.  
+Them: Tree.  
+Me: No, I haven't actually seen it. Now.  
+Them: Yeah. So.  
+Me: Yeah, I did know. I remember that. I remember you said it was. It was terrible. And. And I didn't Vibe code all this because I. Yeah, I had a nice, like, starting point with it was, like, the main thing being, like, in typescript, all the types were defined for a different product types. It's still the way that everything links together. We worked on, like, years ago, and now I'm just kind of, like, bringing up the interface and. And adding this AI kind of layer to it, you know?  
+Them: Terrible. Way better.  
+Me: Like. And so.  
+Them: Yeah. This would be. On. Style. I did. 12 pound yield was. Tell me. And then it just, like, does it.  
+Me: Yeah, actually getting the AI to do what you want in different scenarios has been complicated because originally the. Yeah, originally it was, like, not that broad of a scope, but I keep. I keep widening it, whatever. So submitted this abstraction. What I'm working on right now is I got a call with an extractor this morning is this is, like, one of the. Let me just go to the.  
+Them: Okay. Yeah. It's difficult, of course.  
+Me: Make sure I got the right window here. Yeah, this is on my local host, right? So this is in progress. Well, actually, sorry, I'm dumb. Let me just show you what's online. Go back and forth and be indecisive. Have you. You've seen. So you've seen the cultivation of stuff on flow Hub. Then. Feels like yesterday, though. I bet.  
+Them: And I was selling it. So it was completely underdeveloped. They. I mean, it was so rudimentary. It was. They're big selling point was the. The Honeywell scanner. But, yeah, it looked exactly kind of like this shittier. And you basically had. So. So they decided they opted for the Honeywell scanner, which is a barcode scanner. It's. And specifically because metric is based on those barcode tags, which cost a dollar per plan and make everything horrible for everyone.  
+Me: Yeah.  
+Them: But there's just a way to RFID tag all of the metric tags and use an RFID scanner. So instead of manually going and physically tagging every single plant tag, you can wave your RFID scanner across the room and scan everything at once. And they just decided that that was not technology they would like to implement. So they had this. Like. Like a high-tech, low tech solution.  
+Me: How much was it?  
+Them: So during, before they, you know, because, you know, I got. I came in. I came in from tier support, so I was doing, like, escalated support and triage. And I, like, I saw, like, the. The sales team really that good. And, yo, like. Everyone else. So I became sole sales guy at that time. We were pitching, like, a command monthly. Sass kind of thing that was probably.  
+Me: Yeah.  
+Them: I think it was 695 a month. For the combo. And, like, 499 for POS. And, like, realistically, like, POS was 600 a month.  
+Me: And that's just. Was that per station?  
+Them: Per. So. No, no, definitely not per station per location. And then I think 300 additional for additional locations. So, like, you know, we had, you know, many multi-locades on there, nectar in Oregon, the large California chains. I don't know if I'm breaking India at this. I don't think I have anymore.  
+Me: Yeah.  
+Them: But them anyway.  
+Me: Yeah.  
+Them: But they. Had comments that had, you know, 30 plus locations on them. So they were, like, heavy dollar, you know, 10,000, 20, 000 accounts monthly kind of thing, and then people could pay for, like, escalated support packages and. Which is basically just bribing the CEO to take your phone calls.  
+Me: Oh, yeah. And that was. Yeah, exactly. Right. Or get, like, a slack channel or whatever going.  
+Them: Well, that. That was unfortunately where they would. Hang.  
+Me: Yeah, exactly. So, yeah, I guess plant. I'm happy with just because it's like the way the entities exist. As they move through and where I'm kind of working on hardening this a bit is right now. Every strain. Where is this? Where's my strands list? I just moved it. Oh, yeah. Sorry. Some settings now. And so every strain right now is hard coded with, like, a veg length and a flower length, and then you can add stretch and notes. And I'm working on, like, an algorithm that just kind of groups plants by these, like, characteristics as they move through the supply chain. I'm working on cultivation sop, so you can do different ones that kind of show basically what you. What you need to do across the life cycle of this plant. And then when you plant them, it automatically creates these kind of tasks. And kind of assigns them to the team exactly. And so everybody gets their own, like, tasks view of what's actually, you know, applied to them. Etc.  
+Them: So you're really.  
+Me: I just have no experience in that.  
+Them: Good. Okay, I can help you build out a pos with claude for. So. So what I'm seeing is, like, you're. You're building a back end Enterprise software.  
+Me: Yeah. Exactly.  
+Them: And you.  
+Me: This is the front end stuff I'm doing. Hold on. Yeah, keep going.  
+Them: For the back end of client. Yeah.  
+Me: The operation. Yeah. Yeah, yeah. I know, I know.  
+Them: Out of this. System.  
+Me: I may. I might look for a point of sale to. Yeah, keep going. Sorry.  
+Them: And, I mean, realistically. Saying realistically, what I would say with this. With this platform, you want to build it out so it's good enough to get acquired.  
+Me: Yeah, exactly.  
+Them: That would be my goal with this. Like, dut. Y. Have you done a demo of Dutchy? I'm not familiar with their new platform, but I know that they have, like, a pretty robust.  
+Me: Cultivation management.  
+Them: No, no, no, no. I I don't know anything about that. I know that they have a really robust delivery focused and focused front end for people in, like, targeting something like that. Strategy if you're going for that acquisition model.  
+Me: Okay. Nice. Yeah, totally. And then it kind of is the idea, I think, is to build something that works along.  
+Them: Because you don't want to compete as one of these, right? Do you want to, like, do that?  
+Me: No, no, no, I don't.  
+Them: Like, be a tech company in the tech apocalypse.  
+Me: Know. Well, yeah. No, I don't think so. I think I want to just, like, have it as. I'm trying to figure out maybe, like, a side hustle or license it to somebody for, like, an acquisition, right? Yeah. So this is what I've sort of built for my. So I have one. Large operation that I used to consult for, and now a lot of my friends work there, essentially. And so I'm kind of building stuff across, like, what they do. One of them people I'm working with, there's the procurement person. So he kind of walked me through his workflow. And so right now you can, like, upload vendor menus. Right. So this will save all the products. 12 stores. 12 stores.  
+Them: Operating dispensary.  
+Me: 12 stores and vertically integrated, and they have a wholesale arm that sells concentrates everything.  
+Them: And they're running. They're running this beta.  
+Me: That's what I'm working on getting to that point. So I'm kind of, like, building and trying to sell that right now.  
+Them: Oh. Okay. Oh, you're building it for them right now.  
+Me: Yeah, a little bit. Yeah. Like, I. For individual people within the organization where I'm trying to. So they're backed by a company called Chicago Atlantic. That's a private equity group that has stake in, like, a lot of growth across the country, and they have a system called business Central. It's through Microsoft 365. And so my thought is either. Either and, you know, one of the either or maybe both hooking it up to metric and business central. And then so it kind of, like, can live on top, be more user friendly.  
+Them: Got it. Got it.  
+Me: They, you know, they want. They haven't implemented business central at this grow yet, and they think it's going to add a lot of operational drag. And so. Yeah, the other side of this that I haven't uploaded yet in here that I'm working on is basically you upload your sales and then it matches the stuff on the menu to the stuff you've sold. It looks at a sales velocity and then just gives you, like, a reorder right here. So this would, like, so as you're doing your store ordering, because this guy was ordering for 12 stores, right? He's got to look at the sales across all the stores, look at all the menus, and then figure out what he actually needs to order. So I'm trying to streamline that process here.  
+Them: Reports to metric. Oh.  
+Me: And then the sops, I think I'm trying to make it to the point where it's like, right now, this is like your bho basic sop, right? And you can. I'm working on this sop Builder, and one of the parts I'm missing is the ability to kind of pull in these supplies, this, like, non-cannabis inventory, like, oh, we did 100 cartridges that consumed 100 carts of this. Right.  
+Them: Right. Of course.  
+Me: And then just, like, auto doing that as well. So, like, there's, like, a lot of little peripheral pieces I'm still building out. This is the trim management. So, like, basically, if you have a harvest. Sorry.  
+Them: Yeah.  
+Me: So these are all my harvests that are. These are ones I'm planning. This is stuff that would be in the process of being cutted, and then this is, like, just submitted to metric. This is what's hanging right now. And then as soon as it's, like, ready to be trimmed, this is day zero, so not ready, won't we say they're all whatever, which is in theory. This. When it's ready to be trimmed, I hit start binning and then process, you know, a lot of grows. They do hang dry, then goes into bins. Then they take the bins out for the tremors. And when they're done being binning, they go into complete it and they're ready for the tremor. So let's just say this is ready to send a trim. Boom. Then it goes into the trim module into the upcoming. Right. They can start these batches. As they're and essentially track the whole trim process. And you can. I might need to work on some of this. The AI side of it. But if I, like, add another trimmer. Say brian's trimming here. And Jesus is trimming over here. All right, so Jesus is trimming. Whoops. There you go. Yeah. Jesus is trimming the white fire OG, and he trimmed 3502 grams of flour, 470 grams of shake. Yeah, 200 grams of trim and 21 grams of waste.  
+Them: What? A.  
+Me: And so it should. Yeah, exactly. And so it should be listening and updating that. It added Jesus in, which I had already done. Yeah. And so it's like these little things. Yeah.  
+Them: Okay, I got it. Hey, you know.  
+Me: And that updated Jesus knows no batch trimmer ID. So I gotta, like, figure out. I'm trying to get more people to test it so I can, particularly the AI stuff, it's, like, really hard to programmatically test, you know? So I just end up doing this over and over again.  
+Them: It's gonna happen. Of course. You actually. Need advantage testers to basically QA by use. This is actually. It's. This isn't a problem with AI only. This is what I did at flow hub. Like, literally, I would.  
+Me: Yeah.  
+Them: I was. I was their best UI user. So better than that in ways to break and replicate.  
+Me: Yeah.  
+Them: That they never did. So you do live QA, you know, it's like, it's just part of. I mean, bro, like, I can't. This is literally as together as it needs to be to sell, to be honest with you. I have a question. I have a number of people who have, you know, Market growth that probably could utilize. Some. And possibly I might own. This. I don't know about growing, but I have a very good friend who. Is very good. With genetics.  
+Me: Nice. Nice.  
+Them: Like original genetic. No break. Like the seed bank is insane. So. You know, if you wanted to test fly something like that, I want his girl. I can talk to him about it. I'm gonna see him later this week.  
+Me: Ly, man. So, like, once I want to get you set up with that login, and then I would love for you just to show them and get his thoughts, if it would be useful to him for sure. Like, this doesn't have to connect to metric, and you can even, like, when you set up a new account.  
+Them: Yeah, no, absolutely. No connection to magic for us.  
+Me: Yeah, exactly. And so I might need to make, like, another version that's, like, tooled to be 100, like, no metric needed ever. Does that make sense? Just kind of fork it.  
+Them: Yeah.  
+Me: So show him this. Let me know what he thinks. And if he wants that, then I could do that.  
+Them: Yeah, for sure. Yeah. I mean, so I'm, you know, like my. My play also. I mean, right now, what are you doing? You're doing Consulting. That's your main play right now.  
+Me: Well, I I. So I. I lost my, like, two weeks. Two weeks ago. I'm looking for a new job, but I'm. I'm also, like, trying to do this as, like, just to one help, like, you know, my skill with not really programming, especially, like, infrastructure hosting authorization, like, how it all fits together.  
+Them: Oh, okay. Yeah. I mean programming is completely unnecessary at this point. We have a.  
+Me: I know. Yeah, exactly.  
+Them: I. So everyone. Everyone who spent their lives, you know, like, making a lot of money, you know, good for you. You did that. You. You got the time and place, but we're for that.  
+Me: Yeah, exactly. So I'm hoping. That's why, like, what really matters in this situation, right, is, like, what you're not. What's your knowledge of the operations? Yeah.  
+Them: So. Product management, which is what you're doing.  
+Me: Yeah, exactly. Can I get the right feedback? Yeah, exactly.  
+Them: You're doing the right thing. Yeah. Oh, hell, yeah. You got six millions.  
+Me: Yeah.  
+Them: You got. You got six millions in your hand or you a. What do you got in your hand? I just saw those ends. Oh, hell, yeah, brother.  
+Me: Yeah, yeah. You know, bro. You know, I thought you were asking if I had six million dollars. I was like, no, but hopefully.  
+Them: I'm showing you the same, if you could see. No, no, no, no. Six milli zins, bro.  
+Me: I'm trying to sell this company. I'm trying to sell this little app for a million bucks. We'll see what happens. I feel like it's not. It's not unreasonable.  
+Them: I think. I would. I would, you know, I think you have something here. I'm not. I'm not doing full-on smoke up your ass. Like, useful. You've created something useful. What I would say is, like, I would. I would. Build. The detail side of this app because I think, like, if you want a payout, that's how you get it. And I think if you build the retail side of this out, like, edible manufacturing. Grow, it's like the money's not there. You need to be in.  
+Me: Yeah.  
+Them: No, no, no, no, no, no. You need to be in the. You need to be in POS side. You need to be competing on the POS side. You need to be competing in the delivery side. The reigning. I think you can tell this through the remaining, like, consolidated frameworks. If you build this out as an inventory management Logistics system with the POS front end unconnected.  
+Me: Retail.  
+Them: For ducats, I think you can make cash money. I can think of a few that I could pitch this to.  
+Me: And how much you think they would pay for that?  
+Them: I don't know, man. Be hard to get a monthly off. You could do a one-time, like, implementation kind of thing for, like, 10 G's.  
+Me: Yeah. But then. Yeah, exactly. Because. Well, the question is, like, I I could.  
+Them: Maybe more. I mean, some of them will do a monthly, you know, if we're talking about, like, some of the more elevated targets.  
+Me: I would probably be a yearly because it's more like I need to cover, like, my. Yeah, yeah.  
+Them: Are yearly. Yeah, perfect. Yeah. So, I mean, like. But, like, 10. 10 G's a year. Like, I mean, how much does, like, square charge? It's like three percent of transaction, like, so on and so forth. Like, you know, like, there's a. There's a market for this. But that wouldn't be your primary thing.  
+Me: Yeah.  
+Them: I think you go and you pitch this to everyone green market, but also you can make some operating capital. What I'm saying is by tooling this quickly, because it doesn't have to be perfect. It doesn't have to have the AI features to sell this to builder operators that I can connect you with on that side.  
+Me: Interesting. Yeah.  
+Them: That's like a serious need. People have a desire to operate with AI stop loss procedures easily from. The.  
+Me: Yeah.  
+Them: Accessible inventory audits. Like, these are like things that people have built out. Their own systems for sheet based things or they're using, like, you know, CRM platforms or something. Like, these are the things that there's, like. There's huge demand for, I think, and they have direct applications. You're going to see the only way that is going to be through doing kind of like an extended delivery program. That's what I'm working on with a lot of people. And that is because basically there's no, there's no limit on your reach for delivery.  
+Me: Yep.  
+Them: So, like, some, a platform, the only platform right now that has it built in is Dutchy, like any kind of good pickup delivery program has rewards built in. It's not quite the same, but I'm saying you have half of the, half of the here. Like a rough, humble delivery. And inventory system. You know what I mean?  
+Me: Yeah, definitely. I mean, I think it could potentially just be an add-on I build anyway. You know?  
+Them: Yeah. I mean, it's a strip out, if anything. It's an add-on and a strip out of, like, some of the other things. But the, the inventory thing is why I think people would be really interested. Like being able to easily. AI for that, like to it kind of thing for these reader dispatchers. You have no idea what kind of game changer.  
+Me: Yeah, for sure.  
+Them: Has, like, just think about how hard. I don't know, like, how much you know about the logistics of, of, like, I, I mean, I could, I can tell you, I can break it exactly down for you. And it's an incredibly sophisticated logistical operation, and it's incredibly annoying and done by hand. Right. And if you can automate any part of that, you're giving them a huge value add. So, like, I don't know, 1050s a year, not like a lot to most of these people.  
+Me: Yeah. I don't know as much as I. Yeah, I don't. Yeah. Totally. No, that's.  
+Them: You know, especially if you just Target, like, you know, a white glove.  
+Me: Yeah. Yeah. And, I mean, it would be pretty easy for that to do something that just kind of like. Yeah. Tracks their sales, tracks their inventory, tells them what they need more of, what's selling well, what's not selling well. You know what I mean? Yeah.  
+Them: Exactly. Like something that tracked something as simple as inventory by strain is so hard for people to, like, track their self through how fast does this strain?  
+Me: Yeah.  
+Them: Sell in 30 days? Like, if we got, you know, 700 eighths of this, like, how many do we sell? They simply can't get that data. Like that. Has an immediate value to so many current operators and immediate application to legal market as well.  
+Me: Exactly. No, I mean, that's a nice overlap there. This is. Yeah. So I was kind. Yeah. I mean, I just started kind of reaching out to people, and I've got some connections that are there. So that's one of the apis that I've also already conquered in the previous app. So it's like I can. I have to double check on what's changed about it. But here the ordering. This is what I'm working on here. We're not only can you. Upload the menus, but then you can upload your store sales as well. So, like, whatever. I'll just upload a couple of these. Well, let's do all of them. It. So it'll go through, parse all these menus, create the list of products like I showed you a second ago. But then when you upload your store sales, the part I'm working on is it automatically should. Should match the two and then basically recognize velocity par level and create an automatically create an order for you. But, yeah, so stuff along that lines, I could see understanding for retail or for Distributors and delivery.  
+Them: Yeah. Really? A distributor with a people.  
+Me: Yeah.  
+Them: Than anything. It functions less like a store. In terms of, like, you can. See.  
+Me: Because ultimately you're, you are holding your driver accountable for, like, the in and out, right? Like, it doesn't really matter the specifics of each transaction as much as it matters, like what that Rider left with and comes back with. Is that the case? Yeah. And so you're kind of envisioning. Like, yeah, yeah, you're envisioning maybe, like, you get your list of orders in. You assign the deliveries across all your driver, your, you know, delivery people. So then you know where all that inventory is. It kind of puts it that inventory in hold while that's being transacted.  
+Them: Happy.  
+Me: Yeah.  
+Them: One.  
+Me: Yeah.  
+Them: Follow.  
+Me: Yeah. Mushroom operations. Yeah. Yeah. They're Boomer bust. Yeah. It's like cannabis, right? Because if you ever go back. Yeah. Exactly. Yeah.  
+Them: Ing. System. You know, if it can, if you can be like, I can build it to be exactly what you want.  
+Me: Exactly. And I'm trying to, I guess, think about, like, because there's two routes, right? There's, like, build one system that works for everybody. Or, like, build a system for people that works just for them. And the question is, like, how do you help them maintain that system throughout that period? And it's like, can you get them to maintain? Yeah. Yeah.  
+Them: Constant maintenance model, baby. That's exactly what you want. Come on, will. What are we talking about, brother?  
+Me: Yeah. You're a good point.  
+Them: I'm also gonna say you're halfway to a PMT POS back end.  
+Me: Yeah.  
+Them: All you need to do is add the front end to make the sale. Like, you've done all the work already, brother. Like, and you would have had to do for a PO. S. So just add the ability to, like, add things to cart and sell them.  
+Me: Yeah.  
+Them: I'm telling you, bro, like, the interest will spike because you don't even have to be good at that priority. You can make this band the good part of it.  
+Me: Yeah. I'm thinking maybe I even start with, like, a wholesale.  
+Them: Based on that.  
+Me: Checkout process, right? Like, you know, if you're, if you're a wholesale bro, what is a transfer look like? And then that starts to create. Yeah, yeah, yeah.  
+Them: Exactly. That's perfect. That's exactly where you start, dude. And you, and, and transfers. You have transfers already?  
+Me: Not yet. No. Because back in the day, you couldn't do that via api, but I think you can now. So I have to check.  
+Them: Okay. That's super crucial. I know. Yeah.  
+Me: Yeah.  
+Them: You can now. Yeah, you can't. They, they, they didn't let you do it for a while. But even if it's not via API, it doesn't need to necessarily record. Yeah. Because you just need a way to, like, for this to operate, you need to.  
+Me: You can download and upload. Yeah.  
+Them: Real world is useful unless you have some kind of a way first. To have a place for metric ID. And, and a way to upload a CSV.  
+Me: Yeah. Yeah. You can get serious. Yeah.  
+Them: On dead ass. Like, like nothing works. Like every single thing I did was a manual upload. Do you have a metric sandbox?  
+Me: So I used to, but not anymore. I'm kind of working on that, trying to figure out. Yeah. Dude, I used to have one and missouri and Colorado and California.  
+Them: They took mine away. Bro.  
+Me: So I got to figure out how to get that back. But that's why I want to make sure, like, I want to get somebody to see this and be like, look, we need this. Like, we'll partner. We'll back you on, on building the metric integration. That's what I'm looking for. You know what I mean?  
+Them: What kind of, what kind of money are you looking for to, like, get. What kind of, like, investment are you looking for to get to, like, you know, what you would say is, like, alpha version of this?  
+Me: I think it requires both the partner and the investor because I need the feedback that I get from implementing it with metric, Etc. As much as I need the money. So, I mean, I'm thinking like 15 or 20 grand and then they might get some equity or some like that can be credited towards future use or something. You know what I mean? If that makes sense. And then, yeah, they, they agree to implement it and actually, like, onboard and do, like, at least three months of, like, full testing and feedback integration.  
+Them: So you want basically a, you want a licensed, possibly multi location Partner.  
+Me: Partner. Yeah. Exactly. Yeah.  
+Them: Yeah. Like, you don't want to try this with a micro.  
+Me: I mean, I, I'm happy to get feedback from micros. It just doesn't do anything for me because they aren't.  
+Them: They're not an Enterprise, really.  
+Me: Exactly. And, like, it's, it's, I want, I'm trying to find a few big Enterprise clients that this is something that I just make money off of and don't have to, like, go sell to every small grow and then maintain, like you said, like sass and, like, you want the big customers that want custom features that you have to build and maintain, not these small people who are, like, calling, like, oh, it's not working. And I only pay, like, nine dollars a month. You know what I mean?  
+Them: Yeah, yeah, yeah. Yeah. Small, small customers, big problems, big customers.  
+Me: Yeah, exactly. Yeah. Yeah.  
+Them: Less. Yeah. I, I have one person in mind that I'm talking to. I'm trying to get them kind of like a member of each.  
+Me: Where are they? Base?  
+Them: All over. There's two card locations, and then they're somehow acquiring. Like, I haven't been able to understand how they're acquiring licenses, but this guy is telling me he's acquiring licenses, so they just purchased two in Ithaca.  
+Me: Okay.  
+Them: I'm not sure exactly if he's buying controlling shares in, like, existing licenses or how exactly it's working, but he's telling me he's gonna have five stores, so I'm, I'm like, okay, dude, you need me. To staff up your stores and drive your sales. Like, that's, like, my pitch. And also do your logistics and clean up these stores you're acquiring that have been operating.  
+Me: Exactly.  
+Them: But that's the only person I can think of who I could pitch this to in who, like, kind of, like, hits those quotas for you. But I will pitch it to him for sure. Because, but I just, I don't know how he, how he's operating right now is kind of. It's, there's a lot of stop and go, you know, with, in this process. Like he is fighting for a location in Long Island City. He's fighting for a location. And it's all, like, proximity fights and stuff, you know, like, and, like, Community board.  
+Me: No. Yeah. And that's the stuff I, I can't. Yeah, exactly. And that's why it's such a crazy problem to sell to these companies because it's like figuring out when they're going to be ready is so hard.  
+Them: So it's taken a while. It's taking a while. Well. New York is pathetic right now. I mean, it's really, it's such a dead Market. I don't, I don't know, man. You know, there's. A, if, if you got this polished for the back end. I could talk to some of the people who are in native roots still, but the chance of stealing them away from their sweetheart deals with whoever the they're using now, I think they moved off low Hub.  
+Me: Yeah. I mean, those guys are generally sometimes looking always.  
+Them: But.  
+Me: For, they're always looking for someone new to suck their dick to.  
+Them: They get their dick sucked. They are. That's what I'm saying. So maybe they're ready to jump ship. I mean, like, you know, you never know, but you'd have to come with the full package to steal someone like that. You understand what I'm saying? So, like, that would be very much about trying to come with a full, a full polished product that hits everything.  
+Me: Yeah. Yeah.  
+Them: And then, you know, like, trying to get that meeting. I don't know how successful that would be. And, and those people suck.  
+Me: No, I know. And that's what. I'm.  
+Them: They do like me, though.  
+Me: Hey, you did a lot for them. And. Oh, yeah. I mean, and you were on both sides of that with the flow up stuff. But.  
+Them: I was on both sides of it, but also, like, I'm one of the only people to have quit put my two weeks notice and be eligible for rehire for my store for three years, believe it or not.  
+Me: Dan, that's crazy.  
+Them: Because I, it was crazy, dude. I fired 120 people when I ran that store.  
+Me: That's a huge number.  
+Them: In a year. It's a huge number, bro. It's a. Well, what's crazy is, you know what the, the, the, the training acquisition cost of an employee at that store is?  
+Me: Like 12 grand or something. Okay.  
+Them: It's not that high, thank God. But it's, I say it's about 4800.  
+Me: Yeah.  
+Them: Right. So, like, for them to break even on that, you need an employee to stay roughly two to three months. The average employee was getting fired, like, in six weeks.  
+Me: That's crazy.  
+Them: Because of their policies, bro. They had a wild drawer policy that they were, like, being really up about.  
+Me: Oh, like five cent discrepancy.  
+Them: Five dollar over under. Five dollar over under. But, like, you know, we were transacting close to, like, 300k a day in cash.  
+Me: Yeah.  
+Them: So, like, five dollars over under is like, it's, it's pretty egregious. Like, if someone is literally, like, five dollars and 17 cents over, like, I'm sweeping it, but, like, you know, if you're twenty dollars short, twenty dollars, if you're over, you should never get penalized.  
+Me: It's too little. Yeah. For us. No, you should never get. No, I agree. But I kind of love. We would do, like, anywhere between, like, a three and ten thousand dollar drawer, and we would get, like, I think it was ten dollars, but usually if you were off, you just had to. You just had to pay it out of your tips. Yeah, exactly. Yeah.  
+Them: Ten dollars is better. You just put it in. Exactly. But, but kind love, you know, remember, con love had one location when you're, you were there, right? Or was it still two?  
+Me: It was, it was, it was just, it was just, it was just wrecking bed on top of each other. Yeah.  
+Them: Or is it two locations to wreck and med? Yeah. So, like, that made the vibe so different. Like, I mean, like, dude, native had 32 stores.  
+Me: Yeah. Yeah. Insane.  
+Them: Bro. Like, when I was running Edgewater, we had 28 stores, bro. And I was like, Jesus Christ, bro. Like, it, it functioned like a McDonald's, and it paid less.  
+Me: Yeah, exactly. That's the real problem. Yeah.  
+Them: Like, you know, like. No, they treated people like it was terrible.  
+Me: Yeah.  
+Them: But, yeah, kind love was a better choice, honestly.  
+Me: I got, I got lucky, man. I used to shop there, and then they were like, you should come work here. And I was like, sure. And then work my way up.  
+Them: Dude, I I shop there, too, dude. That was like, that was where I went to, like, get when that cannabis Maximus came out. They were the only ones who had that. You remember that the first HT FSE?  
+Me: Yeah, yeah, yeah. Yeah. Canvas Maximus. Yeah, I think I, I literally, yeah, I think I remember when you came and bought it for me. Honestly, I honestly think I do.  
+Them: Yeah. There was, like, lines out the door. Canvas Maximus. Yeah. Yeah. Yeah. I came with, like, a half black kid. Like, his name was. His name was Trayvon Hammer. He was a customer at my store, and literally, we had never hung out, bro. It was like a blizzard.  
+Me: That's hilarious.  
+Them: And, like, he drove. We drove from my crib, and, like, it took, like, an hour and a half, bro. And we almost died a bunch of times. We got in there. That was crazy, bro. Like, it was weird. I used to hang out with customers, and that was such a trip.  
+Me: Me too. Me too. Colorado is sick. I mean, I feel like in Colorado, you just, like, meet people, hang out. It was safe. Exactly. And then now.  
+Them: It was safer. Yeah. And also I had the strap. Like, I mean, I'd shoot you if you.  
+Me: Yeah. Yeah, exactly. What you can't do in New York. So it becomes a different, different game entirely. Yeah. Yeah.  
+Them: Man, I'll do what I want, but, yeah.  
+Me: Yeah.  
+Them: But no, it was nice to have the pew pew on you. I wish we could have the get in the car here. This is getting spicy, bro. I'm. I just got married, man. I moving Upstate.  
+Me: Oh. Congrats, dude. That's sick. Yeah. I mean, hopefully it works out with you going to Ithaca and all that.  
+Them: And. Yeah. Oh, I'm hell. No, I'm not going to Ithaca. I just. I may try to get a get a consulting gig with that guy. That's. That's the thing. I'm doing.  
+Me: Yeah, yeah. Yeah. How much, how much you have to spend there?  
+Them: How much time? I don't know. Probably like a few weeks. It wouldn't be that bad. I mean, Ithaca is a really shitty place, but, you know, surprising amount of, like, black market move through there for, like, a long time. Like Ithaca, Buffalo. Like, they were huge hubs. Like, they have good weed out there sometimes. It's weird. Their weed is probably better than the weed around here in the Hudson Valley, like, and the New York weed. I mean, this. This legal dispensary is crazy bad. I don't understand how anyone is smoking this. It's like I haven't gotten anything smokable.  
+Me: Yeah, it's people who aren't really, you know, smokers like that.  
+Them: But that's. It's. It just shows you the. The consumer does not give a. And they just go for convenience. And all these people who, like, stress quality and stuff. It doesn't matter in the broader Market. You're really just, like, talking to a niche.  
+Me: Yeah. Well, the new sky Intel spends like, what, 10x, 20x. Yeah.  
+Them: Kind of clientele. You know? Way more. Yeah. I'd say 30x, probably. I mean, like, when a native, I'd say. I mean, you saw this, too. Like, you had, like, your extract smokers, and they would. What? They would be. They would take 10, 10 times the amount of your time, but they would usually spend.  
+Me: Yeah. Yeah. Yep.  
+Them: Like, 5x of any other customer, because most customers are just buying, like, a couple pre-rolls to, like, smoke for the day.  
+Me: Most customers. Yeah, I think our average for, like, people who weren't buying concentrates was like 40 or 60. And people who were was like 180 or something.  
+Them: Of course. Yeah. Because by Nature, they're more expensive. And also people are douchier who, like, concentrates.  
+Me: Yeah. Well, yeah. I feel like there's a way to get them out of your store quickly, though. You know what I mean? You just start ignoring them and talking to somebody else.  
+Them: Bro. Our average ticket before. Oh, yeah. No, definitely.  
+Me: Yeah.  
+Them: You can turn in. You can turn and burn them for sure. Dude, my ticket average before they change the edible equivalency was way higher than that, dude. I was moving boxes of cheap shoes to from Utah who just turned 18 or whatever, or 21. Yeah, dude, I mean, we used to sell.  
+Me: Yeah. Sick.  
+Them: Like, it would be like a four thousand dollar transaction for, like, 40 individuals even choose, no discount.  
+Me: Yeah.  
+Them: And people would buy it because they would go back to Utah and just flip them.  
+Me: Stone for 20 bucks each or whatever. Yeah.  
+Them: What a trip Colorado was, dude.  
+Me: Dude, where's a crazy time and place? Now it's. Yeah, I mean, I've been out of the game, which I've been kind of happy about because it's like other industries are more stable.  
+Them: I'm not there.  
+Me: Yeah.  
+Them: Dude. I. It's the best. It's absolutely the best to not be in the game, dude. I don't. I mean, I'm not. I won't talk about it here, but I got other things going on. But I'm mainly doing the Consulting thing. Nowadays. Because, you know, as I said, I got married. I'm trying to have a kid just, like, trying to move it on.  
+Me: It needs stability. Yeah, bro. Well, let me know what people you say. Like, let me know if you can log in. I've got notes and everything we talked about, so I'm going to try to implement some of that stuff. I'll talk like if anybody you show it to is interested, like, I would love to chat with them. And, yeah.  
+Them: Yeah, for sure. I'll show it to my. My partner in the logistics thing, because, as I said, I think a lot of these workflows. Could be useful. For people. And also, if. You're. Do you need help with the API integrations in terms of the programming end?  
+Me: I mean, I. No, I'm now. I'm pretty good there. I think, like, with me and Claude, I'm. I certainly don't want to spend any money on it or cut anybody in on it right now. So it's like, I'm happy to, like, pay people that bring me in money, if that makes sense. But otherwise, it's like, yeah, if I can't figure it out myself, then we'll figure. We'll see. Cross the bridge when we get there. You know what I mean?  
+Them: I might know some people. Of course. Yeah. I mean, anthropic is gonna figure it out eventually.  
+Me: I mean, dude, will postman is like the API platform? Even they have, like, you just tell it what API you want to work with and it can write the code for you now, too. It's like everything can do it. So.  
+Them: You can't figure it out right now. It's pretty scary, man. It's exponential growth.  
+Me: I know. And it's like, it's.  
+Them: In, like, a year.  
+Me: It's one thing when you're working at a company getting paid to sell it, it's another one you're just like another person who's unemployed looking at it happening. I will say.  
+Them: And it's the apocalypse, too.  
+Me: That's. Yeah.  
+Them: Yep. Yeah.  
+Me: But, yeah, my goal is to make this useful even without the AI, but then the AI makes it really simple and easy.  
+Them: Yep.  
+Me: So we'll see.  
+Them: Yeah. No, the AI that. Unfortunately, it's a buzzword, and it might be a path to closing with this kind of stuff.  
+Me: I know it will be. I mean, if. If you go to the website, you'll see it's very AI centered.  
+Them: Yeah. I mean, as I said, like, I I. You get it. If you get it a little more rounded, you know, like, I think, like, you know, this is sellable.  
+Me: Yeah.  
+Them: You know, by you, by anyone, a bunch of sharks on team and just start selling this. What I would do if I were you is I would. And hire a sales team.  
+Me: I need. Well, there's two hours.  
+Them: And then develop as you go, bro. Like, that's what all of these idiots do.  
+Me: Well, that's why I don't. I don't know that I need a sales team, but I do need some money because I think I would just set up, like, a lot of automated outbound and maybe some social media stuff and try to do it. Like as much product led as possible, like, make it like, and make it. Yeah. Like, you sign up, you blah, blah, blah. Like, you don't. You know what I mean? And then for the Enterprise stuff, when. When somebody from, you know, whatever signs up, then I go reach out to them and offer, like, the actual sales process and hire people. But I just need money before I. Well, yeah, I could take on an investor, but I don't, you know, it's. It's hard to raise money.  
+Them: Yeah, you can do one. Yeah, no, of course.  
+Me: If you know anybody. I'm open to it. All right, bro, I'm gonna run it.  
+Them: Of course.  
+Me: Oh.  
+Them: I mean, I I know a lot of people with money, so.  
+Me: If you think of somebody who you maybe should pitch an investor, then I'll chat with them for sure.  
+Them: You know, if you. Yeah, no, let me show it to my buddy. I'll. I'll let you know. Because I think this is cool, you know, and it has some potential for sure. I'm glad you worked on.  
+Me: It's been fun, bro. It's. It's cool to see what you can do. And I just love the idea of, like, oh, we always imagine that. What about this and this? I'm working towards this, like. Ultimate kind of, like, God mode where you can say, oh, let's plan our entire production cycle, which I know is, like, a bit of a fantasy because it always needs to change. Right. But say, like, this quarter, we're gonna grow these plants. These plants are going to go to this pipeline that's going to produce these products. We can project it out, like, and just be able to see that all in the system would be sick. You know?  
+Them: That. That would be something I. Yeah. If you want help building out, as I said, the. The POS and edible workflows because you don't understand the logistics of that. Yeah, I'm happy to help you do that, too, because as I think. I think that the more complete the product is, the better it is to sell as much as that sucks.  
+Me: Yeah.  
+Them: Focusing on the global, even if you're doing it shitty is unfortunately the way it works nowadays. You know what I mean?  
+Me: Gotta have something for everybody.  
+Them: Like.  
+Me: Yeah.  
+Them: It's just like people will just always be like, oh, but it doesn't do this. And you'll be like, suck my dick.  
+Me: Yeah.  
+Them: It's not supposed to do that. And you'll be like, but I wanted to do that. You know, that was what I ran into all the time at flow Hub. Oh, it doesn't do this in the way I want it to. Yeah, well, we can do it this way. Great. So we're creating workarounds for everything. You know what I mean? Like, and that's kind of the beauty of an AI based system, is you could just tell it what you want and go for it.  
+Me: Yeah. Yeah. That's the goal. Yeah. All right, bro. Well, thank you for your feedback. I'll let me know when you log in or whatever. We'll stay in touch. I gotta go.  
+Them: Yeah.  
+Me: Have lunch with my mom before I have mother this afternoon. But. Yeah, dude, I appreciate your time. And, yeah, we'll stay in touch. I'll shoot you a text.  
+Them: God bless. Brother.  
+Me: All right. Thanks, Maddie. Yeah, dude.  
+Them: Sounds great, man. Thanks for taking the time. Peace.  
+Me: Peace.  
+Them: Bro.  
+Me: Call for everybody.
+
+---
+
+## Notes — 2026-04-06 — neurocann.ai demo w/ Maddie (7thstringstudios)
+
+### Context on Maddie
+- Ex-Flowhub: tier support → solo sales; saw the product up close and sold it to multi-location operators (Nectar OR, large CA chains, Native Roots ~32 stores, Edgewater ~28).
+- Flowhub pricing recall: ~$695/mo combo, $499/mo POS, +$300/mo per additional location. Big accounts hit $10-20k/mo.
+- Now consulting; building POS workflows with Claude. Getting married, moving upstate, trying to stabilize income.
+- Has network: retail operators, a multi-license NY operator acquiring stores (2 in Ithaca, targeting 5), a genetics/seed-bank friend, logistics/delivery partners.
+
+### Maddie's read on neurocann.ai
+- "As together as it needs to be to sell." Encouraging — not blowing smoke.
+- Sees it clearly as **back-end enterprise software** (ops/inventory/logistics), not a grower tool to sell one-off.
+- Strong advice: **build toward acquisition**, not toward competing as an independent tech company ("don't be a tech company in the tech apocalypse").
+
+### Strategic recommendations from Maddie
+1. **Round out the product** before serious pitches — completeness matters more than polish. "Focusing on the global, even if shitty, is unfortunately how it works."
+2. **Add a POS / retail front end** — "you're halfway to a POS back end." Even a wholesale checkout / transfer flow is the right wedge. Transfers are critical.
+   - Start with wholesale transfer flow → grows into full POS.
+   - API transfers with METRC used to be blocked but may now be possible; even CSV upload path is valuable.
+3. **Delivery + logistics inventory system** is a real underserved niche. Only Dutchie has good integrated pickup/delivery + rewards. Delivery ops are sophisticated, manual, and desperate for automation. "AI stop-loss procedures, accessible inventory audits" — high demand.
+   - Key value prop: inventory-by-strain velocity ("how fast does this strain sell in 30 days, how many eighths of 700 did we move?") — most operators literally cannot get this today.
+4. **Target enterprise / multi-location operators**, not micros. Small customers = big problems; big customers = fewer, richer problems and custom feature work you can charge for.
+5. **Constant maintenance / yearly license model** is the right shape.
+6. **Pricing intuition**: one-time implementation ~$10k, maybe monthly on elevated targets, yearly ~$10k+ for delivery/logistics tooling. Square comparison: 3% per transaction; room for a different cut.
+7. **Live QA > programmatic QA** for the AI layer — get real users to break it (this is what he did at Flowhub). Matches my existing gap: AI is hard to test programmatically.
+8. **AI is a buzzword closer** — lean into it in pitches even if the real value is the workflow automation.
+
+### Investment / partnership framing I floated
+- Looking for **$15–20k + a licensed multi-location partner** willing to do ≥3 months of implementation and feedback in exchange for equity or credits toward future use.
+- Partner is as valuable as the cash — need real METRC integration feedback, and need to re-acquire a METRC sandbox (lost the MO/CO/CA ones).
+- Pitch positioning: help us build the METRC integration with you, you get preferred terms.
+
+### Leads Maddie offered to make
+- **Delivery/logistics partner** he's working with → inventory + delivery tooling fit.
+- **Multi-license NY operator** acquiring stores (Ithaca + Long Island City fights) — possibly an enterprise partner match, but pipeline is stop/go due to community-board delays. Caveat: timing unpredictable.
+- **Genetics/seed-bank friend** — potential test-fly user for a non-METRC cultivation build.
+- **Ex-Native Roots contacts** — long shot; would require a fully polished product to displace incumbents.
+
+### Action items for me
+- [ ] Get Maddie set up with a login; walk him through it or let him self-serve.
+- [ ] Consider a **no-METRC fork/mode** for Maddie's genetics friend and similar test-fly users (toggleable at account creation).
+- [ ] Investigate current METRC transfer API status (was blocked historically, may now be open). Document the CSV fallback path regardless.
+- [ ] Scope a **wholesale transfer flow** as the first retail-adjacent wedge — this is the cheapest path toward the "POS back end" framing Maddie validated.
+- [ ] Scope a **delivery/logistics lite** mode: driver assignment, inventory on-hold during transit, in/out accountability, velocity-by-strain reporting.
+- [ ] Re-acquire a METRC sandbox (MO/CO/CA).
+- [ ] Finish the sales-upload → menu-match → velocity → auto-reorder flow for ordering (already in progress) — this directly supports the delivery/logistics pitch.
+- [ ] Keep leaning on product-led growth + targeted enterprise outbound rather than hiring a sales team.
+
+### Signals worth saving to memory
+- External validation that the **retail/wholesale transfer + POS back-end** direction has real acquisition value — aligns with but sharpens the current cultivation/extraction focus.
+- External validation that **delivery/logistics inventory tooling** is an underserved niche with direct application of the velocity/ordering work already in flight.
+- Reinforces existing memory on live QA over programmatic QA for AI flows.
+
