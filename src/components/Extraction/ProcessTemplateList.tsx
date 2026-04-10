@@ -10,6 +10,19 @@ import { CenteredSpinner } from '../Spinner';
 
 type MaterialOption = { value: string; label: string };
 
+// Fallback display: snake_case → Title Case. Used when a product type
+// isn't in the loaded catalog (shouldn't happen often, but defends
+// against stale references or in-flight catalog updates).
+function humanizeSlug(slug: string): string {
+    return slug
+        .replace(/_/g, ' ')
+        .replace(/\b\w/g, c => c.toUpperCase());
+}
+
+function displayFor(materialLabels: Record<string, string>, name: string): string {
+    return materialLabels[name] || humanizeSlug(name);
+}
+
 function buildMaterialLabels(productTypes: ProductType[]): Record<string, string> {
     const labels: Record<string, string> = {};
     for (const pt of productTypes) labels[pt.name] = pt.displayName;
@@ -210,7 +223,7 @@ const StepFlow: React.FC<StepFlowProps> = ({ steps, color, materialLabels, hasPr
                                     <ArrowRight size={12} style={{ color: excluded ? '#E8E8E8' : (active ? color : '#D0D0D0') }} />
                                     {step.inputType && step.inputType !== prevStep?.outputType && !excluded && (
                                         <span className="sop-flow-transition">
-                                            {materialLabels[step.inputType] || step.inputType.replace(/_/g, ' ')}
+                                            {displayFor(materialLabels, step.inputType)}
                                         </span>
                                     )}
                                 </div>
@@ -268,7 +281,7 @@ const StepFlow: React.FC<StepFlowProps> = ({ steps, color, materialLabels, hasPr
                                         {step.outputType && (
                                             <div className="sop-flow-node-output">
                                                 <span className="sop-flow-material-pill sop-flow-material-pill--sm">
-                                                    → {materialLabels[step.outputType] || step.outputType.replace(/_/g, ' ')}
+                                                    → {displayFor(materialLabels, step.outputType)}
                                                 </span>
                                             </div>
                                         )}
@@ -909,7 +922,7 @@ const TemplateCard: React.FC<{
                 const lastStep = [...template.steps].sort((a, b) => b.stepOrder - a.stepOrder)[0];
                 return lastStep?.outputType ? [lastStep.outputType] : [];
             })();
-        return outputs.map(name => ({ value: name, label: materialLabels[name] || name.replace(/_/g, ' ') }));
+        return outputs.map(name => ({ value: name, label: displayFor(materialLabels, name) }));
     }, [template.producibleOutputs, template.steps, materialLabels]);
 
     const handleInputClick = (input: string) => {
@@ -1005,7 +1018,7 @@ const TemplateCard: React.FC<{
                                             style={selectedInput === input ? { background: color, borderColor: color } : undefined}
                                             onClick={() => handleInputClick(input)}
                                         >
-                                            {materialLabels[input] || input.replace(/_/g, ' ')}
+                                            {displayFor(materialLabels, input)}
                                         </button>
                                     ))}
                                 </div>

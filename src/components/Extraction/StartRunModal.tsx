@@ -23,6 +23,13 @@ const PROCESS_ICONS: Record<string, typeof Snowflake> = {
 // Material labels and product variants are now catalog-driven.
 // Loaded from apiService.getProductTypes() at mount time.
 
+// Title-case a snake_case slug as a fallback when a product type isn't
+// in the loaded catalog. Prevents raw "bho concentrate" from ever showing.
+const humanize = (slug: string) =>
+    slug.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+const displayFor = (labels: Record<string, string>, name: string) =>
+    labels[name] || humanize(name);
+
 // ── Capacity chain calculation ───────────────────────────────────────────────
 
 interface StepProjection {
@@ -166,7 +173,7 @@ export const StartRunModal: React.FC<StartRunModalProps> = ({ templates, onClose
                 .map(pt => pt.name);
         return outputs.map(name => ({
             value: name,
-            label: materialLabels[name] || name.replace(/_/g, ' '),
+            label: displayFor(materialLabels, name),
         }));
     }, [selectedTemplate, productTypes, materialLabels]);
 
@@ -241,7 +248,7 @@ export const StartRunModal: React.FC<StartRunModalProps> = ({ templates, onClose
 
         let productLabel = '';
         if (targetProduct) {
-            productLabel = materialLabels[targetProduct] || targetProduct.replace(/_/g, ' ');
+            productLabel = displayFor(materialLabels, targetProduct);
         } else {
             productLabel = selectedTemplate?.name || 'Run';
         }
@@ -379,7 +386,7 @@ export const StartRunModal: React.FC<StartRunModalProps> = ({ templates, onClose
                                         <span className="start-run-template-name">{t.name}</span>
                                         <span className="start-run-template-meta">
                                             {requiredSteps.length} steps
-                                            {firstInput && ` · Starts from ${firstInput.replace(/_/g, ' ')}`}
+                                            {firstInput && ` · Starts from ${humanize(firstInput)}`}
                                         </span>
                                     </div>
                                     <ChevronRight size={16} style={{ color: '#C0C0C0' }} />
@@ -406,7 +413,7 @@ export const StartRunModal: React.FC<StartRunModalProps> = ({ templates, onClose
                             <p className="start-run-hint">
                                 This process accepts{' '}
                                 <strong>
-                                    {acceptedInputs.map(i => materialLabels[i] || i.replace(/_/g, ' ')).join(', ')}
+                                    {acceptedInputs.map(i => displayFor(materialLabels, i)).join(', ')}
                                 </strong>
                                 . Select the packages to use as input.
                             </p>
@@ -437,7 +444,7 @@ export const StartRunModal: React.FC<StartRunModalProps> = ({ templates, onClose
                                             className={`start-run-type-pill ${typeFilter === type ? 'start-run-type-pill--active' : ''}`}
                                             onClick={() => setTypeFilter(prev => prev === type ? null : type)}
                                         >
-                                            {materialLabels[type] || type.replace(/_/g, ' ')} ({count})
+                                            {displayFor(materialLabels, type)} ({count})
                                         </button>
                                     ))}
                                 </div>
@@ -448,7 +455,7 @@ export const StartRunModal: React.FC<StartRunModalProps> = ({ templates, onClose
                             <p className="start-run-empty">Loading packages...</p>
                         ) : relevantPackages.length === 0 ? (
                             <p className="start-run-empty">
-                                No active {hasInputFilter ? acceptedInputs.map(i => (materialLabels[i] || i.replace(/_/g, ' ')).toLowerCase()).join(' or ') : ''} packages found.
+                                No active {hasInputFilter ? acceptedInputs.map(i => displayFor(materialLabels, i).toLowerCase()).join(' or ') : ''} packages found.
                             </p>
                         ) : (
                             <div className="start-run-pkg-list">
