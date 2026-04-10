@@ -55,43 +55,101 @@ export const PlanningCalculator: React.FC = () => {
 
     const selectedPt = productTypes.find(pt => pt.name === targetOutputType);
 
-    // Per-strain biomass availability — sum all active biomass packages per strain.
-    // When the user picks a target output, we'd ideally filter to the specific
-    // biomass that SOP accepts, but without running the full planner we don't
-    // know which one — so show total biomass across all types. Good enough for
-    // sorting the list; the real gap check runs server-side during Calculate.
+    // When a target product is selected, figure out which biomass types
+    // its matching SOPs actually accept. This lets the strain dropdown
+    // show availability of the RIGHT biomass (not just "any biomass") —
+    // so fresh frozen inventory doesn't get counted for a dry-flower SOP.
+    const relevantBiomassTypes = useMemo(() => {
+        if (!targetOutputType) return null; // null = "no target yet, show all biomass"
+        const set = new Set<string>();
+        // Walk backward from the target through any matching SOP's first step,
+        // following the input chain until we hit biomass. Simple one-hop for
+        // single-stage SOPs; full chain via plan-backward for multi-stage.
+        // Here we just collect the "first input" of any SOP producing the target.
+        for (const t of templates) {
+            if (!t.producibleOutputs?.includes(targetOutputType)) continue;
+            // The first required step's input_type is the biomass entry point.
+            // If the first step's input isn't biomass, walk back through SOPs
+            // that produce that intermediate until we find biomass.
+            const firstStep = t.steps?.find(s => !s.isOptional);
+            const firstInput = firstStep?.inputType || t.acceptedInputs?.[0];
+            if (!firstInput) continue;
+
+            // If the first input is biomass, we're done for this template
+            const firstPt = productTypes.find(pt => pt.name === firstInput);
+            if (firstPt?.category === 'biomass') {
+                set.add(firstInput);
+            } else {
+                // Recurse one more hop: what biomass feeds into SOPs producing firstInput?
+                for (const t2 of templates) {
+                    if (!t2.producibleOutputs?.includes(firstInput)) continue;
+                    const s2 = t2.steps?.find(s => !s.isOptional);
+                    const in2 = s2?.inputType || t2.acceptedInputs?.[0];
+                    if (!in2) continue;
+                    const pt2 = productTypes.find(pt => pt.name === in2);
+                    if (pt2?.category === 'biomass') set.add(in2);
+                }
+            }
+        }
+        return set.size > 0 ? set : null;
+    }, [targetOutputType, templates, productTypes]);
+
+    // Per-strain biomass availability — grouped by biomass type so we can
+    // show a useful label like "Wi Fi OG — 115 kg fresh frozen".
     const biomassByStrain = useMemo(() => {
         const biomassTypeNames = new Set(
             productTypes.filter(pt => pt.category === 'biomass').map(pt => pt.name)
         );
-        const map = new Map<string, number>();
+        // strain → packageType → grams
+        const map = new Map<string, Map<string, number>>();
         for (const p of packages) {
             if (!p.strain || !biomassTypeNames.has(p.packageType)) continue;
             const qty = typeof p.quantity === 'number' ? p.quantity : parseFloat(p.quantity as unknown as string);
             if (!qty || qty <= 0) continue;
-            map.set(p.strain, (map.get(p.strain) || 0) + qty);
+            if (!map.has(p.strain)) map.set(p.strain, new Map());
+            const byType = map.get(p.strain)!;
+            byType.set(p.packageType, (byType.get(p.packageType) || 0) + qty);
         }
         return map;
     }, [packages, productTypes]);
 
-    // Sort strains: in-stock first (descending qty), then out-of-stock alphabetical
+    // Relevant quantity per strain, given the current target:
+    // - If a target is selected, sum only biomass types its SOPs accept
+    // - If no target, sum all biomass
+    const strainRelevantQty = (strainName: string): { total: number; label: string } => {
+        const byType = biomassByStrain.get(strainName);
+        if (!byType) return { total: 0, label: '' };
+        const wanted = relevantBiomassTypes;
+        let total = 0;
+        const parts: string[] = [];
+        for (const [type, g] of byType.entries()) {
+            if (wanted && !wanted.has(type)) continue;
+            total += g;
+            const displayName = productTypes.find(pt => pt.name === type)?.displayName || type.replace(/_/g, ' ');
+            parts.push(`${formatBiomassQty(g)} ${displayName}`);
+        }
+        return { total, label: parts.join(', ') };
+    };
+
+    // Sort strains: in-stock first (descending relevant qty), then out-of-stock alphabetical
     const sortedStrains = useMemo(() => {
-        const inStock: { strain: Strain; qty: number }[] = [];
+        const inStock: { strain: Strain; qty: number; label: string }[] = [];
         const outOfStock: Strain[] = [];
         for (const s of strains) {
-            const qty = biomassByStrain.get(s.name) || 0;
-            if (qty > 0) inStock.push({ strain: s, qty });
+            const { total, label } = strainRelevantQty(s.name);
+            if (total > 0) inStock.push({ strain: s, qty: total, label });
             else outOfStock.push(s);
         }
         inStock.sort((a, b) => b.qty - a.qty);
         outOfStock.sort((a, b) => a.name.localeCompare(b.name));
         return { inStock, outOfStock };
-    }, [strains, biomassByStrain]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [strains, biomassByStrain, relevantBiomassTypes, productTypes]);
 
-    const formatBiomassQty = (g: number) => {
+    function formatBiomassQty(g: number): string {
         if (g >= 1000) return `${(g / 1000).toLocaleString(undefined, { maximumFractionDigits: 1 })} kg`;
         return `${Math.round(g)} g`;
-    };
+    }
 
     const canPlan = targetOutputType && targetQuantity && parseFloat(targetQuantity) > 0 && !planning;
 
@@ -162,16 +220,16 @@ export const PlanningCalculator: React.FC = () => {
                     >
                         <option value="">Any strain (template yields)</option>
                         {sortedStrains.inStock.length > 0 && (
-                            <optgroup label="In stock">
-                                {sortedStrains.inStock.map(({ strain: s, qty }) => (
+                            <optgroup label={targetOutputType ? 'Compatible stock' : 'In stock'}>
+                                {sortedStrains.inStock.map(({ strain: s, label }) => (
                                     <option key={s.id} value={s.name}>
-                                        {s.name} — {formatBiomassQty(qty)} available
+                                        {s.name} — {label}
                                     </option>
                                 ))}
                             </optgroup>
                         )}
                         {sortedStrains.outOfStock.length > 0 && (
-                            <optgroup label="Other strains">
+                            <optgroup label={targetOutputType ? 'No compatible stock' : 'Other strains'}>
                                 {sortedStrains.outOfStock.map(s => (
                                     <option key={s.id} value={s.name}>{s.name}</option>
                                 ))}
