@@ -2642,17 +2642,15 @@ IMPORTANT: If the user is correcting or updating a previous statement (e.g. "act
                     }
 
                     // Call the plan-backward endpoint logic inline (same DB connection)
-                    const [templatesRes, ptRes, yieldRes] = await Promise.all([
-                        sql`SELECT id, name, process_type, accepted_inputs, producible_outputs
-                            FROM process_templates WHERE company_id = ${authContext.companyId} AND is_active = true AND COALESCE(domain, 'extraction') = 'extraction'`,
-                        sql`SELECT name, display_name, category, default_unit FROM product_types WHERE company_id = ${authContext.companyId} AND is_active = true`,
-                        planStrain
-                            ? sql`SELECT input_package_type AS input_type, output_package_type AS output_type,
-                                         ROUND(AVG(yield_percentage)::numeric, 2) AS avg_yield_pct, COUNT(*)::int AS sample_count
-                                  FROM extraction_logs WHERE company_id = ${authContext.companyId} AND strain = ${planStrain} AND yield_percentage IS NOT NULL
-                                  GROUP BY input_package_type, output_package_type`
-                            : sql`SELECT NULL WHERE FALSE`,
-                    ]);
+                    const templatesRes = await sql`SELECT id, name, process_type, accepted_inputs, producible_outputs
+                        FROM process_templates WHERE company_id = ${authContext.companyId} AND is_active = true AND COALESCE(domain, 'extraction') = 'extraction'`;
+                    const ptRes = await sql`SELECT name, display_name, category, default_unit FROM product_types WHERE company_id = ${authContext.companyId} AND is_active = true`;
+                    const yieldRes = planStrain
+                        ? await sql`SELECT input_package_type AS input_type, output_package_type AS output_type,
+                                     ROUND(AVG(yield_percentage)::numeric, 2) AS avg_yield_pct, COUNT(*)::int AS sample_count
+                              FROM extraction_logs WHERE company_id = ${authContext.companyId} AND strain = ${planStrain} AND yield_percentage IS NOT NULL
+                              GROUP BY input_package_type, output_package_type`
+                        : { rows: [] as Array<{ input_type: string; output_type: string; avg_yield_pct: string; sample_count: number }> };
 
                     const ptMap = new Map<string, { displayName: string; category: string; defaultUnit: string }>();
                     for (const pt of ptRes.rows) ptMap.set(pt.name, { displayName: pt.display_name, category: pt.category, defaultUnit: pt.default_unit });
@@ -2661,10 +2659,10 @@ IMPORTANT: If the user is correcting or updating a previous statement (e.g. "act
                     for (const r of yieldRes.rows) yieldMap.set(`${r.input_type}→${r.output_type}`, { avg: parseFloat(r.avg_yield_pct), count: r.sample_count });
 
                     // Load steps
-                    const tIds = templatesRes.rows.map((t: any) => t.id);
+                    const tIds = templatesRes.rows.map((t: any) => t.id as string);
                     const stepsRes = tIds.length > 0
-                        ? await sql`SELECT template_id, step_order, input_type, output_type, expected_yield_pct, is_optional FROM process_steps WHERE template_id = ANY(${tIds}) ORDER BY step_order ASC`
-                        : { rows: [] };
+                        ? await sql`SELECT template_id, step_order, input_type, output_type, expected_yield_pct, is_optional FROM process_steps WHERE template_id = ANY(${tIds}::uuid[]) ORDER BY step_order ASC`
+                        : { rows: [] as any[] };
                     const stepsByTmpl = new Map<string, any[]>();
                     for (const s of stepsRes.rows) { if (!stepsByTmpl.has(s.template_id)) stepsByTmpl.set(s.template_id, []); stepsByTmpl.get(s.template_id)!.push(s); }
 
@@ -2717,12 +2715,15 @@ IMPORTANT: If the user is correcting or updating a previous statement (e.g. "act
                     const biomassType = chain.length > 0 ? chain[0].inputType : targetOutputType;
                     const biomassPt = ptMap.get(biomassType);
                     const biomassNeeded = stages[0]?.inputQty || targetQuantity;
-                    const pkgRes = await sql`
-                        SELECT id, label, strain, quantity FROM packages
-                        WHERE company_id = ${authContext.companyId} AND package_type = ${biomassType} AND status = 'active' AND quantity > 0
-                        ${planStrain ? sql`AND strain = ${planStrain}` : sql``}
-                        ORDER BY quantity DESC LIMIT 20
-                    `;
+                    const pkgRes = planStrain
+                        ? await sql`SELECT id, label, strain, quantity FROM packages
+                                    WHERE company_id = ${authContext.companyId} AND package_type = ${biomassType}
+                                      AND status = 'active' AND quantity > 0 AND strain = ${planStrain}
+                                    ORDER BY quantity DESC LIMIT 20`
+                        : await sql`SELECT id, label, strain, quantity FROM packages
+                                    WHERE company_id = ${authContext.companyId} AND package_type = ${biomassType}
+                                      AND status = 'active' AND quantity > 0
+                                    ORDER BY quantity DESC LIMIT 20`;
                     const onHand = pkgRes.rows.reduce((s: number, p: any) => s + parseFloat(p.quantity), 0);
 
                     return lookupOk({

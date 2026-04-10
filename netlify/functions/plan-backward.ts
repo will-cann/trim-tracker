@@ -1,5 +1,5 @@
 import { Handler } from '@netlify/functions';
-import { sql } from './utils/db';
+import { pool } from './utils/db';
 import { resolveContext } from './utils/auth';
 
 /**
@@ -14,6 +14,9 @@ import { resolveContext } from './utils/auth';
  *
  * Returns: { stages[], biomassRequired, biomassOnHand, biomassGap,
  *            suppliesNeeded[], templateChain[], warnings[] }
+ *
+ * Uses pool.query throughout (not neon sql tagged template) because conditional
+ * composition and array parameters are more reliable via parameterized queries.
  */
 
 interface TemplateRow {
@@ -35,27 +38,12 @@ interface StepRow {
     is_optional: boolean;
 }
 
-interface YieldRow {
-    input_type: string;
-    output_type: string;
-    avg_yield_pct: string;
-    sample_count: number;
-}
-
 interface ProductTypeRow {
     name: string;
     display_name: string;
     category: string;
     default_unit: string;
     is_cannabis: boolean;
-}
-
-interface SupplyReqRow {
-    step_id: string;
-    supply_name: string;
-    supply_unit: string;
-    quantity_per: string;
-    quantity_on_hand: string;
 }
 
 export const handler: Handler = async (event) => {
@@ -77,56 +65,69 @@ export const handler: Handler = async (event) => {
         const companyId = context.companyId;
         const warnings: string[] = [];
 
-        // ── Load data ────────────────────────────────────────────────────
-        const [templatesResult, productTypesResult, yieldResult] = await Promise.all([
-            sql`SELECT id, name, process_type, accepted_inputs, producible_outputs
-                FROM process_templates
-                WHERE company_id = ${companyId} AND is_active = true AND COALESCE(domain, 'extraction') = 'extraction'`,
-            sql`SELECT name, display_name, category, default_unit, is_cannabis
-                FROM product_types
-                WHERE company_id = ${companyId} AND is_active = true`,
-            strain
-                ? sql`SELECT input_package_type AS input_type, output_package_type AS output_type,
-                             ROUND(AVG(yield_percentage)::numeric, 2) AS avg_yield_pct,
-                             COUNT(*)::int AS sample_count
-                      FROM extraction_logs
-                      WHERE company_id = ${companyId} AND strain = ${strain} AND yield_percentage IS NOT NULL
-                      GROUP BY input_package_type, output_package_type`
-                : sql`SELECT NULL AS input_type WHERE FALSE`, // no-op
-        ]);
+        // ── Load templates, product types, historical yields ────────────
+        const templatesResult = await pool.query<TemplateRow>(
+            `SELECT id, name, process_type, accepted_inputs, producible_outputs
+             FROM process_templates
+             WHERE company_id = $1 AND is_active = true AND COALESCE(domain, 'extraction') = 'extraction'`,
+            [companyId]
+        );
 
-        const templates: TemplateRow[] = templatesResult.rows;
+        const productTypesResult = await pool.query<ProductTypeRow>(
+            `SELECT name, display_name, category, default_unit, is_cannabis
+             FROM product_types
+             WHERE company_id = $1 AND is_active = true`,
+            [companyId]
+        );
+
+        let yieldRows: { input_type: string; output_type: string; avg_yield_pct: string; sample_count: number }[] = [];
+        if (strain) {
+            const y = await pool.query(
+                `SELECT input_package_type AS input_type,
+                        output_package_type AS output_type,
+                        ROUND(AVG(yield_percentage)::numeric, 2) AS avg_yield_pct,
+                        COUNT(*)::int AS sample_count
+                 FROM extraction_logs
+                 WHERE company_id = $1 AND strain = $2 AND yield_percentage IS NOT NULL
+                 GROUP BY input_package_type, output_package_type`,
+                [companyId, strain]
+            );
+            yieldRows = y.rows;
+        }
+
+        const templates = templatesResult.rows;
         const productTypes = new Map<string, ProductTypeRow>();
         for (const pt of productTypesResult.rows) {
             productTypes.set(pt.name, pt);
         }
 
-        // Historical yield lookup: (inputType, outputType) → { avgYieldPct, sampleCount }
         const yieldMap = new Map<string, { avg: number; count: number }>();
-        for (const row of yieldResult.rows as YieldRow[]) {
+        for (const row of yieldRows) {
             yieldMap.set(`${row.input_type}→${row.output_type}`, {
                 avg: parseFloat(row.avg_yield_pct),
                 count: row.sample_count,
             });
         }
 
-        // Load all steps for extraction templates
+        // ── Load all steps for extraction templates ──────────────────────
         const templateIds = templates.map(t => t.id);
-        const stepsResult = templateIds.length > 0
-            ? await sql`SELECT id, template_id, step_order, name, input_type, output_type, expected_yield_pct, is_optional
-                        FROM process_steps WHERE template_id = ANY(${templateIds}) ORDER BY step_order ASC`
-            : { rows: [] };
         const stepsByTemplate = new Map<string, StepRow[]>();
-        for (const step of stepsResult.rows as StepRow[]) {
-            if (!stepsByTemplate.has(step.template_id)) stepsByTemplate.set(step.template_id, []);
-            stepsByTemplate.get(step.template_id)!.push(step);
+        if (templateIds.length > 0) {
+            const stepsResult = await pool.query<StepRow>(
+                `SELECT id, template_id, step_order, name, input_type, output_type,
+                        expected_yield_pct, is_optional
+                 FROM process_steps
+                 WHERE template_id = ANY($1::uuid[])
+                 ORDER BY step_order ASC`,
+                [templateIds]
+            );
+            for (const step of stepsResult.rows) {
+                if (!stepsByTemplate.has(step.template_id)) stepsByTemplate.set(step.template_id, []);
+                stepsByTemplate.get(step.template_id)!.push(step);
+            }
         }
 
-        // ── Find template chain ──────────────────────────────────────────
-        // Walk backward: start from target output, find a template that
-        // produces it, then find a template that produces THAT template's
-        // input, and so on until we reach biomass (category = 'biomass').
-
+        // ── Walk backward to build the template chain ────────────────────
         interface ChainLink {
             template: TemplateRow;
             steps: StepRow[];
@@ -136,35 +137,26 @@ export const handler: Handler = async (event) => {
 
         const chain: ChainLink[] = [];
         let currentTarget = targetOutputType;
-        const visited = new Set<string>(); // prevent infinite loops
+        const visited = new Set<string>();
 
         while (true) {
             const targetPt = productTypes.get(currentTarget);
-            if (targetPt?.category === 'biomass') break; // reached raw material
+            if (targetPt?.category === 'biomass') break;
             if (visited.has(currentTarget)) {
                 warnings.push(`Circular dependency detected at ${currentTarget}`);
                 break;
             }
             visited.add(currentTarget);
 
-            // Find a template that produces currentTarget
-            const matchingTemplate = templates.find(t =>
-                t.producible_outputs?.includes(currentTarget)
-            );
-
+            const matchingTemplate = templates.find(t => t.producible_outputs?.includes(currentTarget));
             if (!matchingTemplate) {
-                // No template produces this — if it's not biomass, it's a gap
                 if (!targetPt || targetPt.category !== 'biomass') {
-                    warnings.push(`No SOP found that produces "${productTypes.get(currentTarget)?.display_name || currentTarget}"`);
+                    warnings.push(`No SOP found that produces "${targetPt?.display_name || currentTarget}"`);
                 }
                 break;
             }
 
-            const steps = (stepsByTemplate.get(matchingTemplate.id) || [])
-                .filter(s => !s.is_optional);
-
-            // Determine the input type: first required step's input_type,
-            // or template's accepted_inputs[0]
+            const steps = (stepsByTemplate.get(matchingTemplate.id) || []).filter(s => !s.is_optional);
             const firstInput = steps[0]?.input_type
                 || (matchingTemplate.accepted_inputs?.length > 0 ? matchingTemplate.accepted_inputs[0] : null);
 
@@ -183,30 +175,34 @@ export const handler: Handler = async (event) => {
             currentTarget = firstInput;
         }
 
+        // Empty chain → no matching SOP. Return a valid empty plan.
         if (chain.length === 0) {
+            const targetPt = productTypes.get(targetOutputType);
             return {
                 statusCode: 200,
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     targetOutputType,
                     targetQuantity,
-                    targetUnit: targetUnit || 'g',
+                    targetUnit: targetUnit || targetPt?.default_unit || 'g',
                     strain: strain || null,
                     stages: [],
-                    biomassRequired: { type: currentTarget, displayName: productTypes.get(currentTarget)?.display_name || currentTarget, quantity: targetQuantity, unit: targetUnit || 'g' },
+                    biomassRequired: {
+                        type: targetOutputType,
+                        displayName: targetPt?.display_name || targetOutputType,
+                        quantity: targetQuantity,
+                        unit: targetUnit || targetPt?.default_unit || 'g',
+                    },
                     biomassOnHand: { quantity: 0, unit: targetUnit || 'g', packages: [] },
                     biomassGap: { quantity: targetQuantity, unit: targetUnit || 'g' },
                     suppliesNeeded: [],
                     templateChain: [],
-                    warnings: warnings.length > 0 ? warnings : ['No matching templates found for this output type.'],
+                    warnings: warnings.length > 0 ? warnings : ['No matching SOP found for this output type.'],
                 }),
             };
         }
 
-        // ── Walk forward through chain, applying yields ──────────────────
-        // We know the final output quantity. Walk backward to compute input
-        // needed at each stage, then present stages in forward order.
-
+        // ── Walk forward through the chain, computing quantities ─────────
         interface PlanStage {
             stepName: string;
             templateId: string;
@@ -224,7 +220,6 @@ export const handler: Handler = async (event) => {
             sampleCount?: number;
         }
 
-        // Compute cumulative yield backward from target
         const stages: PlanStage[] = [];
         let requiredOutput = targetQuantity;
 
@@ -233,7 +228,6 @@ export const handler: Handler = async (event) => {
             const inputPt = productTypes.get(link.inputType);
             const outputPt = productTypes.get(link.outputType);
 
-            // Determine yield: historical > template > assumed
             let yieldPct = 100;
             let yieldSource: 'historical_avg' | 'template_default' | 'assumed' = 'assumed';
             let sampleCount: number | undefined;
@@ -255,7 +249,9 @@ export const handler: Handler = async (event) => {
                     yieldPct = Math.round(cumulativeYield * 100) / 100;
                     yieldSource = 'template_default';
                 } else {
-                    warnings.push(`No yield data for ${inputPt?.display_name || link.inputType} → ${outputPt?.display_name || link.outputType}. Using 100%.`);
+                    warnings.push(
+                        `No yield data for ${inputPt?.display_name || link.inputType} → ${outputPt?.display_name || link.outputType}. Using 100%.`
+                    );
                 }
             }
 
@@ -267,7 +263,7 @@ export const handler: Handler = async (event) => {
                 templateName: link.template.name,
                 inputType: link.inputType,
                 inputDisplayName: inputPt?.display_name || link.inputType.replace(/_/g, ' '),
-                inputQty: Math.ceil(requiredInput * 100) / 100, // round up to 2 decimals
+                inputQty: Math.ceil(requiredInput * 100) / 100,
                 inputUnit: inputPt?.default_unit || 'g',
                 outputType: link.outputType,
                 outputDisplayName: outputPt?.display_name || link.outputType.replace(/_/g, ' '),
@@ -287,45 +283,53 @@ export const handler: Handler = async (event) => {
         const biomassUnit = biomassPt?.default_unit || 'g';
         const biomassNeeded = stages[0]?.inputQty || targetQuantity;
 
-        const packagesResult = await sql`
-            SELECT id, label, strain, quantity, unit
-            FROM packages
-            WHERE company_id = ${companyId}
-              AND package_type = ${biomassType}
-              AND status = 'active'
-              AND quantity > 0
-              ${strain ? sql`AND strain = ${strain}` : sql``}
-            ORDER BY quantity DESC
-        `;
+        const pkgParams: unknown[] = [companyId, biomassType];
+        let pkgQuery = `SELECT id, label, strain, quantity, unit
+                        FROM packages
+                        WHERE company_id = $1
+                          AND package_type = $2
+                          AND status = 'active'
+                          AND quantity > 0`;
+        if (strain) {
+            pkgParams.push(strain);
+            pkgQuery += ` AND strain = $3`;
+        }
+        pkgQuery += ` ORDER BY quantity DESC`;
 
-        const onHandPackages = packagesResult.rows.map((p: any) => ({
-            id: p.id,
-            label: p.label,
-            strain: p.strain,
-            quantity: parseFloat(p.quantity),
+        const packagesResult = await pool.query(pkgQuery, pkgParams);
+        const onHandPackages = packagesResult.rows.map((p: Record<string, unknown>) => ({
+            id: p.id as string,
+            label: p.label as string,
+            strain: p.strain as string | null,
+            quantity: parseFloat(p.quantity as string),
         }));
-        const totalOnHand = onHandPackages.reduce((sum: number, p: any) => sum + p.quantity, 0);
+        const totalOnHand = onHandPackages.reduce((sum, p) => sum + p.quantity, 0);
         const gap = Math.max(0, biomassNeeded - totalOnHand);
 
-        // ── Supply requirements along the chain ──────────────────────────
+        // ── Supply requirements across the chain ─────────────────────────
         const allStepIds = chain.flatMap(link => link.steps.map(s => s.id));
         let suppliesNeeded: { name: string; unit: string; needed: number; onHand: number; gap: number }[] = [];
 
         if (allStepIds.length > 0) {
-            const supplyResult = await sql`
-                SELECT ssr.step_id, si.name AS supply_name, si.unit AS supply_unit,
-                       ssr.quantity_per, si.quantity_on_hand
-                FROM step_supply_requirements ssr
-                JOIN supply_items si ON si.id = ssr.supply_item_id
-                WHERE ssr.step_id = ANY(${allStepIds})
-            `;
+            const supplyResult = await pool.query(
+                `SELECT ssr.step_id, si.name AS supply_name, si.unit AS supply_unit,
+                        ssr.quantity_per, si.quantity_on_hand
+                 FROM step_supply_requirements ssr
+                 JOIN supply_items si ON si.id = ssr.supply_item_id
+                 WHERE ssr.step_id = ANY($1::uuid[])`,
+                [allStepIds]
+            );
 
-            // Aggregate by supply name (same supply used across steps)
             const supplyMap = new Map<string, { name: string; unit: string; needed: number; onHand: number }>();
-            for (const row of supplyResult.rows as SupplyReqRow[]) {
-                const key = row.supply_name;
-                const existing = supplyMap.get(key) || { name: row.supply_name, unit: row.supply_unit, needed: 0, onHand: parseFloat(row.quantity_on_hand) };
-                existing.needed += parseFloat(row.quantity_per);
+            for (const row of supplyResult.rows as Record<string, unknown>[]) {
+                const key = row.supply_name as string;
+                const existing = supplyMap.get(key) || {
+                    name: row.supply_name as string,
+                    unit: row.supply_unit as string,
+                    needed: 0,
+                    onHand: parseFloat(row.quantity_on_hand as string),
+                };
+                existing.needed += parseFloat(row.quantity_per as string);
                 supplyMap.set(key, existing);
             }
             suppliesNeeded = Array.from(supplyMap.values()).map(s => ({
@@ -368,6 +372,10 @@ export const handler: Handler = async (event) => {
         };
     } catch (error) {
         console.error('Error in plan-backward:', error);
-        return { statusCode: 500, body: JSON.stringify({ error: 'Planning failed' }) };
+        const message = error instanceof Error ? error.message : 'Planning failed';
+        return {
+            statusCode: 500,
+            body: JSON.stringify({ error: 'Planning failed', detail: message }),
+        };
     }
 };
