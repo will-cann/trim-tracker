@@ -33,7 +33,9 @@ export function buildExtractionSchedule(
   runs: ExtractionRun[],
   equipment: ExtractionEquipment[],
 ): { resources: Resource[]; blocks: ResourceBlock[] } {
-  // Build resources from non-retired equipment
+  const UNASSIGNED_ID = '__unassigned__';
+
+  // Build resources from non-retired equipment + an "Unassigned" lane
   const resources: Resource[] = equipment
     .filter((e) => e.status !== 'retired')
     .map((e) => ({
@@ -43,11 +45,14 @@ export function buildExtractionSchedule(
     }));
 
   const blocks: ResourceBlock[] = [];
+  let hasUnassigned = false;
 
   for (const run of runs) {
-    // Skip cancelled runs and runs with no time anchor
+    // Skip cancelled runs
     if (run.status === 'cancelled') continue;
-    const anchor = run.startedAt || run.plannedStart;
+    // Use the best available time anchor — active runs should always
+    // appear even if plannedStart wasn't set.
+    const anchor = run.startedAt || run.plannedStart || run.createdAt;
     if (!anchor) continue;
 
     const color = PROCESS_COLORS[run.processType ?? 'custom'];
@@ -96,8 +101,11 @@ export function buildExtractionSchedule(
       // Advance cursor for next step
       cursor = blockEnd;
 
-      // Only emit a block if this step is assigned to equipment
-      if (!step.equipmentId) continue;
+      // Assign to equipment lane, or the "Unassigned" lane if no equipment
+      const resourceId = step.equipmentId || UNASSIGNED_ID;
+      if (!step.equipmentId) {
+        hasUnassigned = true;
+      }
 
       const status: ResourceBlock['status'] =
         step.status === 'completed' ? 'completed' :
@@ -106,7 +114,7 @@ export function buildExtractionSchedule(
 
       blocks.push({
         id: `${run.id}-${step.id}`,
-        resourceId: step.equipmentId,
+        resourceId,
         blockStart,
         blockEnd,
         label: run.name,
@@ -117,6 +125,11 @@ export function buildExtractionSchedule(
         linkTo: { view: 'extraction', id: run.id },
       });
     }
+  }
+
+  // Add "Unassigned" lane if any steps lack equipment
+  if (hasUnassigned) {
+    resources.push({ id: UNASSIGNED_ID, name: 'Unassigned', group: 'Other' });
   }
 
   return { resources, blocks };
