@@ -1,6 +1,13 @@
+import { useState } from 'react';
 import { RunList } from './RunList';
+import { ProcessTemplateList } from './ProcessTemplateList';
+import { PlanningCalculator } from './PlanningCalculator';
+
+type DashboardTab = 'runs' | 'processes' | 'planning';
 
 export const ExtractionDashboard: React.FC = () => {
+    const [tab, setTab] = useState<DashboardTab>('runs');
+
     return (
         <div className="dashboard">
             {/* Header */}
@@ -11,7 +18,31 @@ export const ExtractionDashboard: React.FC = () => {
                 </div>
             </div>
 
-            <RunList />
+            {/* Tab bar */}
+            <div className="extraction-tabs">
+                <button
+                    className={`extraction-tab ${tab === 'runs' ? 'extraction-tab--active' : ''}`}
+                    onClick={() => setTab('runs')}
+                >
+                    Runs
+                </button>
+                <button
+                    className={`extraction-tab ${tab === 'processes' ? 'extraction-tab--active' : ''}`}
+                    onClick={() => setTab('processes')}
+                >
+                    Processes
+                </button>
+                <button
+                    className={`extraction-tab ${tab === 'planning' ? 'extraction-tab--active' : ''}`}
+                    onClick={() => setTab('planning')}
+                >
+                    Planning
+                </button>
+            </div>
+
+            {tab === 'runs' && <RunList />}
+            {tab === 'processes' && <ProcessTemplateList />}
+            {tab === 'planning' && <PlanningCalculator />}
         </div>
     );
 };

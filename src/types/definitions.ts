@@ -433,6 +433,39 @@ export interface YieldAverage {
   lastRunDate: string;
 }
 
+// ── Demand-Backward Planning ────────────────────────────────────────────────
+
+export interface PlanStage {
+  stepName: string;
+  templateId: string;
+  templateName: string;
+  inputType: string;
+  inputDisplayName: string;
+  inputQty: number;
+  inputUnit: string;
+  outputType: string;
+  outputDisplayName: string;
+  outputQty: number;
+  outputUnit: string;
+  yieldPct: number;
+  yieldSource: 'historical_avg' | 'template_default' | 'assumed';
+  sampleCount?: number;
+}
+
+export interface BackwardPlan {
+  targetOutputType: string;
+  targetQuantity: number;
+  targetUnit: string;
+  strain: string | null;
+  stages: PlanStage[];
+  biomassRequired: { type: string; displayName: string; quantity: number; unit: string };
+  biomassOnHand: { quantity: number; unit: string; packages: { id: string; label: string; strain: string | null; quantity: number }[] };
+  biomassGap: { quantity: number; unit: string };
+  suppliesNeeded: { name: string; unit: string; needed: number; onHand: number; gap: number }[];
+  templateChain: { id: string; name: string }[];
+  warnings: string[];
+}
+
 export interface ProcessTemplate {
   id: string;
   name: string;

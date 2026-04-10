@@ -200,7 +200,7 @@ const SYSTEM_PROMPT = `You are an AI assistant for a cannabis cultivation and ma
 
 You have access to two kinds of tools:
 
-1. **Read-only lookup tools** (names starting with \`find_\`): find_plants, find_packages, find_human_tasks, find_bins, find_extraction_logs. These run server-side and return query results directly to you in the next turn. Use them to resolve fuzzy references, find specific entities, or scan inventory on demand. **These do NOT consume a user action slot — you can call them freely and use the results to reason about what to do next.**
+1. **Read-only lookup tools** (names starting with \`find_\` or \`plan_\`): find_plants, find_packages, find_human_tasks, find_bins, find_extraction_logs, plan_backward. These run server-side and return query results directly to you in the next turn. Use them to resolve fuzzy references, find specific entities, scan inventory, or compute production plans. **These do NOT consume a user action slot — you can call them freely and use the results to reason about what to do next.**
 
 2. **Mutation tools** (everything else): plants, extraction_run, create_harvest, create_human_tasks, etc. These propose actions that the user will review and confirm. You can call multiple mutation tools in one turn; they all appear in the preview card together.
 
@@ -898,6 +898,30 @@ Returns: [{ id, strain, inputPackageType, inputQuantity, outputPackageType, outp
                 sinceDate: { type: 'string', description: 'Only entries created on or after this ISO date.' },
                 limit: { type: 'number', description: 'Max results to return (default 20, max 50).' },
             },
+        },
+    },
+    {
+        name: 'plan_backward',
+        description: `Demand-backward planning calculator. Given a target output product and quantity, compute the full production chain — what inputs are needed at each stage, using historical yield averages when available. Use this when the user asks about production requirements, material planning, or "how much X do I need to make Y?"
+
+Examples of when to use:
+- "I need 1,000 live rosin carts"
+- "How much fresh frozen do I need to make 500g rosin?"
+- "What would it take to produce 200 carts of Toadstool?"
+- "Plan a batch of bubble hash from 10kg fresh frozen" (forward direction — use this to show the yield chain)
+
+Returns: stages[] (each with input/output quantities and yield%), biomassRequired (raw material needed), biomassOnHand (what's in inventory), biomassGap (what needs to be sourced), suppliesNeeded[] (consumable requirements).
+
+Present results as a clear waterfall: Stage 1 → Stage 2 → ... → Final Output. Highlight any sourcing gaps or supply shortages. If the user specifies a strain, historical yield data for that strain is used; otherwise template defaults apply.`,
+        input_schema: {
+            type: 'object' as const,
+            properties: {
+                targetOutputType: { type: 'string', description: 'Product type name to produce (e.g. live_rosin_cart, rosin, bubble_hash). Use snake_case names from the product catalog.' },
+                targetQuantity: { type: 'number', description: 'How many/much to produce.' },
+                targetUnit: { type: 'string', description: 'Unit for the quantity (g, each, ml). Defaults to the product type\'s default unit.' },
+                strain: { type: 'string', description: 'Optional strain name — enables historical yield averages for more accurate planning.' },
+            },
+            required: ['targetOutputType', 'targetQuantity'],
         },
     },
     // ── LEGACY plant tools (kept during migration window) ──
@@ -2607,6 +2631,109 @@ IMPORTANT: If the user is correcting or updating a previous statement (e.g. "act
                     });
                 }
 
+                if (name === 'plan_backward') {
+                    const targetOutputType = typeof lookupInput.targetOutputType === 'string' ? lookupInput.targetOutputType : '';
+                    const targetQuantity = typeof lookupInput.targetQuantity === 'number' ? lookupInput.targetQuantity : 0;
+                    const targetUnit = typeof lookupInput.targetUnit === 'string' ? lookupInput.targetUnit : undefined;
+                    const planStrain = typeof lookupInput.strain === 'string' ? lookupInput.strain : undefined;
+
+                    if (!targetOutputType || targetQuantity <= 0) {
+                        return lookupErr('targetOutputType and targetQuantity > 0 are required');
+                    }
+
+                    // Call the plan-backward endpoint logic inline (same DB connection)
+                    const [templatesRes, ptRes, yieldRes] = await Promise.all([
+                        sql`SELECT id, name, process_type, accepted_inputs, producible_outputs
+                            FROM process_templates WHERE company_id = ${authContext.companyId} AND is_active = true AND COALESCE(domain, 'extraction') = 'extraction'`,
+                        sql`SELECT name, display_name, category, default_unit FROM product_types WHERE company_id = ${authContext.companyId} AND is_active = true`,
+                        planStrain
+                            ? sql`SELECT input_package_type AS input_type, output_package_type AS output_type,
+                                         ROUND(AVG(yield_percentage)::numeric, 2) AS avg_yield_pct, COUNT(*)::int AS sample_count
+                                  FROM extraction_logs WHERE company_id = ${authContext.companyId} AND strain = ${planStrain} AND yield_percentage IS NOT NULL
+                                  GROUP BY input_package_type, output_package_type`
+                            : sql`SELECT NULL WHERE FALSE`,
+                    ]);
+
+                    const ptMap = new Map<string, { displayName: string; category: string; defaultUnit: string }>();
+                    for (const pt of ptRes.rows) ptMap.set(pt.name, { displayName: pt.display_name, category: pt.category, defaultUnit: pt.default_unit });
+
+                    const yieldMap = new Map<string, { avg: number; count: number }>();
+                    for (const r of yieldRes.rows) yieldMap.set(`${r.input_type}→${r.output_type}`, { avg: parseFloat(r.avg_yield_pct), count: r.sample_count });
+
+                    // Load steps
+                    const tIds = templatesRes.rows.map((t: any) => t.id);
+                    const stepsRes = tIds.length > 0
+                        ? await sql`SELECT template_id, step_order, input_type, output_type, expected_yield_pct, is_optional FROM process_steps WHERE template_id = ANY(${tIds}) ORDER BY step_order ASC`
+                        : { rows: [] };
+                    const stepsByTmpl = new Map<string, any[]>();
+                    for (const s of stepsRes.rows) { if (!stepsByTmpl.has(s.template_id)) stepsByTmpl.set(s.template_id, []); stepsByTmpl.get(s.template_id)!.push(s); }
+
+                    // Chain backward
+                    interface ChainLink { templateName: string; inputType: string; outputType: string; yieldPct: number; yieldSource: string; sampleCount?: number; steps: any[] }
+                    const chain: ChainLink[] = [];
+                    let cur = targetOutputType;
+                    const visited = new Set<string>();
+                    const warnings: string[] = [];
+
+                    while (true) {
+                        const curPt = ptMap.get(cur);
+                        if (curPt?.category === 'biomass') break;
+                        if (visited.has(cur)) { warnings.push(`Circular: ${cur}`); break; }
+                        visited.add(cur);
+                        const tmpl = templatesRes.rows.find((t: any) => t.producible_outputs?.includes(cur));
+                        if (!tmpl) { if (!curPt || curPt.category !== 'biomass') warnings.push(`No SOP produces ${curPt?.displayName || cur}`); break; }
+                        const steps = (stepsByTmpl.get(tmpl.id) || []).filter((s: any) => !s.is_optional);
+                        const firstInput = steps[0]?.input_type || tmpl.accepted_inputs?.[0];
+                        if (!firstInput) { warnings.push(`Template "${tmpl.name}" has no input`); break; }
+                        const hk = `${firstInput}→${cur}`;
+                        const hist = yieldMap.get(hk);
+                        let yieldPct = 100, yieldSource = 'assumed';
+                        let sc: number | undefined;
+                        if (hist && hist.count >= 1) { yieldPct = hist.avg; yieldSource = 'historical_avg'; sc = hist.count; }
+                        else { const cum = steps.reduce((a: number, s: any) => a * ((s.expected_yield_pct ? parseFloat(s.expected_yield_pct) : 100) / 100), 1) * 100; if (cum > 0 && cum < 100) { yieldPct = Math.round(cum * 100) / 100; yieldSource = 'template_default'; } }
+                        chain.unshift({ templateName: tmpl.name, inputType: firstInput, outputType: cur, yieldPct, yieldSource, sampleCount: sc, steps });
+                        cur = firstInput;
+                    }
+
+                    // Walk forward to compute quantities
+                    let reqOut = targetQuantity;
+                    const stages: any[] = [];
+                    for (let i = chain.length - 1; i >= 0; i--) {
+                        const link = chain[i];
+                        const reqIn = link.yieldPct > 0 ? reqOut / (link.yieldPct / 100) : reqOut;
+                        const inPt = ptMap.get(link.inputType);
+                        const outPt = ptMap.get(link.outputType);
+                        stages.unshift({
+                            templateName: link.templateName, inputType: link.inputType, inputDisplayName: inPt?.displayName || link.inputType,
+                            inputQty: Math.ceil(reqIn * 100) / 100, inputUnit: inPt?.defaultUnit || 'g',
+                            outputType: link.outputType, outputDisplayName: outPt?.displayName || link.outputType,
+                            outputQty: Math.ceil(reqOut * 100) / 100, outputUnit: outPt?.defaultUnit || targetUnit || 'g',
+                            yieldPct: link.yieldPct, yieldSource: link.yieldSource, sampleCount: link.sampleCount,
+                        });
+                        reqOut = reqIn;
+                    }
+
+                    // Biomass check
+                    const biomassType = chain.length > 0 ? chain[0].inputType : targetOutputType;
+                    const biomassPt = ptMap.get(biomassType);
+                    const biomassNeeded = stages[0]?.inputQty || targetQuantity;
+                    const pkgRes = await sql`
+                        SELECT id, label, strain, quantity FROM packages
+                        WHERE company_id = ${authContext.companyId} AND package_type = ${biomassType} AND status = 'active' AND quantity > 0
+                        ${planStrain ? sql`AND strain = ${planStrain}` : sql``}
+                        ORDER BY quantity DESC LIMIT 20
+                    `;
+                    const onHand = pkgRes.rows.reduce((s: number, p: any) => s + parseFloat(p.quantity), 0);
+
+                    return lookupOk({
+                        stages,
+                        biomassRequired: { type: biomassType, displayName: biomassPt?.displayName || biomassType, quantity: Math.ceil(biomassNeeded * 100) / 100, unit: biomassPt?.defaultUnit || 'g' },
+                        biomassOnHand: { quantity: onHand, unit: biomassPt?.defaultUnit || 'g', packageCount: pkgRes.rows.length },
+                        biomassGap: { quantity: Math.max(0, Math.ceil((biomassNeeded - onHand) * 100) / 100), unit: biomassPt?.defaultUnit || 'g' },
+                        warnings,
+                    });
+                }
+
                 return lookupErr(`unknown lookup tool: ${name}`);
             } catch (err) {
                 console.error(`runLookup[${name}] failed:`, err);
@@ -2623,6 +2750,7 @@ IMPORTANT: If the user is correcting or updating a previous statement (e.g. "act
             'find_human_tasks',
             'find_bins',
             'find_extraction_logs',
+            'plan_backward',
         ]);
 
         // ── Fuzzy task resolver ──

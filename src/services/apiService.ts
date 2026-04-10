@@ -1,4 +1,4 @@
-import type { TrimSession, CreateTrimSessionDTO, Trimmer, TrimmerProfile, ProposedAction, Harvest, CreateHarvestDTO, HarvestWasteType, HarvestAllocation, HarvestPlantWeight, HarvestBin, BinCureLog, CreateBinDTO, FloweringBatchGroup, Strain, License, SpeechMode, HumanTask, TeamRole, Tag, TagType, TagStats, TagSettings, Package, CreatePackageDTO, MetrcItem, PackageAdjustment, AdjustmentReason, ProductType, ProcessTemplate, StepSupplyRequirement, YieldAverage, ReportSpec, SavedReport, TaskViewSpec, SavedTaskView, SupplyPool, SupplyItem, SupplyLedgerEntry, SupplyChangeType, SupplyPoolSlug } from '../types/definitions';
+import type { TrimSession, CreateTrimSessionDTO, Trimmer, TrimmerProfile, ProposedAction, Harvest, CreateHarvestDTO, HarvestWasteType, HarvestAllocation, HarvestPlantWeight, HarvestBin, BinCureLog, CreateBinDTO, FloweringBatchGroup, Strain, License, SpeechMode, HumanTask, TeamRole, Tag, TagType, TagStats, TagSettings, Package, CreatePackageDTO, MetrcItem, PackageAdjustment, AdjustmentReason, ProductType, ProcessTemplate, StepSupplyRequirement, YieldAverage, BackwardPlan, ReportSpec, SavedReport, TaskViewSpec, SavedTaskView, SupplyPool, SupplyItem, SupplyLedgerEntry, SupplyChangeType, SupplyPoolSlug } from '../types/definitions';
 
 const API_BASE = '/.netlify/functions';
 
@@ -1723,6 +1723,26 @@ export const getStepSupplyRequirements = async (templateId: string): Promise<Ste
     return await response.json();
 };
 
+// ── Demand-Backward Planning ────────────────────────────────────────────────
+
+export const planBackward = async (params: {
+    targetOutputType: string;
+    targetQuantity: number;
+    targetUnit?: string;
+    strain?: string;
+}): Promise<BackwardPlan> => {
+    const response = await fetchWithAuth(`${API_BASE}/plan-backward`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(params),
+    });
+    if (!response.ok) {
+        const err = await response.json().catch(() => ({ error: 'Planning failed' }));
+        throw new Error(err.error || 'Planning failed');
+    }
+    return await response.json();
+};
+
 export const apiService = {
     setAuthToken,
     getSession,
@@ -1869,6 +1889,8 @@ export const apiService = {
     matchProductsAi,
     saveProductAliases,
     clearSalesData,
+    // Demand-backward planning
+    planBackward,
     // Yield averages
     getYieldAverages,
     // Step supply requirements
