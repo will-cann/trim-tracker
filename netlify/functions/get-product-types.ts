@@ -19,14 +19,14 @@ export const handler: Handler = async (event) => {
         const result = includeInactive
             ? await sql`
                 SELECT id, name, display_name, category, default_unit, is_cannabis,
-                       metrc_item_category, is_active, sort_order, created_at, updated_at
+                       process_types, metrc_item_category, is_active, sort_order, created_at, updated_at
                 FROM product_types
                 WHERE company_id = ${context.companyId}
                 ORDER BY sort_order ASC, name ASC
             `
             : await sql`
                 SELECT id, name, display_name, category, default_unit, is_cannabis,
-                       metrc_item_category, is_active, sort_order, created_at, updated_at
+                       process_types, metrc_item_category, is_active, sort_order, created_at, updated_at
                 FROM product_types
                 WHERE company_id = ${context.companyId} AND is_active = true
                 ORDER BY sort_order ASC, name ASC

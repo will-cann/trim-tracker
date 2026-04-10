@@ -7189,7 +7189,8 @@ select.field-input {
   width: 100%;
   border-collapse: collapse;
   font-size: 0.8125rem;
-  min-width: 720px;
+  min-width: 640px;
+  table-layout: auto;
 }
 .product-type-th {
   text-align: left;
@@ -7227,11 +7228,12 @@ select.field-input {
 }
 .product-type-cell-cannabis {
   text-align: center;
-  padding: 0.5rem 0.5rem;
+  padding: 0.5rem 0.25rem;
+  width: 44px;
 }
 .product-type-cell-action {
-  padding: 0.5rem 0.75rem 0.5rem 0;
-  width: 36px;
+  padding: 0.5rem 0.75rem 0.5rem 0.25rem;
+  width: 40px;
   text-align: right;
 }
 
@@ -7330,13 +7332,9 @@ select.field-input {
   border: none;
   padding: 6px;
   border-radius: 6px;
-  color: #C0C0C0;
+  color: #D0D0D0;
   cursor: pointer;
-  opacity: 0;
   transition: all 0.15s;
-}
-.product-type-row:hover .product-type-delete-btn {
-  opacity: 1;
 }
 .product-type-delete-btn:hover {
   color: #DF5B59;
