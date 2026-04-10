@@ -13,7 +13,7 @@ export const handler: Handler = async (event) => {
             return { statusCode: 401, body: JSON.stringify({ error: 'Unauthorized' }) };
         }
 
-        const { id, name, description, processType, domain, phaseDurations, steps } = JSON.parse(event.body || '{}');
+        const { id, name, description, processType, domain, phaseDurations, acceptedInputs, producibleOutputs, standardBatchSizeG, steps } = JSON.parse(event.body || '{}');
 
         if (!name || !processType || !steps?.length) {
             return { statusCode: 400, body: JSON.stringify({ error: 'name, processType, and steps are required' }) };
@@ -30,10 +30,12 @@ export const handler: Handler = async (event) => {
                 const { rows } = await client.query(
                     `UPDATE process_templates
                      SET name = $1, description = $2, process_type = $3,
-                         domain = $4, phase_durations = $5, updated_at = NOW()
-                     WHERE id = $6 AND company_id = $7
+                         domain = $4, phase_durations = $5,
+                         accepted_inputs = $6, producible_outputs = $7,
+                         standard_batch_size_g = $8, updated_at = NOW()
+                     WHERE id = $9 AND company_id = $10
                      RETURNING id`,
-                    [name, description || null, processType, domain || 'extraction', phaseDurations ? JSON.stringify(phaseDurations) : null, id, context.companyId]
+                    [name, description || null, processType, domain || 'extraction', phaseDurations ? JSON.stringify(phaseDurations) : null, acceptedInputs || [], producibleOutputs || [], standardBatchSizeG || null, id, context.companyId]
                 );
                 if (rows.length === 0) {
                     await client.query('ROLLBACK');
@@ -46,9 +48,9 @@ export const handler: Handler = async (event) => {
             } else {
                 // Create new template
                 const { rows } = await client.query(
-                    `INSERT INTO process_templates (company_id, name, description, process_type, domain, phase_durations)
-                     VALUES ($1, $2, $3, $4, $5, $6) RETURNING id`,
-                    [context.companyId, name, description || null, processType, domain || 'extraction', phaseDurations ? JSON.stringify(phaseDurations) : null]
+                    `INSERT INTO process_templates (company_id, name, description, process_type, domain, phase_durations, accepted_inputs, producible_outputs, standard_batch_size_g)
+                     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING id`,
+                    [context.companyId, name, description || null, processType, domain || 'extraction', phaseDurations ? JSON.stringify(phaseDurations) : null, acceptedInputs || [], producibleOutputs || [], standardBatchSizeG || null]
                 );
                 templateId = rows[0].id;
             }

@@ -421,6 +421,8 @@ export interface ProcessTemplate {
   domain: SOPDomain;
   phaseDurations: Record<string, number> | null;
   acceptedInputs: string[];
+  producibleOutputs: string[];
+  standardBatchSizeG: number | null;
   isPreset: boolean;
   isActive: boolean;
   steps: ProcessStep[];

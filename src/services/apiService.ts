@@ -1,4 +1,4 @@
-import type { TrimSession, CreateTrimSessionDTO, Trimmer, TrimmerProfile, ProposedAction, Harvest, CreateHarvestDTO, HarvestWasteType, HarvestAllocation, HarvestPlantWeight, HarvestBin, BinCureLog, CreateBinDTO, FloweringBatchGroup, Strain, License, SpeechMode, HumanTask, TeamRole, Tag, TagType, TagStats, TagSettings, Package, CreatePackageDTO, MetrcItem, PackageAdjustment, AdjustmentReason, ProductType, ReportSpec, SavedReport, TaskViewSpec, SavedTaskView, SupplyPool, SupplyItem, SupplyLedgerEntry, SupplyChangeType, SupplyPoolSlug } from '../types/definitions';
+import type { TrimSession, CreateTrimSessionDTO, Trimmer, TrimmerProfile, ProposedAction, Harvest, CreateHarvestDTO, HarvestWasteType, HarvestAllocation, HarvestPlantWeight, HarvestBin, BinCureLog, CreateBinDTO, FloweringBatchGroup, Strain, License, SpeechMode, HumanTask, TeamRole, Tag, TagType, TagStats, TagSettings, Package, CreatePackageDTO, MetrcItem, PackageAdjustment, AdjustmentReason, ProductType, ProcessTemplate, ReportSpec, SavedReport, TaskViewSpec, SavedTaskView, SupplyPool, SupplyItem, SupplyLedgerEntry, SupplyChangeType, SupplyPoolSlug } from '../types/definitions';
 
 const API_BASE = '/.netlify/functions';
 
@@ -1147,7 +1147,7 @@ export const deleteExtractionEquipment = async (id: string): Promise<void> => {
 
 // ── Process Templates ───────────────────────────────────────────────────────
 
-export const getProcessTemplates = async (domain?: string): Promise<any[]> => {
+export const getProcessTemplates = async (domain?: string): Promise<ProcessTemplate[]> => {
     const params = new URLSearchParams();
     if (domain) params.set('domain', domain);
     const qs = params.toString();
@@ -1159,6 +1159,7 @@ export const getProcessTemplates = async (domain?: string): Promise<any[]> => {
 export const saveProcessTemplate = async (data: {
     id?: string; name: string; description?: string; processType: string;
     domain?: string; phaseDurations?: Record<string, number>;
+    acceptedInputs?: string[]; producibleOutputs?: string[]; standardBatchSizeG?: number;
     steps: {
         stepOrder: number; name: string; description?: string;
         inputType?: string; outputType?: string; equipmentType?: string;

@@ -77,6 +77,7 @@ function makeDefaultOutputLine(run: ExtractionRun, productTypes: ProductType[]):
 
 export const FinishRunModal: React.FC<FinishRunModalProps> = ({ run, onClose, onCompleted }) => {
     const [productTypes, setProductTypes] = useState<ProductType[]>([]);
+    const [templateOutputs, setTemplateOutputs] = useState<string[]>([]); // producibleOutputs from the run's SOP
     const [loadingCatalog, setLoadingCatalog] = useState(true);
     const [outputs, setOutputs] = useState<OutputLine[]>([]);
     // Check-in values — map of stepId → numeric string being edited
@@ -84,13 +85,23 @@ export const FinishRunModal: React.FC<FinishRunModalProps> = ({ run, onClose, on
     const [submitting, setSubmitting] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
-    // Load the product catalog once
+    // Load the product catalog + template's producible outputs
     useEffect(() => {
         let cancelled = false;
-        apiService.getProductTypes()
+        const loadCatalog = async () => {
+            const [types, templates] = await Promise.all([
+                apiService.getProductTypes(),
+                run.templateId ? apiService.getProcessTemplates('extraction') : Promise.resolve([]),
+            ]);
+            if (cancelled) return;
+            setProductTypes(types);
+            const tmpl = templates.find(t => t.id === run.templateId);
+            if (tmpl?.producibleOutputs?.length) setTemplateOutputs(tmpl.producibleOutputs);
+            return types;
+        };
+        loadCatalog()
             .then(types => {
-                if (cancelled) return;
-                setProductTypes(types);
+                if (cancelled || !types) return;
                 // Seed one default output line once the catalog is loaded
                 setOutputs([makeDefaultOutputLine(run, types)]);
                 // Seed check-in values from existing run data
@@ -118,6 +129,15 @@ export const FinishRunModal: React.FC<FinishRunModalProps> = ({ run, onClose, on
             .sort((a, b) => a.stepOrder - b.stepOrder),
         [run.steps]
     );
+
+    // Output type options: constrained to SOP's producibleOutputs if set,
+    // otherwise all intermediate+finished from the catalog.
+    const outputTypeOptions = useMemo(() => {
+        const base = productTypes.filter(p => p.category === 'intermediate' || p.category === 'finished');
+        if (templateOutputs.length === 0) return base;
+        const allowed = new Set(templateOutputs);
+        return base.filter(p => allowed.has(p.name));
+    }, [productTypes, templateOutputs]);
 
     const allCheckInsFilled = useMemo(
         () => checkInSteps.every(s => {
@@ -297,9 +317,7 @@ export const FinishRunModal: React.FC<FinishRunModalProps> = ({ run, onClose, on
                                                 onChange={e => handleUpdateOutput(output._key, 'packageType', e.target.value)}
                                             >
                                                 <option value="">— Select type —</option>
-                                                {productTypes
-                                                    .filter(p => p.category === 'intermediate' || p.category === 'finished')
-                                                    .map(p => (
+                                                {outputTypeOptions.map(p => (
                                                         <option key={p.id} value={p.name}>
                                                             {p.displayName}
                                                         </option>

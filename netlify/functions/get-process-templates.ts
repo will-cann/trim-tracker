@@ -77,6 +77,8 @@ function formatTemplate(row: any) {
         domain: row.domain || 'extraction',
         phaseDurations: row.phase_durations || null,
         acceptedInputs: row.accepted_inputs || [],
+        producibleOutputs: row.producible_outputs || [],
+        standardBatchSizeG: row.standard_batch_size_g ? parseInt(row.standard_batch_size_g) : null,
         isPreset: row.is_preset,
         isActive: row.is_active,
         createdAt: row.created_at,
@@ -98,6 +100,10 @@ function formatStep(row: any) {
         estDurationHours: row.est_duration_hours ? parseFloat(row.est_duration_hours) : null,
         estHandsOnHours: row.est_hands_on_hours ? parseFloat(row.est_hands_on_hours) : null,
         isOptional: row.is_optional,
+        // Step requirements (migration 047)
+        requiresWeight: row.requires_weight || false,
+        weightUnit: row.weight_unit || null,
+        requiresTimestamp: row.requires_timestamp || false,
         // Cultivation fields
         track: row.track || null,
         phase: row.phase || null,

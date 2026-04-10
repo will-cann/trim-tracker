@@ -1,8 +1,39 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Snowflake, Flame, Beaker, ChevronRight, ChevronDown, Clock, Percent, Wrench, ArrowRight, Plus, Trash2, GripVertical, Pencil, Check, X, Copy, User, Cog } from 'lucide-react';
-import type { ProcessTemplate, ProcessStep } from '../../types/definitions';
+import type { ProcessTemplate, ProcessStep, ProductType } from '../../types/definitions';
 import { apiService } from '../../services/apiService';
 import { CenteredSpinner } from '../Spinner';
+
+// ── Catalog-driven material helpers ─────────────────────────────────────────
+// Product types are loaded once from the catalog and threaded through as props.
+// These helpers build the dropdown options and display labels from catalog data.
+
+type MaterialOption = { value: string; label: string };
+
+function buildMaterialLabels(productTypes: ProductType[]): Record<string, string> {
+    const labels: Record<string, string> = {};
+    for (const pt of productTypes) labels[pt.name] = pt.displayName;
+    return labels;
+}
+
+function buildGroupedMaterialOptions(productTypes: ProductType[]): { label: string; options: MaterialOption[] }[] {
+    const groups: Record<string, MaterialOption[]> = {};
+    const categoryOrder = ['biomass', 'intermediate', 'finished', 'additive'];
+    const categoryLabels: Record<string, string> = {
+        biomass: 'Biomass',
+        intermediate: 'Intermediates',
+        finished: 'Finished Goods',
+        additive: 'Additives',
+    };
+    for (const pt of productTypes) {
+        const cat = pt.category || 'other';
+        if (!groups[cat]) groups[cat] = [];
+        groups[cat].push({ value: pt.name, label: pt.displayName });
+    }
+    return categoryOrder
+        .filter(cat => groups[cat]?.length)
+        .map(cat => ({ label: categoryLabels[cat] || cat, options: groups[cat] }));
+}
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -38,24 +69,8 @@ const EQUIP_LABELS: Record<string, string> = {
     short_path: 'Short Path',
 };
 
-const MATERIAL_LABELS: Record<string, string> = {
-    fresh_frozen: 'Fresh Frozen',
-    bubble_hash: 'Bubble Hash',
-    rosin: 'Rosin',
-    rosin_cart: 'Rosin Cart',
-    crude_extract: 'Crude',
-    bho_concentrate: 'Concentrate',
-    winterized: 'Winterized',
-    filtered: 'Filtered',
-    distillate: 'Distillate',
-    trim: 'Trim',
-    flower: 'Flower',
-    kief: 'Kief',
-    dry_trim: 'Dry Trim',
-    shake: 'Shake',
-};
-
-const MATERIAL_OPTIONS = Object.entries(MATERIAL_LABELS).map(([value, label]) => ({ value, label }));
+// MATERIAL_LABELS and MATERIAL_OPTIONS are now built from the product_types
+// catalog at runtime. See buildMaterialLabels() and buildMaterialOptions().
 const EQUIP_OPTIONS = Object.entries(EQUIP_LABELS).map(([value, label]) => ({ value, label }));
 
 const formatDuration = (hours: number | null) => {
@@ -65,75 +80,8 @@ const formatDuration = (hours: number | null) => {
     return `${hours}h`;
 };
 
-// ── Product variants (shared with StartRunModal) ─────────────────────────────
-
-type ProductVariant = { value: string; label: string };
-
-const PRODUCT_VARIANTS: Record<string, { fresh_frozen: ProductVariant[]; dry: ProductVariant[] }> = {
-    bho: {
-        fresh_frozen: [
-            { value: 'live_resin_diamonds', label: 'Live Resin Diamonds' },
-            { value: 'live_resin_sugar', label: 'Live Resin Sugar' },
-            { value: 'live_resin_sauce', label: 'Live Resin Sauce' },
-            { value: 'live_resin_badder', label: 'Live Resin Badder' },
-            { value: 'live_resin_shatter', label: 'Live Resin Shatter' },
-            { value: 'live_resin_pens', label: 'Live Resin Pens' },
-        ],
-        dry: [
-            { value: 'shatter', label: 'Shatter' },
-            { value: 'wax', label: 'Wax / Budder' },
-            { value: 'crumble', label: 'Crumble' },
-        ],
-    },
-    solventless: {
-        fresh_frozen: [
-            { value: 'live_rosin', label: 'Live Rosin' },
-            { value: 'live_rosin_badder', label: 'Live Rosin Badder' },
-            { value: 'live_rosin_carts', label: 'Live Rosin Carts' },
-            { value: 'bubble_hash', label: 'Bubble Hash' },
-        ],
-        dry: [
-            { value: 'rosin', label: 'Rosin' },
-            { value: 'dry_sift', label: 'Dry Sift' },
-            { value: 'temple_balls', label: 'Temple Balls' },
-        ],
-    },
-    distillate: {
-        fresh_frozen: [
-            { value: 'distillate', label: 'Distillate' },
-            { value: 'distillate_carts', label: 'Distillate Carts' },
-        ],
-        dry: [
-            { value: 'distillate', label: 'Distillate' },
-            { value: 'distillate_carts', label: 'Distillate Carts' },
-            { value: 'isolate', label: 'Isolate' },
-        ],
-    },
-};
-
-function getProductsForProcess(processType: string, acceptedInputs: string[], selectedInput: string | null): ProductVariant[] {
-    const group = PRODUCT_VARIANTS[processType];
-    if (!group) return [];
-
-    if (selectedInput) {
-        const isFresh = selectedInput === 'fresh_frozen';
-        return isFresh ? group.fresh_frozen : group.dry;
-    }
-
-    const seen = new Set<string>();
-    const all: ProductVariant[] = [];
-    const inputs = acceptedInputs.length > 0 ? acceptedInputs : ['fresh_frozen', 'dry'];
-    for (const input of inputs) {
-        const variants = input === 'fresh_frozen' ? group.fresh_frozen : group.dry;
-        for (const v of variants) {
-            if (!seen.has(v.value)) {
-                seen.add(v.value);
-                all.push(v);
-            }
-        }
-    }
-    return all;
-}
+// Product variants are now derived from template.producibleOutputs + catalog.
+// The old PRODUCT_VARIANTS constant and getProductsForProcess() are removed.
 
 // ── Editable step type ──────────────────────────────────────────────────────
 
@@ -215,12 +163,13 @@ function blankStep(order: number): EditableStep {
 interface StepFlowProps {
     steps: ProcessStep[];
     color: string;
+    materialLabels: Record<string, string>;
     hasProductFilter: boolean;
     excludedStepIds: Set<string>;
     onToggleStep?: (stepId: string) => void;
 }
 
-const StepFlow: React.FC<StepFlowProps> = ({ steps, color, hasProductFilter, excludedStepIds, onToggleStep }) => {
+const StepFlow: React.FC<StepFlowProps> = ({ steps, color, materialLabels, hasProductFilter, excludedStepIds, onToggleStep }) => {
     const sortedSteps = [...steps].sort((a, b) => a.stepOrder - b.stepOrder);
 
     return (
@@ -246,7 +195,7 @@ const StepFlow: React.FC<StepFlowProps> = ({ steps, color, hasProductFilter, exc
                                     <ArrowRight size={12} style={{ color: excluded ? '#E8E8E8' : (active ? color : '#D0D0D0') }} />
                                     {step.inputType && step.inputType !== prevStep?.outputType && !excluded && (
                                         <span className="sop-flow-transition">
-                                            {MATERIAL_LABELS[step.inputType] || step.inputType}
+                                            {materialLabels[step.inputType] || step.inputType.replace(/_/g, ' ')}
                                         </span>
                                     )}
                                 </div>
@@ -304,7 +253,7 @@ const StepFlow: React.FC<StepFlowProps> = ({ steps, color, hasProductFilter, exc
                                         {step.outputType && (
                                             <div className="sop-flow-node-output">
                                                 <span className="sop-flow-material-pill sop-flow-material-pill--sm">
-                                                    → {MATERIAL_LABELS[step.outputType] || step.outputType}
+                                                    → {materialLabels[step.outputType] || step.outputType.replace(/_/g, ' ')}
                                                 </span>
                                             </div>
                                         )}
@@ -324,16 +273,23 @@ const StepFlow: React.FC<StepFlowProps> = ({ steps, color, hasProductFilter, exc
 const InlineSelect: React.FC<{
     value: string;
     options: { value: string; label: string }[];
+    groups?: { label: string; options: { value: string; label: string }[] }[];
     placeholder: string;
     onChange: (v: string) => void;
-}> = ({ value, options, placeholder, onChange }) => (
+}> = ({ value, options, groups, placeholder, onChange }) => (
     <select
         className="sop-edit-select"
         value={value}
         onChange={e => onChange(e.target.value)}
     >
         <option value="">{placeholder}</option>
-        {options.map(o => (
+        {groups ? groups.map(g => (
+            <optgroup key={g.label} label={g.label}>
+                {g.options.map(o => (
+                    <option key={o.value} value={o.value}>{o.label}</option>
+                ))}
+            </optgroup>
+        )) : options.map(o => (
             <option key={o.value} value={o.value}>{o.label}</option>
         ))}
     </select>
@@ -345,6 +301,7 @@ const StepEditorRow: React.FC<{
     step: EditableStep;
     index: number;
     color: string;
+    materialGroups: { label: string; options: MaterialOption[] }[];
     onChange: (updated: EditableStep) => void;
     onRemove: () => void;
     onMoveUp: (() => void) | null;
@@ -356,7 +313,7 @@ const StepEditorRow: React.FC<{
         onDrop: () => void;
         draggable: boolean;
     };
-}> = ({ step, index, color, onChange, onRemove, dragHandleProps }) => {
+}> = ({ step, index, color, materialGroups, onChange, onRemove, dragHandleProps }) => {
     // Auto-expand on first render if any advanced field already has data
     // (editing an existing SOP). After that, the user's toggle is the sole
     // authority — useState initializer only runs once per component instance.
@@ -467,14 +424,16 @@ const StepEditorRow: React.FC<{
                         <div className="sop-step-editor-row-fields">
                             <InlineSelect
                                 value={step.inputType}
-                                options={MATERIAL_OPTIONS}
+                                options={[]}
+                                groups={materialGroups}
                                 placeholder="Input type"
                                 onChange={v => set('inputType', v)}
                             />
                             <span className="sop-step-arrow">→</span>
                             <InlineSelect
                                 value={step.outputType}
-                                options={MATERIAL_OPTIONS}
+                                options={[]}
+                                groups={materialGroups}
                                 placeholder="Output type"
                                 onChange={v => set('outputType', v)}
                             />
@@ -546,6 +505,11 @@ const TemplateEditor: React.FC<TemplateEditorProps> = ({ template, onSave, onCan
     const [name, setName] = useState(template?.name || '');
     const [description, setDescription] = useState(template?.description || '');
     const [processType, setProcessType] = useState(template?.processType || 'solventless');
+    const [acceptedInputs, setAcceptedInputs] = useState<string[]>(template?.acceptedInputs || []);
+    const [producibleOutputs, setProducibleOutputs] = useState<string[]>(template?.producibleOutputs || []);
+    const [standardBatchSizeG, setStandardBatchSizeG] = useState<string>(
+        template?.standardBatchSizeG != null ? String(template.standardBatchSizeG) : ''
+    );
     const [steps, setSteps] = useState<EditableStep[]>(() =>
         template?.steps.length
             ? [...template.steps].sort((a, b) => a.stepOrder - b.stepOrder).map(stepToEditable)
@@ -554,6 +518,28 @@ const TemplateEditor: React.FC<TemplateEditorProps> = ({ template, onSave, onCan
     const [saving, setSaving] = useState(false);
     const [dragIdx, setDragIdx] = useState<number | null>(null);
     const nameRef = useRef<HTMLInputElement>(null);
+
+    // ── Product types catalog ──────────────────────────────────────────────
+    const [productTypes, setProductTypes] = useState<ProductType[]>([]);
+    useEffect(() => {
+        apiService.getProductTypes().then(setProductTypes);
+    }, []);
+
+    const materialGroups = useMemo(() => buildGroupedMaterialOptions(productTypes), [productTypes]);
+
+    const biomassOptions = useMemo(
+        () => productTypes.filter(pt => pt.category === 'biomass').map(pt => ({ value: pt.name, label: pt.displayName })),
+        [productTypes]
+    );
+    const outputOptions = useMemo(
+        () => productTypes
+            .filter(pt => pt.category === 'intermediate' || pt.category === 'finished')
+            .map(pt => ({ value: pt.name, label: pt.displayName })),
+        [productTypes]
+    );
+
+    const toggleArrayItem = (arr: string[], item: string) =>
+        arr.includes(item) ? arr.filter(x => x !== item) : [...arr, item];
 
     useEffect(() => {
         nameRef.current?.focus();
@@ -597,6 +583,9 @@ const TemplateEditor: React.FC<TemplateEditorProps> = ({ template, onSave, onCan
                 name: name.trim(),
                 description: description.trim() || undefined,
                 processType,
+                acceptedInputs,
+                producibleOutputs,
+                standardBatchSizeG: standardBatchSizeG ? parseInt(standardBatchSizeG) : undefined,
                 steps: steps
                     .filter(s => s.name.trim())
                     .map((s, i) => ({
@@ -682,6 +671,58 @@ const TemplateEditor: React.FC<TemplateEditorProps> = ({ template, onSave, onCan
                     value={description}
                     onChange={e => setDescription(e.target.value)}
                 />
+
+                {/* ── I/O + batch size ─────────────────────────────────── */}
+                <div className="sop-editor-io-section">
+                    <div className="sop-editor-io-row">
+                        <span className="sop-editor-io-label">Accepts</span>
+                        <div className="sop-filter-pills">
+                            {biomassOptions.map(opt => (
+                                <button
+                                    key={opt.value}
+                                    type="button"
+                                    className={`sop-filter-pill ${acceptedInputs.includes(opt.value) ? 'sop-filter-pill--active' : ''}`}
+                                    style={acceptedInputs.includes(opt.value) ? { background: color, borderColor: color } : undefined}
+                                    onClick={() => setAcceptedInputs(prev => toggleArrayItem(prev, opt.value))}
+                                >
+                                    {opt.label}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+                    <div className="sop-editor-io-row">
+                        <span className="sop-editor-io-label">Produces</span>
+                        <div className="sop-filter-pills">
+                            {outputOptions.map(opt => (
+                                <button
+                                    key={opt.value}
+                                    type="button"
+                                    className={`sop-filter-pill ${producibleOutputs.includes(opt.value) ? 'sop-filter-pill--active' : ''}`}
+                                    style={producibleOutputs.includes(opt.value) ? { background: color, borderColor: color } : undefined}
+                                    onClick={() => setProducibleOutputs(prev => toggleArrayItem(prev, opt.value))}
+                                >
+                                    {opt.label}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+                    <div className="sop-editor-io-row">
+                        <span className="sop-editor-io-label">Batch size</span>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <input
+                                className="sop-edit-input sop-edit-input--sm"
+                                type="number"
+                                placeholder="e.g. 500"
+                                value={standardBatchSizeG}
+                                onChange={e => setStandardBatchSizeG(e.target.value)}
+                                min="0"
+                                step="500"
+                                style={{ width: '90px' }}
+                            />
+                            <span style={{ fontSize: '11px', color: '#959595' }}>g (standard)</span>
+                        </div>
+                    </div>
+                </div>
             </div>
 
             <div className="sop-editor-steps-header">
@@ -696,6 +737,7 @@ const TemplateEditor: React.FC<TemplateEditorProps> = ({ template, onSave, onCan
                         step={step}
                         index={idx}
                         color={color}
+                        materialGroups={materialGroups}
                         onChange={updated => updateStep(idx, updated)}
                         onRemove={() => removeStep(idx)}
                         onMoveUp={idx > 0 ? () => moveStep(idx, idx - 1) : null}
@@ -723,11 +765,12 @@ const TemplateEditor: React.FC<TemplateEditorProps> = ({ template, onSave, onCan
 const TemplateCard: React.FC<{
     template: ProcessTemplate;
     expanded: boolean;
+    materialLabels: Record<string, string>;
     onToggle: () => void;
     onEdit: () => void;
     onDuplicate: () => void;
     onDelete: () => void;
-}> = ({ template, expanded, onToggle, onEdit, onDuplicate, onDelete }) => {
+}> = ({ template, expanded, materialLabels, onToggle, onEdit, onDuplicate, onDelete }) => {
     const [selectedInput, setSelectedInput] = useState<string | null>(null);
     const [selectedProduct, setSelectedProduct] = useState<string | null>(null);
     const [excludedStepIds, setExcludedStepIds] = useState<Set<string>>(new Set());
@@ -744,20 +787,20 @@ const TemplateCard: React.FC<{
         ? template.acceptedInputs
         : requiredSteps[0]?.inputType ? [requiredSteps[0].inputType] : [];
 
-    const products = useMemo(
-        () => getProductsForProcess(template.processType, acceptedInputs, selectedInput),
-        [template.processType, JSON.stringify(acceptedInputs), selectedInput]
-    );
+    // Producible outputs come from the template directly (catalog-driven).
+    // Fall back to deriving from the last step's output_type for legacy templates.
+    const products: MaterialOption[] = useMemo(() => {
+        const outputs = template.producibleOutputs.length > 0
+            ? template.producibleOutputs
+            : (() => {
+                const lastStep = [...template.steps].sort((a, b) => b.stepOrder - a.stepOrder)[0];
+                return lastStep?.outputType ? [lastStep.outputType] : [];
+            })();
+        return outputs.map(name => ({ value: name, label: materialLabels[name] || name.replace(/_/g, ' ') }));
+    }, [template.producibleOutputs, template.steps, materialLabels]);
 
     const handleInputClick = (input: string) => {
-        const next = selectedInput === input ? null : input;
-        setSelectedInput(next);
-        if (next && selectedProduct) {
-            const validProducts = getProductsForProcess(template.processType, acceptedInputs, next);
-            if (!validProducts.find(p => p.value === selectedProduct)) {
-                setSelectedProduct(null);
-            }
-        }
+        setSelectedInput(prev => prev === input ? null : input);
     };
 
     const handleProductClick = (value: string) => {
@@ -849,7 +892,7 @@ const TemplateCard: React.FC<{
                                             style={selectedInput === input ? { background: color, borderColor: color } : undefined}
                                             onClick={() => handleInputClick(input)}
                                         >
-                                            {MATERIAL_LABELS[input] || input.replace(/_/g, ' ')}
+                                            {materialLabels[input] || input.replace(/_/g, ' ')}
                                         </button>
                                     ))}
                                 </div>
@@ -882,6 +925,7 @@ const TemplateCard: React.FC<{
                     <StepFlow
                         steps={template.steps}
                         color={color}
+                        materialLabels={materialLabels}
                         hasProductFilter={!!selectedProduct}
                         excludedStepIds={excludedStepIds}
                         onToggleStep={selectedProduct ? toggleStep : undefined}
@@ -899,11 +943,18 @@ export const ProcessTemplateList: React.FC<{ domain?: string }> = ({ domain = 'e
     const [loading, setLoading] = useState(true);
     const [expandedId, setExpandedId] = useState<string | null>(null);
     const [editing, setEditing] = useState<{ mode: 'new' | 'edit' | 'duplicate'; template?: ProcessTemplate } | null>(null);
+    const [productTypes, setProductTypes] = useState<ProductType[]>([]);
+
+    const materialLabels = useMemo(() => buildMaterialLabels(productTypes), [productTypes]);
 
     const loadTemplates = useCallback(async () => {
         setLoading(true);
-        const data = await apiService.getProcessTemplates(domain);
+        const [data, pt] = await Promise.all([
+            apiService.getProcessTemplates(domain),
+            apiService.getProductTypes(),
+        ]);
         setTemplates(data);
+        setProductTypes(pt);
         setLoading(false);
         if (data.length > 0 && !expandedId) setExpandedId(data[0].id);
     }, [domain]);
@@ -982,6 +1033,7 @@ export const ProcessTemplateList: React.FC<{ domain?: string }> = ({ domain = 'e
                     key={t.id}
                     template={t}
                     expanded={expandedId === t.id}
+                    materialLabels={materialLabels}
                     onToggle={() => setExpandedId(prev => prev === t.id ? null : t.id)}
                     onEdit={() => setEditing({ mode: 'edit', template: t })}
                     onDuplicate={() => startDuplicate(t)}

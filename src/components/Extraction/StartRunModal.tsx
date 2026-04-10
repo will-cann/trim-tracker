@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Snowflake, Flame, Beaker, Wrench, ChevronRight, Check, ChevronDown, AlertTriangle } from 'lucide-react';
-import type { ProcessTemplate, Package, ExtractionEquipment } from '../../types/definitions';
+import type { ProcessTemplate, Package, ExtractionEquipment, ProductType } from '../../types/definitions';
 import { apiService } from '../../services/apiService';
 import { Modal, Button } from '../ui';
 
@@ -20,69 +20,8 @@ const PROCESS_ICONS: Record<string, typeof Snowflake> = {
     custom: Wrench,
 };
 
-const MATERIAL_LABELS: Record<string, string> = {
-    fresh_frozen: 'Fresh Frozen',
-    dry_trim: 'Dry Trim',
-    bubble_hash: 'Bubble Hash',
-    rosin: 'Rosin',
-    flower: 'Flower',
-    trim: 'Trim',
-    shake: 'Shake',
-    kief: 'Kief',
-};
-
-// Product variants keyed by processType, split by input material
-type Variant = { value: string; label: string; description: string };
-
-const PRODUCT_VARIANTS: Record<string, { fresh_frozen: Variant[]; dry: Variant[] }> = {
-    bho: {
-        fresh_frozen: [
-            { value: 'live_resin_diamonds', label: 'Live Resin Diamonds', description: 'Solvent-rich pour, slow crystallization 2-4 weeks' },
-            { value: 'live_resin_sugar', label: 'Live Resin Sugar', description: 'Warm cure for granular crystalline texture' },
-            { value: 'live_resin_sauce', label: 'Live Resin Sauce', description: 'Terpene-heavy liquid with small crystals' },
-            { value: 'live_resin_badder', label: 'Live Resin Badder', description: 'Whipped during purge for creamy, opaque texture' },
-            { value: 'live_resin_shatter', label: 'Live Resin Shatter', description: 'Thin-film vacuum purge from fresh frozen, glass-like' },
-            { value: 'live_resin_pens', label: 'Live Resin Pens', description: 'Decarbed live resin filled into disposable vape pens' },
-        ],
-        dry: [
-            { value: 'shatter', label: 'Shatter', description: 'Thin-film vacuum purge, stable glass-like consistency' },
-            { value: 'wax', label: 'Wax / Budder', description: 'Whipped during purge for opaque, soft texture' },
-            { value: 'crumble', label: 'Crumble', description: 'Higher temp vacuum purge for dry, crumbly texture' },
-        ],
-    },
-    solventless: {
-        fresh_frozen: [
-            { value: 'live_rosin', label: 'Live Rosin', description: 'Ice water hash → freeze dry → rosin press' },
-            { value: 'live_rosin_badder', label: 'Live Rosin Badder', description: 'Pressed, cold cured at room temp for badder consistency' },
-            { value: 'live_rosin_carts', label: 'Live Rosin Carts', description: 'Pressed, decarbed, filled into cartridges' },
-            { value: 'bubble_hash', label: 'Bubble Hash', description: 'Stop after freeze dry — no pressing' },
-        ],
-        dry: [
-            { value: 'rosin', label: 'Rosin', description: 'Direct press or dry sift → press' },
-            { value: 'dry_sift', label: 'Dry Sift', description: 'Mechanical trichome separation, no water' },
-            { value: 'temple_balls', label: 'Temple Balls', description: 'Hand-rolled hash from dry sift or kief' },
-        ],
-    },
-    distillate: {
-        fresh_frozen: [
-            { value: 'distillate', label: 'Distillate', description: 'Short-path distillation from fresh frozen extract' },
-            { value: 'distillate_carts', label: 'Distillate Carts', description: 'Distillate filled into vape cartridges' },
-        ],
-        dry: [
-            { value: 'distillate', label: 'Distillate', description: 'Standard short-path distillation' },
-            { value: 'distillate_carts', label: 'Distillate Carts', description: 'Distillate filled into vape cartridges' },
-            { value: 'isolate', label: 'Isolate', description: 'Further refined to crystalline isolate' },
-        ],
-    },
-};
-
-// Determine which variant list to show based on input material
-function getVariants(processType: string, inputMaterial: string | undefined): Variant[] {
-    const group = PRODUCT_VARIANTS[processType];
-    if (!group) return [];
-    const isFresh = inputMaterial === 'fresh_frozen';
-    return isFresh ? group.fresh_frozen : group.dry;
-}
+// Material labels and product variants are now catalog-driven.
+// Loaded from apiService.getProductTypes() at mount time.
 
 // ── Capacity chain calculation ───────────────────────────────────────────────
 
@@ -203,14 +142,24 @@ export const StartRunModal: React.FC<StartRunModalProps> = ({ templates, onClose
     const [packagesLoading, setPackagesLoading] = useState(false);
     const [typeFilter, setTypeFilter] = useState<string | null>(null);
 
+    const [productTypes, setProductTypes] = useState<ProductType[]>([]);
+
+    const materialLabels = useMemo(() => {
+        const labels: Record<string, string> = {};
+        for (const pt of productTypes) labels[pt.name] = pt.displayName;
+        return labels;
+    }, [productTypes]);
+
     const loadData = useCallback(async () => {
         setPackagesLoading(true);
-        const [pkgs, equip] = await Promise.all([
+        const [pkgs, equip, pt] = await Promise.all([
             apiService.getPackages({ status: 'active' }),
             apiService.getExtractionEquipment(),
+            apiService.getProductTypes(),
         ]);
         setPackages(pkgs);
         setEquipment(equip.filter((e: ExtractionEquipment) => e.status === 'available' || e.status === 'in_use'));
+        setProductTypes(pt);
         setPackagesLoading(false);
     }, []);
 
@@ -231,9 +180,19 @@ export const StartRunModal: React.FC<StartRunModalProps> = ({ templates, onClose
     const derivedStrain = selectedPkgs.length > 0 ? selectedPkgs[0].strain : '';
     // Total = sum of user-specified quantities (defaults to full package qty)
     const totalInputWeight = selectedPkgs.reduce((sum, p) => sum + (packageQuantities[p.id] ?? p.quantity), 0);
-    const processType = selectedTemplate?.processType || '';
-    const derivedInputMaterial = selectedPkgs.length > 0 ? selectedPkgs[0].packageType : undefined;
-    const variants = getVariants(processType, derivedInputMaterial);
+    // Target product options: use template's producibleOutputs if set,
+    // otherwise fall back to all intermediate+finished types from catalog.
+    const variants = useMemo(() => {
+        const outputs = selectedTemplate?.producibleOutputs?.length
+            ? selectedTemplate.producibleOutputs
+            : productTypes
+                .filter(pt => pt.category === 'intermediate' || pt.category === 'finished')
+                .map(pt => pt.name);
+        return outputs.map(name => ({
+            value: name,
+            label: materialLabels[name] || name.replace(/_/g, ' '),
+        }));
+    }, [selectedTemplate, productTypes, materialLabels]);
 
     // Auto-assign equipment: for each template step with equipment_type, find a matching piece
     const autoAssignEquipment = useCallback(() => {
@@ -304,11 +263,9 @@ export const StartRunModal: React.FC<StartRunModalProps> = ({ templates, onClose
         const yy = String(now.getFullYear()).slice(-2);
         const dateStr = `${mm}${dd}${yy}`;
 
-        // Build a smart product name based on target product + input material
         let productLabel = '';
         if (targetProduct) {
-            const variant = variants.find(v => v.value === targetProduct);
-            productLabel = variant?.label || targetProduct;
+            productLabel = materialLabels[targetProduct] || targetProduct.replace(/_/g, ' ');
         } else {
             productLabel = selectedTemplate?.name || 'Run';
         }
@@ -444,7 +401,7 @@ export const StartRunModal: React.FC<StartRunModalProps> = ({ templates, onClose
                             <p className="start-run-hint">
                                 This process accepts{' '}
                                 <strong>
-                                    {acceptedInputs.map(i => MATERIAL_LABELS[i] || i.replace(/_/g, ' ')).join(', ')}
+                                    {acceptedInputs.map(i => materialLabels[i] || i.replace(/_/g, ' ')).join(', ')}
                                 </strong>
                                 . Select the packages to use as input.
                             </p>
@@ -475,7 +432,7 @@ export const StartRunModal: React.FC<StartRunModalProps> = ({ templates, onClose
                                             className={`start-run-type-pill ${typeFilter === type ? 'start-run-type-pill--active' : ''}`}
                                             onClick={() => setTypeFilter(prev => prev === type ? null : type)}
                                         >
-                                            {MATERIAL_LABELS[type] || type.replace(/_/g, ' ')} ({count})
+                                            {materialLabels[type] || type.replace(/_/g, ' ')} ({count})
                                         </button>
                                     ))}
                                 </div>
@@ -486,7 +443,7 @@ export const StartRunModal: React.FC<StartRunModalProps> = ({ templates, onClose
                             <p className="start-run-empty">Loading packages...</p>
                         ) : relevantPackages.length === 0 ? (
                             <p className="start-run-empty">
-                                No active {hasInputFilter ? acceptedInputs.map(i => (MATERIAL_LABELS[i] || i.replace(/_/g, ' ')).toLowerCase()).join(' or ') : ''} packages found.
+                                No active {hasInputFilter ? acceptedInputs.map(i => (materialLabels[i] || i.replace(/_/g, ' ')).toLowerCase()).join(' or ') : ''} packages found.
                             </p>
                         ) : (
                             <div className="start-run-pkg-list">
@@ -510,7 +467,7 @@ export const StartRunModal: React.FC<StartRunModalProps> = ({ templates, onClose
                                                     </span>
                                                 </div>
                                                 <span className="start-run-pkg-type">
-                                                    {MATERIAL_LABELS[pkg.packageType] || pkg.packageType}
+                                                    {materialLabels[pkg.packageType] || pkg.packageType}
                                                 </span>
                                             </button>
                                             {isSelected && (
@@ -564,7 +521,7 @@ export const StartRunModal: React.FC<StartRunModalProps> = ({ templates, onClose
                                                     </span>
                                                 </div>
                                                 <span className="start-run-pkg-type">
-                                                    {MATERIAL_LABELS[pkg.packageType] || pkg.packageType}
+                                                    {materialLabels[pkg.packageType] || pkg.packageType}
                                                 </span>
                                             </button>
                                         );
@@ -625,7 +582,6 @@ export const StartRunModal: React.FC<StartRunModalProps> = ({ templates, onClose
                                             </div>
                                             <div>
                                                 <span className="start-run-variant-name">{v.label}</span>
-                                                <span className="start-run-variant-desc">{v.description}</span>
                                             </div>
                                         </button>
                                     ))}
