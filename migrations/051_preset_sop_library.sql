@@ -152,28 +152,28 @@ PERFORM _seed_sop(c.id,
 -- 5. Dry Flower → Rosin (direct press)
 PERFORM _seed_sop(c.id,
     'Solventless: Dry Flower to Rosin',
-    'Direct press from cured flower — simpler but lower yield. Good for small batches or flower rosin SKUs.',
+    'Direct press from cured flower — roughly 4-5x the yield of fresh frozen by weight since the water is already gone.',
     'solventless',
     ARRAY['flower'],
     ARRAY['rosin'],
     500,
     '[
         {"name":"Prep","desc":"Break up flower, load into 37-90u rosin bags.","input":"flower","output":"flower","equip":"","yield":100,"hours":0.5,"handsOn":0.5},
-        {"name":"Press","desc":"~180-220°F, 700-1500 psi. Multiple squishes per bag.","input":"flower","output":"rosin","equip":"rosin_press","yield":18,"hours":2,"handsOn":2}
+        {"name":"Press","desc":"~180-220°F, 700-1500 psi. Multiple squishes per bag.","input":"flower","output":"rosin","equip":"rosin_press","yield":20,"hours":2,"handsOn":2}
     ]'::jsonb
 );
 
 -- 6. Dry Trim → Dry Sift
 PERFORM _seed_sop(c.id,
     'Solventless: Dry Trim to Dry Sift',
-    'Mechanical trichome separation using dry screens. No water, no solvent. Traditional technique.',
+    'Mechanical trichome separation using dry screens. No water, no solvent. Yields are modest — trim is lower than flower.',
     'solventless',
     ARRAY['dry_trim', 'trim', 'shake'],
     ARRAY['dry_sift', 'kief'],
     500,
     '[
         {"name":"Freeze","desc":"Pre-freeze material to make trichomes brittle and easier to separate.","input":"dry_trim","output":"dry_trim","equip":"","yield":100,"hours":12,"handsOn":0.25},
-        {"name":"Sift","desc":"Run through 100-160u screens, collect by grade.","input":"dry_trim","output":"dry_sift","equip":"","yield":4,"hours":2,"handsOn":2}
+        {"name":"Sift","desc":"Run through 100-160u screens, collect by grade.","input":"dry_trim","output":"dry_sift","equip":"","yield":5,"hours":2,"handsOn":2}
     ]'::jsonb
 );
 
@@ -248,7 +248,7 @@ PERFORM _seed_sop(c.id,
     ARRAY['shatter'],
     500,
     '[
-        {"name":"Extract","desc":"Closed-loop hydrocarbon wash through dry material.","input":"dry_trim","output":"crude_extract","equip":"closed_loop_extractor","yield":12,"hours":4,"handsOn":2},
+        {"name":"Extract","desc":"Closed-loop hydrocarbon wash through dry material. Butane extracts regardless of moisture so dry trim yields are close to fresh frozen.","input":"dry_trim","output":"crude_extract","equip":"closed_loop_extractor","yield":12,"hours":4,"handsOn":2},
         {"name":"Dewax","desc":"Freeze to -20°F or lower to precipitate fats and waxes, filter out before purge.","input":"crude_extract","output":"crude_extract","equip":"","yield":90,"hours":12,"handsOn":0.5},
         {"name":"Thin Film Purge","desc":"Thin film vacuum purge at 90-100°F, 48-72h to stable shatter.","input":"crude_extract","output":"shatter","equip":"vacuum_oven","yield":92,"hours":60,"handsOn":0.5}
     ]'::jsonb
@@ -277,7 +277,7 @@ PERFORM _seed_sop(c.id,
     ARRAY['crumble'],
     500,
     '[
-        {"name":"Extract","desc":"Closed-loop hydrocarbon wash.","input":"dry_trim","output":"crude_extract","equip":"closed_loop_extractor","yield":12,"hours":4,"handsOn":2},
+        {"name":"Extract","desc":"Closed-loop hydrocarbon wash.","input":"dry_trim","output":"crude_extract","equip":"closed_loop_extractor","yield":11,"hours":4,"handsOn":2},
         {"name":"High Temp Purge","desc":"Vacuum purge at 110-125°F for 48-72h until crumbly, dry consistency.","input":"crude_extract","output":"crumble","equip":"vacuum_oven","yield":88,"hours":60,"handsOn":0.5}
     ]'::jsonb
 );
@@ -311,7 +311,7 @@ PERFORM _seed_sop(c.id,
     ARRAY['distillate'],
     500,
     '[
-        {"name":"Extract","desc":"Ethanol soak extraction, cold to reduce chlorophyll pickup.","input":"trim","output":"crude_extract","equip":"closed_loop_extractor","yield":12,"hours":4,"handsOn":2},
+        {"name":"Extract","desc":"Ethanol soak extraction, cold to reduce chlorophyll pickup.","input":"trim","output":"crude_extract","equip":"closed_loop_extractor","yield":13,"hours":4,"handsOn":2},
         {"name":"Winterize","desc":"Dissolve crude in ethanol, freeze overnight to precipitate fats and waxes.","input":"crude_extract","output":"crude_extract","equip":"","yield":85,"hours":14,"handsOn":0.5},
         {"name":"Filter","desc":"Buchner/filter press to remove precipitated waxes.","input":"crude_extract","output":"crude_extract","equip":"filter_press","yield":95,"hours":2,"handsOn":1},
         {"name":"Recover Ethanol","desc":"Rotovap ethanol off for recycling. Leaves decarboxylated crude oil.","input":"crude_extract","output":"crude_extract","equip":"","yield":95,"hours":4,"handsOn":1},
@@ -328,7 +328,7 @@ PERFORM _seed_sop(c.id,
     ARRAY['distillate_cart'],
     500,
     '[
-        {"name":"Extract","desc":"Ethanol soak extraction.","input":"trim","output":"crude_extract","equip":"closed_loop_extractor","yield":12,"hours":4,"handsOn":2},
+        {"name":"Extract","desc":"Ethanol soak extraction.","input":"trim","output":"crude_extract","equip":"closed_loop_extractor","yield":13,"hours":4,"handsOn":2},
         {"name":"Winterize","desc":"Freeze overnight to precipitate waxes.","input":"crude_extract","output":"crude_extract","equip":"","yield":85,"hours":14,"handsOn":0.5},
         {"name":"Filter","desc":"Filter press.","input":"crude_extract","output":"crude_extract","equip":"filter_press","yield":95,"hours":2,"handsOn":1},
         {"name":"Recover","desc":"Rotovap ethanol off.","input":"crude_extract","output":"crude_extract","equip":"","yield":95,"hours":4,"handsOn":1},
@@ -363,7 +363,7 @@ PERFORM _seed_sop(c.id,
     ARRAY['isolate'],
     500,
     '[
-        {"name":"Extract","desc":"Ethanol soak extraction.","input":"trim","output":"crude_extract","equip":"closed_loop_extractor","yield":12,"hours":4,"handsOn":2},
+        {"name":"Extract","desc":"Ethanol soak extraction.","input":"trim","output":"crude_extract","equip":"closed_loop_extractor","yield":13,"hours":4,"handsOn":2},
         {"name":"Winterize","desc":"Freeze overnight.","input":"crude_extract","output":"crude_extract","equip":"","yield":85,"hours":14,"handsOn":0.5},
         {"name":"Filter","desc":"Filter press.","input":"crude_extract","output":"crude_extract","equip":"filter_press","yield":95,"hours":2,"handsOn":1},
         {"name":"Recover","desc":"Rotovap ethanol off.","input":"crude_extract","output":"crude_extract","equip":"","yield":95,"hours":4,"handsOn":1},
