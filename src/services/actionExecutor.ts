@@ -465,6 +465,51 @@ export async function executeAction(action: ProposedAction): Promise<ActionOutco
             const bits = [d.strain, d.templateName, inputSummary].filter(Boolean);
             return OK(`${statusLabel}: ${bits.join(' · ')}`);
         }
+        case 'amend_extraction_run_inputs': {
+            // New internal action emitted by the unified extraction_run tool
+            // (action=amend_inputs). Adds materials to an existing run's
+            // input list without creating a duplicate run. See
+            // netlify/functions/amend-extraction-run-inputs.ts for the
+            // upsert semantics.
+            const d = action.data;
+            if (!d.runId) return SKIPPED('no run ID');
+            const addedIds = (d.addedSourcePackageIds as string[] | undefined) || [];
+            if (addedIds.length === 0) return SKIPPED('no inputs to add');
+            await apiService.amendExtractionRunInputs({
+                runId: d.runId,
+                addedSourcePackageIds: addedIds,
+                addedSourcePackageQuantities: d.addedSourcePackageQuantities || {},
+            });
+            const inputsArray = Array.isArray(d.addedInputs) ? d.addedInputs : [];
+            const summary = inputsArray
+                .map((i: { packageType?: string | null; strain?: string | null; quantity?: number | null; unit?: string | null }) => {
+                    const typ = (i.packageType || '').replace(/_/g, ' ');
+                    const strainLabel = i.strain ? ` ${i.strain}` : '';
+                    if (i.quantity) return `${i.quantity}${i.unit || 'g'}${strainLabel} ${typ}`.trim();
+                    return `${strainLabel} ${typ}`.trim();
+                })
+                .filter(Boolean)
+                .join(' + ');
+            return OK(`Amended "${d.runName || 'run'}": +${summary || `${addedIds.length} input(s)`}`);
+        }
+        case 'cancel_extraction_run': {
+            // New internal action emitted by the unified extraction_run tool
+            // (action=cancel). Marks a planned or active run as cancelled.
+            const d = action.data;
+            if (!d.runId) return SKIPPED('no run ID');
+            await apiService.updateExtractionRun(d.runId, { status: 'cancelled' });
+            return OK(`Cancelled run "${d.runName || d.runId}"`);
+        }
+        case 'find_plants_result': {
+            // Stub action emitted by the find_plants tool in PR #1. The
+            // frontend doesn't execute anything — it just surfaces the
+            // lookup result as a side note on the chat. In PR #2 (multi-turn
+            // agent loop), find_plants becomes a true tool_result the AI
+            // reasons about before taking further action in the same turn.
+            const d = action.data as { totalMatches?: number; plants?: unknown[]; batches?: unknown[] };
+            const total = d.totalMatches ?? ((d.plants?.length || 0) + (d.batches?.length || 0));
+            return OK(`Looked up plants — ${total} match${total === 1 ? '' : 'es'}`);
+        }
         case 'create_room':
             await apiService.createRoom({
                 name: action.data.name,
