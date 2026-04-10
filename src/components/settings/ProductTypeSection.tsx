@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Plus, Trash2, Check } from 'lucide-react';
+import { Plus, Trash2, Check, Leaf, RotateCcw } from 'lucide-react';
 import { CenteredSpinner } from '../Spinner';
 import type { ProductType } from '../../types/definitions';
 import { apiService } from '../../services/apiService';
@@ -57,7 +57,7 @@ const ProductTypeRow: React.FC<ProductTypeRowProps> = ({ pt, onUpdate, onDeactiv
     };
 
     return (
-        <tr className="product-type-row">
+        <tr className={`product-type-row ${!pt.isActive ? 'product-type-row--inactive' : ''}`}>
             <td className="product-type-cell-name">
                 <input
                     type="text"
@@ -126,7 +126,7 @@ const ProductTypeRow: React.FC<ProductTypeRowProps> = ({ pt, onUpdate, onDeactiv
                     className="product-type-delete-btn"
                     title={pt.isActive ? 'Deactivate' : 'Reactivate'}
                 >
-                    <Trash2 size={13} />
+                    {pt.isActive ? <Trash2 size={13} /> : <RotateCcw size={13} />}
                 </button>
             </td>
         </tr>
@@ -284,8 +284,10 @@ export const ProductTypeSection: React.FC<ProductTypeSectionProps> = () => {
                                 <th className="product-type-th">Category</th>
                                 <th className="product-type-th">Unit</th>
                                 <th className="product-type-th">Pathways</th>
-                                <th className="product-type-th" style={{ width: 56, textAlign: 'center' }}>Cann.</th>
-                                <th className="product-type-th" style={{ width: 40 }}></th>
+                                <th className="product-type-th" style={{ width: 48, textAlign: 'center', padding: '0.6875rem 0.25rem' }} title="Cannabis">
+                                    <Leaf size={11} style={{ display: 'inline-block', verticalAlign: 'middle' }} />
+                                </th>
+                                <th className="product-type-th" style={{ width: 44 }}></th>
                             </tr>
                         </thead>
                         <tbody>

@@ -7143,25 +7143,27 @@ select.field-input {
 }
 
 /* ── Product Type Catalog ─────────────────────────────────────────────── */
+/* Filter strip — sits between header and table */
 .product-type-filters {
   display: flex;
-  gap: 0.25rem;
+  gap: 4px;
   flex-wrap: wrap;
-  margin-bottom: 1rem;
+  margin-bottom: 0.875rem;
 }
 .product-type-filter-pill {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 5px 12px;
-  border-radius: 6px;
+  padding: 5px 11px;
+  border-radius: 999px;
+  font-family: 'Lato', sans-serif;
   font-size: 0.6875rem;
   font-weight: 600;
-  border: 1px solid #E8E8E8;
+  border: 1px solid #EBEBEB;
   background: transparent;
   color: #959595;
   cursor: pointer;
-  transition: all 0.15s;
+  transition: color 0.15s, border-color 0.15s, background 0.15s;
 }
 .product-type-filter-pill:hover {
   border-color: #C0C0C0;
@@ -7172,10 +7174,17 @@ select.field-input {
   border-color: #1A1A1A;
   color: #fff;
 }
+.product-type-filter-pill--active:hover {
+  border-color: #1A1A1A;
+  color: #fff;
+}
 .product-type-filter-count {
   font-size: 0.625rem;
+  font-weight: 700;
   opacity: 0.7;
   font-variant-numeric: tabular-nums;
+  min-width: 12px;
+  text-align: center;
 }
 
 .product-type-add-hint {
@@ -7185,6 +7194,7 @@ select.field-input {
   line-height: 1.5;
 }
 
+/* Table — matches .strain-table rhythm for cross-section consistency */
 .product-type-table {
   width: 100%;
   border-collapse: collapse;
@@ -7194,23 +7204,36 @@ select.field-input {
 }
 .product-type-th {
   text-align: left;
-  padding: 0.75rem 0.75rem;
-  font-size: 0.6875rem;
-  font-weight: 500;
+  padding: 0.6875rem 0.75rem;
+  font-size: 0.625rem;
+  font-weight: 600;
   text-transform: uppercase;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.06em;
   color: #959595;
   border-bottom: 1px solid #EBEBEB;
   background: rgba(249, 250, 251, 0.5);
 }
 .product-type-th:first-child { padding-left: 1.25rem; }
+.product-type-th:last-child { padding-right: 1.25rem; }
 
 .product-type-row {
-  border-bottom: 1px solid #F1F1F1;
-  transition: background 0.15s ease;
+  border-bottom: 1px solid #F4F4F4;
+  transition: background 0.12s ease, opacity 0.15s ease;
 }
+.product-type-row:last-child { border-bottom: none; }
 .product-type-row:hover {
   background: rgba(249, 250, 251, 0.6);
+}
+/* Deactivated products — subdued but still editable */
+.product-type-row--inactive {
+  opacity: 0.55;
+}
+.product-type-row--inactive:hover {
+  opacity: 0.85;
+}
+.product-type-row--inactive .product-type-name-input {
+  text-decoration: line-through;
+  text-decoration-color: #C0C0C0;
 }
 
 .product-type-cell {
@@ -7218,7 +7241,7 @@ select.field-input {
   vertical-align: middle;
 }
 .product-type-cell-name {
-  padding: 0.5rem 0.75rem 0.5rem 1.25rem;
+  padding: 0.5625rem 0.75rem 0.5625rem 1.25rem;
   vertical-align: middle;
   min-width: 200px;
 }
@@ -7229,14 +7252,15 @@ select.field-input {
 .product-type-cell-cannabis {
   text-align: center;
   padding: 0.5rem 0.25rem;
-  width: 44px;
+  width: 48px;
 }
 .product-type-cell-action {
-  padding: 0.5rem 0.75rem 0.5rem 0.25rem;
-  width: 40px;
+  padding: 0.5rem 1rem 0.5rem 0.25rem;
+  width: 44px;
   text-align: right;
 }
 
+/* Inline-editable name with slug below it */
 .product-type-name-input {
   font-size: 0.8125rem;
   font-weight: 600;
@@ -7248,24 +7272,33 @@ select.field-input {
   outline: none;
   width: 100%;
   font-family: 'Lato', sans-serif;
-  letter-spacing: -0.01em;
-  transition: all 0.15s;
+  letter-spacing: -0.005em;
+  transition: border-color 0.12s, background 0.12s, box-shadow 0.12s;
 }
-.product-type-name-input:hover { border-color: #E8E8E8; }
-.product-type-name-input:focus { border-color: #1C9EFF; background: #fff; }
+.product-type-name-input:hover {
+  border-color: #EBEBEB;
+  background: #fff;
+}
+.product-type-name-input:focus {
+  border-color: #3BB570;
+  background: #fff;
+  box-shadow: 0 0 0 3px rgba(59, 181, 112, 0.12);
+}
 
 .product-type-slug {
   display: block;
   font-size: 0.625rem;
-  font-family: 'JetBrains Mono', 'SF Mono', monospace;
+  font-family: 'JetBrains Mono', 'SF Mono', ui-monospace, monospace;
   color: #C0C0C0;
   padding: 0 8px;
-  margin-top: 1px;
+  margin-top: 2px;
+  letter-spacing: 0;
 }
 
+/* Inline select for category + unit */
 .product-type-select {
   font-size: 0.75rem;
-  padding: 4px 8px;
+  padding: 4px 22px 4px 8px;
   border: 1px solid transparent;
   border-radius: 6px;
   background: transparent;
@@ -7273,75 +7306,103 @@ select.field-input {
   outline: none;
   font-family: 'Lato', sans-serif;
   cursor: pointer;
-  transition: all 0.15s;
+  transition: border-color 0.12s, background 0.12s, box-shadow 0.12s;
+  appearance: none;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 10 10' fill='none'><path d='M2 4 L5 7 L8 4' stroke='%23959595' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/></svg>");
+  background-repeat: no-repeat;
+  background-position: right 6px center;
 }
-.product-type-select:hover { border-color: #E8E8E8; background: #fff; }
-.product-type-select:focus { border-color: #1C9EFF; background: #fff; }
+.product-type-select:hover {
+  border-color: #EBEBEB;
+  background-color: #fff;
+}
+.product-type-select:focus {
+  border-color: #3BB570;
+  background-color: #fff;
+  box-shadow: 0 0 0 3px rgba(59, 181, 112, 0.12);
+}
 
+/* Pathway pills — outline by default, brand-colored when active */
 .product-type-pathways {
   display: flex;
-  gap: 3px;
+  gap: 4px;
   flex-wrap: wrap;
+  align-items: center;
 }
 .product-type-pathway-pill {
   font-family: 'Lato', sans-serif;
   font-size: 0.625rem;
-  font-weight: 600;
-  padding: 3px 8px;
-  border-radius: 4px;
-  border: 1px solid #E8E8E8;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  padding: 3px 9px;
+  border-radius: 999px;
+  border: 1px solid #EBEBEB;
   background: transparent;
-  color: #C0C0C0;
+  color: #B0B0B0;
   cursor: pointer;
-  transition: all 0.15s;
+  transition: border-color 0.15s, color 0.15s, background 0.15s, transform 0.15s;
+  white-space: nowrap;
 }
 .product-type-pathway-pill:hover {
   border-color: #959595;
   color: #1A1A1A;
 }
-/* Pathway-specific active colors — match extraction PROCESS_COLORS */
+.product-type-pathway-pill:active {
+  transform: scale(0.96);
+}
 .product-type-pathway-pill--active {
   color: #fff;
+  border-color: transparent;
+}
+.product-type-pathway-pill--active:hover {
+  color: #fff;
+  filter: brightness(1.04);
 }
 .product-type-pathway-pill--solventless.product-type-pathway-pill--active {
   background: #1C9EFF;
-  border-color: #1C9EFF;
 }
 .product-type-pathway-pill--bho.product-type-pathway-pill--active {
   background: #FA9E52;
-  border-color: #FA9E52;
 }
 .product-type-pathway-pill--distillate.product-type-pathway-pill--active {
   background: #3BB570;
-  border-color: #3BB570;
 }
 .product-type-pathway-pill--custom.product-type-pathway-pill--active {
-  background: #6B7280;
-  border-color: #6B7280;
+  background: #6B6B6B;
 }
 
+/* Cannabis checkbox — custom control */
 .product-type-toggle {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   cursor: pointer;
 }
 .product-type-toggle input { display: none; }
 .product-type-toggle-dot {
   width: 18px;
   height: 18px;
-  border: 1.5px solid #C0C0C0;
-  border-radius: 4px;
+  border: 1.5px solid #D0D0D0;
+  border-radius: 5px;
   display: flex;
   align-items: center;
   justify-content: center;
   color: #fff;
-  transition: all 0.15s;
+  transition: background 0.15s, border-color 0.15s, box-shadow 0.15s;
+}
+.product-type-toggle:hover .product-type-toggle-dot {
+  border-color: #959595;
 }
 .product-type-toggle input:checked + .product-type-toggle-dot {
   background: #3BB570;
   border-color: #3BB570;
 }
+.product-type-toggle input:checked + .product-type-toggle-dot:hover {
+  background: #34A564;
+  border-color: #34A564;
+}
 
+/* Delete button — consistent always-visible ghost style */
 .product-type-delete-btn {
   background: transparent;
   border: none;
@@ -7349,11 +7410,20 @@ select.field-input {
   border-radius: 6px;
   color: #D0D0D0;
   cursor: pointer;
-  transition: all 0.15s;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.15s, background 0.15s;
 }
 .product-type-delete-btn:hover {
   color: #DF5B59;
   background: rgba(223, 91, 89, 0.08);
+}
+.product-type-delete-btn:focus-visible {
+  outline: none;
+  color: #DF5B59;
+  background: rgba(223, 91, 89, 0.08);
+  box-shadow: 0 0 0 3px rgba(223, 91, 89, 0.15);
 }
 
 /* ── Inline input (shared across settings tables) ── */
