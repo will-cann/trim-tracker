@@ -11,6 +11,7 @@ import { RoomSection } from './RoomSection';
 import { TagSection } from './TagSection';
 import { TeamSettingsSection } from './TeamSettingsSection';
 import { EquipmentSection } from './EquipmentSection';
+import { ProductTypeSection } from './ProductTypeSection';
 
 interface SettingsPanelProps {
     onViewChange?: (view: any) => void;
@@ -150,6 +151,8 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ onViewChange }) =>
                 );
             case 'equipment':
                 return <EquipmentSection loading={false} />;
+            case 'products':
+                return <ProductTypeSection />;
             case 'team':
                 return (
                     <TeamSettingsSection

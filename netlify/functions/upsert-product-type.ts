@@ -32,6 +32,7 @@ export const handler: Handler = async (event) => {
             category,
             defaultUnit,
             isCannabis,
+            processTypes,
             metrcItemCategory,
             isActive,
             sortOrder,
@@ -53,6 +54,7 @@ export const handler: Handler = async (event) => {
         const cannabis = isCannabis !== false; // default true
         const active = isActive !== false; // default true
         const sort = typeof sortOrder === 'number' ? sortOrder : 100;
+        const procTypes: string[] = Array.isArray(processTypes) ? processTypes : [];
 
         if (id) {
             // Update existing
@@ -63,6 +65,7 @@ export const handler: Handler = async (event) => {
                     category = ${category},
                     default_unit = ${unit},
                     is_cannabis = ${cannabis},
+                    process_types = ${procTypes},
                     metrc_item_category = ${metrcItemCategory || null},
                     is_active = ${active},
                     sort_order = ${sort},
@@ -84,17 +87,18 @@ export const handler: Handler = async (event) => {
         const result = await sql`
             INSERT INTO product_types (
                 company_id, name, display_name, category, default_unit,
-                is_cannabis, metrc_item_category, is_active, sort_order
+                is_cannabis, process_types, metrc_item_category, is_active, sort_order
             )
             VALUES (
                 ${context.companyId}, ${normalizedName}, ${displayName}, ${category}, ${unit},
-                ${cannabis}, ${metrcItemCategory || null}, ${active}, ${sort}
+                ${cannabis}, ${procTypes}, ${metrcItemCategory || null}, ${active}, ${sort}
             )
             ON CONFLICT (company_id, name) DO UPDATE
             SET display_name = EXCLUDED.display_name,
                 category = EXCLUDED.category,
                 default_unit = EXCLUDED.default_unit,
                 is_cannabis = EXCLUDED.is_cannabis,
+                process_types = EXCLUDED.process_types,
                 metrc_item_category = EXCLUDED.metrc_item_category,
                 is_active = EXCLUDED.is_active,
                 sort_order = EXCLUDED.sort_order,
@@ -124,6 +128,7 @@ function formatRow(row: Record<string, unknown>) {
         category: row.category,
         defaultUnit: row.default_unit,
         isCannabis: row.is_cannabis,
+        processTypes: (row.process_types as string[]) || [],
         metrcItemCategory: row.metrc_item_category,
         isActive: row.is_active,
         sortOrder: row.sort_order,

@@ -1033,6 +1033,7 @@ export const upsertProductType = async (data: {
     category: 'biomass' | 'intermediate' | 'finished' | 'additive';
     defaultUnit?: string;
     isCannabis?: boolean;
+    processTypes?: string[];
     metrcItemCategory?: string | null;
     isActive?: boolean;
     sortOrder?: number;

@@ -7142,6 +7142,207 @@ select.field-input {
   background: rgba(223, 91, 89, 0.08);
 }
 
+/* ── Product Type Catalog ─────────────────────────────────────────────── */
+.product-type-filters {
+  display: flex;
+  gap: 0.25rem;
+  flex-wrap: wrap;
+  margin-bottom: 1rem;
+}
+.product-type-filter-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  border-radius: 6px;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  border: 1px solid #E8E8E8;
+  background: transparent;
+  color: #959595;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.product-type-filter-pill:hover {
+  border-color: #C0C0C0;
+  color: #1A1A1A;
+}
+.product-type-filter-pill--active {
+  background: #1A1A1A;
+  border-color: #1A1A1A;
+  color: #fff;
+}
+.product-type-filter-count {
+  font-size: 0.625rem;
+  opacity: 0.7;
+  font-variant-numeric: tabular-nums;
+}
+
+.product-type-add-hint {
+  font-size: 0.6875rem;
+  color: #959595;
+  margin: 8px 0 0;
+  line-height: 1.5;
+}
+
+.product-type-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.8125rem;
+  min-width: 720px;
+}
+.product-type-th {
+  text-align: left;
+  padding: 0.75rem 0.75rem;
+  font-size: 0.6875rem;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #959595;
+  border-bottom: 1px solid #EBEBEB;
+  background: rgba(249, 250, 251, 0.5);
+}
+.product-type-th:first-child { padding-left: 1.25rem; }
+
+.product-type-row {
+  border-bottom: 1px solid #F1F1F1;
+  transition: background 0.15s ease;
+}
+.product-type-row:hover {
+  background: rgba(249, 250, 251, 0.6);
+}
+
+.product-type-cell {
+  padding: 0.5rem 0.75rem;
+  vertical-align: middle;
+}
+.product-type-cell-name {
+  padding: 0.5rem 0.75rem 0.5rem 1.25rem;
+  vertical-align: middle;
+  min-width: 200px;
+}
+.product-type-cell-pathways {
+  padding: 0.5rem 0.75rem;
+  vertical-align: middle;
+}
+.product-type-cell-cannabis {
+  text-align: center;
+  padding: 0.5rem 0.5rem;
+}
+.product-type-cell-action {
+  padding: 0.5rem 0.75rem 0.5rem 0;
+  width: 36px;
+  text-align: right;
+}
+
+.product-type-name-input {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: #1A1A1A;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  padding: 3px 8px;
+  outline: none;
+  width: 100%;
+  font-family: 'Lato', sans-serif;
+  letter-spacing: -0.01em;
+  transition: all 0.15s;
+}
+.product-type-name-input:hover { border-color: #E8E8E8; }
+.product-type-name-input:focus { border-color: #1C9EFF; background: #fff; }
+
+.product-type-slug {
+  display: block;
+  font-size: 0.625rem;
+  font-family: 'JetBrains Mono', 'SF Mono', monospace;
+  color: #C0C0C0;
+  padding: 0 8px;
+  margin-top: 1px;
+}
+
+.product-type-select {
+  font-size: 0.75rem;
+  padding: 4px 8px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: #1A1A1A;
+  outline: none;
+  font-family: 'Lato', sans-serif;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.product-type-select:hover { border-color: #E8E8E8; background: #fff; }
+.product-type-select:focus { border-color: #1C9EFF; background: #fff; }
+
+.product-type-pathways {
+  display: flex;
+  gap: 3px;
+  flex-wrap: wrap;
+}
+.product-type-pathway-pill {
+  font-family: 'Lato', sans-serif;
+  font-size: 0.625rem;
+  font-weight: 600;
+  padding: 3px 8px;
+  border-radius: 4px;
+  border: 1px solid #E8E8E8;
+  background: transparent;
+  color: #C0C0C0;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.product-type-pathway-pill:hover {
+  border-color: #959595;
+  color: #1A1A1A;
+}
+.product-type-pathway-pill--active {
+  background: #1C9EFF;
+  border-color: #1C9EFF;
+  color: #fff;
+}
+
+.product-type-toggle {
+  display: inline-flex;
+  align-items: center;
+  cursor: pointer;
+}
+.product-type-toggle input { display: none; }
+.product-type-toggle-dot {
+  width: 18px;
+  height: 18px;
+  border: 1.5px solid #C0C0C0;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  transition: all 0.15s;
+}
+.product-type-toggle input:checked + .product-type-toggle-dot {
+  background: #3BB570;
+  border-color: #3BB570;
+}
+
+.product-type-delete-btn {
+  background: transparent;
+  border: none;
+  padding: 6px;
+  border-radius: 6px;
+  color: #C0C0C0;
+  cursor: pointer;
+  opacity: 0;
+  transition: all 0.15s;
+}
+.product-type-row:hover .product-type-delete-btn {
+  opacity: 1;
+}
+.product-type-delete-btn:hover {
+  color: #DF5B59;
+  background: rgba(223, 91, 89, 0.08);
+}
+
 /* ── Inline input (shared across settings tables) ── */
 .settings-inline-input {
   width: 100%;
