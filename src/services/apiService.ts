@@ -205,7 +205,33 @@ export const revertBatch = async (entryId: string): Promise<TrimSession> => {
     return await getSession() as TrimSession;
 };
 
-export const aiParse = async (request: {
+/**
+ * Structured result from a find_* tool the agent called inside its loop.
+ * The backend pushes one entry per find_* tool_use block so the frontend
+ * can render the data as an interactive card (PackagesResultCard, etc.)
+ * instead of parsing the agent's narrative text.
+ */
+export interface AiParseToolResult {
+    tool: 'find_plants' | 'find_packages' | 'find_human_tasks' | 'find_bins' | 'find_extraction_logs';
+    toolUseId: string;
+    query: Record<string, unknown>;
+    data: unknown;
+    isError: boolean;
+}
+
+/**
+ * aiParse request shape. Adding `onTextDelta` opts into streaming mode:
+ * the backend returns an NDJSON stream, we parse it line-by-line, and fire
+ * `onTextDelta` for each incremental text chunk as it arrives. The Promise
+ * still resolves with the final `{ actions, toolResults, message }` object
+ * once the done event arrives, so callers that don't care about streaming
+ * can ignore the callback and get the same final shape as before.
+ *
+ * `abortSignal` lets the caller cancel the in-flight request (e.g. when a
+ * new message is sent before the previous one completes). The underlying
+ * fetch is aborted and the Promise rejects with the signal's abort reason.
+ */
+export interface AiParseRequest {
     message?: string;
     csvData?: string;
     transcriptChunks?: string[];
@@ -221,14 +247,101 @@ export const aiParse = async (request: {
         activeLicenseNumber?: string;
         screenContext?: string;
     };
-}): Promise<{ actions: ProposedAction[]; message: string }> => {
+    /** Called for each incremental text chunk from the agent. Presence of
+     *  this callback opts into streaming mode on the request. */
+    onTextDelta?: (delta: string) => void;
+    /** Optional AbortSignal for cancelling the request mid-flight. */
+    abortSignal?: AbortSignal;
+}
+
+export interface AiParseResult {
+    actions: ProposedAction[];
+    toolResults?: AiParseToolResult[];
+    message: string;
+}
+
+export const aiParse = async (request: AiParseRequest): Promise<AiParseResult> => {
+    const { onTextDelta, abortSignal, ...body } = request;
+    const streaming = typeof onTextDelta === 'function';
+
     const response = await fetchWithAuth(`${API_BASE}/ai-parse`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(request),
+        body: JSON.stringify({ ...body, streaming }),
+        signal: abortSignal,
     });
     if (!response.ok) throw new Error('AI parsing failed');
-    return await response.json();
+
+    // Non-streaming path: old JSON body, parse and return.
+    if (!streaming) {
+        return (await response.json()) as AiParseResult;
+    }
+
+    // Streaming path: NDJSON body. Each line is one event object. Read the
+    // ReadableStream, split on newlines, fire onTextDelta for text_delta
+    // events, and capture the final done event's payload.
+    if (!response.body) {
+        throw new Error('AI parsing streaming response has no body');
+    }
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+    let finalPayload: AiParseResult | null = null;
+    let streamError: string | null = null;
+
+    const handleLine = (line: string) => {
+        if (!line.trim()) return;
+        let event: Record<string, unknown>;
+        try {
+            event = JSON.parse(line);
+        } catch {
+            return; // malformed line, skip
+        }
+        switch (event.type) {
+            case 'text_delta':
+                if (typeof event.text === 'string' && onTextDelta) {
+                    onTextDelta(event.text);
+                }
+                break;
+            case 'done':
+                finalPayload = {
+                    actions: (event.actions as ProposedAction[]) || [],
+                    toolResults: event.toolResults as AiParseToolResult[] | undefined,
+                    message: (event.message as string) || '',
+                };
+                break;
+            case 'error':
+                streamError = (event.error as string) || 'AI parsing stream error';
+                break;
+        }
+    };
+
+    // eslint-disable-next-line no-constant-condition
+    while (true) {
+        const { done, value } = await reader.read();
+        if (value) {
+            buffer += decoder.decode(value, { stream: true });
+            // Process complete lines. The final partial line (if any) stays
+            // in the buffer until the next read.
+            let newlineIdx = buffer.indexOf('\n');
+            while (newlineIdx !== -1) {
+                const line = buffer.slice(0, newlineIdx);
+                buffer = buffer.slice(newlineIdx + 1);
+                handleLine(line);
+                newlineIdx = buffer.indexOf('\n');
+            }
+        }
+        if (done) break;
+    }
+    // Flush any trailing line left in the buffer.
+    buffer += decoder.decode();
+    if (buffer.trim()) handleLine(buffer);
+
+    if (streamError) throw new Error(streamError);
+    if (!finalPayload) {
+        throw new Error('AI parsing streaming response ended without a done event');
+    }
+    return finalPayload;
 };
 
 export const getDeepgramToken = async (mode: SpeechMode): Promise<{ key: string }> => {
@@ -1158,6 +1271,36 @@ export const updateRunStep = async (id: string, data: Record<string, any>): Prom
     return response.json();
 };
 
+export interface AmendedExtractionRunSource {
+    packageId: string;
+    quantityUsed: number | null;
+    label: string | null;
+    packageType: string | null;
+    strain: string | null;
+    packageQuantity: number | null;
+}
+
+export interface AmendedExtractionRunResult {
+    runId: string;
+    runName: string;
+    status: string;
+    sources: AmendedExtractionRunSource[];
+}
+
+export const amendExtractionRunInputs = async (data: {
+    runId: string;
+    addedSourcePackageIds: string[];
+    addedSourcePackageQuantities?: Record<string, number>;
+}): Promise<AmendedExtractionRunResult> => {
+    const response = await fetchWithAuth(`${API_BASE}/amend-extraction-run-inputs`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+    });
+    if (!response.ok) throw new Error('Failed to amend extraction run inputs');
+    return response.json();
+};
+
 export const syncUser = async (data: { name?: string; email?: string }): Promise<{ role?: string; departments?: string[] }> => {
     const response = await fetchWithAuth(`${API_BASE}/sync-user`, {
         method: 'POST',
@@ -1383,6 +1526,115 @@ export const bulkSaveVendorProducts = async (data: {
     return await response.json();
 };
 
+export interface SalesImportRow {
+    productSku: string;
+    productName?: string;
+    saleDate: string;
+    unitsSold: number;
+    revenue?: number;
+    onHand?: number;
+}
+
+export const importSalesCsv = async (data: {
+    storeId: string; fileName?: string; rows: SalesImportRow[];
+}): Promise<{ rowsImported: number; dateMin: string | null; dateMax: string | null; inventoryUpdated: number }> => {
+    const response = await fetchWithAuth(`${API_BASE}/import-sales-csv`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+    });
+    if (!response.ok) {
+        const err = await response.json().catch(() => ({ error: 'Failed to import sales' }));
+        throw new Error(err.error || 'Failed to import sales');
+    }
+    return await response.json();
+};
+
+export interface OrderSuggestion {
+    storeId: string;
+    vendorProductId: string;
+    sku: string | null;
+    velocityPerDay: number;
+    trend: 'accelerating' | 'stable' | 'declining' | 'unknown';
+    onHand: number;
+    coverageDays: number;
+    suggestedQty: number;
+    status: 'red' | 'yellow' | 'green' | 'gray';
+    reasoning: string;
+}
+
+export const getOrderSuggestions = async (vendorId: string, windowWeeks?: number): Promise<{
+    vendorId: string; vendorName: string; windowWeeks: number; coverageDays: number; suggestions: OrderSuggestion[];
+}> => {
+    const params = new URLSearchParams({ vendorId });
+    if (windowWeeks) params.set('windowWeeks', String(windowWeeks));
+    const response = await fetchWithAuth(`${API_BASE}/get-order-suggestions?${params}`);
+    if (!response.ok) throw new Error('Failed to fetch order suggestions');
+    return await response.json();
+};
+
+export interface UnmatchedSku {
+    sku: string;
+    productName: string | null;
+    units60d: number;
+    revenue60d: number;
+    storeCount: number;
+}
+
+export const getUnmatchedSkus = async (limit?: number): Promise<{ unmatched: UnmatchedSku[] }> => {
+    const params = new URLSearchParams();
+    if (limit) params.set('limit', String(limit));
+    const qs = params.toString();
+    const response = await fetchWithAuth(`${API_BASE}/get-unmatched-skus${qs ? `?${qs}` : ''}`);
+    if (!response.ok) throw new Error('Failed to fetch unmatched SKUs');
+    return await response.json();
+};
+
+export interface AiMatch {
+    sku: string;
+    vendorProductId: string | null;
+    confidence: number;
+    reasoning: string;
+}
+
+export const matchProductsAi = async (data: {
+    unmatched: Array<{ sku: string; productName?: string; units60d?: number }>;
+    vendorId?: string;
+}): Promise<{ matches: AiMatch[] }> => {
+    const response = await fetchWithAuth(`${API_BASE}/match-products-ai`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+    });
+    if (!response.ok) {
+        const err = await response.json().catch(() => ({ error: 'AI matching failed' }));
+        throw new Error(err.error || err.detail || 'AI matching failed');
+    }
+    return await response.json();
+};
+
+export const saveProductAliases = async (aliases: Array<{
+    sku: string; vendorProductId: string; source?: string; confidence?: number;
+}>): Promise<{ inserted: number }> => {
+    const response = await fetchWithAuth(`${API_BASE}/save-product-aliases`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ aliases }),
+    });
+    if (!response.ok) throw new Error('Failed to save aliases');
+    return await response.json();
+};
+
+export const clearSalesData = async (): Promise<{
+    salesDeleted: number; inventoryDeleted: number; importsDeleted: number; aiAliasesDeleted: number;
+}> => {
+    const response = await fetchWithAuth(`${API_BASE}/clear-sales-data`, {
+        method: 'POST',
+    });
+    if (!response.ok) throw new Error('Failed to clear sales data');
+    return await response.json();
+};
+
 // ── Supply Inventory ─────────────────────────────────────────────────────
 
 export const getSupplyPools = async (): Promise<SupplyPool[]> => {
@@ -1560,6 +1812,7 @@ export const apiService = {
     createExtractionRun,
     updateExtractionRun,
     updateRunStep,
+    amendExtractionRunInputs,
     // User sync
     syncUser,
     // Reports
@@ -1584,6 +1837,12 @@ export const apiService = {
     saveOrder,
     parseVendorMenu,
     bulkSaveVendorProducts,
+    importSalesCsv,
+    getOrderSuggestions,
+    getUnmatchedSkus,
+    matchProductsAi,
+    saveProductAliases,
+    clearSalesData,
     // Supply inventory
     getSupplyPools,
     getSupplyItems,

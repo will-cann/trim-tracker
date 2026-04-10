@@ -1,4 +1,4 @@
-import { Handler } from '@netlify/functions';
+import { Handler, stream } from '@netlify/functions';
 import { resolveContext } from './utils/auth';
 import { sql } from './utils/db';
 import { checkRateLimit } from './utils/rateLimit';
@@ -6,7 +6,209 @@ import { withSentry, captureError } from './utils/sentry';
 
 const ANTHROPIC_API_URL = 'https://api.anthropic.com/v1/messages';
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Anthropic SSE stream consumer (PR #3 — streaming support)
+// ─────────────────────────────────────────────────────────────────────────────
+//
+// Anthropic's /v1/messages endpoint supports `stream: true` which returns a
+// text/event-stream response. We always request streaming from Anthropic
+// (it costs no more and simplifies the code path) and reconstruct the
+// non-streaming-equivalent response object from the SSE events.
+//
+// When callers pass `onTextDelta`, each incremental text chunk from the
+// assistant is forwarded to that callback as it arrives — the streaming
+// handler uses this to pipe text through Netlify's response stream back
+// to the frontend in real time. When `onTextDelta` is omitted, the helper
+// just reconstructs the final object silently.
+//
+// Events we care about:
+//   - message_start       → initial message metadata + usage
+//   - content_block_start → beginning of a content block (text or tool_use)
+//   - content_block_delta → incremental text_delta OR input_json_delta
+//   - content_block_stop  → end of a content block
+//   - message_delta       → final stop_reason + usage updates
+//   - message_stop        → end of message
+//
+// tool_use blocks arrive as a content_block_start with the tool name + id,
+// followed by input_json_delta events that accumulate into the tool input
+// JSON string, and finally a content_block_stop. We JSON.parse the
+// accumulated string when the block closes.
+
+interface ParsedAnthropicContentBlock {
+    type: 'text' | 'tool_use';
+    // For text blocks
+    text?: string;
+    // For tool_use blocks
+    id?: string;
+    name?: string;
+    input?: unknown;
+}
+
+interface ParsedAnthropicResponse {
+    content: ParsedAnthropicContentBlock[];
+    stop_reason?: string;
+    usage?: {
+        input_tokens?: number;
+        output_tokens?: number;
+        cache_creation_input_tokens?: number;
+        cache_read_input_tokens?: number;
+    };
+}
+
+async function consumeAnthropicStream(
+    apiResponse: Response,
+    onTextDelta?: (delta: string) => void,
+): Promise<ParsedAnthropicResponse> {
+    if (!apiResponse.body) {
+        throw new Error('Anthropic response has no body');
+    }
+
+    const reader = apiResponse.body.getReader();
+    const decoder = new TextDecoder();
+
+    const content: ParsedAnthropicContentBlock[] = [];
+    let stopReason: string | undefined;
+    let usage: ParsedAnthropicResponse['usage'] = undefined;
+
+    // Track the currently-streaming content block by its Anthropic index so
+    // we can route deltas correctly. tool_use blocks accumulate their input
+    // JSON string until the block closes, then we JSON.parse it.
+    interface InFlightBlock {
+        index: number;
+        block: ParsedAnthropicContentBlock;
+        toolInputJson?: string;
+    }
+    let current: InFlightBlock | null = null;
+
+    let buffer = '';
+
+    const handleEvent = (eventType: string, dataJson: string) => {
+        let data: Record<string, unknown>;
+        try {
+            data = JSON.parse(dataJson);
+        } catch {
+            return; // malformed event, skip
+        }
+
+        switch (eventType) {
+            case 'message_start': {
+                const msg = (data.message || {}) as Record<string, unknown>;
+                if (msg.usage) usage = { ...(msg.usage as object) };
+                break;
+            }
+            case 'content_block_start': {
+                const index = typeof data.index === 'number' ? data.index : -1;
+                const cb = (data.content_block || {}) as Record<string, unknown>;
+                const type = cb.type === 'tool_use' ? 'tool_use' : 'text';
+                const block: ParsedAnthropicContentBlock =
+                    type === 'tool_use'
+                        ? { type: 'tool_use', id: cb.id as string, name: cb.name as string, input: undefined }
+                        : { type: 'text', text: (cb.text as string) || '' };
+                current = { index, block, toolInputJson: type === 'tool_use' ? '' : undefined };
+                break;
+            }
+            case 'content_block_delta': {
+                if (!current) break;
+                const delta = (data.delta || {}) as Record<string, unknown>;
+                if (delta.type === 'text_delta') {
+                    const textChunk = (delta.text as string) || '';
+                    current.block.text = (current.block.text || '') + textChunk;
+                    if (textChunk && onTextDelta) onTextDelta(textChunk);
+                } else if (delta.type === 'input_json_delta') {
+                    current.toolInputJson = (current.toolInputJson || '') + ((delta.partial_json as string) || '');
+                }
+                break;
+            }
+            case 'content_block_stop': {
+                if (!current) break;
+                if (current.block.type === 'tool_use') {
+                    try {
+                        current.block.input = current.toolInputJson
+                            ? JSON.parse(current.toolInputJson)
+                            : {};
+                    } catch (err) {
+                        console.error('[ai-parse stream] tool_use input_json parse failed:', err);
+                        current.block.input = {};
+                    }
+                }
+                content[current.index] = current.block;
+                current = null;
+                break;
+            }
+            case 'message_delta': {
+                const delta = (data.delta || {}) as Record<string, unknown>;
+                if (typeof delta.stop_reason === 'string') stopReason = delta.stop_reason;
+                if (data.usage) {
+                    usage = { ...(usage || {}), ...(data.usage as object) };
+                }
+                break;
+            }
+            case 'message_stop':
+                // Terminal event — nothing to do; the reader loop will exit
+                // once the stream closes.
+                break;
+        }
+    };
+
+    // Parse SSE framing: events are separated by \n\n, within an event
+    // lines are "event: <type>" or "data: <json>".
+    const parseBufferedEvents = () => {
+        while (true) {
+            const sep = buffer.indexOf('\n\n');
+            if (sep === -1) return;
+            const rawEvent = buffer.slice(0, sep);
+            buffer = buffer.slice(sep + 2);
+
+            let eventType = '';
+            let dataLines: string[] = [];
+            for (const line of rawEvent.split('\n')) {
+                if (line.startsWith('event:')) {
+                    eventType = line.slice(6).trim();
+                } else if (line.startsWith('data:')) {
+                    dataLines.push(line.slice(5).trimStart());
+                }
+            }
+            if (eventType && dataLines.length > 0) {
+                handleEvent(eventType, dataLines.join('\n'));
+            }
+        }
+    };
+
+    // eslint-disable-next-line no-constant-condition
+    while (true) {
+        const { done, value } = await reader.read();
+        if (value) {
+            buffer += decoder.decode(value, { stream: true });
+            parseBufferedEvents();
+        }
+        if (done) break;
+    }
+    // Flush any residual bytes.
+    buffer += decoder.decode();
+    parseBufferedEvents();
+
+    return {
+        content: content.filter(Boolean),
+        stop_reason: stopReason,
+        usage,
+    };
+}
+
 const SYSTEM_PROMPT = `You are an AI assistant for a cannabis cultivation and manufacturing application called Trim Tracker. Your job is to parse user input (natural language, voice transcripts, or CSV data) into structured actions for the application.
+
+## How to use tools
+
+You have access to two kinds of tools:
+
+1. **Read-only lookup tools** (names starting with \`find_\`): find_plants, find_packages, find_human_tasks, find_bins, find_extraction_logs. These run server-side and return query results directly to you in the next turn. Use them to resolve fuzzy references, find specific entities, or scan inventory on demand. **These do NOT consume a user action slot — you can call them freely and use the results to reason about what to do next.**
+
+2. **Mutation tools** (everything else): plants, extraction_run, create_harvest, create_human_tasks, etc. These propose actions that the user will review and confirm. You can call multiple mutation tools in one turn; they all appear in the preview card together.
+
+**Pull-based context**: The application state below is a compact summary, not a full inventory listing. For specific lookups — "what's in stock?", "find the Wedding Cake packages in Vault 1", "which tasks are due this week?" — call the relevant find_* tool. Do NOT guess at IDs, labels, or whether an entity exists. If you need the details, query for them.
+
+**Multi-turn pattern**: A typical flow is (1) call one or more find_* tools to resolve references, then (2) call mutation tools with the resolved IDs. You can mix the two in the same response; the find_* results come back immediately so you can use them to inform subsequent calls in the same turn chain. The loop terminates when you stop calling tools.
+
+**When you're just answering a question** (e.g. "what packages are in Vault 1?"), call the lookup tool, then respond in plain text with a markdown table of what you found. Don't propose mutations unless the user asked for one.
 
 ## Application Features (Automated Actions)
 
@@ -18,9 +220,8 @@ The application can automate these operations:
 - **Trimmer Updates**: Update an existing trimmer's start time, end time, tool (scissors/machine), and weights (flower, shake, trim, waste) on an active batch.
 - **Harvests**: Records tracking plants through the harvest pipeline: planning → cutting → submitted → hanging (drying ~7 days) → bucking (creating bins) → completed. Each has a batch ID, strain, license number, wet weight, waste, and allocations (flower/frozen/both).
 - **Harvest Bins**: Physical containers created during the buck & bin phase. Bins hold one strain from one harvest. Lifecycle: curing → ready → in_trim → completed. Bins need regular burping/aeration during curing (the schedule varies by strain and conditions). When ready, bins are sent to the trim team.
-- **Plant Health**: Update plant health scores (0-100) and contaminant flags for plants or plant batches. Plants/batches are identified by strain and room.
-- **Plantings**: Create new plant batches (clones/seeds in nursery) or individual plants (veg/flower). Requires strain, room, and count.
-- **Plant Actions**: Move plants between rooms, change growth phase (vegetative→flowering→harvested), or destroy plants. Works on both individual plants and batches.
+- **Plants (unified tool)**: Use the \`plants\` tool for all plant operations — create plantings, move between rooms, change growth phase, update health, destroy. The tool has a single \`action\` field that discriminates. Plant health is tracked per **(strain, room, entity)** — all plants of the same strain in the same room share one health value and contaminants list, matching how cultivators reason about plant groups. Don't try to express per-plant health; update the group. For scheduled plantings ("next week we're starting 50 Gelato clones"), set \`plannedFor\` on the create action to produce a scheduled human task instead of an immediate commit.
+- **Fuzzy plant references**: The plant map is NOT pushed into context — call \`find_plants\` with a query before acting on any plant reference. Pass (strainName, roomName, phase, contaminants) as filters, then use the returned IDs in a subsequent \`plants\` call. This applies in both interactive and ambient modes.
 - **Convert to Trim**: Convert a flower harvest allocation or a ready bin into a trim entry for processing.
 - **Strains**: Create new strains or remove existing ones from the system.
 - **Licenses**: Add, rename, or remove facility license numbers.
@@ -46,11 +247,13 @@ You understand the FULL range of cannabis cultivation, processing, and manufactu
 
 **IMPORTANT**: When the user describes any task that CANNOT be automated through the existing application tools, ALWAYS create a human task using the \`create_human_tasks\` tool. Don't just acknowledge it in text — capture it as a trackable task. Even brief mentions like "check room 2 humidity" or "remind me to calibrate the scale" should become human tasks.
 
-**HYBRID TASKS**: Many operations involve both physical work AND a system write. For example, "cut 50 clones of Wedding Cake" requires a human to physically cut the clones, but then the system needs a \`create_planting\` action to track them. For these, create a human task AND include an \`onCompleteAction\` — a system action that will execute when the person marks the task as completed. The \`onCompleteAction\` should be a JSON object with \`type\` and \`data\` matching the corresponding automated action tool schema. Examples of hybrid tasks:
-- "Cut 50 clones" → human task + onCompleteAction: create_planting (batch, 50 clones)
-- "Move plants to flower room" → human task + onCompleteAction: move_plants
-- "Harvest the Gelato" → human task + onCompleteAction: change_plant_phase (harvested)
-- "Weigh the harvest" → human task + onCompleteAction: record_wet_weight
+**HYBRID TASKS**: Many operations involve both physical work AND a system write. For example, "cut 50 clones of Wedding Cake" requires a human to physically cut the clones, but then the system needs a \`plants\` action=create call to track them. For these, create a human task AND include an \`onCompleteAction\` — a system action that will execute when the person marks the task as completed. The \`onCompleteAction\` should be a JSON object with \`type\` and \`data\` matching an automated action tool schema. Examples of hybrid tasks:
+- "Cut 50 clones tomorrow" → human task + onCompleteAction referencing create_planting (batch, 50 clones) — or equivalently use the \`plants\` tool with action=create and plannedFor, which builds the hybrid task automatically.
+- "Move plants to flower room next week" → human task + onCompleteAction referencing move_plants
+- "Harvest the Gelato on Friday" → human task + onCompleteAction referencing change_plant_phase (harvested)
+- "Weigh the harvest when it comes down" → human task + onCompleteAction referencing record_wet_weight
+
+**Planning vs executing is a property of the action, not a mode of the agent.** If the user is scheduling something for later, route it through a human task with onCompleteAction (or use the tool's native "plan" action where available, e.g. \`extraction_run\` with action=plan or \`plants\` with plannedFor set). If they're doing something right now, call the tool directly. Don't ask which one — infer from the language.
 
 ## Harvest Day Voice Workflow
 
@@ -65,54 +268,34 @@ When the user is on the Harvest Day cockpit (screenContext mentions "Harvest Day
 
 ## Extraction / Concentrate Production Workflow
 
-You understand the full ice water hash and rosin extraction pipeline. The stages are:
+You understand the full ice water hash and rosin extraction pipeline:
 
-1. **Fresh Frozen** → stored in freezer as packages (already tracked)
-2. **Wash** (ice water extraction) → produces **Bubble Hash** from Fresh Frozen input
-3. **Press** (heat/pressure) → produces **Rosin** from Bubble Hash input
-4. **Cart Fill** → produces **Rosin Carts** from Rosin input
+1. **Fresh Frozen** → stored in freezer as packages
+2. **Wash** (ice water extraction) → produces **Bubble Hash**
+3. **Press** (heat/pressure) → produces **Rosin**
+4. **Cart Fill** → produces **Rosin Carts**
 
-### Two extraction tools — pick the right one (read this carefully, the rule is strict)
+### Use the \`extraction_run\` tool — pick the action
 
-There are TWO tools for extraction work and you MUST pick the right one. Getting this wrong creates the wrong kind of record and frustrates the user.
+There is ONE extraction tool, \`extraction_run\`, with a discriminated \`action\` field. Pick the action that matches the lifecycle stage the user is describing:
 
-**Decision rule (apply in order):**
+- **action=plan** — forward-looking scheduling: "tomorrow we'll do a wash", "plan a rosin press for Monday", "schedule a BHO run next week". Set \`plannedStart\` to the ISO date. The run lands in the planning column.
+- **action=start** — present-tense starting: "start a wash", "kick off a live rosin run", "begin pressing the blackberry hash", "let's do a terpene infusion". The run lands in the active column.
+- **action=amend_inputs** — add or modify inputs on an EXISTING run. Use when the user mentions additional strains or quantities for a run that was just created (especially across ambient transcript chunks). This is THE mechanism for capturing multi-strain runs: if one chunk creates a run with 3 strains and the next chunk says "also Blue Dream and Gelato", the second utterance calls amend_inputs against the existing runId, NOT start again. Check the "Extraction runs in progress" context for the runId before calling.
+- **action=record_yield** — past-tense yield reports: "the wash got 800g of hash", "pressed the blackberry, got 550g of rosin", "filled 200 carts from the rosin". Reference the existing run via runId or runIdentifier and set outputPackageType + outputQuantity.
+- **action=cancel** — cancellations: "cancel the Monday rosin run", "scratch that wash". Reference via runId/runIdentifier.
 
-1. **Does the user use a "starting" verb?** Words like "start", "kick off", "begin", "let's do", "schedule", "set up", "we're going to" → **ALWAYS \`start_extraction_run\`**, regardless of what stage of the pipeline they mention. "Start a wash" is start_extraction_run. "Begin a press run" is start_extraction_run. "Let's do a live rosin run for Toadstool OG" is start_extraction_run. The presence of a starting verb is the strongest signal.
+**Default: if the user is naming materials and intent but no lifecycle verb is clear, use \`action=start\`.** Creating an active run in the workspace is the safest outcome; yield and cancellation can be added later.
 
-2. **Is the user reporting a result that already happened?** Past-tense phrasing about yield ("we got 800g", "the wash yielded", "came out to", "pulled 17K and ended up with") → **\`record_extraction\`**. They are logging history, not starting work.
+**Continuity across ambient chunks**: When the current transcript chunk mentions additional inputs for a run visible in "Extraction runs in progress" from a previous chunk, ALWAYS use \`action=amend_inputs\` with that run's ID. Do NOT create a second run. This is how multi-strain narrations ("let's do a wash with Wedding Cake, Blue Dream, Gelato... and add Zkittlez too") get captured correctly when Deepgram splits them across flush boundaries.
 
-3. **Ambiguous (no starting verb, no past-tense yield)?** Default to **\`start_extraction_run\`** if they're naming materials and intent ("Toadstool OG fresh frozen for live rosin"). Default to **\`record_extraction\`** only if they're clearly mid-process and just dictating what's happening ("I'm pulling 17K of blackberry now").
-
-**When in doubt, pick \`start_extraction_run\`.** It creates a real run in the workspace with step checkoff; the user can fill in yield later via \`record_extraction\`. The reverse is awkward — \`record_extraction\` creates a flat log entry that doesn't show up as a run.
-
-### \`start_extraction_run\` — for forward-looking work
-Creates a row in the Runs workspace with the template's steps copied in. Resolves the source package by strain + input material. Status defaults to active. The user follows step-by-step checkoff in the Runs UI. Use this for any "start/begin/schedule" phrasing.
-
-Examples:
-- "Start a wash for Toadstool OG with 2500g fresh frozen" → start_extraction_run
-- "Kick off a live rosin run with the Blue Dream fresh frozen" → start_extraction_run
-- "Begin a BHO run on the Wedding Cake trim" → start_extraction_run
-- "Let's press the blackberry hash" → start_extraction_run
-
-### \`record_extraction\` — for retrospective yield logging only
-Logs a single consumption/production event to extraction_logs. Use this only when the user is reporting what already happened.
-
-Examples:
-- "The Toadstool wash yielded 800g of bubble hash" → record_extraction (output known)
-- "We got 79 grams of bubble hash from the white fire OG" → record_extraction
-- "Pressed the blackberry hash, got 550g of rosin" → record_extraction
-- "Filled 200 rosin carts from the blackberry rosin" → record_extraction
-
-Vocabulary mappings (only apply when you've already chosen \`record_extraction\` per the decision rule above — these are NOT triggers for the tool itself):
+**Output type vocabulary** (applies only to action=record_yield):
 - "wash yielded", "hash came out", "bubble hash" → outputPackageType: bubble_hash
+- "pressed", "got X of rosin" → outputPackageType: rosin
+- "filled carts", "cart fill", "rosin carts" → outputPackageType: rosin_cart
 - "yield", "yielded", "got", "came out to" → the outputQuantity (NOT the inputQuantity)
-- "pressed", "got X of rosin" → inputPackageType: bubble_hash, outputPackageType: rosin
-- "filled carts", "cart fill", "rosin carts" → inputPackageType: rosin, outputPackageType: rosin_cart
 
-The user often works in large increments of fresh frozen (e.g. 17,000g). When reporting results for multiple strains in one utterance (e.g. "gummy worms was 450, blackberry was 600, mad fruit was 525"), create separate \`record_extraction\` calls for each strain — these are clearly retrospective yield reports.
-
-**Reporting yield on an existing run**: When the user reports output for work already started (e.g. "we got 79 grams of bubble hash from the white fire OG"), use \`record_extraction\` and set ONLY the outputQuantity and outputPackageType. Do NOT set inputQuantity — the input was recorded when the run started. The yield quantity is always the OUTPUT, not the input.
+When the user reports yields for multiple strains in one utterance ("gummy worms was 450, blackberry was 600, mad fruit was 525"), emit one \`extraction_run\` call per strain with action=record_yield.
 
 ## Rules for Automated Actions
 - Match trimmer names to existing trimmer profiles when possible (fuzzy match is fine — "Maria" matches "Maria Garcia").
@@ -124,7 +307,8 @@ The user often works in large increments of fresh frozen (e.g. 17,000g). When re
 - All weights should be in grams. Convert if user specifies other units (e.g., "1 lb" = 453.6g).
 - Start times should be in HH:mm 24-hour format. Convert from natural language (e.g., "8am" = "08:00", "2:30pm" = "14:30").
 - If a user mentions trimmers who don't exist in the roster, suggest adding them as new profiles first.
-- If a user mentions a strain that doesn't exist in the available strains list, AUTOMATICALLY add a \`create_strain\` action before any actions that reference it. Don't just warn — create the strain so the workflow can proceed.
+- **Don't auto-create entities from passing mentions.** Before calling any \`create_*\` tool (create_strain, create_license, create_room, plants with action=create, etc.), first check whether an existing entity fuzzy-matches the referenced name. A casual "Golden" probably means "Golden Goat" if Golden Goat is in the Available strains context — match it, don't create a duplicate. Only create a new entity when NO reasonable match exists OR the user explicitly describes something new ("new strain called X", "let's add Y", "I want to start carrying Z"). When in doubt, match rather than create.
+- If the user references a strain that TRULY doesn't exist in the available strains list (i.e. no fuzzy match applies), AUTOMATICALLY add a \`create_strain\` action before any actions that reference it. Don't just warn — create the strain so the workflow can proceed.
 - For CSV data, intelligently map column headers to the appropriate fields regardless of exact naming conventions.
 - For harvests, allocation can be "Flower" (dry trim), "Frozen" (fresh frozen), or "Both" (split). Default to "Flower" if not specified.
 - Waste types include: powdery_mildew, bud_rot, insects, other (contamination) and stems, leaves (biomass).
@@ -137,6 +321,7 @@ The user often works in large increments of fresh frozen (e.g. 17,000g). When re
 - If the user says "remind me", "I need to", "I should", or refers to themselves, assign the task to the current user (their name will be in the context)
 - If the user mentions a location/room, capture it in the location field
 - If the user mentions a deadline or timeframe, convert it to a concrete YYYY-MM-DD date using today's date from the context. Examples: "by Monday" = next Monday's date, "by Friday" = this coming Friday, "tomorrow" = today + 1 day, "next week" = next Monday, "end of month" = last day of current month
+- **Create new tasks by default — don't match new utterances to existing ones based on vague topical overlap.** "Clean out the trays" creates a NEW task, even if an existing "clean out rack B" task exists. Only use \`update_human_tasks\` when the user EXPLICITLY references an existing task — by title fragment ("the tray cleaning task"), by ID ("update task abc123"), or by clear conversational context ("mark the one I just made as done"). When in doubt, create new rather than update.
 
 ## Screen Context Awareness
 
@@ -159,9 +344,18 @@ When the application state shows empty strains, licenses, or rooms, you are like
 
 ## Response Style
 - **Be action-first.** When the user asks you to do something, produce the actions immediately — don't ask for confirmation or list options. The user sees a preview and can edit or cancel.
+- **No reasoning preambles.** Do NOT narrate your thought process before producing the answer. Forbidden openers include: "Looking at this transcript/voice/request/query", "Let me check", "Let me look up", "I'll analyze this", "I'll look up", "I'll help you", "Based on the data/transcript/context", "Here's what I found", "I see that", "I understand that", "Let me first", "I'll first". Skip straight to the substance. The user never sees your reasoning — only the final answer — and preambles fill their limited screen space with noise.
 - **Ask for missing required data.** If the user's request is missing information needed for complete, accurate data entry (strain, weight, license, quantity, etc.), ask a brief clarifying question before generating actions. Do NOT guess or leave required fields empty — compliance depends on complete records. For example: if someone says "I pressed some hash into rosin" but omits the strain and quantities, ask "Which strain, how much hash did you press, and what was the rosin yield?" If only one field is missing, ask for just that field. If you can confidently infer a value from context (e.g., strain from the only active package), fill it in and mention your assumption.
 - Keep text responses to 1-3 short sentences. Briefly describe what you're setting up, but don't narrate every field or repeat information visible in the action preview.
+- **For lookup queries specifically** (list X, how many Y, what's in Z, show me): respond with the data only. No preamble, no summary paragraph, no "Here's your current inventory:" — just the markdown table or the specific answer. The card surface the user sees has very limited vertical space.
 - **Use markdown tables** when presenting lists of inventory, packages, strains, weights, or any structured data with 3+ items. Tables are rendered in the UI and are much easier to scan than bullet lists. Always include relevant columns (strain, type, quantity, etc.) and a total row if applicable.
+- **Right-align numeric columns.** Use the markdown alignment markers in the separator row for any column holding numbers (quantity, weight, count, percentage): \`|---:|\` for right-aligned, \`|:---:|\` for centered, \`|---|\` for left-aligned (default). Example for a packages table:
+  \`\`\`
+  | Label | Strain | Quantity (g) | Status |
+  |---|---|---:|---|
+  | PKG-SD-T001 | Sour Diesel | 175.5 | Active |
+  \`\`\`
+  This makes numeric values line up cleanly so the reader can scan them, and it's a free visual polish since the UI respects the alignment markers automatically.
 - NEVER ask "would you like me to..." or "shall I..." — just do it.
 - NEVER list all available strains, rooms, or profiles unless explicitly asked. If something is missing, create it as part of the action chain.
 - Always use tools to represent structured data. Prefer multiple tool calls in one response over follow-up questions.`;
@@ -480,9 +674,236 @@ const tools = [
             required: ['entryIdentifier', 'trimmerName'],
         },
     },
+    // ── UNIFIED Plant Management (PR #1 tool collapse) ──
+    // Single `plants` tool replaces the old update_plant_health + create_planting
+    // + move_plants + change_plant_phase + destroy_plants verbs. The old tools
+    // are kept below during a migration window so persisted chat history still
+    // renders. For new work, prefer this tool.
+    {
+        name: 'plants',
+        description: `Create, move, update health, change phase, or destroy plants and plant batches. This tool replaces the old five-tool plant verb set with a single discriminated-action interface.
+
+Actions (pick one via the \`action\` field):
+- create: Create new plants or a new nursery batch. Requires entity, strainName, roomName, count. Use batchType for nursery clones/seeds. Set plannedFor (ISO date) to create this as a scheduled plan (surfaces as a human task with onCompleteAction) instead of committing immediately.
+- move: Move plants or batches to a different room. Requires targetRoomName plus either plantBatchIds/plantIds OR (strainName, sourceRoomName) for fuzzy identification.
+- change_phase: Change the growth phase of individual plants (vegetative → flowering → harvested → destroyed). Only works on individual plants, not batches. May optionally also move rooms via targetRoomName.
+- update_health: Update health score (0-100) and/or contaminants for plants/batches. Plant health is tracked per (strain, room, entity) — all plants of the same strain in the same room share one health record, matching how cultivators reason about plant groups. Identify by (strainName, sourceRoomName).
+- destroy: Destroy/remove plants or plant batches from the system. Requires identification.
+
+Identification model (same across all non-create actions):
+- Preferred: plantBatchIds[] or plantIds[] when the IDs are known from context
+- Fallback: strainName + sourceRoomName for fuzzy group-level targeting (matches how cultivators think about "the Gelato in flower 2")`,
+        input_schema: {
+            type: 'object' as const,
+            properties: {
+                action: {
+                    type: 'string',
+                    enum: ['create', 'move', 'change_phase', 'update_health', 'destroy'],
+                    description: 'Which plant operation to perform.',
+                },
+                entity: {
+                    type: 'string',
+                    enum: ['plant', 'batch'],
+                    description: '"plant" = individually tracked plants in veg/flower. "batch" = clone/seed groups in nursery. Required for create; inferred from plantBatchIds vs plantIds for other actions.',
+                },
+
+                // ── Identification (non-create actions) ──
+                plantBatchIds: {
+                    type: 'array',
+                    items: { type: 'string' },
+                    description: 'Canonical: batch IDs resolved from find_plants or context.',
+                },
+                plantIds: {
+                    type: 'array',
+                    items: { type: 'string' },
+                    description: 'Canonical: individual plant IDs resolved from find_plants or context.',
+                },
+                strainName: {
+                    type: 'string',
+                    description: 'Fuzzy identification: strain of the group to act on. For create: the strain of the new plants.',
+                },
+                sourceRoomName: {
+                    type: 'string',
+                    description: 'Fuzzy identification: current room of the group (for non-create actions).',
+                },
+                roomName: {
+                    type: 'string',
+                    description: 'For create: destination room for the new plants. For destroy: room containing the plants to destroy.',
+                },
+
+                // ── Create-specific ──
+                count: {
+                    type: 'number',
+                    description: 'For create: number of plants or batch size.',
+                },
+                batchType: {
+                    type: 'string',
+                    enum: ['clone', 'seed', 'tissue_culture'],
+                    description: 'For create with entity=batch: propagation type. Default clone.',
+                },
+                batchName: {
+                    type: 'string',
+                    description: 'For create with entity=batch: optional custom batch name. Auto-generated if omitted.',
+                },
+                growthPhase: {
+                    type: 'string',
+                    enum: ['vegetative', 'flowering'],
+                    description: 'For create with entity=plant: initial growth phase. Default vegetative.',
+                },
+                labelPrefix: {
+                    type: 'string',
+                    description: 'For create with entity=plant: prefix for auto-generated plant labels.',
+                },
+                plannedFor: {
+                    type: 'string',
+                    description: 'For create: optional ISO date. If set, the planting is created as a scheduled plan (surfaces as a human task with onCompleteAction) rather than being committed immediately. Use for "next week we\'ll start 50 Gelato clones".',
+                },
+
+                // ── Move / change_phase specific ──
+                targetRoomName: {
+                    type: 'string',
+                    description: 'Destination room for move or (optionally) change_phase.',
+                },
+                targetPhase: {
+                    type: 'string',
+                    enum: ['vegetative', 'flowering', 'harvested', 'destroyed'],
+                    description: 'For change_phase: new growth phase.',
+                },
+
+                // ── Update_health specific ──
+                health: {
+                    type: 'number',
+                    description: 'For update_health: health score 0-100 (100 = perfectly healthy).',
+                },
+                contaminants: {
+                    type: 'array',
+                    items: {
+                        type: 'string',
+                        enum: ['spider_mites', 'thrips', 'whiteflies', 'aphids', 'fungus_gnats', 'powdery_mildew', 'botrytis', 'fusarium', 'verticillium', 'tobacco_mosaic_virus', 'root_aphids', 'hops_latent_viroid', 'nutrient_deficiency', 'other'],
+                    },
+                    description: 'For update_health: contaminants observed (snake_case keys).',
+                },
+                note: {
+                    type: 'string',
+                    description: 'For update_health: optional note about the observation.',
+                },
+            },
+            required: ['action'],
+        },
+    },
+    // ── READ-ONLY LOOKUP TOOLS (PR #2) ──
+    // These tools run server-side inside the agent loop and return their
+    // query results back to the model as tool_results. They never produce
+    // ProposedActions. Use them to resolve fuzzy references, look up
+    // entities by query, or scan inventory on demand. The compact pushed
+    // context in PR #2 relies on these tools for anything heavier than a
+    // short summary.
+    {
+        name: 'find_plants',
+        description: `Look up plant batches and individual plants matching a query. Call this FIRST whenever the user references specific plants by strain, room, phase, health, or contamination — and then call the \`plants\` tool with the resolved IDs in a subsequent turn. The pushed context no longer includes a plant map, so this tool is the primary way to answer questions like "how are the Wedding Cake in flower 2?" or to resolve "the six sick ones" to concrete plant IDs.
+
+Returns: { plants: [...], batches: [...], totalMatches } — max 20 results. Narrow your query if you hit the limit.`,
+        input_schema: {
+            type: 'object' as const,
+            properties: {
+                strainName: { type: 'string', description: 'Filter by strain name (fuzzy match).' },
+                roomName: { type: 'string', description: 'Filter by current room.' },
+                phase: { type: 'string', enum: ['vegetative', 'flowering', 'harvested', 'destroyed'], description: 'Filter by growth phase.' },
+                contaminants: { type: 'array', items: { type: 'string' }, description: 'Filter to plants with any of these contaminants.' },
+                minHealth: { type: 'number', description: 'Only include plants with health >= this value.' },
+                maxHealth: { type: 'number', description: 'Only include plants with health <= this value.' },
+                entity: { type: 'string', enum: ['plant', 'batch'], description: 'Filter by entity type.' },
+                limit: { type: 'number', description: 'Max results to return (default 20, max 50).' },
+            },
+        },
+    },
+    {
+        name: 'find_packages',
+        description: `Look up packages matching a query. Replaces the pushed packages inventory — call this to check what\'s in stock, find a specific label, or scope mutations to a subset (e.g. "all active Wedding Cake flower packages in Vault 1"). Use the resolved IDs in a subsequent turn when calling update_package / finish_package / delete_package or setting up extraction run inputs.
+
+Returns: [{ id, label, packageType, strain, quantity, status, labTestingState, location, licenseNumber }] — max 20 by default.`,
+        input_schema: {
+            type: 'object' as const,
+            properties: {
+                strain: { type: 'string', description: 'Filter by strain name (fuzzy match).' },
+                packageType: { type: 'string', description: 'Filter by package type (e.g. flower, trim, bubble_hash, rosin).' },
+                labelContains: { type: 'string', description: 'Fuzzy match against the package label.' },
+                status: { type: 'string', enum: ['active', 'on_hold', 'finished', 'archived'], description: 'Filter by package status.' },
+                labTestingState: { type: 'string', description: 'Filter by lab testing state.' },
+                location: { type: 'string', description: 'Filter by storage location (fuzzy match).' },
+                minQuantity: { type: 'number', description: 'Only packages with quantity >= this value.' },
+                maxQuantity: { type: 'number', description: 'Only packages with quantity <= this value.' },
+                licenseNumber: { type: 'string', description: 'Filter by license number.' },
+                limit: { type: 'number', description: 'Max results to return (default 20, max 50).' },
+            },
+        },
+    },
+    {
+        name: 'find_human_tasks',
+        description: `Look up human tasks matching a query. Replaces the pushed humanTasks list — call this before update_human_tasks or delete_human_tasks to resolve fuzzy title references to concrete task IDs, or to scan current work ("what\'s pending in cultivation today?"). The user sees these tasks in their task list UI; you do NOT see them unless you call this tool.
+
+Returns: [{ id, title, description, status, priority, category, assignee, location, dueDate }] — max 20 by default.`,
+        input_schema: {
+            type: 'object' as const,
+            properties: {
+                titleContains: { type: 'string', description: 'Fuzzy match against the task title or description.' },
+                category: {
+                    type: 'string',
+                    enum: [
+                        'drying_curing', 'ipm', 'compliance', 'equipment',
+                        'environmental', 'packaging', 'qc_testing', 'inventory',
+                        'transportation', 'sanitation', 'training', 'trim', 'harvest', 'cultivation', 'other',
+                    ],
+                    description: 'Filter by task category.',
+                },
+                status: { type: 'string', enum: ['pending', 'in_progress', 'completed'], description: 'Filter by status.' },
+                priority: { type: 'string', enum: ['low', 'medium', 'high', 'urgent'], description: 'Filter by priority.' },
+                assignee: { type: 'string', description: 'Filter by assignee name (fuzzy match).' },
+                location: { type: 'string', description: 'Filter by location (fuzzy match).' },
+                dueDateBefore: { type: 'string', description: 'Only tasks due on or before this ISO date.' },
+                dueDateAfter: { type: 'string', description: 'Only tasks due on or after this ISO date.' },
+                limit: { type: 'number', description: 'Max results to return (default 20, max 50).' },
+            },
+        },
+    },
+    {
+        name: 'find_bins',
+        description: `Look up harvest bins matching a query. Use to find bins by strain, status (curing / ready / in_trim / completed), or harvest of origin before calling log_bin_cure / mark_bin_ready / send_bin_to_trim. Replaces the bins-detail listing in pushed context.
+
+Returns: [{ id, binNumber, strain, status, weight, location, harvestId, harvestBatchId }] — max 20 by default.`,
+        input_schema: {
+            type: 'object' as const,
+            properties: {
+                strain: { type: 'string', description: 'Filter by strain (fuzzy match).' },
+                harvestBatchId: { type: 'string', description: 'Filter by parent harvest batch ID (fuzzy match).' },
+                status: { type: 'string', enum: ['curing', 'ready', 'in_trim', 'completed'], description: 'Filter by bin status.' },
+                location: { type: 'string', description: 'Filter by storage location (fuzzy match).' },
+                minWeight: { type: 'number', description: 'Only bins with weight >= this value (grams).' },
+                maxWeight: { type: 'number', description: 'Only bins with weight <= this value (grams).' },
+                limit: { type: 'number', description: 'Max results to return (default 20, max 50).' },
+            },
+        },
+    },
+    {
+        name: 'find_extraction_logs',
+        description: `Look up historical extraction_logs entries (single consumption/production events, not runs). Use for questions like "what was our last Toadstool wash yield?" or "show me all bubble_hash output from last week". For in-flight RUN state, use the pushed "Extraction runs in progress" context or the run ID from recent narration — do not use this tool.
+
+Returns: [{ id, strain, inputPackageType, inputQuantity, outputPackageType, outputQuantity, yieldPercentage, createdAt }] — max 20 by default, newest first.`,
+        input_schema: {
+            type: 'object' as const,
+            properties: {
+                strain: { type: 'string', description: 'Filter by strain (fuzzy match).' },
+                inputPackageType: { type: 'string', description: 'Filter by input material type (e.g. fresh_frozen, bubble_hash, rosin).' },
+                outputPackageType: { type: 'string', description: 'Filter by output product type.' },
+                sinceDate: { type: 'string', description: 'Only entries created on or after this ISO date.' },
+                limit: { type: 'number', description: 'Max results to return (default 20, max 50).' },
+            },
+        },
+    },
+    // ── LEGACY plant tools (kept during migration window) ──
     {
         name: 'update_plant_health',
-        description: 'Update the health score and/or contaminants for plants or plant batches. Health is 0-100 (100 = perfectly healthy). Contaminants are from a known list. Identify plants by strain and room name from the plant map context.',
+        description: 'LEGACY: use `plants` with action=update_health instead. Update the health score and/or contaminants for plants or plant batches. Health is 0-100 (100 = perfectly healthy). Contaminants are from a known list. Identify plants by strain and room name from the plant map context.',
         input_schema: {
             type: 'object' as const,
             properties: {
@@ -603,7 +1024,7 @@ const tools = [
     // ── Plant Management ──
     {
         name: 'create_planting',
-        description: 'Create new plants or plant batches. Use "batch" for nursery clones/seeds (untracked group). Use "plant" for individually tracked plants in veg or flower rooms.',
+        description: 'LEGACY: use `plants` with action=create instead. Create new plants or plant batches. Use "batch" for nursery clones/seeds (untracked group). Use "plant" for individually tracked plants in veg or flower rooms.',
         input_schema: {
             type: 'object' as const,
             properties: {
@@ -621,7 +1042,7 @@ const tools = [
     },
     {
         name: 'move_plants',
-        description: 'Move plants or plant batches to a different room.',
+        description: 'LEGACY: use `plants` with action=move instead. Move plants or plant batches to a different room.',
         input_schema: {
             type: 'object' as const,
             properties: {
@@ -636,7 +1057,7 @@ const tools = [
     },
     {
         name: 'change_plant_phase',
-        description: 'Change the growth phase of individual plants (e.g. vegetative to flowering, or mark as harvested/destroyed). Only works on individual plants, not batches.',
+        description: 'LEGACY: use `plants` with action=change_phase instead. Change the growth phase of individual plants (e.g. vegetative to flowering, or mark as harvested/destroyed). Only works on individual plants, not batches.',
         input_schema: {
             type: 'object' as const,
             properties: {
@@ -651,7 +1072,7 @@ const tools = [
     },
     {
         name: 'destroy_plants',
-        description: 'Destroy/remove plants or plant batches from the system.',
+        description: 'LEGACY: use `plants` with action=destroy instead. Destroy/remove plants or plant batches from the system.',
         input_schema: {
             type: 'object' as const,
             properties: {
@@ -937,9 +1358,144 @@ const tools = [
         },
     },
     // ── Extraction / Concentrate Production ──
+    // ── UNIFIED `extraction_run` tool (PR #1 tool collapse) ──
+    // Replaces the old start_extraction_run + record_extraction decision
+    // tree with a single tool discriminated by `action`. The legacy tools
+    // are kept below during a migration window so persisted chat history
+    // still renders.
+    {
+        name: 'extraction_run',
+        description: `Manage extraction runs across the full lifecycle. Single tool, discriminated by \`action\` — no more decision tree between start_extraction_run and record_extraction. Pick the action that matches the lifecycle stage the user is describing:
+
+- **plan**: Create a run in status=planned (upcoming/planning column). Use for forward-looking language that explicitly schedules work: "tomorrow we're going to do a Toadstool wash", "schedule a live rosin run for Monday", "plan a BHO run next week". Set \`plannedStart\` to the ISO date if mentioned.
+- **start**: Create a run in status=active and mark it started. Use for present-tense starting verbs: "start a wash for Toadstool OG", "kick off a live rosin run", "begin pressing the blackberry hash". This is the default when the user is actively initiating work.
+- **amend_inputs**: Add or modify inputs on an EXISTING run (identified by runId or runIdentifier). Use when the user mentions additional strains or quantities for a run that was just created — especially across ambient transcript chunks. This is the primary mechanism for capturing multi-strain runs: if the user starts with 3 strains and then says "also add Blue Dream and Gelato", the second utterance calls amend_inputs against the existing run instead of creating a new one.
+- **record_yield**: Add output details to an existing run. Use for past-tense yield reports: "the Toadstool wash got 800g of hash", "we pressed the blackberry, got 550g of rosin", "filled 200 carts from the rosin". Set outputPackageType + outputQuantity and reference the run via runId/runIdentifier.
+- **cancel**: Cancel a planned or active run. Use for "cancel the Monday rosin run", "scratch that wash".
+
+Vocabulary for resolving output types (applies when action=record_yield):
+- "wash yielded", "hash came out", "bubble hash" → outputPackageType: bubble_hash
+- "pressed", "got X of rosin" → outputPackageType: rosin
+- "filled carts", "cart fill", "rosin carts" → outputPackageType: rosin_cart
+
+The \`inputs[]\` field is an ARRAY for multi-source runs (e.g. multi-strain washes, terpene-infused distillate with both cannabis and botanical inputs). **Include one entry per DISTINCT source package** — never list the same package twice, and never split a single package into multiple entries. If you want to use all of a package, set quantity to the package's full quantity.
+
+**Resolving source packages**: when you already know which specific packages to use (e.g. you just called find_packages and saw the results), pass each package's \`id\` as \`sourcePackageId\` on the matching input entry. This removes ambiguity when multiple packages share the same (strain, packageType) — for example, five different Wi Fi OG fresh frozen packages in the freezer. Without sourcePackageId, the system has to guess which package each input refers to based on (strain, packageType, quantity), which fails when quantities alone don't disambiguate. **If in doubt, call find_packages first to get the IDs, then pass them through on the extraction_run call.**
+
+For plan/start actions this is the initial input set; for amend_inputs it's the inputs to ADD to the existing run.`,
+        input_schema: {
+            type: 'object' as const,
+            properties: {
+                action: {
+                    type: 'string',
+                    enum: ['plan', 'start', 'amend_inputs', 'record_yield', 'cancel'],
+                    description: 'Which lifecycle operation to perform. See tool description for the decision rules.',
+                },
+
+                // Identification for amend_inputs / record_yield / cancel
+                runId: {
+                    type: 'string',
+                    description: 'ID of an existing run from the Extraction runs in progress context. Required for amend_inputs, record_yield, cancel when the run is already known.',
+                },
+                runIdentifier: {
+                    type: 'string',
+                    description: 'Fuzzy identifier (strain + template) for resolving an existing run when runId is not known — e.g. "the Toadstool wash".',
+                },
+
+                // Template + strain (plan/start)
+                templateIdentifier: {
+                    type: 'string',
+                    description: 'For plan/start: template name, process type, or target product keyword. The system matches against the Extraction templates in context.',
+                },
+                strain: {
+                    type: 'string',
+                    description: 'Primary cannabis strain for the run. For multi-strain runs, use the dominant strain here and list the rest in inputs[].',
+                },
+
+                // Inputs (plan/start/amend_inputs)
+                inputs: {
+                    type: 'array',
+                    description: 'Input materials. One entry per DISTINCT source package. For plan/start this is the initial input set; for amend_inputs these inputs are ADDED to the existing run. Prefer passing sourcePackageId when you know it (e.g. from a prior find_packages call).',
+                    items: {
+                        type: 'object',
+                        properties: {
+                            sourcePackageId: {
+                                type: 'string',
+                                description: 'Canonical: the package ID from find_packages. When set, the backend uses this package directly without any fuzzy matching. This is the reliable way to disambiguate when multiple packages share the same (strain, packageType).',
+                            },
+                            sourcePackageLabel: {
+                                type: 'string',
+                                description: 'Optional: the package label (e.g. "WFOG-FF-2026-03-10") if you know it but not the ID. Backend falls back to label matching when sourcePackageId is absent.',
+                            },
+                            packageType: {
+                                type: 'string',
+                                description: 'Product type name from the Available product types catalog (e.g. fresh_frozen, bubble_hash, distillate, terpenes_botanical). Required when sourcePackageId is not provided.',
+                            },
+                            strain: {
+                                type: 'string',
+                                description: 'Strain of this specific input. May be null for non-cannabis additives. Required when sourcePackageId is not provided.',
+                            },
+                            quantity: {
+                                type: 'number',
+                                description: 'Quantity to consume in the catalog default unit (g for biomass, ml for terpenes, each for carts). Omit to consume the full source package.',
+                            },
+                            unit: {
+                                type: 'string',
+                                description: 'Optional unit override (g, ml, each, trays). Defaults to catalog default_unit.',
+                            },
+                        },
+                    },
+                },
+
+                // Record-yield specific
+                outputPackageType: {
+                    type: 'string',
+                    description: 'For record_yield: type of output product created (e.g. bubble_hash, rosin, rosin_cart).',
+                },
+                outputQuantity: {
+                    type: 'number',
+                    description: 'For record_yield: grams (or count for carts) of output produced.',
+                },
+                outputLabel: {
+                    type: 'string',
+                    description: 'For record_yield: optional label for the output package. Auto-generated if omitted.',
+                },
+                licenseNumber: {
+                    type: 'string',
+                    description: 'License number. Inherited from source package if not specified.',
+                },
+                wasteWeight: {
+                    type: 'number',
+                    description: 'For record_yield: waste produced during this step, in grams.',
+                },
+
+                // Plan-specific
+                plannedStart: {
+                    type: 'string',
+                    description: 'For plan action: ISO timestamp when the run is scheduled to start.',
+                },
+
+                // Shared optional
+                targetProduct: {
+                    type: 'string',
+                    description: 'Optional target product (e.g. live_rosin, distillate_cart).',
+                },
+                runName: {
+                    type: 'string',
+                    description: 'Optional custom run name. Auto-generated as "{strain} - {template} - {date}" if omitted.',
+                },
+                notes: {
+                    type: 'string',
+                    description: 'Optional notes.',
+                },
+            },
+            required: ['action'],
+        },
+    },
+    // ── LEGACY extraction tools (kept during migration window) ──
     {
         name: 'record_extraction',
-        description: `Record an extraction/processing step. This handles all stages of concentrate production:
+        description: `LEGACY: use \`extraction_run\` with action=record_yield instead. Record an extraction/processing step. This handles all stages of concentrate production:
 - Fresh Frozen → Wash → Bubble Hash (ice water extraction)
 - Bubble Hash → Press → Rosin (heat/pressure extraction)
 - Rosin → Cart Fill → Rosin Carts
@@ -996,7 +1552,7 @@ Examples:
     },
     {
         name: 'start_extraction_run',
-        description: `Create a planned or active extraction run in the runs workspace. Use this when the user says things like "start a live rosin run for Toadstool OG", "kick off a wash with 2500g of blackberry fresh frozen", "start a terpene infusion run with 50g of distillate and 10ml of orange terpenes", or "schedule a BHO run for Monday". This creates a full run entry with step-by-step workflow (visible in the Extraction → Runs view), distinct from record_extraction which only logs a single consumption event.
+        description: `LEGACY: use \`extraction_run\` with action=plan or action=start instead. Create a planned or active extraction run in the runs workspace. Use this when the user says things like "start a live rosin run for Toadstool OG", "kick off a wash with 2500g of blackberry fresh frozen", "start a terpene infusion run with 50g of distillate and 10ml of orange terpenes", or "schedule a BHO run for Monday". This creates a full run entry with step-by-step workflow (visible in the Extraction → Runs view), distinct from record_extraction which only logs a single consumption event.
 
 When to use this vs record_extraction:
 - **start_extraction_run**: Forward-looking. The user is beginning or scheduling work. Output/yield is unknown. Creates a row in extraction_runs with step checkoff UI.
@@ -1076,6 +1632,15 @@ interface AIParseRequest {
     transcriptChunks?: string[];
     history?: Array<{ role: string; content: string }>;
     recentTranscriptHistory?: string[];
+    // PR #3: opt-in to streaming responses. When true, the handler returns
+    // an application/x-ndjson body where each line is a JSON object —
+    // {type: "text_delta", text: "..."} lines stream the agent's text
+    // output as it's generated, followed by a final
+    // {type: "done", actions: [...], toolResults: [...], message: "..."}
+    // line when the agent loop completes. When false/undefined, the
+    // handler returns the usual application/json body with the full
+    // payload once the loop finishes.
+    streaming?: boolean;
     context: {
         hasActiveSession: boolean;
         sessionId?: string;
@@ -1093,7 +1658,11 @@ interface ProposedAction {
     data: Record<string, any>;
 }
 
-export const handler: Handler = async (event) => {
+// PR #3: wrapped with Netlify's stream() helper so the returned body can
+// be a live ReadableStream (for the streaming branch). Non-streaming
+// requests still return a static JSON body as before — stream() accepts
+// both string and stream bodies.
+export const handler: Handler = stream(async (event) => {
     if (event.httpMethod !== 'POST') {
         return { statusCode: 405, body: 'Method Not Allowed' };
     }
@@ -1105,8 +1674,12 @@ export const handler: Handler = async (event) => {
             return { statusCode: 401, body: JSON.stringify({ error: 'Unauthorized' }) };
         }
 
-        // Route to different models based on user role
-        const model = authContext.role === 'technician'
+        // Route to different models based on user role.
+        // Technicians always get Haiku; everyone else defaults to Sonnet.
+        // The Haiku downgrade for "simple lookups" happens below AFTER the
+        // request body is parsed (need the raw user text to run the
+        // heuristic).
+        let model = authContext.role === 'technician'
             ? 'claude-haiku-4-5-20251001'
             : 'claude-sonnet-4-20250514';
 
@@ -1132,6 +1705,43 @@ export const handler: Handler = async (event) => {
 
         if (!request.message && !request.csvData && !request.transcriptChunks?.length) {
             return { statusCode: 400, body: JSON.stringify({ error: 'Either message, csvData, or transcriptChunks is required' }) };
+        }
+
+        // ── Haiku routing: simple-lookup heuristic (PR #2 latency fix) ──
+        // Downgrade to Haiku for the whole request when the raw user input
+        // is BOTH short AND free of mutation verbs. The bar is deliberately
+        // conservative — we'd rather pay Sonnet latency on a borderline
+        // request than risk a bad mutation proposal from Haiku.
+        //
+        //   - length <= HAIKU_MAX_CHARS (short enough to be a direct question)
+        //   - no mutation verb anywhere in the text
+        //
+        // CSV imports are never downgraded (structured data parsing is
+        // Sonnet's job). Technicians already use Haiku so this is a no-op
+        // for them.
+        const HAIKU_MAX_CHARS = 200;
+        const MUTATION_VERBS = [
+            'start', 'begin', "kick\\s*off", "let'?s", "we'?re going", 'we are going',
+            'create', 'add', 'update', 'record', 'log', 'flag', 'assign',
+            'move', 'transfer', 'delete', 'remove', 'finish', 'submit', 'cancel',
+            'schedule', 'plan', 'destroy', 'harvest', 'cut', 'pull', 'press', 'wash',
+            'save', 'make', 'set\\s*up', 'remind', 'mark', 'need to', 'should', 'have to',
+        ];
+        const MUTATION_VERB_PATTERN = new RegExp(
+            '\\b(?:' + MUTATION_VERBS.join('|') + ')\\b',
+            'i'
+        );
+        const rawUserInput = request.transcriptChunks?.length
+            ? request.transcriptChunks.join(' ')
+            : (request.message || '');
+        const isSimpleLookup =
+            !request.csvData &&
+            rawUserInput.length > 0 &&
+            rawUserInput.length <= HAIKU_MAX_CHARS &&
+            !MUTATION_VERB_PATTERN.test(rawUserInput);
+        if (isSimpleLookup && model !== 'claude-haiku-4-5-20251001') {
+            model = 'claude-haiku-4-5-20251001';
+            console.log(`[ai-parse model] downgraded to Haiku for simple lookup (${rawUserInput.length} chars)`);
         }
 
         // Build user message with context
@@ -1192,43 +1802,29 @@ IMPORTANT: If the user is correcting or updating a previous statement (e.g. "act
             }).join('; ')}`);
         }
 
+        // Harvests summary — bin counts kept inline, full bins listing
+        // stripped (PR #2). Use the find_bins tool to look up bin details.
         if (request.context.harvests && request.context.harvests.length > 0) {
             contextInfo.push(`- Harvests: ${request.context.harvests.map(h => `"${h.batchId}" / ${h.strain} [${h.status}]${h.bins?.length ? ` (${h.bins.length} bins)` : ''} (ID: ${h.id})`).join(', ')}`);
-            // Include bins summary
-            const allBins = request.context.harvests.flatMap((h: any) => (h.bins || []).map((b: any) => ({ ...b, harvestBatchId: h.batchId })));
-            if (allBins.length > 0) {
-                contextInfo.push(`- Bins: ${allBins.map((b: any) => `BIN-${String(b.binNumber).padStart(3, '0')} / ${b.strain} [${b.status}] from ${b.harvestBatchId}${b.weight ? ` ${b.weight}g` : ''} (ID: ${b.id})`).join(', ')}`);
-            }
         } else {
             contextInfo.push(`- Harvests: None`);
         }
 
-        if (request.context.humanTasks && request.context.humanTasks.length > 0) {
-            contextInfo.push(`- Human tasks: ${request.context.humanTasks.map(t => `"${t.title}" [${t.status}/${t.priority}] ${t.assignee ? `assigned to ${t.assignee}` : ''} ${t.location ? `@ ${t.location}` : ''} (ID: ${t.id})`).join(', ')}`);
-        } else {
-            contextInfo.push(`- Human tasks: None`);
-        }
+        // Human tasks full list STRIPPED (PR #2). Call find_human_tasks
+        // when the user references a task by title or needs a scan of
+        // pending work. The update/delete dispatcher cases fall back to a
+        // DB fuzzy lookup via resolveHumanTaskRef.
 
-        if (request.context.plantMapSummary && request.context.plantMapSummary.length > 0) {
-            contextInfo.push(`- Plant map: ${request.context.plantMapSummary.map(p => `${p.roomName}: ${p.strains.join(', ')} [${p.entityType}] health=${p.plantHealth}${p.contaminants.length ? ' contaminants: ' + p.contaminants.join(', ') : ''} (roomId: ${p.roomId}, plantIds: ${p.plantIds.join(',')})`).join('; ')}`);
-        }
+        // Plant map summary STRIPPED (PR #2). Call find_plants to resolve
+        // fuzzy plant references to concrete IDs before calling the
+        // plants tool.
 
         if ((request.context as any).activeLicenseNumber) {
             contextInfo.push(`- Active license number: ${(request.context as any).activeLicenseNumber} (use this automatically for any new batches, harvests, extractions, and packages unless the user specifies a different one)`);
         }
 
-        // Add recent extraction logs for context (so AI can handle corrections/follow-ups)
-        try {
-            const { rows: extRows } = await sql`
-                SELECT id, strain, input_package_type, input_quantity, output_package_type, output_quantity,
-                       yield_percentage, extraction_type, created_at
-                FROM extraction_logs WHERE company_id = ${authContext.companyId}
-                ORDER BY created_at DESC LIMIT 10
-            `;
-            if (extRows.length > 0) {
-                contextInfo.push(`- Recent extractions: ${extRows.map((e: any) => `${e.strain} ${e.input_package_type}→${e.output_package_type} input=${e.input_quantity ? parseFloat(e.input_quantity) + 'g' : '?'} output=${e.output_quantity ? parseFloat(e.output_quantity) + 'g' : 'pending'} yield=${e.yield_percentage ? parseFloat(e.yield_percentage) + '%' : '?'} (ID: ${e.id}, ${e.created_at})`).join('; ')}`);
-            }
-        } catch { /* proceed without extraction context */ }
+        // Recent extraction logs STRIPPED (PR #2). Call find_extraction_logs
+        // for historical yield lookups. In-flight runs still pushed below.
 
         // Add extraction process templates so the AI can resolve "start a live rosin run" → templateId
         try {
@@ -1259,19 +1855,28 @@ IMPORTANT: If the user is correcting or updating a previous statement (e.g. "act
             }
         } catch { /* proceed without run context */ }
 
-        // Add packages context
+        // Packages full listing STRIPPED (PR #2). Call find_packages to
+        // look up inventory, find specific labels, or scope mutations to
+        // a subset. Compact counts are included in the inventory summary
+        // below.
+
+        // Compact inventory counts — gives the model a sense of how much
+        // is "out there" without pushing full lists. Individual lookups
+        // go through find_* tools.
         try {
-            const { rows: pkgRows } = await sql`
-                SELECT id, label, package_type, strain, license_number, quantity, status, lab_testing_state, location
-                FROM packages WHERE company_id = ${authContext.companyId} AND status != 'archived'
-                ORDER BY packaged_date DESC LIMIT 50
-            `;
-            if (pkgRows.length > 0) {
-                contextInfo.push(`- Packages: ${pkgRows.map((p: any) => `${p.label} [${p.package_type}] ${p.strain} ${parseFloat(p.quantity)}g status=${p.status} lab=${p.lab_testing_state}${p.location ? ' @' + p.location : ''} (ID: ${p.id})`).join('; ')}`);
-            } else {
-                contextInfo.push(`- Packages: None`);
-            }
-        } catch { /* proceed without package context */ }
+            const [{ rows: pkgCountRows }, { rows: taskCountRows }, { rows: plantCountRows }, { rows: batchCountRows }] = await Promise.all([
+                sql`SELECT COUNT(*)::int AS n FROM packages WHERE company_id = ${authContext.companyId} AND status = 'active'`,
+                sql`SELECT COUNT(*)::int AS n FROM human_tasks WHERE company_id = ${authContext.companyId} AND status != 'completed'`,
+                sql`SELECT COUNT(*)::int AS n FROM plants WHERE company_id = ${authContext.companyId} AND growth_phase IN ('vegetative', 'flowering')`,
+                sql`SELECT COUNT(*)::int AS n FROM plant_batches WHERE company_id = ${authContext.companyId}`,
+            ]);
+            const pkgCount = pkgCountRows[0]?.n || 0;
+            const taskCount = taskCountRows[0]?.n || 0;
+            const plantCount = plantCountRows[0]?.n || 0;
+            const batchCount = batchCountRows[0]?.n || 0;
+            contextInfo.push(`- Inventory counts: ${pkgCount} active packages, ${taskCount} open human tasks, ${plantCount} tracked plants, ${batchCount} plant batches`);
+            contextInfo.push(`- For specific lookups, call the find_* tools (find_packages, find_human_tasks, find_plants, find_bins, find_extraction_logs). Do NOT guess at IDs or labels.`);
+        } catch { /* proceed without counts */ }
 
         // Add strains, licenses, and rooms for resolution
         try {
@@ -1315,12 +1920,18 @@ IMPORTANT: If the user is correcting or updating a previous statement (e.g. "act
             return { statusCode: 500, body: JSON.stringify({ error: 'AI service not configured' }) };
         }
 
-        // Build multi-turn messages from history, or single message
-        let messages: Array<{ role: string; content: string }>;
+        // Build multi-turn messages from history, or single message.
+        // Content can be either a string (plain user/assistant turn) or an
+        // array of content blocks (for assistant turns from the loop that
+        // include tool_use blocks, and for user turns that carry tool_result
+        // blocks back to the model).
+        type AnthropicContentBlock = Record<string, unknown>;
+        type AnthropicMessage = { role: 'user' | 'assistant'; content: string | AnthropicContentBlock[] };
+        let messages: AnthropicMessage[];
         if (request.history && request.history.length > 1) {
             // Use history but replace the last user message with context-enriched version
             messages = request.history.slice(0, -1).map(m => ({
-                role: m.role,
+                role: m.role as 'user' | 'assistant',
                 content: m.content,
             }));
             messages.push({ role: 'user', content: userMessage });
@@ -1351,51 +1962,830 @@ IMPORTANT: If the user is correcting or updating a previous statement (e.g. "act
             ]
             : tools;
 
-        const apiResponse = await fetch(ANTHROPIC_API_URL, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'x-api-key': apiKey,
-                'anthropic-version': '2023-06-01',
-                'anthropic-beta': 'prompt-caching-2024-07-31',
-            },
-            body: JSON.stringify({
-                model,
-                max_tokens: 4096,
-                system: [
-                    { type: 'text', text: SYSTEM_PROMPT, cache_control: { type: 'ephemeral' } },
-                    { type: 'text', text: deptContext },
-                ],
-                tools: cachedTools,
-                messages,
-            }),
-        });
-
-        if (!apiResponse.ok) {
-            const errText = await apiResponse.text();
-            console.error('Anthropic API error:', apiResponse.status, errText);
-            return { statusCode: 502, body: JSON.stringify({ error: 'AI service error', detail: errText, status: apiResponse.status }) };
-        }
-
-        const response = await apiResponse.json();
-
-        // Observability: log cache usage per call so we can measure hit rate and token savings.
-        // First call of a fresh deploy writes the cache (cache_creation_input_tokens > 0, cache_read_input_tokens = 0).
-        // Subsequent calls within the ~5min cache TTL should show cache_read_input_tokens ≈ size of the static prefix.
-        if (response.usage) {
-            const u = response.usage;
-            console.log(`[ai-parse cache] model=${model} input=${u.input_tokens || 0} output=${u.output_tokens || 0} cache_create=${u.cache_creation_input_tokens || 0} cache_read=${u.cache_read_input_tokens || 0}`);
-        }
-
-        // Extract tool calls and text from response
+        // ── Multi-turn agent loop (PR #2) ──
+        // Instead of a single-shot fetch, run up to MAX_AGENT_TURNS iterations
+        // with Claude's tool_use → tool_result → reason pattern. Read-only
+        // find_* tools run server-side (via runLookup) and feed their
+        // results back into the next turn. Mutation tools push ProposedActions
+        // AND emit a stub tool_result so the agent knows the mutation was
+        // queued and can continue reasoning (e.g. propose a follow-up task
+        // after proposing a plant action).
+        //
+        // Cap at 6 turns — typical flows terminate in 1-3. Runaway loops
+        // get truncated with a console warning and whatever actions have
+        // been collected so far.
+        const MAX_AGENT_TURNS = 6;
         const actions: ProposedAction[] = [];
         let assistantMessage = '';
+        // tool_result blocks collected during the current turn's block
+        // iteration, appended as the next user message if we decide to
+        // loop again. Declared here because both the read-only router and
+        // the mutation post-dispatch step push into it.
+        let toolResultsThisTurn: AnthropicContentBlock[] = [];
+
+        // PR #2 card surfacing: accumulated find_* results across ALL turns
+        // of the agent loop. Included in the response body so the frontend
+        // can render interactive result cards (PackagesResultCard, etc.)
+        // instead of parsing the agent's narrative text. One entry per
+        // find_* tool_use block.
+        interface AiParseToolResult {
+            tool: string;           // find_packages, find_plants, etc.
+            toolUseId: string;      // matches the tool_use block id
+            query: Record<string, unknown>;
+            data: unknown;          // parsed result payload from runLookup
+            isError: boolean;
+        }
+        const toolResults: AiParseToolResult[] = [];
+
+        // ── Shared helper: resolve an extraction run input set ──
+        // Used by both the legacy `start_extraction_run` case and the new
+        // unified `extraction_run` case (for actions plan/start). Loads the
+        // product catalog and extraction templates, resolves each input's
+        // packageType via fuzzy match, looks up source packages, picks a
+        // matching template, and auto-generates a run name. Returns the
+        // full ProposedAction.data payload the frontend expects for
+        // start_extraction_run actions.
+        type RunInputItem = {
+            packageType?: string;
+            strain?: string | null;
+            quantity?: number;
+            unit?: string;
+            // PR #2 fix: disambiguation fields. When sourcePackageId is set,
+            // the helper uses it directly instead of fuzzy-matching on (strain,
+            // packageType). Fixes the case where multiple packages share the
+            // same strain + type (e.g. five Wi Fi OG fresh frozen packages).
+            sourcePackageId?: string;
+            sourcePackageLabel?: string;
+        };
+        /**
+         * Infer a concrete product type (distillate, rosin, bubble_hash, etc.)
+         * from a matched template's name or process_type. Used as a fallback
+         * when the agent omits `targetProduct` on start_extraction_run so the
+         * action preview card can render a real chip instead of a blank target.
+         * Keep the keyword list aligned with the TypeChip map in
+         * `src/components/ActionPreview.tsx`.
+         */
+        function inferTargetProduct(tmplName: string | null | undefined, processType: string | null | undefined): string | null {
+            const haystack = `${tmplName || ''} ${processType || ''}`.toLowerCase();
+            if (!haystack.trim()) return null;
+            // Order matters: check compound types before their substrings
+            // ("rosin cart" before "rosin", "live resin" before "resin").
+            const candidates: Array<[string, RegExp]> = [
+                ['rosin_cart', /rosin\s*cart|rosin-cart/],
+                ['live_rosin', /live\s*rosin/],
+                ['live_resin', /live\s*resin/],
+                ['bubble_hash', /bubble\s*hash|ice\s*water\s*hash/],
+                ['distillate', /distillate|isolate/],
+                ['rosin', /\brosin\b/],
+                ['cart', /\bcart\b|cartridge/],
+                ['vape', /\bvape\b/],
+                ['shake', /\bshake\b/],
+            ];
+            for (const [type, pattern] of candidates) {
+                if (pattern.test(haystack)) return type;
+            }
+            // process_type is sometimes already concrete ("distillate"); fall
+            // back to it verbatim only if it matches a known chip key.
+            const known = new Set(['flower', 'trim', 'shake', 'fresh_frozen', 'bubble_hash', 'rosin', 'live_rosin', 'live_resin', 'distillate', 'cart', 'rosin_cart', 'vape']);
+            if (processType && known.has(processType)) return processType;
+            return null;
+        }
+
+        async function buildStartExtractionRunData(runInput: {
+            inputs?: RunInputItem[];
+            templateIdentifier?: string;
+            strain?: string | null;
+            targetProduct?: string | null;
+            runName?: string | null;
+            plannedStart?: string | null;
+            startImmediately?: boolean;
+            notes?: string | null;
+        }): Promise<Record<string, unknown>> {
+            type TmplRow = { id: string; name: string; process_type: string | null; accepted_inputs: string[] | null };
+            type PkgRow = { id: string; label: string; quantity: string; package_type: string; strain: string | null };
+            type CatalogRow = { name: string; display_name: string; category: string; default_unit: string; is_cannabis: boolean };
+
+            const runInputs: RunInputItem[] = Array.isArray(runInput.inputs) ? runInput.inputs : [];
+
+            const [tmplResult, catalogResult] = await Promise.all([
+                sql`
+                    SELECT id, name, process_type, accepted_inputs
+                    FROM process_templates
+                    WHERE company_id = ${authContext.companyId} AND domain = 'extraction' AND is_active = true
+                `,
+                sql`
+                    SELECT name, display_name, category, default_unit, is_cannabis
+                    FROM product_types
+                    WHERE company_id = ${authContext.companyId} AND is_active = true
+                `,
+            ]);
+            const tmplRows = tmplResult.rows as TmplRow[];
+            const catalog = catalogResult.rows as CatalogRow[];
+
+            // Fuzzy match catalog names: exact → substring → word-overlap.
+            // Full Levenshtein/phonetic matcher lands later; this is the stopgap.
+            const resolveCatalogName = (raw: string | undefined | null): CatalogRow | null => {
+                if (!raw) return null;
+                const needle = String(raw).toLowerCase().trim().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
+                if (!needle) return null;
+                const exact = catalog.find(c => c.name === needle);
+                if (exact) return exact;
+                const sub = catalog.find(c => c.name.includes(needle) || needle.includes(c.name));
+                if (sub) return sub;
+                const needleTokens = needle.split('_').filter(t => t.length >= 3);
+                for (const c of catalog) {
+                    const catTokens = c.name.split('_');
+                    if (needleTokens.some(t => catTokens.includes(t))) return c;
+                }
+                return null;
+            };
+
+            type ResolvedInput = {
+                requestedPackageType: string;
+                resolvedPackageType: string | null;
+                resolvedDisplayName: string | null;
+                unit: string;
+                isCannabis: boolean | null;
+                strain: string | null;
+                quantity: number | null;
+                sourcePackageId: string | null;
+                sourcePackageLabel: string | null;
+            };
+
+            // ── Source package resolution (PR #2 fix) ──
+            // Three strategies, tried in order per input:
+            //   1. If the agent provided sourcePackageId (from a prior
+            //      find_packages call), look it up directly. Authoritative.
+            //   2. If the agent provided sourcePackageLabel, look up by label.
+            //   3. Otherwise, fetch ALL candidate packages for (strain,
+            //      packageType), then disambiguate within this batch by
+            //      quantity match, consuming each row at most once.
+            //
+            // This replaces the old single-query `LIMIT 1` which collapsed
+            // N same-strain inputs onto the same source package.
+            const consumedPackageIds = new Set<string>();
+            const claimPkg = (pkg: PkgRow | null): PkgRow | null => {
+                if (!pkg) return null;
+                if (consumedPackageIds.has(pkg.id)) return null;
+                consumedPackageIds.add(pkg.id);
+                return pkg;
+            };
+
+            const resolved: ResolvedInput[] = [];
+            for (const ri of runInputs) {
+                const catalogEntry = resolveCatalogName(ri.packageType);
+                const typeName = catalogEntry?.name || ri.packageType || null;
+                const strainForInput = ri.strain ?? runInput.strain ?? null;
+
+                let srcPkg: PkgRow | null = null;
+
+                // Strategy 1: explicit sourcePackageId from the agent.
+                if (ri.sourcePackageId) {
+                    const { rows } = await sql`
+                        SELECT id, label, quantity, package_type, strain
+                        FROM packages
+                        WHERE id = ${ri.sourcePackageId}
+                          AND company_id = ${authContext.companyId}
+                          AND status = 'active'
+                        LIMIT 1
+                    `;
+                    srcPkg = claimPkg((rows[0] as PkgRow) || null);
+                }
+
+                // Strategy 2: explicit sourcePackageLabel from the agent.
+                if (!srcPkg && ri.sourcePackageLabel) {
+                    const { rows } = await sql`
+                        SELECT id, label, quantity, package_type, strain
+                        FROM packages
+                        WHERE company_id = ${authContext.companyId}
+                          AND LOWER(label) = LOWER(${ri.sourcePackageLabel})
+                          AND status = 'active'
+                        LIMIT 1
+                    `;
+                    srcPkg = claimPkg((rows[0] as PkgRow) || null);
+                }
+
+                // Strategy 3: fuzzy (strain, packageType) + quantity match.
+                // Fetch all candidates instead of LIMIT 1 so we can pick the
+                // right one when there are multiple packages with the same
+                // (strain, type) but different quantities.
+                if (!srcPkg && typeName && strainForInput) {
+                    const { rows } = await sql`
+                        SELECT id, label, quantity, package_type, strain
+                        FROM packages
+                        WHERE company_id = ${authContext.companyId}
+                          AND package_type = ${typeName}
+                          AND LOWER(strain) = LOWER(${strainForInput})
+                          AND status = 'active'
+                        ORDER BY created_at DESC
+                    `;
+                    const candidates = (rows as PkgRow[]).filter(p => !consumedPackageIds.has(p.id));
+                    if (candidates.length === 1) {
+                        srcPkg = claimPkg(candidates[0]);
+                    } else if (candidates.length > 1) {
+                        // Prefer a quantity match when the agent specified a quantity.
+                        // Exact match first, then nearest.
+                        if (typeof ri.quantity === 'number' && ri.quantity > 0) {
+                            const target = ri.quantity;
+                            const exact = candidates.find(p => Math.abs(parseFloat(p.quantity) - target) < 0.01);
+                            if (exact) {
+                                srcPkg = claimPkg(exact);
+                            } else {
+                                // Nearest by absolute difference.
+                                const sorted = [...candidates].sort((a, b) =>
+                                    Math.abs(parseFloat(a.quantity) - target) - Math.abs(parseFloat(b.quantity) - target)
+                                );
+                                srcPkg = claimPkg(sorted[0]);
+                            }
+                        } else {
+                            // No quantity hint — take the next unclaimed candidate
+                            // in created_at order. Lets multi-input runs consume
+                            // distinct rows sequentially.
+                            srcPkg = claimPkg(candidates[0]);
+                        }
+                    }
+                }
+
+                // Strategy 3b: non-cannabis additive (no strain to match on).
+                if (!srcPkg && typeName && (catalogEntry?.is_cannabis === false)) {
+                    const { rows } = await sql`
+                        SELECT id, label, quantity, package_type, strain
+                        FROM packages
+                        WHERE company_id = ${authContext.companyId}
+                          AND package_type = ${typeName}
+                          AND status = 'active'
+                        ORDER BY created_at DESC
+                    `;
+                    const candidates = (rows as PkgRow[]).filter(p => !consumedPackageIds.has(p.id));
+                    srcPkg = claimPkg(candidates[0] || null);
+                }
+
+                resolved.push({
+                    requestedPackageType: ri.packageType || srcPkg?.package_type || '',
+                    resolvedPackageType: typeName || srcPkg?.package_type || null,
+                    resolvedDisplayName: catalogEntry?.display_name || null,
+                    unit: ri.unit || catalogEntry?.default_unit || 'g',
+                    isCannabis: catalogEntry?.is_cannabis ?? null,
+                    strain: strainForInput || srcPkg?.strain || null,
+                    quantity: typeof ri.quantity === 'number'
+                        ? ri.quantity
+                        : (srcPkg ? parseFloat(srcPkg.quantity) : null),
+                    sourcePackageId: srcPkg?.id || null,
+                    sourcePackageLabel: srcPkg?.label || null,
+                });
+            }
+
+            const identifier = String(runInput.templateIdentifier || '').toLowerCase().trim();
+            let matchedTmpl: TmplRow | null = null;
+            if (identifier) {
+                matchedTmpl = tmplRows.find(t => t.name.toLowerCase() === identifier)
+                    || tmplRows.find(t => t.name.toLowerCase().includes(identifier) || identifier.includes(t.name.toLowerCase()))
+                    || tmplRows.find(t => !!t.process_type && identifier.includes(t.process_type))
+                    || (runInput.targetProduct ? tmplRows.find(t => {
+                        const blob = identifier + ' ' + runInput.targetProduct;
+                        return (t.process_type === 'solventless' && /rosin|hash|bubble/.test(blob)) ||
+                            (t.process_type === 'bho' && /shatter|wax|crumble|resin|bho/.test(blob)) ||
+                            (t.process_type === 'distillate' && /distillate|isolate/.test(blob));
+                    }) : null)
+                    || null;
+            }
+            if (!matchedTmpl && resolved.length > 0) {
+                const resolvedTypes = resolved.map(r => r.resolvedPackageType).filter(Boolean) as string[];
+                matchedTmpl = tmplRows.find(t =>
+                    Array.isArray(t.accepted_inputs) && resolvedTypes.some(rt => t.accepted_inputs!.includes(rt))
+                ) || null;
+            }
+
+            const today = new Date();
+            const dateStr = `${String(today.getMonth() + 1).padStart(2, '0')}${String(today.getDate()).padStart(2, '0')}${String(today.getFullYear()).slice(-2)}`;
+            const tmplLabel = matchedTmpl?.name || runInput.templateIdentifier || 'Run';
+            const strainLabel = runInput.strain || resolved.find(r => r.strain)?.strain || 'Unknown';
+            const runName = runInput.runName || `${strainLabel} - ${tmplLabel} - ${dateStr}`;
+
+            const sourcePackageIds = resolved.map(r => r.sourcePackageId).filter((id): id is string => !!id);
+            const sourcePackageQuantities: Record<string, number> = {};
+            for (const r of resolved) {
+                if (r.sourcePackageId && typeof r.quantity === 'number' && r.quantity > 0) {
+                    sourcePackageQuantities[r.sourcePackageId] = r.quantity;
+                }
+            }
+
+            const primary = resolved[0] || null;
+
+            return {
+                templateId: matchedTmpl?.id || null,
+                templateName: matchedTmpl?.name || runInput.templateIdentifier,
+                templateMatched: Boolean(matchedTmpl),
+                runName,
+                strain: runInput.strain || null,
+                inputMaterial: primary?.resolvedPackageType || null,
+                inputQuantityG: primary?.quantity || null,
+                inputs: resolved.map(r => ({
+                    packageType: r.resolvedPackageType,
+                    displayName: r.resolvedDisplayName,
+                    strain: r.strain,
+                    quantity: r.quantity,
+                    unit: r.unit,
+                    sourcePackageId: r.sourcePackageId,
+                    sourcePackageLabel: r.sourcePackageLabel,
+                })),
+                // Fall back to inferring the target product from the matched
+                // template when the agent doesn't pass it explicitly. We scan
+                // the template name for known product-type keywords (the same
+                // set the UI renders as category chips), and fall back to the
+                // template's process_type when it's already a concrete type
+                // like "distillate". Keeps the action preview card from
+                // showing a blank "Target —" on an obviously-targeted run.
+                targetProduct: runInput.targetProduct || inferTargetProduct(matchedTmpl?.name, matchedTmpl?.process_type) || null,
+                sourcePackageId: primary?.sourcePackageId || null,
+                sourcePackageLabel: primary?.sourcePackageLabel || null,
+                sourcePackageIds,
+                sourcePackageQuantities,
+                plannedStart: runInput.plannedStart || null,
+                status: runInput.startImmediately === false ? 'planned' : 'active',
+                notes: runInput.notes || null,
+            };
+        }
+
+        // ── Shared helper: resolve an existing extraction run by ID or fuzzy identifier ──
+        // Used by amend_inputs / record_yield / cancel actions on the new
+        // unified extraction_run tool. Returns the run row (id, name, strain,
+        // status) or null if no match. The fuzzy path matches against the
+        // runs already pushed into the context (visible to the LLM), using
+        // strain + status + template name as the search keys.
+        async function resolveExtractionRunRef(runId?: string, runIdentifier?: string): Promise<{ id: string; name: string; strain: string | null; status: string } | null> {
+            if (runId) {
+                const { rows } = await sql`
+                    SELECT id, name, strain, status
+                    FROM extraction_runs
+                    WHERE id = ${runId} AND company_id = ${authContext.companyId}
+                    LIMIT 1
+                `;
+                return (rows[0] as { id: string; name: string; strain: string | null; status: string } | undefined) || null;
+            }
+            if (runIdentifier) {
+                const needle = `%${String(runIdentifier).toLowerCase()}%`;
+                // Search active + planned first (most likely target), then fall back to any.
+                const { rows } = await sql`
+                    SELECT id, name, strain, status
+                    FROM extraction_runs
+                    WHERE company_id = ${authContext.companyId}
+                      AND status IN ('planned', 'active')
+                      AND (LOWER(name) LIKE ${needle} OR LOWER(strain) LIKE ${needle})
+                    ORDER BY created_at DESC
+                    LIMIT 1
+                `;
+                return (rows[0] as { id: string; name: string; strain: string | null; status: string } | undefined) || null;
+            }
+            return null;
+        }
+
+        // ── runLookup: read-only find_* dispatcher (PR #2 agent loop) ──
+        // Called from inside the multi-turn agent loop when the model emits
+        // a tool_use for one of the five read-only lookup tools. Each branch
+        // runs a scoped SQL query and returns the result as a JSON string
+        // that gets wrapped in a tool_result message block. Errors are
+        // caught and surfaced to the model via { isError: true } so it can
+        // recover — we never throw out of the loop.
+        //
+        // PR #2 card surfacing: `data` holds the structured (pre-stringify)
+        // result so the agent loop can also push it into the response-level
+        // toolResults[] array, enabling the frontend to render interactive
+        // result cards (PackagesResultCard, etc.) instead of flattening the
+        // data into the assistant's text reply.
+        type LookupResult = { content: string; data: unknown; isError: boolean };
+        const LOOKUP_LIMIT_DEFAULT = 20;
+        const LOOKUP_LIMIT_MAX = 50;
+        const clampLimit = (raw: unknown): number => {
+            const n = typeof raw === 'number' ? raw : Number(raw);
+            if (!Number.isFinite(n) || n <= 0) return LOOKUP_LIMIT_DEFAULT;
+            return Math.min(Math.floor(n), LOOKUP_LIMIT_MAX);
+        };
+        // Small helpers so each find_* branch returns both the stringified
+        // content (for the agent's tool_result) and the parsed data (for
+        // the response-level toolResults[] the frontend renders as cards).
+        const lookupOk = (payload: unknown): LookupResult => ({
+            isError: false,
+            content: JSON.stringify(payload),
+            data: payload,
+        });
+        const lookupErr = (message: string): LookupResult => ({
+            isError: true,
+            content: JSON.stringify({ error: message }),
+            data: { error: message },
+        });
+
+        async function runLookup(name: string, lookupInput: Record<string, unknown>): Promise<LookupResult> {
+            try {
+                if (name === 'find_plants') {
+                    const strainLike = lookupInput.strainName ? `%${String(lookupInput.strainName).toLowerCase()}%` : null;
+                    const roomLike = lookupInput.roomName ? `%${String(lookupInput.roomName).toLowerCase()}%` : null;
+                    const phase = typeof lookupInput.phase === 'string' ? lookupInput.phase : null;
+                    const minHealth = typeof lookupInput.minHealth === 'number' ? lookupInput.minHealth : null;
+                    const maxHealth = typeof lookupInput.maxHealth === 'number' ? lookupInput.maxHealth : null;
+                    const contamFilter: string[] = Array.isArray(lookupInput.contaminants) ? lookupInput.contaminants as string[] : [];
+                    const entityFilter = lookupInput.entity === 'plant' || lookupInput.entity === 'batch' ? lookupInput.entity : null;
+                    const limit = clampLimit(lookupInput.limit);
+
+                    type PlantRow = { id: string; label: string; strain_name: string; room_name: string | null; growth_phase: string; plant_health: number; contaminants: string[] };
+                    type BatchRow = { id: string; name: string; strain_name: string; room_name: string | null; batch_type: string | null; untracked_count: number; plant_health: number; contaminants: string[] };
+
+                    const plants: PlantRow[] = [];
+                    const batches: BatchRow[] = [];
+
+                    if (entityFilter !== 'batch') {
+                        const { rows } = await sql`
+                            SELECT p.id, p.label, p.strain_name, r.name AS room_name,
+                                   p.growth_phase, p.plant_health, p.contaminants
+                            FROM plants p
+                            LEFT JOIN rooms r ON r.id = p.room_id
+                            WHERE p.company_id = ${authContext.companyId}
+                              AND (${strainLike}::text IS NULL OR LOWER(p.strain_name) LIKE ${strainLike}::text)
+                              AND (${roomLike}::text IS NULL OR LOWER(r.name) LIKE ${roomLike}::text)
+                              AND (${phase}::text IS NULL OR p.growth_phase = ${phase}::text)
+                              AND (${minHealth}::int IS NULL OR p.plant_health >= ${minHealth}::int)
+                              AND (${maxHealth}::int IS NULL OR p.plant_health <= ${maxHealth}::int)
+                              AND (${contamFilter.length === 0} OR p.contaminants && ${contamFilter}::text[])
+                            ORDER BY p.strain_name, r.name, p.label
+                            LIMIT ${limit}
+                        `;
+                        plants.push(...(rows as PlantRow[]));
+                    }
+                    if (entityFilter !== 'plant') {
+                        const { rows } = await sql`
+                            SELECT pb.id, pb.name, pb.strain_name, r.name AS room_name,
+                                   pb.batch_type, pb.untracked_count, pb.plant_health, pb.contaminants
+                            FROM plant_batches pb
+                            LEFT JOIN rooms r ON r.id = pb.room_id
+                            WHERE pb.company_id = ${authContext.companyId}
+                              AND (${strainLike}::text IS NULL OR LOWER(pb.strain_name) LIKE ${strainLike}::text)
+                              AND (${roomLike}::text IS NULL OR LOWER(r.name) LIKE ${roomLike}::text)
+                              AND (${minHealth}::int IS NULL OR pb.plant_health >= ${minHealth}::int)
+                              AND (${maxHealth}::int IS NULL OR pb.plant_health <= ${maxHealth}::int)
+                              AND (${contamFilter.length === 0} OR pb.contaminants && ${contamFilter}::text[])
+                            ORDER BY pb.strain_name, r.name, pb.name
+                            LIMIT ${limit}
+                        `;
+                        batches.push(...(rows as BatchRow[]));
+                    }
+
+                    return lookupOk({
+                        plants: plants.map(p => ({
+                            id: p.id, label: p.label, strain: p.strain_name, room: p.room_name,
+                            phase: p.growth_phase, health: p.plant_health, contaminants: p.contaminants,
+                        })),
+                        batches: batches.map(b => ({
+                            id: b.id, name: b.name, strain: b.strain_name, room: b.room_name,
+                            batchType: b.batch_type, count: b.untracked_count,
+                            health: b.plant_health, contaminants: b.contaminants,
+                        })),
+                        totalMatches: plants.length + batches.length,
+                    });
+                }
+
+                if (name === 'find_packages') {
+                    const strainLike = lookupInput.strain ? `%${String(lookupInput.strain).toLowerCase()}%` : null;
+                    const labelLike = lookupInput.labelContains ? `%${String(lookupInput.labelContains).toLowerCase()}%` : null;
+                    const locationLike = lookupInput.location ? `%${String(lookupInput.location).toLowerCase()}%` : null;
+                    const packageType = typeof lookupInput.packageType === 'string' ? lookupInput.packageType : null;
+                    const status = typeof lookupInput.status === 'string' ? lookupInput.status : null;
+                    const labState = typeof lookupInput.labTestingState === 'string' ? lookupInput.labTestingState : null;
+                    const licenseNumber = typeof lookupInput.licenseNumber === 'string' ? lookupInput.licenseNumber : null;
+                    const minQty = typeof lookupInput.minQuantity === 'number' ? lookupInput.minQuantity : null;
+                    const maxQty = typeof lookupInput.maxQuantity === 'number' ? lookupInput.maxQuantity : null;
+                    const limit = clampLimit(lookupInput.limit);
+
+                    const { rows } = await sql`
+                        SELECT id, label, package_type, strain, license_number, quantity, status, lab_testing_state, location
+                        FROM packages
+                        WHERE company_id = ${authContext.companyId}
+                          AND status != 'archived'
+                          AND (${strainLike}::text IS NULL OR LOWER(strain) LIKE ${strainLike}::text)
+                          AND (${labelLike}::text IS NULL OR LOWER(label) LIKE ${labelLike}::text)
+                          AND (${locationLike}::text IS NULL OR LOWER(location) LIKE ${locationLike}::text)
+                          AND (${packageType}::text IS NULL OR package_type = ${packageType}::text)
+                          AND (${status}::text IS NULL OR status = ${status}::text)
+                          AND (${labState}::text IS NULL OR lab_testing_state = ${labState}::text)
+                          AND (${licenseNumber}::text IS NULL OR license_number = ${licenseNumber}::text)
+                          AND (${minQty}::numeric IS NULL OR quantity >= ${minQty}::numeric)
+                          AND (${maxQty}::numeric IS NULL OR quantity <= ${maxQty}::numeric)
+                        ORDER BY packaged_date DESC
+                        LIMIT ${limit}
+                    `;
+
+                    return lookupOk({
+                        packages: rows.map((p: Record<string, unknown>) => ({
+                            id: p.id,
+                            label: p.label,
+                            packageType: p.package_type,
+                            strain: p.strain,
+                            quantity: p.quantity !== null && p.quantity !== undefined ? parseFloat(String(p.quantity)) : null,
+                            status: p.status,
+                            labTestingState: p.lab_testing_state,
+                            location: p.location,
+                            licenseNumber: p.license_number,
+                        })),
+                        totalMatches: rows.length,
+                    });
+                }
+
+                if (name === 'find_human_tasks') {
+                    const titleLike = lookupInput.titleContains ? `%${String(lookupInput.titleContains).toLowerCase()}%` : null;
+                    const assigneeLike = lookupInput.assignee ? `%${String(lookupInput.assignee).toLowerCase()}%` : null;
+                    const locationLike = lookupInput.location ? `%${String(lookupInput.location).toLowerCase()}%` : null;
+                    const category = typeof lookupInput.category === 'string' ? lookupInput.category : null;
+                    const status = typeof lookupInput.status === 'string' ? lookupInput.status : null;
+                    const priority = typeof lookupInput.priority === 'string' ? lookupInput.priority : null;
+                    const dueBefore = typeof lookupInput.dueDateBefore === 'string' ? lookupInput.dueDateBefore : null;
+                    const dueAfter = typeof lookupInput.dueDateAfter === 'string' ? lookupInput.dueDateAfter : null;
+                    const limit = clampLimit(lookupInput.limit);
+
+                    const { rows } = await sql`
+                        SELECT id, title, description, status, priority, category, assignee, location, due_date
+                        FROM human_tasks
+                        WHERE company_id = ${authContext.companyId}
+                          AND (${titleLike}::text IS NULL OR LOWER(title) LIKE ${titleLike}::text OR LOWER(description) LIKE ${titleLike}::text)
+                          AND (${category}::text IS NULL OR category = ${category}::text)
+                          AND (${status}::text IS NULL OR status = ${status}::text)
+                          AND (${priority}::text IS NULL OR priority = ${priority}::text)
+                          AND (${assigneeLike}::text IS NULL OR LOWER(assignee) LIKE ${assigneeLike}::text)
+                          AND (${locationLike}::text IS NULL OR LOWER(location) LIKE ${locationLike}::text)
+                          AND (${dueBefore}::timestamptz IS NULL OR due_date <= ${dueBefore}::timestamptz)
+                          AND (${dueAfter}::timestamptz IS NULL OR due_date >= ${dueAfter}::timestamptz)
+                        ORDER BY due_date ASC NULLS LAST, created_at DESC
+                        LIMIT ${limit}
+                    `;
+
+                    return lookupOk({
+                        tasks: rows.map((t: Record<string, unknown>) => ({
+                            id: t.id,
+                            title: t.title,
+                            description: t.description,
+                            status: t.status,
+                            priority: t.priority,
+                            category: t.category,
+                            assignee: t.assignee,
+                            location: t.location,
+                            dueDate: t.due_date,
+                        })),
+                        totalMatches: rows.length,
+                    });
+                }
+
+                if (name === 'find_bins') {
+                    const strainLike = lookupInput.strain ? `%${String(lookupInput.strain).toLowerCase()}%` : null;
+                    const harvestBatchLike = lookupInput.harvestBatchId ? `%${String(lookupInput.harvestBatchId).toLowerCase()}%` : null;
+                    const locationLike = lookupInput.location ? `%${String(lookupInput.location).toLowerCase()}%` : null;
+                    const status = typeof lookupInput.status === 'string' ? lookupInput.status : null;
+                    const minWeight = typeof lookupInput.minWeight === 'number' ? lookupInput.minWeight : null;
+                    const maxWeight = typeof lookupInput.maxWeight === 'number' ? lookupInput.maxWeight : null;
+                    const limit = clampLimit(lookupInput.limit);
+
+                    const { rows } = await sql`
+                        SELECT b.id, b.bin_number, b.strain, b.status, b.weight, b.location,
+                               b.harvest_id, h.batch_id AS harvest_batch_id
+                        FROM harvest_bins b
+                        LEFT JOIN harvests h ON h.id = b.harvest_id
+                        WHERE b.company_id = ${authContext.companyId}
+                          AND (${strainLike}::text IS NULL OR LOWER(b.strain) LIKE ${strainLike}::text)
+                          AND (${harvestBatchLike}::text IS NULL OR LOWER(h.batch_id) LIKE ${harvestBatchLike}::text)
+                          AND (${locationLike}::text IS NULL OR LOWER(b.location) LIKE ${locationLike}::text)
+                          AND (${status}::text IS NULL OR b.status = ${status}::text)
+                          AND (${minWeight}::numeric IS NULL OR b.weight >= ${minWeight}::numeric)
+                          AND (${maxWeight}::numeric IS NULL OR b.weight <= ${maxWeight}::numeric)
+                        ORDER BY b.created_at DESC
+                        LIMIT ${limit}
+                    `;
+
+                    return lookupOk({
+                        bins: rows.map((b: Record<string, unknown>) => ({
+                            id: b.id,
+                            binNumber: b.bin_number,
+                            strain: b.strain,
+                            status: b.status,
+                            weight: b.weight !== null && b.weight !== undefined ? parseFloat(String(b.weight)) : null,
+                            location: b.location,
+                            harvestId: b.harvest_id,
+                            harvestBatchId: b.harvest_batch_id,
+                        })),
+                        totalMatches: rows.length,
+                    });
+                }
+
+                if (name === 'find_extraction_logs') {
+                    const strainLike = lookupInput.strain ? `%${String(lookupInput.strain).toLowerCase()}%` : null;
+                    const inputPackageType = typeof lookupInput.inputPackageType === 'string' ? lookupInput.inputPackageType : null;
+                    const outputPackageType = typeof lookupInput.outputPackageType === 'string' ? lookupInput.outputPackageType : null;
+                    const sinceDate = typeof lookupInput.sinceDate === 'string' ? lookupInput.sinceDate : null;
+                    const limit = clampLimit(lookupInput.limit);
+
+                    const { rows } = await sql`
+                        SELECT id, strain, input_package_type, input_quantity,
+                               output_package_type, output_quantity, yield_percentage, created_at
+                        FROM extraction_logs
+                        WHERE company_id = ${authContext.companyId}
+                          AND (${strainLike}::text IS NULL OR LOWER(strain) LIKE ${strainLike}::text)
+                          AND (${inputPackageType}::text IS NULL OR input_package_type = ${inputPackageType}::text)
+                          AND (${outputPackageType}::text IS NULL OR output_package_type = ${outputPackageType}::text)
+                          AND (${sinceDate}::timestamptz IS NULL OR created_at >= ${sinceDate}::timestamptz)
+                        ORDER BY created_at DESC
+                        LIMIT ${limit}
+                    `;
+
+                    return lookupOk({
+                        logs: rows.map((l: Record<string, unknown>) => ({
+                            id: l.id,
+                            strain: l.strain,
+                            inputPackageType: l.input_package_type,
+                            inputQuantity: l.input_quantity !== null && l.input_quantity !== undefined ? parseFloat(String(l.input_quantity)) : null,
+                            outputPackageType: l.output_package_type,
+                            outputQuantity: l.output_quantity !== null && l.output_quantity !== undefined ? parseFloat(String(l.output_quantity)) : null,
+                            yieldPercentage: l.yield_percentage !== null && l.yield_percentage !== undefined ? parseFloat(String(l.yield_percentage)) : null,
+                            createdAt: l.created_at,
+                        })),
+                        totalMatches: rows.length,
+                    });
+                }
+
+                return lookupErr(`unknown lookup tool: ${name}`);
+            } catch (err) {
+                console.error(`runLookup[${name}] failed:`, err);
+                return lookupErr(err instanceof Error ? err.message : 'lookup failed');
+            }
+        }
+
+        // Classifier: which tools run as read-only lookups inside the agent
+        // loop vs which are mutations that emit ProposedActions. The default
+        // is mutation — only names listed here are read-only.
+        const READONLY_TOOLS = new Set([
+            'find_plants',
+            'find_packages',
+            'find_human_tasks',
+            'find_bins',
+            'find_extraction_logs',
+        ]);
+
+        // ── Fuzzy task resolver ──
+        // Used by the update_human_tasks / delete_human_tasks dispatcher
+        // cases now that humanTasks are no longer pushed into context. The
+        // agent is expected to call find_human_tasks first and pass the
+        // resolved taskId, but this fallback fuzzy-matches by title when
+        // only a taskIdentifier was provided.
+        async function resolveHumanTaskRef(taskId?: string, taskIdentifier?: string): Promise<{ id: string; title: string } | null> {
+            if (taskId) {
+                const { rows } = await sql`
+                    SELECT id, title FROM human_tasks
+                    WHERE id = ${taskId} AND company_id = ${authContext.companyId}
+                    LIMIT 1
+                `;
+                return (rows[0] as { id: string; title: string } | undefined) || null;
+            }
+            if (taskIdentifier) {
+                const needle = `%${String(taskIdentifier).toLowerCase()}%`;
+                const { rows } = await sql`
+                    SELECT id, title FROM human_tasks
+                    WHERE company_id = ${authContext.companyId}
+                      AND status != 'completed'
+                      AND (LOWER(title) LIKE ${needle} OR LOWER(description) LIKE ${needle})
+                    ORDER BY created_at DESC
+                    LIMIT 1
+                `;
+                return (rows[0] as { id: string; title: string } | undefined) || null;
+            }
+            return null;
+        }
+
+        // ── Multi-turn agent loop ──
+        // Up to MAX_AGENT_TURNS Anthropic calls per request. Each turn:
+        //   1. Call Claude with accumulated messages + cached system/tools
+        //   2. Iterate response.content blocks
+        //      - text → append to assistantMessage
+        //      - tool_use (read-only) → run runLookup, collect tool_result
+        //      - tool_use (mutation) → run the existing switch (pushes
+        //        ProposedAction into actions[]) + stub tool_result so the
+        //        agent knows the mutation was queued
+        //   3. If stop_reason !== 'tool_use', break
+        //   4. Otherwise append assistant response + tool_results to
+        //      messages and continue
+        // Runaway loops get truncated at the cap with a console warning.
+        let response: ParsedAnthropicResponse = { content: [] };
+
+        // PR #3 streaming: when the streaming branch is active, this holds
+        // a writer that pushes text deltas out to the client's ReadableStream
+        // as they arrive from Anthropic. When undefined (non-streaming mode
+        // or ahead of the streaming branch activating), text is only
+        // accumulated into assistantMessage for the final response body.
+        let onTextDelta: ((delta: string) => void) | undefined = undefined;
+
+        // Extracted so both the streaming and non-streaming return paths can
+        // invoke the same loop body. Reads/writes the outer-scope state
+        // (actions, toolResults, assistantMessage, messages, toolResultsThisTurn,
+        // response, onTextDelta) via closure.
+        const runAgentLoop = async (): Promise<void> => {
+        // Tracks which turn most recently produced a text block, so we can
+        // inject a paragraph separator when multiple turns emit text. Without
+        // this, turn 0's trailing text concatenates directly with turn 1's
+        // leading text (e.g. "I'll look that up.| Strain | ...") which breaks
+        // markdown table rendering for the common lookup → table pattern.
+        let lastTextTurn: number | undefined = undefined;
+
+        for (let turn = 0; turn < MAX_AGENT_TURNS; turn++) {
+            // Paragraph separator between text-producing turns. Fires BEFORE
+            // the fetch so the streaming client sees the separator arrive
+            // just ahead of the new turn's text deltas — producing a clean
+            // inline break. The server-side assistantMessage gets the same
+            // separator so the final done payload matches.
+            if (
+                turn > 0 &&
+                lastTextTurn !== undefined &&
+                assistantMessage.length > 0 &&
+                !assistantMessage.endsWith('\n\n')
+            ) {
+                assistantMessage += '\n\n';
+                if (onTextDelta) onTextDelta('\n\n');
+            }
+
+            const apiResponse = await fetch(ANTHROPIC_API_URL, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'x-api-key': apiKey,
+                    'anthropic-version': '2023-06-01',
+                    'anthropic-beta': 'prompt-caching-2024-07-31',
+                },
+                body: JSON.stringify({
+                    model,
+                    max_tokens: 4096,
+                    // Always stream from Anthropic. The helper reconstructs
+                    // the full response object either way; streaming lets
+                    // us pipe text deltas through to the frontend in real
+                    // time when the caller opts in (onTextDelta passed).
+                    stream: true,
+                    system: [
+                        { type: 'text', text: SYSTEM_PROMPT, cache_control: { type: 'ephemeral' } },
+                        { type: 'text', text: deptContext },
+                    ],
+                    tools: cachedTools,
+                    messages,
+                }),
+            });
+
+            if (!apiResponse.ok) {
+                const errText = await apiResponse.text();
+                console.error('Anthropic API error:', apiResponse.status, errText);
+                return { statusCode: 502, body: JSON.stringify({ error: 'AI service error', detail: errText, status: apiResponse.status }) };
+            }
+
+            response = await consumeAnthropicStream(apiResponse, onTextDelta);
+
+            // Per-turn cache usage log. Turn 0 mirrors pre-PR-2 single-shot
+            // behavior; turns 1+ show how the growing messages array affects
+            // input_tokens. Static prefix (system + tools) should still hit
+            // cache_read on every turn.
+            if (response && response.usage) {
+                const u = response.usage;
+                console.log(`[ai-parse cache] turn=${turn} model=${model} input=${u.input_tokens || 0} output=${u.output_tokens || 0} cache_create=${u.cache_creation_input_tokens || 0} cache_read=${u.cache_read_input_tokens || 0}`);
+            }
+
+            // Reset per-turn collector before iterating blocks.
+            toolResultsThisTurn = [];
 
         for (const block of response.content) {
             if (block.type === 'text') {
-                assistantMessage += block.text;
+                if (block.text) {
+                    assistantMessage += block.text;
+                    lastTextTurn = turn;
+                }
             } else if (block.type === 'tool_use') {
                 const input = block.input as Record<string, any>;
+
+                // Read-only lookup tools run server-side and return their
+                // results directly to the model via tool_result. They never
+                // produce ProposedActions. PR #2 card surfacing: we also
+                // push the parsed data into the response-level toolResults
+                // array so the frontend can render it as an interactive
+                // card (PackagesResultCard, etc.) without re-parsing the
+                // agent's narrative text.
+                if (READONLY_TOOLS.has(block.name)) {
+                    const toolUseId = block.id;
+                    if (!toolUseId) continue;
+                    const lookup = await runLookup(block.name, input);
+                    const resultBlock: AnthropicContentBlock = {
+                        type: 'tool_result',
+                        tool_use_id: toolUseId,
+                        content: lookup.content,
+                    };
+                    if (lookup.isError) resultBlock.is_error = true;
+                    toolResultsThisTurn.push(resultBlock);
+                    toolResults.push({
+                        tool: block.name,
+                        toolUseId,
+                        query: input,
+                        data: lookup.data,
+                        isError: lookup.isError,
+                    });
+                    continue;
+                }
 
                 switch (block.name) {
                     case 'create_session':
@@ -1665,6 +3055,230 @@ IMPORTANT: If the user is correcting or updating a previous statement (e.g. "act
                         });
                         break;
                     }
+                    // ── find_plants (PR #1 stub) ──
+                    // Runs a query against plants/plant_batches and emits a
+                    // synthetic ProposedAction of type find_plants_result for
+                    // the frontend to surface as a read-only side card. In
+                    // PR #2 (multi-turn agent loop) this becomes a true
+                    // tool_result the agent reasons about before the next
+                    // action in the same turn.
+                    case 'find_plants': {
+                        try {
+                            const contamFilter: string[] = Array.isArray(input.contaminants) ? input.contaminants : [];
+                            const strainLike = input.strainName ? `%${String(input.strainName).toLowerCase()}%` : null;
+                            const roomLike = input.roomName ? `%${String(input.roomName).toLowerCase()}%` : null;
+                            const phase = typeof input.phase === 'string' ? input.phase : null;
+                            const minHealth = typeof input.minHealth === 'number' ? input.minHealth : null;
+                            const maxHealth = typeof input.maxHealth === 'number' ? input.maxHealth : null;
+                            const entityFilter = input.entity === 'plant' || input.entity === 'batch' ? input.entity : null;
+
+                            type PlantRow = { id: string; label: string; strain_name: string; room_name: string | null; growth_phase: string; plant_health: number; contaminants: string[] };
+                            type BatchRow = { id: string; name: string; strain_name: string; room_name: string | null; batch_type: string | null; untracked_count: number; plant_health: number; contaminants: string[] };
+
+                            const matchedPlants: PlantRow[] = [];
+                            const matchedBatches: BatchRow[] = [];
+
+                            if (entityFilter !== 'batch') {
+                                const { rows } = await sql`
+                                    SELECT p.id, p.label, p.strain_name, r.name AS room_name,
+                                           p.growth_phase, p.plant_health, p.contaminants
+                                    FROM plants p
+                                    LEFT JOIN rooms r ON r.id = p.room_id
+                                    WHERE p.company_id = ${authContext.companyId}
+                                      AND (${strainLike}::text IS NULL OR LOWER(p.strain_name) LIKE ${strainLike}::text)
+                                      AND (${roomLike}::text IS NULL OR LOWER(r.name) LIKE ${roomLike}::text)
+                                      AND (${phase}::text IS NULL OR p.growth_phase = ${phase}::text)
+                                      AND (${minHealth}::int IS NULL OR p.plant_health >= ${minHealth}::int)
+                                      AND (${maxHealth}::int IS NULL OR p.plant_health <= ${maxHealth}::int)
+                                      AND (${contamFilter.length === 0} OR p.contaminants && ${contamFilter}::text[])
+                                    ORDER BY p.strain_name, r.name, p.label
+                                    LIMIT 50
+                                `;
+                                matchedPlants.push(...(rows as PlantRow[]));
+                            }
+
+                            if (entityFilter !== 'plant') {
+                                const { rows } = await sql`
+                                    SELECT pb.id, pb.name, pb.strain_name, r.name AS room_name,
+                                           pb.batch_type, pb.untracked_count, pb.plant_health, pb.contaminants
+                                    FROM plant_batches pb
+                                    LEFT JOIN rooms r ON r.id = pb.room_id
+                                    WHERE pb.company_id = ${authContext.companyId}
+                                      AND (${strainLike}::text IS NULL OR LOWER(pb.strain_name) LIKE ${strainLike}::text)
+                                      AND (${roomLike}::text IS NULL OR LOWER(r.name) LIKE ${roomLike}::text)
+                                      AND (${minHealth}::int IS NULL OR pb.plant_health >= ${minHealth}::int)
+                                      AND (${maxHealth}::int IS NULL OR pb.plant_health <= ${maxHealth}::int)
+                                      AND (${contamFilter.length === 0} OR pb.contaminants && ${contamFilter}::text[])
+                                    ORDER BY pb.strain_name, r.name, pb.name
+                                    LIMIT 50
+                                `;
+                                matchedBatches.push(...(rows as BatchRow[]));
+                            }
+
+                            actions.push({
+                                type: 'find_plants_result',
+                                data: {
+                                    query: {
+                                        strainName: input.strainName || null,
+                                        roomName: input.roomName || null,
+                                        phase: phase,
+                                        contaminants: contamFilter,
+                                        minHealth: minHealth,
+                                        maxHealth: maxHealth,
+                                        entity: entityFilter,
+                                    },
+                                    plants: matchedPlants.map(p => ({
+                                        id: p.id,
+                                        label: p.label,
+                                        strain: p.strain_name,
+                                        room: p.room_name,
+                                        phase: p.growth_phase,
+                                        health: p.plant_health,
+                                        contaminants: p.contaminants,
+                                    })),
+                                    batches: matchedBatches.map(b => ({
+                                        id: b.id,
+                                        name: b.name,
+                                        strain: b.strain_name,
+                                        room: b.room_name,
+                                        batchType: b.batch_type,
+                                        count: b.untracked_count,
+                                        health: b.plant_health,
+                                        contaminants: b.contaminants,
+                                    })),
+                                    totalMatches: matchedPlants.length + matchedBatches.length,
+                                },
+                            });
+                        } catch (err) {
+                            console.error('find_plants failed:', err);
+                            actions.push({
+                                type: 'find_plants_result',
+                                data: { query: input, plants: [], batches: [], totalMatches: 0, error: 'lookup failed' },
+                            });
+                        }
+                        break;
+                    }
+                    // ── UNIFIED `plants` dispatcher (PR #1 tool collapse) ──
+                    // Routes by input.action into the same ProposedAction
+                    // shapes the legacy plant tools produced, so the frontend
+                    // actionExecutor needs no changes. The LLM-facing surface
+                    // shrinks from 5 tools to 1; the internal action types
+                    // stay stable for persisted chat history.
+                    case 'plants': {
+                        const action = input.action;
+                        switch (action) {
+                            case 'update_health': {
+                                actions.push({
+                                    type: 'update_plant_health',
+                                    data: {
+                                        plantIds: input.plantIds || [],
+                                        entityType: input.entity === 'batch' ? 'plantbatches' : 'plants',
+                                        roomName: input.sourceRoomName || input.roomName,
+                                        strain: input.strainName,
+                                        health: input.health,
+                                        contaminants: input.contaminants || [],
+                                        note: input.note || '',
+                                    },
+                                });
+                                break;
+                            }
+                            case 'create': {
+                                const batchType = input.batchType || 'clone';
+                                // New plantings default to nursery batches. Only flip to individual plants
+                                // when the LLM explicitly picks entity=plant AND omits a clone/seed batchType.
+                                const plantingType = input.entity === 'plant' && !input.batchType
+                                    ? 'plant'
+                                    : 'batch';
+
+                                // If plannedFor is set, this is a scheduled planting — create a human task
+                                // with onCompleteAction instead of committing immediately. This is the
+                                // "planning is status, not a mode" pattern from the refactor plan.
+                                if (input.plannedFor) {
+                                    actions.push({
+                                        type: 'create_human_task',
+                                        data: {
+                                            title: `Plant ${input.count || ''} ${input.strainName || ''} ${batchType === 'seed' ? 'seeds' : 'clones'}`.trim().replace(/\s+/g, ' '),
+                                            description: `Scheduled planting: ${input.count} ${input.strainName} in ${input.roomName}`,
+                                            priority: 'medium',
+                                            category: 'cultivation',
+                                            dueDate: input.plannedFor,
+                                            location: input.roomName,
+                                            onCompleteAction: {
+                                                type: 'create_planting',
+                                                data: {
+                                                    plantingType,
+                                                    strainName: input.strainName,
+                                                    roomName: input.roomName,
+                                                    count: input.count,
+                                                    batchType,
+                                                    batchName: input.batchName || '',
+                                                    growthPhase: input.growthPhase || 'vegetative',
+                                                    labelPrefix: input.labelPrefix || '',
+                                                },
+                                            },
+                                        },
+                                    });
+                                } else {
+                                    actions.push({
+                                        type: 'create_planting',
+                                        data: {
+                                            plantingType,
+                                            strainName: input.strainName,
+                                            roomName: input.roomName,
+                                            count: input.count,
+                                            batchType,
+                                            batchName: input.batchName || '',
+                                            growthPhase: input.growthPhase || 'vegetative',
+                                            labelPrefix: input.labelPrefix || '',
+                                        },
+                                    });
+                                }
+                                break;
+                            }
+                            case 'move': {
+                                actions.push({
+                                    type: 'move_plants',
+                                    data: {
+                                        plantIds: input.plantBatchIds || input.plantIds || [],
+                                        entityType: input.entity === 'batch' ? 'plantbatches' : 'plants',
+                                        targetRoomName: input.targetRoomName,
+                                        strain: input.strainName,
+                                        sourceRoomName: input.sourceRoomName,
+                                    },
+                                });
+                                break;
+                            }
+                            case 'change_phase': {
+                                actions.push({
+                                    type: 'change_plant_phase',
+                                    data: {
+                                        plantIds: input.plantIds || [],
+                                        targetPhase: input.targetPhase,
+                                        targetRoomName: input.targetRoomName,
+                                        strain: input.strainName,
+                                        sourceRoomName: input.sourceRoomName,
+                                    },
+                                });
+                                break;
+                            }
+                            case 'destroy': {
+                                actions.push({
+                                    type: 'destroy_plants',
+                                    data: {
+                                        plantIds: input.plantBatchIds || input.plantIds || [],
+                                        entityType: input.entity === 'batch' ? 'plantbatches' : 'plants',
+                                        strain: input.strainName,
+                                        roomName: input.sourceRoomName || input.roomName,
+                                    },
+                                });
+                                break;
+                            }
+                            default:
+                                // Unknown action — drop silently. The LLM shouldn't emit this.
+                                break;
+                        }
+                        break;
+                    }
                     case 'update_plant_health': {
                         // Plant IDs will be resolved at execution time via room map lookup
                         actions.push({
@@ -1915,6 +3529,136 @@ IMPORTANT: If the user is correcting or updating a previous statement (e.g. "act
                         });
                         break;
                     }
+                    // ── UNIFIED `extraction_run` dispatcher (PR #1 tool collapse) ──
+                    // Single case routes all five actions. plan/start reuse
+                    // the shared buildStartExtractionRunData helper. amend_inputs
+                    // and cancel emit new internal action types that the
+                    // frontend actionExecutor handles explicitly. record_yield
+                    // translates to the legacy record_extraction ProposedAction
+                    // shape so persisted history stays compatible.
+                    case 'extraction_run': {
+                        const action = input.action;
+                        if (action === 'plan' || action === 'start') {
+                            const data = await buildStartExtractionRunData({
+                                inputs: input.inputs,
+                                templateIdentifier: input.templateIdentifier,
+                                strain: input.strain,
+                                targetProduct: input.targetProduct,
+                                runName: input.runName,
+                                plannedStart: input.plannedStart,
+                                startImmediately: action === 'start',
+                                notes: input.notes,
+                            });
+                            actions.push({ type: 'start_extraction_run', data });
+                            break;
+                        }
+
+                        if (action === 'amend_inputs') {
+                            const ref = await resolveExtractionRunRef(input.runId, input.runIdentifier);
+                            if (!ref) {
+                                // No matching run — fall back to creating a new one so the input
+                                // isn't lost. The frontend will show a "couldn't find the run you
+                                // meant, created a new one" hint via the label.
+                                const data = await buildStartExtractionRunData({
+                                    inputs: input.inputs,
+                                    templateIdentifier: input.templateIdentifier,
+                                    strain: input.strain,
+                                    targetProduct: input.targetProduct,
+                                    runName: input.runName,
+                                    plannedStart: input.plannedStart,
+                                    startImmediately: true,
+                                    notes: input.notes,
+                                });
+                                actions.push({ type: 'start_extraction_run', data });
+                                break;
+                            }
+                            // Resolve the new inputs via the same helper so catalog + source
+                            // package lookup is consistent with new-run creation. We reuse
+                            // buildStartExtractionRunData then lift out just the inputs piece.
+                            const resolvedData = await buildStartExtractionRunData({
+                                inputs: input.inputs,
+                                templateIdentifier: input.templateIdentifier || 'amend',
+                                strain: input.strain || ref.strain || '',
+                                startImmediately: true,
+                            });
+                            actions.push({
+                                type: 'amend_extraction_run_inputs',
+                                data: {
+                                    runId: ref.id,
+                                    runName: ref.name,
+                                    addedInputs: resolvedData.inputs,
+                                    addedSourcePackageIds: resolvedData.sourcePackageIds,
+                                    addedSourcePackageQuantities: resolvedData.sourcePackageQuantities,
+                                },
+                            });
+                            break;
+                        }
+
+                        if (action === 'record_yield') {
+                            // Map unified tool shape to the legacy record_extraction ProposedAction.
+                            // Most of the resolution logic lives on the frontend (source package
+                            // lookup via recordExtraction API), so here we just pass the fields through.
+                            const ref = await resolveExtractionRunRef(input.runId, input.runIdentifier);
+                            // Look up source package by the resolved run's strain (if available)
+                            // or the input strain, plus the input package type. Mirrors the legacy
+                            // record_extraction case behavior.
+                            const yieldStrain = input.strain || ref?.strain || '';
+                            // Infer inputPackageType from inputs[] if provided, else from record_yield-specific field
+                            const inputPkgType = Array.isArray(input.inputs) && input.inputs[0]?.packageType
+                                ? input.inputs[0].packageType
+                                : (input.inputPackageType || '');
+                            const { rows: srcPkgs } = await sql`
+                                SELECT id, label, quantity, license_number
+                                FROM packages
+                                WHERE company_id = ${authContext.companyId}
+                                  AND package_type = ${inputPkgType}
+                                  AND LOWER(strain) = LOWER(${yieldStrain})
+                                  AND status = 'active'
+                                ORDER BY created_at DESC
+                                LIMIT 1
+                            `;
+                            const srcPkg = srcPkgs[0];
+                            const autoLabel = input.outputLabel ||
+                                `${yieldStrain}-${(input.outputPackageType || '').replace('_', '-').toUpperCase()}-${new Date().toISOString().slice(0, 10)}`;
+                            const inputQty = Array.isArray(input.inputs) && typeof input.inputs[0]?.quantity === 'number'
+                                ? input.inputs[0].quantity
+                                : (srcPkg ? parseFloat(srcPkg.quantity) : null);
+                            actions.push({
+                                type: 'record_extraction',
+                                data: {
+                                    strain: yieldStrain,
+                                    sourcePackageId: srcPkg?.id || null,
+                                    sourcePackageLabel: srcPkg?.label || `${yieldStrain} ${inputPkgType}`,
+                                    inputPackageType: inputPkgType,
+                                    inputQuantity: inputQty,
+                                    outputPackageType: input.outputPackageType,
+                                    outputQuantity: input.outputQuantity || null,
+                                    outputLabel: autoLabel,
+                                    licenseNumber: input.licenseNumber || srcPkg?.license_number || null,
+                                    wasteWeight: input.wasteWeight || 0,
+                                    notes: input.notes || null,
+                                    runId: ref?.id || null,
+                                },
+                            });
+                            break;
+                        }
+
+                        if (action === 'cancel') {
+                            const ref = await resolveExtractionRunRef(input.runId, input.runIdentifier);
+                            if (!ref) break; // Nothing to cancel — drop silently.
+                            actions.push({
+                                type: 'cancel_extraction_run',
+                                data: {
+                                    runId: ref.id,
+                                    runName: ref.name,
+                                },
+                            });
+                            break;
+                        }
+
+                        // Unknown action — drop silently.
+                        break;
+                    }
                     case 'record_extraction': {
                         // Find source package by strain + type
                         const { rows: srcPkgs } = await sql`
@@ -1956,180 +3700,17 @@ IMPORTANT: If the user is correcting or updating a previous statement (e.g. "act
                         break;
                     }
                     case 'start_extraction_run': {
-                        type TmplRow = { id: string; name: string; process_type: string | null; accepted_inputs: string[] | null };
-                        type PkgRow = { id: string; label: string; quantity: string; package_type: string; strain: string | null };
-                        type CatalogRow = { name: string; display_name: string; category: string; default_unit: string; is_cannabis: boolean };
-                        type AiInput = { packageType?: string; strain?: string | null; quantity?: number; unit?: string };
-
-                        const runInputs: AiInput[] = Array.isArray(input.inputs) ? input.inputs : [];
-
-                        // Load product catalog + extraction templates in parallel
-                        const [tmplResult, catalogResult] = await Promise.all([
-                            sql`
-                                SELECT id, name, process_type, accepted_inputs
-                                FROM process_templates
-                                WHERE company_id = ${authContext.companyId} AND domain = 'extraction' AND is_active = true
-                            `,
-                            sql`
-                                SELECT name, display_name, category, default_unit, is_cannabis
-                                FROM product_types
-                                WHERE company_id = ${authContext.companyId} AND is_active = true
-                            `,
-                        ]);
-                        const tmplRows = tmplResult.rows as TmplRow[];
-                        const catalog = catalogResult.rows as CatalogRow[];
-
-                        // Simple fuzzy match for catalog names — exact, then substring, then word-overlap.
-                        // Full Levenshtein/phonetic matcher lands in P1; this is the stopgap.
-                        const resolveCatalogName = (raw: string | undefined | null): CatalogRow | null => {
-                            if (!raw) return null;
-                            const needle = String(raw).toLowerCase().trim().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
-                            if (!needle) return null;
-                            // Exact
-                            const exact = catalog.find(c => c.name === needle);
-                            if (exact) return exact;
-                            // Substring either direction
-                            const sub = catalog.find(c => c.name.includes(needle) || needle.includes(c.name));
-                            if (sub) return sub;
-                            // Word-overlap (any token in needle matches any token in catalog name)
-                            const needleTokens = needle.split('_').filter(t => t.length >= 3);
-                            for (const c of catalog) {
-                                const catTokens = c.name.split('_');
-                                if (needleTokens.some(t => catTokens.includes(t))) return c;
-                            }
-                            return null;
-                        };
-
-                        // Resolve each input's packageType against the catalog and find its source package
-                        type ResolvedInput = {
-                            requestedPackageType: string;
-                            resolvedPackageType: string | null;
-                            resolvedDisplayName: string | null;
-                            unit: string;
-                            isCannabis: boolean | null;
-                            strain: string | null;
-                            quantity: number | null;
-                            sourcePackageId: string | null;
-                            sourcePackageLabel: string | null;
-                        };
-                        const resolved: ResolvedInput[] = [];
-                        for (const ri of runInputs) {
-                            const catalogEntry = resolveCatalogName(ri.packageType);
-                            const typeName = catalogEntry?.name || ri.packageType || null;
-                            const strainForInput = ri.strain ?? input.strain ?? null;
-
-                            // Look up source package by resolved type + strain
-                            let srcPkg: PkgRow | null = null;
-                            if (typeName && strainForInput) {
-                                const { rows: srcRows } = await sql`
-                                    SELECT id, label, quantity, package_type, strain
-                                    FROM packages
-                                    WHERE company_id = ${authContext.companyId}
-                                      AND package_type = ${typeName}
-                                      AND LOWER(strain) = LOWER(${strainForInput})
-                                      AND status = 'active'
-                                    ORDER BY created_at DESC
-                                    LIMIT 1
-                                `;
-                                srcPkg = (srcRows[0] as PkgRow) || null;
-                            } else if (typeName && (catalogEntry?.is_cannabis === false)) {
-                                // Non-cannabis additive (e.g. botanical terpenes) — find by type alone, no strain
-                                const { rows: srcRows } = await sql`
-                                    SELECT id, label, quantity, package_type, strain
-                                    FROM packages
-                                    WHERE company_id = ${authContext.companyId}
-                                      AND package_type = ${typeName}
-                                      AND status = 'active'
-                                    ORDER BY created_at DESC
-                                    LIMIT 1
-                                `;
-                                srcPkg = (srcRows[0] as PkgRow) || null;
-                            }
-
-                            resolved.push({
-                                requestedPackageType: ri.packageType || '',
-                                resolvedPackageType: typeName,
-                                resolvedDisplayName: catalogEntry?.display_name || null,
-                                unit: ri.unit || catalogEntry?.default_unit || 'g',
-                                isCannabis: catalogEntry?.is_cannabis ?? null,
-                                strain: strainForInput,
-                                quantity: typeof ri.quantity === 'number' ? ri.quantity : null,
-                                sourcePackageId: srcPkg?.id || null,
-                                sourcePackageLabel: srcPkg?.label || null,
-                            });
-                        }
-
-                        // Resolve templateIdentifier (same scoring as before, now also considers resolved input types)
-                        const identifier = String(input.templateIdentifier || '').toLowerCase().trim();
-                        let matchedTmpl: TmplRow | null = null;
-                        if (identifier) {
-                            matchedTmpl = tmplRows.find(t => t.name.toLowerCase() === identifier)
-                                || tmplRows.find(t => t.name.toLowerCase().includes(identifier) || identifier.includes(t.name.toLowerCase()))
-                                || tmplRows.find(t => !!t.process_type && identifier.includes(t.process_type))
-                                || (input.targetProduct ? tmplRows.find(t => {
-                                    const blob = identifier + ' ' + input.targetProduct;
-                                    return (t.process_type === 'solventless' && /rosin|hash|bubble/.test(blob)) ||
-                                        (t.process_type === 'bho' && /shatter|wax|crumble|resin|bho/.test(blob)) ||
-                                        (t.process_type === 'distillate' && /distillate|isolate/.test(blob));
-                                }) : null)
-                                || null;
-                        }
-                        // If resolved inputs are present, prefer a template that accepts one of them
-                        if (!matchedTmpl && resolved.length > 0) {
-                            const resolvedTypes = resolved.map(r => r.resolvedPackageType).filter(Boolean) as string[];
-                            matchedTmpl = tmplRows.find(t =>
-                                Array.isArray(t.accepted_inputs) && resolvedTypes.some(rt => t.accepted_inputs!.includes(rt))
-                            ) || null;
-                        }
-
-                        // Auto-generate run name if not supplied
-                        const today = new Date();
-                        const dateStr = `${String(today.getMonth() + 1).padStart(2, '0')}${String(today.getDate()).padStart(2, '0')}${String(today.getFullYear()).slice(-2)}`;
-                        const tmplLabel = matchedTmpl?.name || input.templateIdentifier || 'Run';
-                        const strainLabel = input.strain || resolved.find(r => r.strain)?.strain || 'Unknown';
-                        const runName = input.runName || `${strainLabel} - ${tmplLabel} - ${dateStr}`;
-
-                        // Build multi-source payload: one entry per resolved input that has a package match
-                        const sourcePackageIds = resolved.map(r => r.sourcePackageId).filter((id): id is string => !!id);
-                        const sourcePackageQuantities: Record<string, number> = {};
-                        for (const r of resolved) {
-                            if (r.sourcePackageId && typeof r.quantity === 'number' && r.quantity > 0) {
-                                sourcePackageQuantities[r.sourcePackageId] = r.quantity;
-                            }
-                        }
-
-                        // Primary input (first resolved entry) — kept for backwards compat with UI expecting single input
-                        const primary = resolved[0] || null;
-
-                        actions.push({
-                            type: 'start_extraction_run',
-                            data: {
-                                templateId: matchedTmpl?.id || null,
-                                templateName: matchedTmpl?.name || input.templateIdentifier,
-                                templateMatched: Boolean(matchedTmpl),
-                                runName,
-                                strain: input.strain || null,
-                                inputMaterial: primary?.resolvedPackageType || null,
-                                inputQuantityG: primary?.quantity || null,
-                                inputs: resolved.map(r => ({
-                                    packageType: r.resolvedPackageType,
-                                    displayName: r.resolvedDisplayName,
-                                    strain: r.strain,
-                                    quantity: r.quantity,
-                                    unit: r.unit,
-                                    sourcePackageId: r.sourcePackageId,
-                                    sourcePackageLabel: r.sourcePackageLabel,
-                                })),
-                                targetProduct: input.targetProduct || null,
-                                sourcePackageId: primary?.sourcePackageId || null,
-                                sourcePackageLabel: primary?.sourcePackageLabel || null,
-                                sourcePackageIds,
-                                sourcePackageQuantities,
-                                plannedStart: input.plannedStart || null,
-                                status: input.startImmediately === false ? 'planned' : 'active',
-                                notes: input.notes || null,
-                            },
+                        const data = await buildStartExtractionRunData({
+                            inputs: input.inputs,
+                            templateIdentifier: input.templateIdentifier,
+                            strain: input.strain,
+                            targetProduct: input.targetProduct,
+                            runName: input.runName,
+                            plannedStart: input.plannedStart,
+                            startImmediately: input.startImmediately,
+                            notes: input.notes,
                         });
+                        actions.push({ type: 'start_extraction_run', data });
                         break;
                     }
                     case 'create_human_tasks':
@@ -2151,11 +3732,9 @@ IMPORTANT: If the user is correcting or updating a previous statement (e.g. "act
                         break;
                     case 'update_human_tasks':
                         for (const update of (input.updates || [])) {
-                            // Resolve taskIdentifier to actual taskId
-                            const matchedTask = (request.context.humanTasks || []).find(
-                                t => update.taskId === t.id ||
-                                    t.title.toLowerCase().includes(update.taskIdentifier.toLowerCase())
-                            );
+                            // Resolve taskIdentifier to actual taskId via DB lookup
+                            // (PR #2: humanTasks no longer pushed into context).
+                            const matchedTask = await resolveHumanTaskRef(update.taskId, update.taskIdentifier);
                             if (matchedTask) {
                                 const updates: Record<string, any> = { taskId: matchedTask.id, taskTitle: matchedTask.title };
                                 if (update.status) updates.status = update.status;
@@ -2172,10 +3751,7 @@ IMPORTANT: If the user is correcting or updating a previous statement (e.g. "act
                         break;
                     case 'delete_human_tasks':
                         for (const deletion of (input.deletions || [])) {
-                            const matchedDel = (request.context.humanTasks || []).find(
-                                t => deletion.taskId === t.id ||
-                                    t.title.toLowerCase().includes(deletion.taskIdentifier.toLowerCase())
-                            );
+                            const matchedDel = await resolveHumanTaskRef(deletion.taskId, deletion.taskIdentifier);
                             if (matchedDel) {
                                 actions.push({
                                     type: 'delete_human_task',
@@ -2185,17 +3761,121 @@ IMPORTANT: If the user is correcting or updating a previous statement (e.g. "act
                         }
                         break;
                 }
+
+                // Mutation tool_use blocks that reached this point have been
+                // dispatched via the switch above and pushed into actions[].
+                // Emit a stub tool_result so the agent can continue reasoning
+                // in the next turn (e.g. chain: find_plants → propose move →
+                // find_human_tasks → propose follow-up task). Without this,
+                // the agent sees no response for its mutation call and may
+                // re-propose or get confused about turn state.
+                if (block.id) {
+                    toolResultsThisTurn.push({
+                        type: 'tool_result',
+                        tool_use_id: block.id,
+                        content: JSON.stringify({
+                            status: 'proposed',
+                            tool: block.name,
+                            note: 'Queued for user confirmation. You can continue reasoning or call more tools.',
+                        }),
+                    });
+                }
+            }
+        }
+
+            // ── Turn termination ──
+            // Stop the loop if Claude indicated it's done (any stop_reason
+            // other than 'tool_use' means the turn is terminal). Otherwise
+            // append the assistant response + collected tool_results to
+            // messages[] and loop to the next turn.
+            if (response.stop_reason !== 'tool_use') {
+                break;
+            }
+            if (turn === MAX_AGENT_TURNS - 1) {
+                console.warn(`[ai-parse] agent loop hit turn cap (${MAX_AGENT_TURNS}); truncating with ${actions.length} action(s) collected`);
+                break;
+            }
+            // Append the full assistant response (preserving tool_use blocks)
+            // and the collected tool_result blocks for the next turn.
+            messages.push({ role: 'assistant', content: response.content as unknown as AnthropicContentBlock[] });
+            if (toolResultsThisTurn.length > 0) {
+                messages.push({ role: 'user', content: toolResultsThisTurn });
             }
         }
 
         if (!assistantMessage && actions.length > 0) {
             assistantMessage = `I've prepared ${actions.length} action${actions.length > 1 ? 's' : ''} for you to review.`;
         }
+        }; // end runAgentLoop
+
+        // ── Streaming branch (PR #3) ──
+        // When the client requested streaming, wrap the agent loop in a
+        // ReadableStream and emit NDJSON events:
+        //   {type: "text_delta", text: "..."}   — incremental agent text
+        //   {type: "done", actions, toolResults, message}  — final payload
+        //   {type: "error", error}               — caught exception
+        // Each event is one line of JSON (no SSE framing — the client
+        // parses by newline delimiters).
+        //
+        // The stream is returned from the handler synchronously while its
+        // start() method continues running the loop in the background.
+        // Netlify's stream() wrapper pipes the body to the client as data
+        // is enqueued.
+        if (request.streaming) {
+            const encoder = new TextEncoder();
+            const bodyStream = new ReadableStream<Uint8Array>({
+                async start(controller) {
+                    const write = (obj: unknown): void => {
+                        try {
+                            controller.enqueue(encoder.encode(JSON.stringify(obj) + '\n'));
+                        } catch (err) {
+                            // Client disconnected or controller already closed — swallow.
+                            console.warn('[ai-parse stream] enqueue failed:', err);
+                        }
+                    };
+                    // Hook up the text delta writer BEFORE running the loop
+                    // so consumeAnthropicStream forwards Anthropic's text
+                    // deltas out to the client as they arrive.
+                    onTextDelta = (delta: string): void => {
+                        write({ type: 'text_delta', text: delta });
+                    };
+                    try {
+                        await runAgentLoop();
+                        write({
+                            type: 'done',
+                            actions,
+                            toolResults,
+                            message: assistantMessage,
+                        });
+                    } catch (err) {
+                        console.error('[ai-parse stream] agent loop failed:', err);
+                        captureError(err, { function: 'ai-parse', streaming: true });
+                        write({
+                            type: 'error',
+                            error: err instanceof Error ? err.message : 'Failed to parse input',
+                        });
+                    } finally {
+                        try { controller.close(); } catch { /* already closed */ }
+                    }
+                },
+            });
+            return {
+                statusCode: 200,
+                headers: {
+                    'Content-Type': 'application/x-ndjson',
+                    'Cache-Control': 'no-cache',
+                },
+                body: bodyStream as unknown as string,
+            };
+        }
+
+        // ── Non-streaming branch (existing behavior) ──
+        await runAgentLoop();
 
         return {
             statusCode: 200,
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ actions, message: assistantMessage }),
+            body: JSON.stringify({ actions, toolResults, message: assistantMessage }),
         };
     } catch (error) {
         console.error('Error in ai-parse:', error);
@@ -2205,4 +3885,4 @@ IMPORTANT: If the user is correcting or updating a previous statement (e.g. "act
             body: JSON.stringify({ error: 'Failed to parse input' }),
         };
     }
-};
+});
