@@ -802,10 +802,10 @@ const TemplateEditor: React.FC<TemplateEditorProps> = ({ template, onSave, onCan
                     </div>
                     <div className="sop-editor-io-row">
                         <span className="sop-editor-io-label" style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                            Batch size
+                            Min batch
                             <span
                                 className="sop-editor-info-icon"
-                                title="Standard input weight per run in grams. Testing labs typically require 500g minimums, so batch sizes are usually in 500g increments. Used for planning estimates — never blocks run creation."
+                                title="Minimum output worth testing. Lab testing has a fixed cost, so runs below this threshold aren't cost-effective. Used by the planner to size runs — never blocks run creation."
                             >
                                 <Info size={11} />
                             </span>
@@ -821,7 +821,7 @@ const TemplateEditor: React.FC<TemplateEditorProps> = ({ template, onSave, onCan
                                 step="500"
                                 style={{ width: '90px' }}
                             />
-                            <span style={{ fontSize: '11px', color: '#959595' }}>g per run</span>
+                            <span style={{ fontSize: '11px', color: '#959595' }}>g output min</span>
                         </div>
                     </div>
                 </div>
