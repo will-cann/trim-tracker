@@ -27,6 +27,15 @@ interface TemplateRow {
     producible_outputs: string[];
 }
 
+interface ProductTypeRowFull {
+    name: string;
+    display_name: string;
+    category: string;
+    default_unit: string;
+    is_cannabis: boolean;
+    process_types: string[];
+}
+
 interface StepRow {
     id: string;
     template_id: string;
@@ -73,8 +82,9 @@ export const handler: Handler = async (event) => {
             [companyId]
         );
 
-        const productTypesResult = await pool.query<ProductTypeRow>(
-            `SELECT name, display_name, category, default_unit, is_cannabis
+        const productTypesResult = await pool.query<ProductTypeRowFull>(
+            `SELECT name, display_name, category, default_unit, is_cannabis,
+                    COALESCE(process_types, '{}'::text[]) AS process_types
              FROM product_types
              WHERE company_id = $1 AND is_active = true`,
             [companyId]
@@ -96,7 +106,7 @@ export const handler: Handler = async (event) => {
         }
 
         const templates = templatesResult.rows;
-        const productTypes = new Map<string, ProductTypeRow>();
+        const productTypes = new Map<string, ProductTypeRowFull>();
         for (const pt of productTypesResult.rows) {
             productTypes.set(pt.name, pt);
         }
@@ -148,12 +158,37 @@ export const handler: Handler = async (event) => {
             }
             visited.add(currentTarget);
 
-            const matchingTemplate = templates.find(t => t.producible_outputs?.includes(currentTarget));
-            if (!matchingTemplate) {
+            // Find all templates that produce currentTarget, then rank them:
+            //   1. Prefer templates whose process_type matches the target's catalog pathway tag
+            //      (e.g. rosin_cart has process_types=['solventless'], so solventless templates win)
+            //   2. Then prefer templates with the fewest required steps (shortest chain)
+            //   3. Finally fall back to alphabetical by name for stability
+            const candidates = templates.filter(t => t.producible_outputs?.includes(currentTarget));
+
+            if (candidates.length === 0) {
                 if (!targetPt || targetPt.category !== 'biomass') {
                     warnings.push(`No SOP found that produces "${targetPt?.display_name || currentTarget}"`);
                 }
                 break;
+            }
+
+            const targetPathways = new Set(targetPt?.process_types || []);
+            const scoreTemplate = (t: TemplateRow): number => {
+                const steps = (stepsByTemplate.get(t.id) || []).filter(s => !s.is_optional);
+                const pathwayMatch = targetPathways.size === 0 || targetPathways.has(t.process_type) ? 0 : 1000;
+                return pathwayMatch + steps.length;
+            };
+            const matchingTemplate = [...candidates].sort((a, b) => {
+                const sa = scoreTemplate(a);
+                const sb = scoreTemplate(b);
+                if (sa !== sb) return sa - sb;
+                return a.name.localeCompare(b.name);
+            })[0];
+
+            if (candidates.length > 1) {
+                const picked = matchingTemplate.name;
+                const others = candidates.filter(c => c.id !== matchingTemplate.id).map(c => c.name).join(', ');
+                warnings.push(`Multiple SOPs produce "${targetPt?.display_name || currentTarget}". Using "${picked}" (alternatives: ${others}).`);
             }
 
             const steps = (stepsByTemplate.get(matchingTemplate.id) || []).filter(s => !s.is_optional);
