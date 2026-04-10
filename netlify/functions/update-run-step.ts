@@ -13,7 +13,7 @@ export const handler: Handler = async (event) => {
             return { statusCode: 401, body: JSON.stringify({ error: 'Unauthorized' }) };
         }
 
-        const { id, status, inputWeightG, outputWeightG, equipmentId, notes, description } = JSON.parse(event.body || '{}');
+        const { id, status, inputWeightG, outputWeightG, equipmentId, notes, description, checkInValue, checkInUnit, timestampCapturedAt } = JSON.parse(event.body || '{}');
         if (!id) {
             return { statusCode: 400, body: JSON.stringify({ error: 'id is required' }) };
         }
@@ -62,6 +62,19 @@ export const handler: Handler = async (event) => {
             sets.push(`description = $${idx++}`);
             values.push(description?.trim() || null);
         }
+        // New check-in fields from migration 047 (schedule-driven run model)
+        if (checkInValue !== undefined) {
+            sets.push(`check_in_value = $${idx++}`);
+            values.push(checkInValue);
+        }
+        if (checkInUnit !== undefined) {
+            sets.push(`check_in_unit = $${idx++}`);
+            values.push(checkInUnit || null);
+        }
+        if (timestampCapturedAt !== undefined) {
+            sets.push(`timestamp_captured_at = $${idx++}`);
+            values.push(timestampCapturedAt || null);
+        }
 
         // Auto-calculate yield if both weights present
         if (inputWeightG !== undefined || outputWeightG !== undefined) {
@@ -105,6 +118,9 @@ export const handler: Handler = async (event) => {
                 completedAt: s.completed_at,
                 notes: s.notes,
                 description: s.description || null,
+                checkInValue: s.check_in_value != null ? parseFloat(s.check_in_value) : null,
+                checkInUnit: s.check_in_unit || null,
+                timestampCapturedAt: s.timestamp_captured_at || null,
             }),
         };
     } catch (error) {

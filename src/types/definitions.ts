@@ -391,6 +391,13 @@ export interface ProcessStep {
   estDurationHours: number | null;
   estHandsOnHours: number | null;
   isOptional: boolean;
+  // Composable step requirements (migration 047) — schedule-driven run model.
+  // Optional so existing code that constructs bare ProcessStep objects (empty
+  // templates, SOP builders, test fixtures) doesn't need to fill them in;
+  // the DB has NOT NULL DEFAULT false so server reads always populate them.
+  requiresWeight?: boolean;
+  weightUnit?: string | null; // 'g' | 'kg' | 'ml' | 'each' | 'trays' | ... only meaningful when requiresWeight=true
+  requiresTimestamp?: boolean;
   // Cultivation SOP fields
   track: SOPTrack | null;
   phase: SOPPhase | null;
@@ -442,6 +449,29 @@ export interface ExtractionRunStep {
   completedAt: string | null;
   notes: string | null;
   description: string | null;
+  // Composable step requirements (migration 047) — cached from template at run time
+  requiresWeight?: boolean;
+  weightUnit?: string | null;
+  requiresTimestamp?: boolean;
+  estDurationHours?: number | null;
+  equipmentType?: string | null;
+  // Runtime check-in values — written as the operator enters data
+  checkInValue: number | null;
+  checkInUnit: string | null;
+  timestampCapturedAt: string | null;
+}
+
+export interface ExtractionRunOutput {
+  id: string;
+  runId: string;
+  packageId: string;
+  sequence: number;
+  createdAt: string;
+  // Optionally denormalized for UI display — populated by get-extraction-runs if joined
+  packageLabel?: string;
+  packageType?: string;
+  quantity?: number;
+  unit?: string;
 }
 
 export interface RunSourcePackage {
@@ -471,8 +501,10 @@ export interface ExtractionRun {
   plannedStart: string | null;
   startedAt: string | null;
   completedAt: string | null;
+  sourcesConsumedAt: string | null; // migration 047 — set by completion hook, idempotency gate
   notes: string | null;
   steps: ExtractionRunStep[];
+  outputs?: ExtractionRunOutput[]; // populated post-completion via extraction_run_outputs join
   createdAt: string;
   updatedAt: string;
 }

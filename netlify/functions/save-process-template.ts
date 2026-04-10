@@ -60,12 +60,14 @@ export const handler: Handler = async (event) => {
                         template_id, step_order, name, description,
                         input_type, output_type, equipment_type,
                         expected_yield_pct, est_duration_hours, est_hands_on_hours, is_optional,
+                        requires_weight, weight_unit, requires_timestamp,
                         track, phase, phase_week, phase_day,
                         is_span, span_end_week, env_targets,
                         task_category, on_complete_action, requires_supplies,
                         is_critical, recurrence
                     ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11,
-                              $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23)`,
+                              $12, $13, $14,
+                              $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26)`,
                     [
                         templateId,
                         step.stepOrder,
@@ -78,6 +80,10 @@ export const handler: Handler = async (event) => {
                         step.estDurationHours || null,
                         step.estHandsOnHours || null,
                         step.isOptional || false,
+                        // Step requirements (migration 047)
+                        step.requiresWeight || false,
+                        step.weightUnit || null,
+                        step.requiresTimestamp || false,
                         // Cultivation fields
                         step.track || null,
                         step.phase || null,

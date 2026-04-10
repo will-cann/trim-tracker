@@ -39,10 +39,22 @@ export const handler: Handler = async (event) => {
         let stepsMap: Record<string, any[]> = {};
         let sourcesMap: Record<string, any[]> = {};
         if (runIds.length > 0) {
+            // Join process_steps to surface the template-level requirements
+            // (requires_weight, weight_unit, requires_timestamp, equipment_type,
+            // est_duration_hours) so the frontend can render the schedule-driven
+            // run detail without a second round-trip. Aliased as ps_* to avoid
+            // conflicts with the run-step columns.
             const stepsResult = await sql`
-                SELECT s.*, eq.name AS equipment_name
+                SELECT s.*,
+                       eq.name AS equipment_name,
+                       ps.requires_weight AS ps_requires_weight,
+                       ps.weight_unit AS ps_weight_unit,
+                       ps.requires_timestamp AS ps_requires_timestamp,
+                       ps.equipment_type AS ps_equipment_type,
+                       ps.est_duration_hours AS ps_est_duration_hours
                 FROM extraction_run_steps s
                 LEFT JOIN extraction_equipment eq ON eq.id = s.equipment_id
+                LEFT JOIN process_steps ps ON ps.id = s.template_step_id
                 WHERE s.run_id = ANY(${runIds})
                 ORDER BY s.step_order ASC
             `;
@@ -90,6 +102,7 @@ export const handler: Handler = async (event) => {
             parentRunId: r.parent_run_id,
             startedAt: r.started_at,
             completedAt: r.completed_at,
+            sourcesConsumedAt: r.sources_consumed_at || null,
             notes: r.notes,
             sourcePackages: sourcesMap[r.id] || [],
             steps: stepsMap[r.id] || [],
@@ -126,5 +139,15 @@ function formatStep(row: any) {
         completedAt: row.completed_at,
         notes: row.notes,
         description: row.description || null,
+        // Template-level requirements (joined from process_steps)
+        requiresWeight: row.ps_requires_weight ?? false,
+        weightUnit: row.ps_weight_unit || null,
+        requiresTimestamp: row.ps_requires_timestamp ?? false,
+        equipmentType: row.ps_equipment_type || null,
+        estDurationHours: row.ps_est_duration_hours != null ? parseFloat(row.ps_est_duration_hours) : null,
+        // Runtime check-in values (from extraction_run_steps)
+        checkInValue: row.check_in_value != null ? parseFloat(row.check_in_value) : null,
+        checkInUnit: row.check_in_unit || null,
+        timestampCapturedAt: row.timestamp_captured_at || null,
     };
 }

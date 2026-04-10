@@ -475,9 +475,11 @@ export const useAIChat = ({
             return;
         }
         const trimmedTranscript = transcript.trim();
+        // Typographic treatment only — no emoji markers (see feedback_no_emoji_markers).
+        // The quoted blockquote + "from ambient" verb below convey source.
         const heardLine = trimmedTranscript
-            ? `> 🎙️ *${trimmedTranscript}*`
-            : '> 🎙️ *(ambient)*';
+            ? `> *${trimmedTranscript}*`
+            : '> *(ambient capture)*';
         const verb = actions.length === 1
             ? 'Heard one action from ambient — review and confirm below.'
             : `Heard ${actions.length} actions from ambient — review and confirm below.`;

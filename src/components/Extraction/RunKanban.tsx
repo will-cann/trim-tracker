@@ -2,6 +2,7 @@ import { useState, useRef } from 'react';
 import { Play, CheckCircle2, Clock, Snowflake, Leaf, GripVertical } from 'lucide-react';
 import type { ExtractionRun } from '../../types/definitions';
 import { apiService } from '../../services/apiService';
+import { FinishRunModal } from './FinishRunModal';
 
 // ── Config ───────────────────────────────────────────────────────────────────
 
@@ -172,6 +173,11 @@ interface RunKanbanProps {
 export const RunKanban: React.FC<RunKanbanProps> = ({ runs, onUpdate, onCardClick }) => {
     const [dragOverStatus, setDragOverStatus] = useState<string | null>(null);
     const draggedId = useRef<string | null>(null);
+    // When a run is dragged to the Completed column we open FinishRunModal
+    // instead of silently completing the run. The modal handles check-in
+    // back-fill, output declaration, and source decrement via the completion
+    // hook in update-extraction-run.ts (see p2-p3-run-lifecycle plan).
+    const [finalizingRun, setFinalizingRun] = useState<ExtractionRun | null>(null);
 
     const handleDragStart = (_e: React.DragEvent, id: string) => {
         draggedId.current = id;
@@ -201,7 +207,18 @@ export const RunKanban: React.FC<RunKanbanProps> = ({ runs, onUpdate, onCardClic
             return;
         }
 
-        await apiService.updateExtractionRun(id, { status: targetStatus });
+        // Drag-to-completed: open FinishRunModal instead of silently finishing.
+        // No more zero-data completions — every finished run has an explicit
+        // outputs[] and check-in review, matching the "no true finish without
+        // weights" rule. Cancel and activate paths still commit directly.
+        if (targetStatus === 'completed') {
+            setFinalizingRun(run);
+            draggedId.current = null;
+            setDragOverStatus(null);
+            return;
+        }
+
+        await apiService.updateExtractionRun(id, { status: targetStatus as 'active' | 'cancelled' });
 
         // If activating, also start the first step
         if (targetStatus === 'active' && run.steps.length > 0 && run.steps[0].status === 'pending') {
@@ -210,6 +227,11 @@ export const RunKanban: React.FC<RunKanbanProps> = ({ runs, onUpdate, onCardClic
 
         draggedId.current = null;
         setDragOverStatus(null);
+        onUpdate();
+    };
+
+    const handleFinalizeCompleted = () => {
+        setFinalizingRun(null);
         onUpdate();
     };
 
@@ -236,6 +258,13 @@ export const RunKanban: React.FC<RunKanbanProps> = ({ runs, onUpdate, onCardClic
                     onCardClick={onCardClick}
                 />
             ))}
+            {finalizingRun && (
+                <FinishRunModal
+                    run={finalizingRun}
+                    onClose={() => setFinalizingRun(null)}
+                    onCompleted={handleFinalizeCompleted}
+                />
+            )}
         </div>
     );
 };

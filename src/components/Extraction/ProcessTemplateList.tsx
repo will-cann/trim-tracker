@@ -149,7 +149,25 @@ interface EditableStep {
     estDurationHours: string;
     estHandsOnHours: string;
     isOptional: boolean;
+    // Composable step requirements (migration 047)
+    requiresWeight: boolean;
+    weightUnit: string; // empty string when not required
+    requiresTimestamp: boolean;
 }
+
+// Supported weight units — kept in sync with product_types.default_unit values
+// plus the common operator-friendly ones. No DB-level constraint.
+export const WEIGHT_UNIT_OPTIONS: Array<{ value: string; label: string }> = [
+    { value: 'g', label: 'grams' },
+    { value: 'kg', label: 'kilograms' },
+    { value: 'mg', label: 'milligrams' },
+    { value: 'lb', label: 'pounds' },
+    { value: 'oz', label: 'ounces' },
+    { value: 'ml', label: 'milliliters' },
+    { value: 'L', label: 'liters' },
+    { value: 'each', label: 'count (each)' },
+    { value: 'trays', label: 'trays' },
+];
 
 let _stepKey = 0;
 const nextStepKey = () => `step_${++_stepKey}`;
@@ -167,6 +185,9 @@ function stepToEditable(step: ProcessStep): EditableStep {
         estDurationHours: step.estDurationHours != null ? String(step.estDurationHours) : '',
         estHandsOnHours: step.estHandsOnHours != null ? String(step.estHandsOnHours) : '',
         isOptional: step.isOptional,
+        requiresWeight: step.requiresWeight ?? false,
+        weightUnit: step.weightUnit ?? '',
+        requiresTimestamp: step.requiresTimestamp ?? false,
     };
 }
 
@@ -183,6 +204,9 @@ function blankStep(order: number): EditableStep {
         estDurationHours: '',
         estHandsOnHours: '',
         isOptional: false,
+        requiresWeight: false,
+        weightUnit: '',
+        requiresTimestamp: false,
     };
 }
 
@@ -436,6 +460,38 @@ const StepEditorRow: React.FC<{
                         />
                     </div>
                 </div>
+
+                {/* Composable step requirements (migration 047).
+                    A step with nothing checked is a pure "do it" step the
+                    operator never touches — the schedule advances virtually
+                    from est_duration_hours. When "Requires weight" is on,
+                    the Finish Run modal won't finalize without a value. */}
+                <div className="sop-step-editor-row-fields sop-step-editor-row-requirements">
+                    <label className="sop-step-optional-toggle">
+                        <input
+                            type="checkbox"
+                            checked={step.requiresWeight}
+                            onChange={e => set('requiresWeight', e.target.checked)}
+                        />
+                        <span>Requires check-in</span>
+                    </label>
+                    {step.requiresWeight && (
+                        <InlineSelect
+                            value={step.weightUnit || 'g'}
+                            options={WEIGHT_UNIT_OPTIONS}
+                            placeholder="Unit"
+                            onChange={v => set('weightUnit', v)}
+                        />
+                    )}
+                    <label className="sop-step-optional-toggle">
+                        <input
+                            type="checkbox"
+                            checked={step.requiresTimestamp}
+                            onChange={e => set('requiresTimestamp', e.target.checked)}
+                        />
+                        <span>Requires timestamp</span>
+                    </label>
+                </div>
             </div>
 
             <button
@@ -532,6 +588,10 @@ const TemplateEditor: React.FC<TemplateEditorProps> = ({ template, onSave, onCan
                         estDurationHours: s.estDurationHours ? parseFloat(s.estDurationHours) : undefined,
                         estHandsOnHours: s.estHandsOnHours ? parseFloat(s.estHandsOnHours) : undefined,
                         isOptional: s.isOptional,
+                        // Migration 047 — composable step requirements
+                        requiresWeight: s.requiresWeight,
+                        weightUnit: s.requiresWeight ? (s.weightUnit || 'g') : undefined,
+                        requiresTimestamp: s.requiresTimestamp,
                     })),
             };
             const result = await apiService.saveProcessTemplate(payload);

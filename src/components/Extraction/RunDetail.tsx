@@ -1,21 +1,36 @@
-import { useState, useMemo } from 'react';
-import { Play, CheckCircle2, SkipForward, Scale, ArrowRight, Clock, Timer, ChevronDown, ChevronUp } from 'lucide-react';
+import { useState, useMemo, useEffect } from 'react';
+import { Play, CheckCircle2, Clock, Timer, Scale, Calendar, Cog } from 'lucide-react';
 import type { ExtractionRun, ExtractionRunStep } from '../../types/definitions';
 import { apiService } from '../../services/apiService';
+import { FinishRunModal } from './FinishRunModal';
+
+// ─────────────────────────────────────────────────────────────────────────────
+// RunDetail — schedule-driven run view
+//
+// For planned runs, shows the step list and a Start Run button.
+// For active runs:
+//   - Steps auto-advance virtually from wall clock against run.started_at +
+//     cumulative est_duration_hours per step. Nothing in the DB changes.
+//   - Steps with requires_weight=true show an inline numeric input. The
+//     operator taps any weight-required step in any order to enter a value.
+//     Entering a value auto-saves via update-run-step and marks that step
+//     status=completed in the DB.
+//   - The Finalize Run button opens FinishRunModal. Gated on all required
+//     weights being filled (or lets the modal collect the blanks).
+// For completed/cancelled runs, shows the full step list + any check-ins.
+//
+// See `~/.claude/plans/p2-p3-run-lifecycle.md` for the full design.
+// ─────────────────────────────────────────────────────────────────────────────
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
-const STEP_STATUS_CONFIG: Record<string, { label: string; color: string }> = {
-    pending: { label: 'Pending', color: '#959595' },
-    active: { label: 'In Progress', color: '#1C9EFF' },
-    completed: { label: 'Done', color: '#3BB570' },
-    skipped: { label: 'Skipped', color: '#C0C0C0' },
-};
-
-const formatWeight = (g: number | null) => {
-    if (g == null) return '—';
-    if (g >= 1000) return `${(g / 1000).toLocaleString(undefined, { maximumFractionDigits: 2 })} kg`;
-    return `${g.toLocaleString(undefined, { maximumFractionDigits: 2 })} g`;
+const formatQuantity = (value: number | null, unit: string | null | undefined) => {
+    if (value == null) return '—';
+    const u = unit || 'g';
+    if ((u === 'g' || u === 'grams') && value >= 1000) {
+        return `${(value / 1000).toLocaleString(undefined, { maximumFractionDigits: 2 })} kg`;
+    }
+    return `${value.toLocaleString(undefined, { maximumFractionDigits: 2 })} ${u}`;
 };
 
 const formatElapsed = (start: string | null) => {
@@ -28,223 +43,185 @@ const formatElapsed = (start: string | null) => {
     return `${mins}m`;
 };
 
-// ── Completed Step (collapsed summary line) ─────────────────────────────────
+const formatTimeRange = (start: Date, end: Date) => {
+    const fmt = (d: Date) => d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+    return `${fmt(start)} – ${fmt(end)}`;
+};
 
-const CompletedStep: React.FC<{ step: ExtractionRunStep }> = ({ step }) => (
-    <div className="cockpit-done-step">
-        <div className="cockpit-done-check">
-            {step.status === 'skipped' ? (
-                <SkipForward size={10} style={{ color: '#C0C0C0' }} />
-            ) : (
-                <CheckCircle2 size={12} style={{ color: '#3BB570' }} />
-            )}
-        </div>
-        <span className="cockpit-done-name">{step.name}</span>
-        {step.status === 'completed' && step.inputWeightG != null && (
-            <span className="cockpit-done-weights">
-                {formatWeight(step.inputWeightG)}
-                <ArrowRight size={10} style={{ color: '#C0C0C0' }} />
-                {formatWeight(step.outputWeightG)}
-            </span>
-        )}
-        {step.yieldPct != null && (
-            <span className="cockpit-done-yield" style={{
-                color: step.yieldPct >= 50 ? '#3BB570' : step.yieldPct >= 20 ? '#FA9E52' : '#959595',
-            }}>
-                {step.yieldPct}%
-            </span>
-        )}
-        {step.status === 'skipped' && (
-            <span className="cockpit-done-skipped">Skipped</span>
-        )}
-    </div>
-);
+/**
+ * Compute a virtual schedule from the run's started_at and each step's
+ * est_duration_hours. Steps are scheduled back-to-back. Returns a map of
+ * stepId → { scheduledStart, scheduledEnd }.
+ *
+ * If the run has no started_at, returns an empty map — the UI falls back to
+ * showing all steps as "upcoming" without a live indicator.
+ */
+function computeSchedule(run: ExtractionRun): Map<string, { scheduledStart: Date; scheduledEnd: Date }> {
+    const map = new Map<string, { scheduledStart: Date; scheduledEnd: Date }>();
+    if (!run.startedAt) return map;
 
-// ── Active Step (cockpit center — dominant) ─────────────────────────────────
+    const base = new Date(run.startedAt).getTime();
+    let cursor = base;
+    for (const step of [...run.steps].sort((a, b) => a.stepOrder - b.stepOrder)) {
+        const durationH = step.estDurationHours ?? 0;
+        const durationMs = durationH * 3600 * 1000;
+        const scheduledStart = new Date(cursor);
+        const scheduledEnd = new Date(cursor + durationMs);
+        map.set(step.id, { scheduledStart, scheduledEnd });
+        cursor += durationMs;
+    }
+    return map;
+}
 
-const ActiveStep: React.FC<{
+/**
+ * Derive the "current" phase for a step relative to wall clock:
+ *   - 'done-on-schedule': scheduled window has fully passed
+ *   - 'current': wall clock is inside the scheduled window
+ *   - 'upcoming': scheduled window hasn't started yet
+ * If no schedule is available, returns 'upcoming' for everything.
+ */
+type StepPhase = 'done-on-schedule' | 'current' | 'upcoming';
+
+function derivePhase(
+    stepId: string,
+    schedule: Map<string, { scheduledStart: Date; scheduledEnd: Date }>,
+    now: Date
+): StepPhase {
+    const window = schedule.get(stepId);
+    if (!window) return 'upcoming';
+    if (now >= window.scheduledEnd) return 'done-on-schedule';
+    if (now >= window.scheduledStart) return 'current';
+    return 'upcoming';
+}
+
+// ── Inline weight check-in row (for steps with requires_weight=true) ────────
+
+const WeightCheckInInput: React.FC<{
     step: ExtractionRunStep;
-    suggestedInput: number | null;
-    onUpdate: () => void;
-}> = ({ step, suggestedInput, onUpdate }) => {
-    const defaultInput = step.inputWeightG?.toString() || (suggestedInput ? suggestedInput.toString() : '');
-    const [inputG, setInputG] = useState(defaultInput);
-    const [outputG, setOutputG] = useState(step.outputWeightG?.toString() || '');
-    const [notes, setNotes] = useState(step.notes || '');
+    onSaved: () => void;
+}> = ({ step, onSaved }) => {
+    const [value, setValue] = useState(step.checkInValue != null ? String(step.checkInValue) : '');
     const [saving, setSaving] = useState(false);
+    const [touched, setTouched] = useState(false);
 
-    const liveYield = inputG && outputG && parseFloat(inputG) > 0
-        ? ((parseFloat(outputG) / parseFloat(inputG)) * 100).toFixed(1)
-        : null;
+    const unit = step.weightUnit || step.checkInUnit || 'g';
+    const filled = step.checkInValue != null;
 
-    const handleCompleteStep = async () => {
+    const handleSave = async () => {
+        if (!touched || saving) return;
+        if (value === '' || isNaN(parseFloat(value))) return;
         setSaving(true);
-        const updates: Record<string, any> = { status: 'completed' };
-        if (inputG) updates.inputWeightG = parseFloat(inputG);
-        if (outputG) updates.outputWeightG = parseFloat(outputG);
-        if (notes.trim()) updates.notes = notes.trim();
-        await apiService.updateRunStep(step.id, updates);
-        onUpdate();
-        setSaving(false);
-    };
-
-    const handleSaveWeights = async () => {
-        if (!inputG && !outputG && !notes.trim()) return;
-        setSaving(true);
-        const updates: Record<string, any> = {};
-        if (inputG) updates.inputWeightG = parseFloat(inputG);
-        if (outputG) updates.outputWeightG = parseFloat(outputG);
-        if (notes.trim()) updates.notes = notes.trim();
-        await apiService.updateRunStep(step.id, updates);
-        onUpdate();
-        setSaving(false);
+        try {
+            await apiService.updateRunStep(step.id, {
+                checkInValue: parseFloat(value),
+                checkInUnit: unit,
+                status: 'completed',
+            });
+            setTouched(false);
+            onSaved();
+        } catch {
+            // Error handling is minimal here — the Finalize modal will surface
+            // any blank/invalid weights at finalization time.
+        } finally {
+            setSaving(false);
+        }
     };
 
     return (
-        <div className="cockpit-active">
-            <div className="cockpit-active-header">
-                <div className="cockpit-active-indicator" />
-                <div className="cockpit-active-title">
-                    <span className="cockpit-active-step-num">Step {step.stepOrder}</span>
-                    <h3 className="cockpit-active-name">{step.name}</h3>
-                </div>
-                {step.startedAt && (
-                    <div className="cockpit-active-timer">
-                        <Timer size={12} />
-                        {formatElapsed(step.startedAt)}
-                    </div>
-                )}
-            </div>
-
-            {step.description && (
-                <p className="cockpit-active-desc">{step.description}</p>
+        <div className={`run-step-checkin ${filled ? 'run-step-checkin--filled' : 'run-step-checkin--missing'}`}>
+            <Scale size={12} style={{ color: filled ? '#3BB570' : '#FA9E52' }} />
+            <input
+                type="number"
+                className="field-input run-step-checkin-input"
+                value={value}
+                onChange={e => { setValue(e.target.value); setTouched(true); }}
+                onBlur={handleSave}
+                onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
+                placeholder="—"
+                min="0"
+                step="0.01"
+                disabled={saving}
+            />
+            <span className="run-step-checkin-unit">{unit}</span>
+            {!filled && (
+                <span className="run-step-checkin-badge">needs check-in</span>
             )}
-
-            <div className="cockpit-active-inputs">
-                <div className="cockpit-weight-pair">
-                    <div className="cockpit-weight-field">
-                        <label>Input</label>
-                        <div className="cockpit-weight-input-row">
-                            <Scale size={14} style={{ color: '#959595' }} />
-                            <input
-                                type="number"
-                                className="field-input cockpit-weight-input"
-                                value={inputG}
-                                onChange={e => setInputG(e.target.value)}
-                                placeholder="0.00"
-                                step="0.01"
-                            />
-                            <span className="cockpit-weight-unit">g</span>
-                        </div>
-                    </div>
-                    <div className="cockpit-weight-arrow">
-                        <ArrowRight size={16} style={{ color: '#C0C0C0' }} />
-                    </div>
-                    <div className="cockpit-weight-field">
-                        <label>Output</label>
-                        <div className="cockpit-weight-input-row">
-                            <Scale size={14} style={{ color: '#959595' }} />
-                            <input
-                                type="number"
-                                className="field-input cockpit-weight-input"
-                                value={outputG}
-                                onChange={e => setOutputG(e.target.value)}
-                                placeholder="0.00"
-                                step="0.01"
-                            />
-                            <span className="cockpit-weight-unit">g</span>
-                        </div>
-                    </div>
-                    {liveYield && (
-                        <div className="cockpit-live-yield">
-                            <span className="cockpit-live-yield-value" style={{
-                                color: parseFloat(liveYield) >= 50 ? '#3BB570'
-                                    : parseFloat(liveYield) >= 20 ? '#FA9E52' : '#959595',
-                            }}>
-                                {liveYield}%
-                            </span>
-                            <span className="cockpit-live-yield-label">yield</span>
-                        </div>
-                    )}
-                </div>
-                <input
-                    type="text"
-                    className="field-input cockpit-notes-input"
-                    value={notes}
-                    onChange={e => setNotes(e.target.value)}
-                    placeholder="Notes — temps, pressures, observations..."
-                />
-            </div>
-
-            <div className="cockpit-active-actions">
-                <button
-                    className="btn-primary cockpit-btn-complete"
-                    onClick={handleCompleteStep}
-                    disabled={saving}
-                >
-                    <CheckCircle2 size={14} /> Complete Step
-                </button>
-                <button
-                    className="btn-cancel text-sm px-3 py-1.5"
-                    onClick={handleSaveWeights}
-                    disabled={saving || (!inputG && !outputG && !notes.trim())}
-                >
-                    Save
-                </button>
-            </div>
         </div>
     );
 };
 
-// ── Pending Step (muted, compact) ───────────────────────────────────────────
+// ── Step row — renders a single step in the schedule-driven timeline ────────
 
-const PendingStep: React.FC<{
+const StepRow: React.FC<{
     step: ExtractionRunStep;
-    isNext: boolean;
+    phase: StepPhase;
+    scheduleWindow: { scheduledStart: Date; scheduledEnd: Date } | undefined;
     runStatus: string;
     onUpdate: () => void;
-}> = ({ step, isNext, runStatus, onUpdate }) => {
-    const [saving, setSaving] = useState(false);
+}> = ({ step, phase, scheduleWindow, runStatus, onUpdate }) => {
+    const isCurrent = phase === 'current' && runStatus === 'active';
+    const isDoneOnSchedule = phase === 'done-on-schedule' || step.status === 'completed';
+    const isActive = runStatus === 'active' || runStatus === 'completed';
 
-    const handleStartStep = async () => {
-        setSaving(true);
-        await apiService.updateRunStep(step.id, { status: 'active' });
-        onUpdate();
-        setSaving(false);
-    };
+    // When a step is marked completed in the DB (via a check-in entry or run finalize)
+    // we show it as fully done regardless of schedule phase.
+    const stepCompleted = step.status === 'completed';
 
-    const handleSkipStep = async () => {
-        setSaving(true);
-        await apiService.updateRunStep(step.id, { status: 'skipped' });
-        onUpdate();
-        setSaving(false);
-    };
+    const rowClass = [
+        'run-step-row',
+        isCurrent && 'run-step-row--current',
+        isDoneOnSchedule && 'run-step-row--done',
+        phase === 'upcoming' && !stepCompleted && 'run-step-row--upcoming',
+    ].filter(Boolean).join(' ');
 
     return (
-        <div className={`cockpit-pending ${isNext ? 'cockpit-pending--next' : ''}`}>
-            <div className="cockpit-pending-num">{step.stepOrder}</div>
-            <span className="cockpit-pending-name">{step.name}</span>
-            {step.isOptional && <span className="cockpit-pending-optional">Optional</span>}
-            {isNext && runStatus === 'active' && (
-                <div className="cockpit-pending-actions">
-                    <button
-                        className="btn-primary text-xs px-2.5 py-1"
-                        onClick={handleStartStep}
-                        disabled={saving}
-                    >
-                        <Play size={11} /> Start
-                    </button>
-                    {step.isOptional && (
-                        <button
-                            className="btn-cancel text-xs px-2 py-1"
-                            onClick={handleSkipStep}
-                            disabled={saving}
-                        >
-                            Skip
-                        </button>
+        <div className={rowClass}>
+            <div className="run-step-marker">
+                <div className="run-step-num">{step.stepOrder}</div>
+                {stepCompleted && <CheckCircle2 size={12} className="run-step-check" />}
+            </div>
+            <div className="run-step-body">
+                <div className="run-step-header">
+                    <span className="run-step-name">{step.name}</span>
+                    {step.isOptional && <span className="run-step-optional">Optional</span>}
+                </div>
+                {step.description && (
+                    <p className="run-step-desc">{step.description}</p>
+                )}
+                <div className="run-step-meta">
+                    {scheduleWindow && isActive && (
+                        <span className="run-step-meta-item">
+                            <Calendar size={10} />
+                            {formatTimeRange(scheduleWindow.scheduledStart, scheduleWindow.scheduledEnd)}
+                        </span>
+                    )}
+                    {step.estDurationHours != null && step.estDurationHours > 0 && (
+                        <span className="run-step-meta-item">
+                            <Timer size={10} />
+                            {step.estDurationHours < 1
+                                ? `${Math.round(step.estDurationHours * 60)}m`
+                                : `${step.estDurationHours}h`}
+                        </span>
+                    )}
+                    {step.equipmentType && (
+                        <span className="run-step-meta-item">
+                            <Cog size={10} />
+                            {step.equipmentType.replace(/_/g, ' ')}
+                        </span>
                     )}
                 </div>
-            )}
+                {step.requiresWeight && runStatus === 'active' && (
+                    <WeightCheckInInput step={step} onSaved={onUpdate} />
+                )}
+                {step.requiresWeight && runStatus !== 'active' && step.checkInValue != null && (
+                    <div className="run-step-checkin run-step-checkin--filled">
+                        <Scale size={12} style={{ color: '#3BB570' }} />
+                        <span className="run-step-checkin-value">
+                            {step.checkInValue} {step.weightUnit || step.checkInUnit || 'g'}
+                        </span>
+                    </div>
+                )}
+            </div>
         </div>
     );
 };
@@ -252,71 +229,31 @@ const PendingStep: React.FC<{
 // ── Run Progress Header ─────────────────────────────────────────────────────
 
 const RunProgress: React.FC<{ run: ExtractionRun }> = ({ run }) => {
-    const completedSteps = run.steps.filter(s => s.status === 'completed').length;
-    const skippedSteps = run.steps.filter(s => s.status === 'skipped').length;
-    const doneCount = completedSteps + skippedSteps;
-    const totalSteps = run.steps.length;
-
-    // Cumulative yield across completed steps
-    const cumulativeYield = run.steps
-        .filter(s => s.status === 'completed' && s.yieldPct != null)
-        .reduce((pct, s) => pct * (s.yieldPct! / 100), 1);
-    const hasYield = run.steps.some(s => s.yieldPct != null);
-
-    // Total input (first step) and total output (last completed step)
-    const firstInput = run.steps.find(s => s.inputWeightG != null)?.inputWeightG;
-    const completedWithOutput = run.steps.filter(s => s.status === 'completed' && s.outputWeightG != null);
-    const lastOutput = completedWithOutput.length > 0
-        ? completedWithOutput[completedWithOutput.length - 1].outputWeightG
-        : null;
+    const totalDurationH = useMemo(
+        () => run.steps.reduce((sum, s) => sum + (s.estDurationHours ?? 0), 0),
+        [run.steps]
+    );
+    const totalSources = run.sourcePackages?.reduce((sum, p) => sum + (p.quantityUsed ?? p.quantity ?? 0), 0);
 
     return (
         <div className="cockpit-progress">
-            <div className="cockpit-progress-bar-wrap">
-                <div className="cockpit-progress-bar">
-                    {run.steps.map((step) => {
-                        const isDone = step.status === 'completed' || step.status === 'skipped';
-                        const isActive = step.status === 'active';
-                        return (
-                            <div
-                                key={step.id}
-                                className={`cockpit-progress-segment ${isDone ? 'cockpit-progress-segment--done' : ''} ${isActive ? 'cockpit-progress-segment--active' : ''}`}
-                                style={{ flex: 1 }}
-                                title={`${step.name} — ${STEP_STATUS_CONFIG[step.status]?.label}`}
-                            />
-                        );
-                    })}
-                </div>
-                <span className="cockpit-progress-label">{doneCount}/{totalSteps}</span>
-            </div>
             <div className="cockpit-progress-stats">
-                {run.startedAt && (
+                {run.startedAt && run.status === 'active' && (
                     <div className="cockpit-stat">
                         <Clock size={11} />
-                        <span>{formatElapsed(run.startedAt)}</span>
+                        <span>{formatElapsed(run.startedAt)} of ~{totalDurationH.toFixed(1)}h</span>
                     </div>
                 )}
-                {firstInput != null && (
+                {run.startedAt && run.status !== 'active' && (
                     <div className="cockpit-stat">
-                        <span className="cockpit-stat-label">In</span>
-                        <span className="cockpit-stat-value">{formatWeight(firstInput)}</span>
+                        <Clock size={11} />
+                        <span>Started {new Date(run.startedAt).toLocaleString()}</span>
                     </div>
                 )}
-                {lastOutput != null && (
+                {totalSources != null && totalSources > 0 && (
                     <div className="cockpit-stat">
-                        <span className="cockpit-stat-label">Out</span>
-                        <span className="cockpit-stat-value">{formatWeight(lastOutput)}</span>
-                    </div>
-                )}
-                {hasYield && (
-                    <div className="cockpit-stat">
-                        <span className="cockpit-stat-label">Yield</span>
-                        <span className="cockpit-stat-value cockpit-stat-yield" style={{
-                            color: cumulativeYield * 100 >= 50 ? '#3BB570'
-                                : cumulativeYield * 100 >= 20 ? '#FA9E52' : '#959595',
-                        }}>
-                            {(cumulativeYield * 100).toFixed(1)}%
-                        </span>
+                        <span className="cockpit-stat-label">Sources</span>
+                        <span className="cockpit-stat-value">{formatQuantity(totalSources, 'g')}</span>
                     </div>
                 )}
             </div>
@@ -331,82 +268,111 @@ export const RunDetail: React.FC<{
     onUpdate: () => void;
 }> = ({ run, onUpdate }) => {
     const [updating, setUpdating] = useState(false);
-    const [showCompleted, setShowCompleted] = useState(false);
+    const [showFinishModal, setShowFinishModal] = useState(false);
 
-    const completedSteps = useMemo(() => run.steps.filter(s => s.status === 'completed' || s.status === 'skipped'), [run.steps]);
-    const activeStep = useMemo(() => run.steps.find(s => s.status === 'active'), [run.steps]);
-    const pendingSteps = useMemo(() => run.steps.filter(s => s.status === 'pending'), [run.steps]);
-    const nextPendingIndex = useMemo(() => run.steps.findIndex(s => s.status === 'pending'), [run.steps]);
+    // Tick every 60s so the schedule-derived phase updates without a full refetch.
+    // Cheaper than polling the server — the phase is a pure function of wall clock.
+    const [nowTick, setNowTick] = useState(() => Date.now());
+    useEffect(() => {
+        if (run.status !== 'active') return;
+        const id = setInterval(() => setNowTick(Date.now()), 60_000);
+        return () => clearInterval(id);
+    }, [run.status]);
 
-    const allStepsDone = run.steps.every(s => s.status === 'completed' || s.status === 'skipped');
+    const schedule = useMemo(() => computeSchedule(run), [run]);
+    const now = useMemo(() => new Date(nowTick), [nowTick]);
+
+    const sortedSteps = useMemo(
+        () => [...run.steps].sort((a, b) => a.stepOrder - b.stepOrder),
+        [run.steps]
+    );
+
+    // Count steps that require a weight but don't have one yet.
+    const missingCheckIns = useMemo(
+        () => sortedSteps.filter(s => s.requiresWeight && s.checkInValue == null).length,
+        [sortedSteps]
+    );
 
     const handleStartRun = async () => {
         setUpdating(true);
-        await apiService.updateExtractionRun(run.id, { status: 'active' });
-        if (run.steps.length > 0 && run.steps[0].status === 'pending') {
-            await apiService.updateRunStep(run.steps[0].id, { status: 'active' });
+        try {
+            await apiService.updateExtractionRun(run.id, { status: 'active' });
+            onUpdate();
+        } finally {
+            setUpdating(false);
         }
-        onUpdate();
-        setUpdating(false);
     };
 
-    const handleCompleteRun = async () => {
-        setUpdating(true);
-        await apiService.updateExtractionRun(run.id, { status: 'completed' });
-        onUpdate();
-        setUpdating(false);
+    const handleOpenFinalize = () => {
+        setShowFinishModal(true);
     };
 
     const handleCancelRun = async () => {
         setUpdating(true);
-        await apiService.updateExtractionRun(run.id, { status: 'cancelled' });
-        onUpdate();
-        setUpdating(false);
+        try {
+            await apiService.updateExtractionRun(run.id, { status: 'cancelled' });
+            onUpdate();
+        } finally {
+            setUpdating(false);
+        }
     };
 
-    // ── Planned run: just show start/cancel ──
+    const handleModalCompleted = () => {
+        setShowFinishModal(false);
+        onUpdate();
+    };
+
+    // ── Planned run: show step list + start / cancel ──
     if (run.status === 'planned') {
         return (
             <div className="run-detail">
-                <div className="cockpit-planned">
-                    <div className="cockpit-planned-steps">
-                        {run.steps.map(step => (
-                            <div key={step.id} className="cockpit-planned-step">
-                                <span className="cockpit-pending-num">{step.stepOrder}</span>
-                                <span className="cockpit-pending-name">{step.name}</span>
-                                {step.isOptional && <span className="cockpit-pending-optional">Optional</span>}
-                            </div>
-                        ))}
-                    </div>
-                    <div className="cockpit-planned-actions">
-                        <button
-                            className="btn-primary text-sm px-4 py-2"
-                            onClick={handleStartRun}
-                            disabled={updating}
-                        >
-                            <Play size={14} /> Start Run
-                        </button>
-                        <button
-                            className="btn-cancel text-sm px-3 py-1.5"
-                            onClick={handleCancelRun}
-                            disabled={updating}
-                        >
-                            Cancel
-                        </button>
-                    </div>
+                <div className="run-step-list">
+                    {sortedSteps.map(step => (
+                        <StepRow
+                            key={step.id}
+                            step={step}
+                            phase="upcoming"
+                            scheduleWindow={undefined}
+                            runStatus={run.status}
+                            onUpdate={onUpdate}
+                        />
+                    ))}
+                </div>
+                <div className="cockpit-planned-actions">
+                    <button
+                        className="btn-primary text-sm px-4 py-2"
+                        onClick={handleStartRun}
+                        disabled={updating}
+                    >
+                        <Play size={14} /> Start Run
+                    </button>
+                    <button
+                        className="btn-cancel text-sm px-3 py-1.5"
+                        onClick={handleCancelRun}
+                        disabled={updating}
+                    >
+                        Cancel
+                    </button>
                 </div>
             </div>
         );
     }
 
-    // ── Completed run: show all steps as summary ──
+    // ── Completed or cancelled run: read-only summary with check-ins ──
     if (run.status === 'completed' || run.status === 'cancelled') {
         return (
             <div className="run-detail">
                 <RunProgress run={run} />
-                <div className="cockpit-done-zone">
-                    {run.steps.map(step => (
-                        <CompletedStep key={step.id} step={step} />
+                <div className="run-step-list">
+                    {sortedSteps.map(step => (
+                        <StepRow
+                            key={step.id}
+                            step={step}
+                            phase="done-on-schedule"
+                            scheduleWindow={schedule.get(step.id)}
+                            runStatus={run.status}
+                            onUpdate={onUpdate}
+                        />
                     ))}
                 </div>
                 {run.notes && <p className="cockpit-run-notes">{run.notes}</p>}
@@ -414,88 +380,40 @@ export const RunDetail: React.FC<{
         );
     }
 
-    // ── Active run: the cockpit ──
+    // ── Active run: schedule-driven timeline ──
     return (
         <div className="run-detail">
             <RunProgress run={run} />
 
-            {/* Zone 1: Completed steps — collapsed */}
-            {completedSteps.length > 0 && (
-                <div className="cockpit-done-zone">
-                    {completedSteps.length <= 2 || showCompleted ? (
-                        completedSteps.map(step => (
-                            <CompletedStep key={step.id} step={step} />
-                        ))
-                    ) : (
-                        <>
-                            <CompletedStep step={completedSteps[completedSteps.length - 1]} />
-                        </>
-                    )}
-                    {completedSteps.length > 2 && (
-                        <button
-                            className="cockpit-done-toggle"
-                            onClick={() => setShowCompleted(!showCompleted)}
-                        >
-                            {showCompleted ? (
-                                <><ChevronUp size={12} /> Hide previous steps</>
-                            ) : (
-                                <><ChevronDown size={12} /> {completedSteps.length - 1} more completed</>
-                            )}
-                        </button>
-                    )}
-                </div>
-            )}
-
-            {/* Zone 2: Active step — dominant cockpit */}
-            {activeStep && (
-                <ActiveStep
-                    step={activeStep}
-                    suggestedInput={(() => {
-                        if (activeStep.inputWeightG != null) return null; // already has a value
-                        // Find the previous completed step's output
-                        const prevCompleted = completedSteps.filter(s => s.status === 'completed' && s.outputWeightG != null);
-                        if (prevCompleted.length > 0) return prevCompleted[prevCompleted.length - 1].outputWeightG;
-                        // First step: sum of source package quantities
-                        const sourceTotal = run.sourcePackages?.reduce((sum, p) => sum + (p.quantityUsed ?? p.quantity ?? 0), 0);
-                        return sourceTotal && sourceTotal > 0 ? sourceTotal : null;
-                    })()}
-                    onUpdate={onUpdate}
-                />
-            )}
-
-            {/* Zone 3: Pending steps — muted list */}
-            {pendingSteps.length > 0 && (
-                <div className="cockpit-pending-zone">
-                    <span className="cockpit-zone-label">Up next</span>
-                    {pendingSteps.map((step) => (
-                        <PendingStep
+            <div className="run-step-list">
+                {sortedSteps.map(step => {
+                    const phase = derivePhase(step.id, schedule, now);
+                    return (
+                        <StepRow
                             key={step.id}
                             step={step}
-                            isNext={run.steps.indexOf(step) === nextPendingIndex}
+                            phase={phase}
+                            scheduleWindow={schedule.get(step.id)}
                             runStatus={run.status}
                             onUpdate={onUpdate}
                         />
-                    ))}
-                </div>
-            )}
+                    );
+                })}
+            </div>
 
-            {/* All done — finalize prompt */}
-            {allStepsDone && (
-                <div className="cockpit-finalize">
-                    <p className="cockpit-finalize-msg">All steps complete</p>
-                    <button
-                        className="btn-primary text-sm px-4 py-2"
-                        onClick={handleCompleteRun}
-                        disabled={updating}
-                    >
-                        <CheckCircle2 size={14} /> Finalize Run
-                    </button>
-                </div>
-            )}
-
-            {run.notes && <p className="cockpit-run-notes">{run.notes}</p>}
-
-            <div className="cockpit-cancel">
+            <div className="run-finalize-bar">
+                {missingCheckIns > 0 && (
+                    <span className="run-finalize-hint">
+                        {missingCheckIns} check-in{missingCheckIns !== 1 ? 's' : ''} pending — you can enter them now or at finalize
+                    </span>
+                )}
+                <button
+                    className="btn-primary text-sm px-4 py-2"
+                    onClick={handleOpenFinalize}
+                    disabled={updating}
+                >
+                    <CheckCircle2 size={14} /> Finalize Run
+                </button>
                 <button
                     className="btn-cancel text-xs px-2 py-1"
                     onClick={handleCancelRun}
@@ -504,6 +422,16 @@ export const RunDetail: React.FC<{
                     Cancel Run
                 </button>
             </div>
+
+            {run.notes && <p className="cockpit-run-notes">{run.notes}</p>}
+
+            {showFinishModal && (
+                <FinishRunModal
+                    run={run}
+                    onClose={() => setShowFinishModal(false)}
+                    onCompleted={handleModalCompleted}
+                />
+            )}
         </div>
     );
 };

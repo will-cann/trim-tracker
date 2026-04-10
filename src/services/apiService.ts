@@ -1107,13 +1107,44 @@ export const createExtractionRun = async (data: {
     return response.json();
 };
 
-export const updateExtractionRun = async (id: string, data: Record<string, any>): Promise<any> => {
+export interface FinalizeRunOutput {
+    packageType: string;
+    quantity: number;
+    unit?: string;
+    label?: string;
+    strain?: string;
+    licenseNumber?: string;
+    notes?: string;
+}
+
+export interface FinalizeRunCheckIn {
+    stepId: string;
+    value: number;
+    unit?: string;
+}
+
+export interface UpdateExtractionRunData {
+    status?: 'planned' | 'active' | 'completed' | 'cancelled';
+    name?: string;
+    strain?: string;
+    notes?: string;
+    // Finish Run modal fields — only used when status='completed'.
+    // outputs[] tells the backend what packages to create; checkIns[] back-fills
+    // any weight entries the operator left blank during the run.
+    outputs?: FinalizeRunOutput[];
+    checkIns?: FinalizeRunCheckIn[];
+}
+
+export const updateExtractionRun = async (id: string, data: UpdateExtractionRunData): Promise<any> => {
     const response = await fetchWithAuth(`${API_BASE}/update-extraction-run`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id, ...data }),
     });
-    if (!response.ok) throw new Error('Failed to update extraction run');
+    if (!response.ok) {
+        const err = await response.json().catch(() => ({ error: 'Failed to update extraction run' }));
+        throw new Error(err.error);
+    }
     return response.json();
 };
 
