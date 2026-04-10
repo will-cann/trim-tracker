@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { Snowflake, Flame, Beaker, Wrench, ChevronRight, Check, ChevronDown, AlertTriangle } from 'lucide-react';
+import { Snowflake, Flame, Beaker, Wrench, ChevronRight, Check, ChevronDown } from 'lucide-react';
 import type { ProcessTemplate, Package, ExtractionEquipment, ProductType } from '../../types/definitions';
 import { apiService } from '../../services/apiService';
 import { Modal, Button } from '../ui';
@@ -31,10 +31,10 @@ interface StepProjection {
     equipmentType: string | null;
     inputG: number;
     outputG: number;
-    yieldPct: number;      // template expected yield for this step
-    equipCapacity: number | null;  // capacity of assigned equipment
+    yieldPct: number;
+    equipCapacity: number | null;
     equipName: string | null;
-    isOverCapacity: boolean;
+    cyclesNeeded: number | null; // how many cycles to process inputG at this equipment's capacity
 }
 
 function computeCapacityChain(
@@ -42,13 +42,11 @@ function computeCapacityChain(
     inputWeightG: number,
     stepEquipmentMap: Record<number, string>,
     allEquipment: ExtractionEquipment[],
-): { projections: StepProjection[]; bottleneck: StepProjection | null; maxInputG: number } {
+): { projections: StepProjection[] } {
     const equipById = new Map(allEquipment.map(e => [e.id, e]));
     const projections: StepProjection[] = [];
     let currentWeight = inputWeightG;
-    let bottleneck: StepProjection | null = null;
 
-    // Required steps only (optional steps don't constrain the main flow)
     const requiredSteps = templateSteps.filter(s => !s.isOptional);
 
     for (const ts of requiredSteps) {
@@ -57,9 +55,9 @@ function computeCapacityChain(
         const equipId = stepEquipmentMap[ts.stepOrder];
         const equip = equipId ? equipById.get(equipId) : null;
         const capG = equip?.capacityGrams ?? null;
-        const isOver = capG != null && currentWeight > capG;
+        const cyclesNeeded = capG != null && capG > 0 ? Math.ceil(currentWeight / capG) : null;
 
-        const proj: StepProjection = {
+        projections.push({
             stepOrder: ts.stepOrder,
             name: ts.name,
             equipmentType: ts.equipmentType,
@@ -68,35 +66,13 @@ function computeCapacityChain(
             yieldPct,
             equipCapacity: capG,
             equipName: equip?.name ?? null,
-            isOverCapacity: isOver,
-        };
-        projections.push(proj);
-
-        if (isOver && (!bottleneck || (capG! / proj.inputG) < (bottleneck.equipCapacity! / bottleneck.inputG))) {
-            bottleneck = proj;
-        }
+            cyclesNeeded,
+        });
 
         currentWeight = outputWeight;
     }
 
-    // Calculate max feasible input: work backwards from each equipment constraint
-    let maxInputG = Infinity;
-    for (const proj of projections) {
-        if (proj.equipCapacity == null) continue;
-        // How much original input would produce exactly this step's capacity?
-        // inputG at this step = originalInput * cumulative_yield_before_this_step
-        // So: originalInput = equipCapacity / (inputG_at_step / originalInput)
-        const ratio = proj.inputG / inputWeightG; // fraction of original input that reaches this step
-        if (ratio > 0) {
-            const maxForThisStep = proj.equipCapacity / ratio;
-            if (maxForThisStep < maxInputG) {
-                maxInputG = maxForThisStep;
-            }
-        }
-    }
-    if (!isFinite(maxInputG)) maxInputG = inputWeightG;
-
-    return { projections, bottleneck, maxInputG };
+    return { projections };
 }
 
 const EQUIP_TYPE_LABELS: Record<string, string> = {
@@ -566,16 +542,20 @@ export const StartRunModal: React.FC<StartRunModalProps> = ({ templates, onClose
                             </div>
                         )}
 
-                        {/* Live capacity warning on Step 2 */}
-                        {capacityChain?.bottleneck && (
-                            <div className="start-run-capacity-warn">
-                                <AlertTriangle size={14} />
-                                <span>
-                                    <strong>{capacityChain.bottleneck.name}</strong> ({capacityChain.bottleneck.equipName}) can only handle {formatWeight(capacityChain.bottleneck.equipCapacity!, 'g')} — this run would send ~{formatWeight(Math.round(capacityChain.bottleneck.inputG), 'g')}.
-                                    {capacityChain.maxInputG < totalInputWeight && (
-                                        <> Reduce to <strong>{formatWeight(Math.floor(capacityChain.maxInputG), 'g')}</strong> or less to fit your equipment.</>
-                                    )}
-                                </span>
+                        {/* Multi-cycle info on Step 2 */}
+                        {capacityChain?.projections.some(p => p.cyclesNeeded != null && p.cyclesNeeded > 1) && (
+                            <div className="start-run-capacity-info">
+                                {capacityChain.projections
+                                    .filter(p => p.cyclesNeeded != null && p.cyclesNeeded > 1)
+                                    .map(p => (
+                                        <div key={p.stepOrder} className="start-run-capacity-info-row">
+                                            <strong>{p.name}</strong> ({p.equipName}): {p.cyclesNeeded} cycles needed
+                                            <span className="start-run-capacity-detail">
+                                                {formatWeight(p.equipCapacity!, 'g')}/cycle, ~{formatWeight(Math.round(p.inputG), 'g')} total
+                                            </span>
+                                        </div>
+                                    ))
+                                }
                             </div>
                         )}
 
@@ -623,29 +603,15 @@ export const StartRunModal: React.FC<StartRunModalProps> = ({ templates, onClose
                             <div className="start-run-section">
                                 <h4 className="start-run-section-title">Equipment</h4>
 
-                                {/* Bottleneck warning */}
-                                {capacityChain?.bottleneck && (
-                                    <div className="start-run-capacity-warn">
-                                        <AlertTriangle size={14} />
-                                        <span>
-                                            <strong>{capacityChain.bottleneck.name}</strong> is over capacity
-                                            ({formatWeight(capacityChain.bottleneck.inputG, 'g')} input vs {formatWeight(capacityChain.bottleneck.equipCapacity!, 'g')} max).
-                                            {capacityChain.maxInputG < totalInputWeight && (
-                                                <> Max feasible run: <strong>{formatWeight(Math.floor(capacityChain.maxInputG), 'g')}</strong></>
-                                            )}
-                                        </span>
-                                    </div>
-                                )}
-
                                 <div className="start-run-equip-list">
                                     {equipSteps.map(ts => {
                                         const matchingEquip = equipment.filter(e => e.equipmentType === ts.equipmentType);
                                         const assignedId = stepEquipment[ts.stepOrder] || '';
                                         const proj = capacityChain?.projections.find(p => p.stepOrder === ts.stepOrder);
-                                        const isOver = proj?.isOverCapacity ?? false;
+                                        const multiCycle = proj?.cyclesNeeded != null && proj.cyclesNeeded > 1;
 
                                         return (
-                                            <div key={ts.stepOrder} className={`start-run-equip-row ${isOver ? 'start-run-equip-row--over' : ''}`}>
+                                            <div key={ts.stepOrder} className="start-run-equip-row">
                                                 <div className="start-run-equip-step">
                                                     <span className="start-run-equip-step-num">{ts.stepOrder}</span>
                                                     <span className="start-run-equip-step-name">{ts.name}</span>
@@ -653,31 +619,32 @@ export const StartRunModal: React.FC<StartRunModalProps> = ({ templates, onClose
                                                         {EQUIP_TYPE_LABELS[ts.equipmentType!] || ts.equipmentType}
                                                     </span>
                                                 </div>
-                                                {/* Projected weight at this step */}
+                                                {/* Projected weight + cycle count */}
                                                 {proj && (
-                                                    <div className={`start-run-equip-proj ${isOver ? 'start-run-equip-proj--over' : ''}`}>
+                                                    <div className="start-run-equip-proj">
                                                         <span className="start-run-equip-proj-weight">
                                                             ~{formatWeight(Math.round(proj.inputG), 'g')} in
                                                         </span>
-                                                        {proj.equipCapacity != null && (
-                                                            <span className="start-run-equip-proj-cap">
-                                                                / {formatWeight(proj.equipCapacity, 'g')} cap
+                                                        {multiCycle && (
+                                                            <span className="start-run-equip-proj-cycles">
+                                                                {proj.cyclesNeeded} cycles
                                                             </span>
                                                         )}
                                                     </div>
                                                 )}
                                                 <div className="start-run-equip-select-wrap">
                                                     <select
-                                                        className={`field-input start-run-equip-select ${isOver ? 'start-run-equip-select--over' : ''}`}
+                                                        className="field-input start-run-equip-select"
                                                         value={assignedId}
                                                         onChange={e => handleEquipmentChange(ts.stepOrder, e.target.value)}
                                                     >
                                                         <option value="">— None —</option>
                                                         {matchingEquip.map(eq => {
-                                                            const capOver = proj && eq.capacityGrams != null && proj.inputG > eq.capacityGrams;
+                                                            const cycles = proj && eq.capacityGrams != null && eq.capacityGrams > 0
+                                                                ? Math.ceil(proj.inputG / eq.capacityGrams) : null;
                                                             return (
                                                                 <option key={eq.id} value={eq.id}>
-                                                                    {eq.name}{eq.capacityGrams ? ` (${eq.capacityGrams}g)` : ''}{capOver ? ' ⚠' : ''}
+                                                                    {eq.name}{eq.capacityGrams ? ` (${eq.capacityGrams}g/cycle)` : ''}{cycles != null && cycles > 1 ? ` — ${cycles} cycles` : ''}
                                                                 </option>
                                                             );
                                                         })}
