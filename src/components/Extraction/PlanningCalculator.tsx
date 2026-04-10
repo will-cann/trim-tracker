@@ -61,24 +61,25 @@ export const PlanningCalculator: React.FC = () => {
         <div className="planning-calculator">
             {/* ── Form ──────────────────────────────────────────────────── */}
             <div className="planning-form">
-                <h3 className="planning-form-title">What do you need?</h3>
-                <div className="planning-form-row">
+                <div className="planning-form-sentence">
+                    <span className="planning-form-prefix">I need</span>
                     <input
                         type="number"
                         className="planning-input planning-input--qty"
-                        placeholder="Qty"
+                        placeholder="0"
                         value={targetQuantity}
                         onChange={e => setTargetQuantity(e.target.value)}
                         min="0"
                         step="1"
                     />
                     <span className="planning-unit">{selectedPt?.defaultUnit || '—'}</span>
+                    <span className="planning-form-prefix">of</span>
                     <select
                         className="planning-input planning-input--type"
                         value={targetOutputType}
                         onChange={e => setTargetOutputType(e.target.value)}
                     >
-                        <option value="">Select product...</option>
+                        <option value="">select product</option>
                         <optgroup label="Finished Goods">
                             {finishedTypes.filter(pt => pt.category === 'finished').map(pt => (
                                 <option key={pt.id} value={pt.name}>{pt.displayName}</option>
@@ -95,16 +96,17 @@ export const PlanningCalculator: React.FC = () => {
                     <input
                         type="text"
                         className="planning-input planning-input--strain"
-                        placeholder="Strain (optional — for historical yield data)"
+                        placeholder="Strain (optional — enables historical yield data)"
                         value={strain}
                         onChange={e => setStrain(e.target.value)}
+                        onKeyDown={e => e.key === 'Enter' && handlePlan()}
                     />
                     <button
                         className="planning-btn"
                         onClick={handlePlan}
                         disabled={!canPlan}
                     >
-                        {planning ? <Loader2 size={14} className="animate-spin" /> : 'Plan'}
+                        {planning ? <Loader2 size={14} className="animate-spin" /> : 'Calculate'}
                     </button>
                 </div>
             </div>

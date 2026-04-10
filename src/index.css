@@ -10626,13 +10626,20 @@ select.settings-inline-input {
   background: #FAFAFA;
   border: 1px solid #F0F0F0;
   border-radius: 10px;
-  padding: 1rem 1.25rem;
+  padding: 1.25rem;
 }
-.planning-form-title {
+.planning-form-sentence {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.75rem;
+}
+.planning-form-prefix {
   font-size: 0.9375rem;
-  font-weight: 700;
-  color: var(--text-color);
-  margin: 0 0 0.75rem;
+  font-weight: 300;
+  color: #959595;
+  letter-spacing: -0.01em;
 }
 .planning-form-row {
   display: flex;
@@ -11116,6 +11123,72 @@ select.settings-inline-input {
 
 .start-run-modal {
   max-width: 480px;
+}
+
+/* ── Step progress indicator ─────────────────────────────────────────── */
+.start-run-progress {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.875rem 1.25rem 0;
+  position: relative;
+}
+.start-run-progress-step {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  z-index: 1;
+}
+.start-run-progress-dot {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: #F1F1F1;
+  color: #C0C0C0;
+  font-size: 0.625rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.25s ease;
+}
+.start-run-progress-step--active .start-run-progress-dot {
+  background: var(--header-bg);
+  color: #fff;
+}
+.start-run-progress-step--current .start-run-progress-dot {
+  box-shadow: 0 0 0 3px rgba(28, 158, 255, 0.15);
+}
+.start-run-progress-label {
+  font-size: 0.5625rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #C0C0C0;
+  transition: color 0.2s;
+}
+.start-run-progress-step--active .start-run-progress-label {
+  color: #959595;
+}
+.start-run-progress-step--current .start-run-progress-label {
+  color: var(--header-bg);
+}
+.start-run-progress-track {
+  position: absolute;
+  top: calc(0.875rem + 11px);
+  left: calc(1.25rem + 11px);
+  right: calc(1.25rem + 11px);
+  height: 2px;
+  background: #F1F1F1;
+  border-radius: 1px;
+  z-index: 0;
+}
+.start-run-progress-fill {
+  height: 100%;
+  background: var(--header-bg);
+  border-radius: 1px;
+  transition: width 0.3s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .start-run-templates {

@@ -345,6 +345,14 @@ export const StartRunModal: React.FC<StartRunModalProps> = ({ templates, onClose
             </>
         );
 
+    const STEPS: { key: Step; label: string }[] = [
+        { key: 'template', label: 'Process' },
+        { key: 'packages', label: 'Material' },
+        { key: 'product', label: 'Configure' },
+        { key: 'details', label: 'Details' },
+    ];
+    const currentStepIdx = STEPS.findIndex(s => s.key === step);
+
     return (
         <Modal
             title={title}
@@ -353,6 +361,27 @@ export const StartRunModal: React.FC<StartRunModalProps> = ({ templates, onClose
             footer={footer}
         >
             <>
+                {/* ── Step Progress ─────────────────────────────────────── */}
+                <div className="start-run-progress">
+                    {STEPS.map((s, i) => (
+                        <div
+                            key={s.key}
+                            className={`start-run-progress-step ${i <= currentStepIdx ? 'start-run-progress-step--active' : ''} ${i === currentStepIdx ? 'start-run-progress-step--current' : ''}`}
+                        >
+                            <div className="start-run-progress-dot">
+                                {i < currentStepIdx ? <Check size={10} /> : <span>{i + 1}</span>}
+                            </div>
+                            <span className="start-run-progress-label">{s.label}</span>
+                        </div>
+                    ))}
+                    <div className="start-run-progress-track">
+                        <div
+                            className="start-run-progress-fill"
+                            style={{ width: `${(currentStepIdx / (STEPS.length - 1)) * 100}%` }}
+                        />
+                    </div>
+                </div>
+
                 {/* ── Step 1: Template ────────────────────────────────────── */}
                 {step === 'template' && (
                     <div className="start-run-templates">
