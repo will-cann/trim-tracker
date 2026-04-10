@@ -1,12 +1,13 @@
 import { useState, useMemo, useEffect } from 'react';
 import { ArrowRight, AlertTriangle, Loader2 } from 'lucide-react';
-import type { BackwardPlan, ProductType, Strain, Package } from '../../types/definitions';
+import type { BackwardPlan, ProductType, Strain, Package, ProcessTemplate } from '../../types/definitions';
 import { apiService } from '../../services/apiService';
 
 export const PlanningCalculator: React.FC = () => {
     const [productTypes, setProductTypes] = useState<ProductType[]>([]);
     const [strains, setStrains] = useState<Strain[]>([]);
     const [packages, setPackages] = useState<Package[]>([]);
+    const [templates, setTemplates] = useState<ProcessTemplate[]>([]);
     const [loading, setLoading] = useState(true);
 
     // Form state
@@ -24,17 +25,32 @@ export const PlanningCalculator: React.FC = () => {
             apiService.getProductTypes(),
             apiService.getStrains(),
             apiService.getPackages({ status: 'active' }),
-        ]).then(([pt, st, pk]) => {
+            apiService.getProcessTemplates('extraction'),
+        ]).then(([pt, st, pk, tmpl]) => {
             setProductTypes(pt);
             setStrains(st);
             setPackages(pk);
+            setTemplates(tmpl);
             setLoading(false);
         });
     }, []);
 
+    // Only include products that at least one SOP can actually produce.
+    // Anything without a matching template is unplannable, so don't show it.
+    const plannableOutputs = useMemo(() => {
+        const set = new Set<string>();
+        for (const t of templates) {
+            for (const out of t.producibleOutputs || []) set.add(out);
+        }
+        return set;
+    }, [templates]);
+
     const finishedTypes = useMemo(
-        () => productTypes.filter(pt => pt.category === 'finished' || pt.category === 'intermediate'),
-        [productTypes]
+        () => productTypes.filter(pt =>
+            (pt.category === 'finished' || pt.category === 'intermediate') &&
+            plannableOutputs.has(pt.name)
+        ),
+        [productTypes, plannableOutputs]
     );
 
     const selectedPt = productTypes.find(pt => pt.name === targetOutputType);
