@@ -1,11 +1,12 @@
 import { useState, useMemo, useEffect } from 'react';
 import { ArrowRight, AlertTriangle, Loader2 } from 'lucide-react';
-import type { BackwardPlan, ProductType, Strain } from '../../types/definitions';
+import type { BackwardPlan, ProductType, Strain, Package } from '../../types/definitions';
 import { apiService } from '../../services/apiService';
 
 export const PlanningCalculator: React.FC = () => {
     const [productTypes, setProductTypes] = useState<ProductType[]>([]);
     const [strains, setStrains] = useState<Strain[]>([]);
+    const [packages, setPackages] = useState<Package[]>([]);
     const [loading, setLoading] = useState(true);
 
     // Form state
@@ -22,9 +23,11 @@ export const PlanningCalculator: React.FC = () => {
         Promise.all([
             apiService.getProductTypes(),
             apiService.getStrains(),
-        ]).then(([pt, st]) => {
+            apiService.getPackages({ status: 'active' }),
+        ]).then(([pt, st, pk]) => {
             setProductTypes(pt);
             setStrains(st);
+            setPackages(pk);
             setLoading(false);
         });
     }, []);
@@ -35,6 +38,44 @@ export const PlanningCalculator: React.FC = () => {
     );
 
     const selectedPt = productTypes.find(pt => pt.name === targetOutputType);
+
+    // Per-strain biomass availability — sum all active biomass packages per strain.
+    // When the user picks a target output, we'd ideally filter to the specific
+    // biomass that SOP accepts, but without running the full planner we don't
+    // know which one — so show total biomass across all types. Good enough for
+    // sorting the list; the real gap check runs server-side during Calculate.
+    const biomassByStrain = useMemo(() => {
+        const biomassTypeNames = new Set(
+            productTypes.filter(pt => pt.category === 'biomass').map(pt => pt.name)
+        );
+        const map = new Map<string, number>();
+        for (const p of packages) {
+            if (!p.strain || !biomassTypeNames.has(p.packageType)) continue;
+            const qty = typeof p.quantity === 'number' ? p.quantity : parseFloat(p.quantity as unknown as string);
+            if (!qty || qty <= 0) continue;
+            map.set(p.strain, (map.get(p.strain) || 0) + qty);
+        }
+        return map;
+    }, [packages, productTypes]);
+
+    // Sort strains: in-stock first (descending qty), then out-of-stock alphabetical
+    const sortedStrains = useMemo(() => {
+        const inStock: { strain: Strain; qty: number }[] = [];
+        const outOfStock: Strain[] = [];
+        for (const s of strains) {
+            const qty = biomassByStrain.get(s.name) || 0;
+            if (qty > 0) inStock.push({ strain: s, qty });
+            else outOfStock.push(s);
+        }
+        inStock.sort((a, b) => b.qty - a.qty);
+        outOfStock.sort((a, b) => a.name.localeCompare(b.name));
+        return { inStock, outOfStock };
+    }, [strains, biomassByStrain]);
+
+    const formatBiomassQty = (g: number) => {
+        if (g >= 1000) return `${(g / 1000).toLocaleString(undefined, { maximumFractionDigits: 1 })} kg`;
+        return `${Math.round(g)} g`;
+    };
 
     const canPlan = targetOutputType && targetQuantity && parseFloat(targetQuantity) > 0 && !planning;
 
@@ -104,9 +145,22 @@ export const PlanningCalculator: React.FC = () => {
                         onChange={e => setStrain(e.target.value)}
                     >
                         <option value="">Any strain (template yields)</option>
-                        {strains.map(s => (
-                            <option key={s.id} value={s.name}>{s.name}</option>
-                        ))}
+                        {sortedStrains.inStock.length > 0 && (
+                            <optgroup label="In stock">
+                                {sortedStrains.inStock.map(({ strain: s, qty }) => (
+                                    <option key={s.id} value={s.name}>
+                                        {s.name} — {formatBiomassQty(qty)} available
+                                    </option>
+                                ))}
+                            </optgroup>
+                        )}
+                        {sortedStrains.outOfStock.length > 0 && (
+                            <optgroup label="Other strains">
+                                {sortedStrains.outOfStock.map(s => (
+                                    <option key={s.id} value={s.name}>{s.name}</option>
+                                ))}
+                            </optgroup>
+                        )}
                     </select>
                     <button
                         className="planning-btn"
