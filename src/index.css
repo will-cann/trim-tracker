@@ -7285,16 +7285,6 @@ select.field-input {
   box-shadow: 0 0 0 3px rgba(59, 181, 112, 0.12);
 }
 
-.product-type-slug {
-  display: block;
-  font-size: 0.625rem;
-  font-family: 'JetBrains Mono', 'SF Mono', ui-monospace, monospace;
-  color: #C0C0C0;
-  padding: 0 8px;
-  margin-top: 2px;
-  letter-spacing: 0;
-}
-
 /* Inline select for category + unit */
 .product-type-select {
   font-size: 0.75rem;

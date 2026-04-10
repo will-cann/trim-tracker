@@ -69,7 +69,6 @@ const ProductTypeRow: React.FC<ProductTypeRowProps> = ({ pt, onUpdate, onDeactiv
                     onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
                     className="product-type-name-input"
                 />
-                <span className="product-type-slug">{pt.name}</span>
             </td>
             <td className="product-type-cell">
                 <select
