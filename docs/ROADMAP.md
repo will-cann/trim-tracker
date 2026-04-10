@@ -2,7 +2,7 @@
 
 Planned features, integrations, and improvements. Updated as priorities evolve.
 
-> Last updated: 2026-04-02
+> Last updated: 2026-04-10
 
 ---
 
@@ -144,6 +144,12 @@ Planned features, integrations, and improvements. Updated as priorities evolve.
 - User creates a filter configuration, names it, reuses it
 - Applies across: plant map, packages, harvests, tasks, etc.
 
+### SMS Task Notifications (Tactical MVP)
+- Before a native mobile app, wire up SMS delivery of daily task assignments via Twilio or similar
+- Morning message with the day's tasks, reply to mark complete
+- Fastest path to the "show up and get told what to do" tech experience
+- **SME context (2026-04-09):** Holland explicitly suggested text/SMS as faster than building an iOS app. His vision: tech shows up, gets a push notification with today's tasks, green-checks each one when done. Accountability trail if tasks aren't completed.
+
 ### Settings Reorganization
 - Add sub-tabs to settings for better organization
 - Current settings page is flat; needs grouping (account, team, facility, integrations, etc.)
@@ -192,12 +198,31 @@ Planned features, integrations, and improvements. Updated as priorities evolve.
 - METRC package creation & adjustment for extraction batches
 - **Basic extraction logging built** — `record-extraction` endpoint, extraction_logs table, package creation from extraction output
 - **SME guidance (2026-03-30):** hash making and METRC concentrate packages are universal — build now, refine with feedback. "Don't build on hypotheticals" — SME wants to run batches first.
+- **Standard batch size (2026-04-09):** add `standard_batch_size_grams` to SOPs or equipment profiles. Batch sizes are always in increments of 500g (testing minimum). Use for planning estimates and soft validation, never as a hard block.
+- **Cycle time is fixed, not input-dependent (2026-04-09):** a wash takes ~4.5 hours regardless of input weight. No need for time-scaling logic in SOP steps — keep durations as fixed estimates.
+
+### Demand-Backward Planning
+- Planning flow that starts from a target output ("I need 500g of rosin") and reverse-engineers input requirements using historical yield data per strain
+- Surfaces what's on hand vs. what needs to be sourced externally
+- Both planning directions must coexist: vertically integrated ops start from inventory on hand, wholesale/contract extractors start from sales demand
+- Could be conversational (AI chat: "I need 1,000 carts for next month") or a dedicated planning view
+- A single planning session may produce multiple runs across multiple days
+- **SME context (2026-04-09):** Holland's entire workflow starts from "how many grams do I need?" and works backward. "I need 500g rosin → at 3.5% yield I need 35 lbs fresh frozen → source from garden X at $65/lb." This is the primary workflow for contract extractors.
+
+### Supplier CRM (External Fresh Frozen Sourcing)
+- Lightweight contacts/vendor system for tracking external growers who supply fresh frozen
+- Track: contact info, strains available, pricing history, quality notes, last purchase date
+- Seasonal reminders ("you bought from this grower last June for 710 prep — time to reach out")
+- Future: automated email/voice outreach ("this is Holland's team — what fresh frozen do you have available?")
+- Not a marketplace — just a contacts + history + reminder system
+- **SME context (2026-04-09):** sourcing external fresh frozen is ~1/3 of Holland's job. He gives genetics to growers, gets first refusal at discounted rates. An agent that manages this sourcing would "be my assistant."
 
 ### P1: Supply Chain & Reorder Alerts
 - Recipe / Bill of Materials (e.g., 1 cart = 0.5g rosin + 1 empty cart)
 - Smart reorder alerts with lead time learning
 - Lab tech reorder permissions with spend limits
 - Track consumables (bags, screens, carts, hardware) with smart reorder
+- **SME blocker (2026-04-09):** lab tech self-service reordering is one of two hard blockers to adoption. Techs in remote facilities (Maryland, Buffalo) call Holland to order press bags, silicone papers, wash bags. The app should let techs trigger reorders without a phone call.
 
 ### P2: Analytics & Optimization
 - Strain-level economics (yield %, cost per gram over time)
@@ -213,6 +238,7 @@ Planned features, integrations, and improvements. Updated as priorities evolve.
 - Manufacturing/processing API endpoints
 - Goal: operators never log into METRC directly
 - **Prerequisite:** plant tagging starting-tag selector, SOP workflow templates designed
+- **SME blocker (2026-04-09):** METRC API is one of two hard blockers to adoption. Holland spends 45+ minutes on calls dictating batch numbers and weights to a compliance admin. "Reorders and METRC API — you solve a lot of problems for me."
 
 ### BioTrack
 - Evaluate API availability and feature parity with METRC integration
@@ -234,6 +260,12 @@ Planned features, integrations, and improvements. Updated as priorities evolve.
 
 ## Infrastructure & Brand
 
+### Inventory Snapshots (Point-in-Time Rollback)
+- Periodic snapshots of inventory state (e.g., every 6 hours via cron) for recovery from accidental or malicious data changes
+- Simple implementation: dump current inventory quantities to an `inventory_snapshots` table with timestamp
+- Enables fast recovery — admin reverts to last known-good state instead of reconstructing from scratch
+- **Context (2026-04-09):** Holland's father (network security) raised the disgruntled employee scenario. Current mitigations: RBAC, compliance gate on METRC actions, immediate account deactivation. Snapshots add a safety net for data integrity.
+
 ### NeuroCann Domain Migration
 - Domain: neurocann.ai (purchased ~2026-03-29)
 - Code changes: HTML title, Auth0 audience URLs, Auth0 namespace, IndexedDB name, package.json name
@@ -253,3 +285,4 @@ Planned features, integrations, and improvements. Updated as priorities evolve.
 - Multi-strain mixing rules for extraction
 - AI SQL query access — sandboxing, read-only constraints, guardrails
 - Sub-agent architecture — what domains, how they coordinate
+- **Design partner (Maryland):** Holland setting up a facility with a well-capitalized partner (Jordan). Holland is sole decision-maker on ops, owner-operator model, indoor + outdoor + modular extraction. Could be the ideal first real deployment. Timeline: partner closing a deal, Holland on-site end of April.

@@ -242,6 +242,162 @@
           }
         }
       }]
+    },
+    {
+      "id": "entity_plants_unified_01",
+      "tags": ["plants", "unified_tool", "update_health", "pr1_collapse"],
+      "input": "six Wedding Cake plants in flower room 2 have powdery mildew on the lower fan leaves",
+      "context_key": "default",
+      "expected_actions": [{
+        "type": "plants",
+        "fields": {
+          "action": {"value": "update_health", "type": "enum"},
+          "strainName": {"value": "Wedding Cake", "match": "fuzzy"},
+          "sourceRoomName": {"value": "Flower Room 2", "match": "fuzzy"},
+          "contaminants": {
+            "type": "array",
+            "value": "array containing 'powdery_mildew'"
+          }
+        }
+      }]
+    },
+    {
+      "id": "entity_plants_unified_02",
+      "tags": ["plants", "unified_tool", "move", "pr1_collapse"],
+      "input": "move the Gelato batch from nursery to veg room 1",
+      "context_key": "default",
+      "expected_actions": [{
+        "type": "plants",
+        "fields": {
+          "action": {"value": "move", "type": "enum"},
+          "strainName": {"value": "Gelato", "match": "fuzzy"},
+          "targetRoomName": {"value": "Veg Room 1", "match": "fuzzy"}
+        }
+      }]
+    },
+    {
+      "id": "entity_plants_unified_03",
+      "tags": ["plants", "unified_tool", "create", "pr1_collapse"],
+      "input": "start fifty Blue Dream clones in nursery A",
+      "context_key": "default",
+      "expected_actions": [{
+        "type": "plants",
+        "fields": {
+          "action": {"value": "create", "type": "enum"},
+          "entity": {"value": "batch", "type": "enum"},
+          "strainName": {"value": "Blue Dream", "match": "fuzzy"},
+          "roomName": {"value": "Nursery A", "match": "fuzzy"},
+          "count": {"value": 50, "type": "number", "tolerance_pct": 0},
+          "batchType": {"value": "clone", "type": "enum"}
+        }
+      }]
+    },
+    {
+      "id": "entity_plants_unified_04_planned_for",
+      "tags": ["plants", "unified_tool", "planned_for", "pr1_collapse"],
+      "input": "next Monday we're going to start 80 Wedding Cake clones in nursery A",
+      "context_key": "default",
+      "expected_actions": [{
+        "type": "create_human_task",
+        "fields": {
+          "onCompleteAction": {
+            "type": "object",
+            "value": "must wrap create_planting for Wedding Cake, 80 clones, nursery A"
+          }
+        }
+      }]
+    },
+    {
+      "id": "entity_extraction_unified_01_plan",
+      "tags": ["extraction", "unified_tool", "plan", "pr1_collapse"],
+      "input": "plan a live rosin run for Toadstool OG tomorrow with 2500 grams of fresh frozen",
+      "context_key": "extraction",
+      "expected_actions": [{
+        "type": "extraction_run",
+        "fields": {
+          "action": {"value": "plan", "type": "enum"},
+          "strain": {"value": "Toadstool OG", "match": "fuzzy"},
+          "plannedStart": {"value": "tomorrow", "match": "date_offset_days", "days": 1},
+          "inputs": {"type": "array", "value": "one input with packageType fresh_frozen and quantity 2500"}
+        }
+      }]
+    },
+    {
+      "id": "entity_extraction_unified_02_start",
+      "tags": ["extraction", "unified_tool", "start", "pr1_collapse"],
+      "input": "start a wash on the Blue Dream fresh frozen right now",
+      "context_key": "extraction",
+      "expected_actions": [{
+        "type": "extraction_run",
+        "fields": {
+          "action": {"value": "start", "type": "enum"},
+          "strain": {"value": "Blue Dream", "match": "fuzzy"},
+          "inputs": {"type": "array", "value": "one input with packageType fresh_frozen"}
+        }
+      }]
+    },
+    {
+      "id": "entity_extraction_unified_03_record_yield",
+      "tags": ["extraction", "unified_tool", "record_yield", "pr1_collapse"],
+      "input": "the Toadstool wash got 180 grams of bubble hash",
+      "context_key": "extraction_with_active_runs",
+      "expected_actions": [{
+        "type": "extraction_run",
+        "fields": {
+          "action": {"value": "record_yield", "type": "enum"},
+          "strain": {"value": "Toadstool", "match": "fuzzy"},
+          "outputPackageType": {"value": "bubble_hash", "type": "enum"},
+          "outputQuantity": {"value": 180, "type": "number", "tolerance_pct": 2}
+        }
+      }]
+    },
+    {
+      "id": "entity_extraction_multi_input_chunk_a",
+      "tags": ["extraction", "multi_input", "ambient", "issue_25", "pr1_collapse"],
+      "input": "let's kick off a big wash with Wedding Cake, Blue Dream, and Gelato fresh frozen",
+      "context_key": "extraction",
+      "expected_actions": [{
+        "type": "extraction_run",
+        "fields": {
+          "action": {"value": "start", "type": "enum"},
+          "inputs": {"type": "array", "value": "three inputs, one for each of Wedding Cake, Blue Dream, Gelato, all packageType fresh_frozen"}
+        }
+      }]
+    },
+    {
+      "id": "entity_extraction_multi_input_chunk_b_amend",
+      "tags": ["extraction", "multi_input", "ambient", "issue_25", "amend_inputs", "pr1_collapse"],
+      "input": "oh and also add Zkittlez and Purple Punch to that wash",
+      "context_key": "extraction_with_active_wash",
+      "expected_actions": [{
+        "type": "extraction_run",
+        "fields": {
+          "action": {"value": "amend_inputs", "type": "enum"},
+          "inputs": {"type": "array", "value": "two inputs for Zkittlez and Purple Punch (must NOT start a new run)"}
+        }
+      }]
+    },
+    {
+      "id": "entity_issue_18_no_auto_create",
+      "tags": ["prompt_rules", "issue_18", "no_auto_create", "fuzzy_match"],
+      "input": "give me an update on Golden",
+      "context_key": "default_with_golden_goat",
+      "expected_actions": []
+    },
+    {
+      "id": "entity_issue_22_no_task_merge",
+      "tags": ["prompt_rules", "issue_22", "task_creation"],
+      "input": "clean out the trays today",
+      "context_key": "default_with_rack_cleaning_task",
+      "expected_actions": [{
+        "type": "create_human_tasks",
+        "fields": {
+          "tasks": {
+            "type": "array",
+            "value": "one NEW task with title about cleaning trays (must NOT update the existing 'clean out rack B' task)"
+          }
+        }
+      }]
     }
   ]
 }
