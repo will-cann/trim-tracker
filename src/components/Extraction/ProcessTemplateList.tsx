@@ -616,20 +616,22 @@ const TemplateEditor: React.FC<TemplateEditorProps> = ({ template, onSave, onCan
 
     const materialGroups = useMemo(() => buildGroupedMaterialOptions(productTypes), [productTypes]);
 
-    // Filter product types by the template's process type.
-    // Biomass/additives are universal (empty processTypes = all pathways).
-    // Intermediates/finished show if their processTypes includes the current process OR is empty.
+    // Pathway tags describe which process *produces* a product type.
+    // That makes filtering asymmetric:
+    //   - Produces: filtered by current process type — a BHO SOP can't produce rosin
+    //   - Accepts: NOT filtered — any intermediate from any pathway is a valid input
+    //     (e.g. a distillate SOP can start from BHO-produced crude extract)
     const matchesProcess = (pt: ProductType) =>
         pt.processTypes.length === 0 || pt.processTypes.includes(processType);
 
-    // Accepts: biomass + intermediates relevant to this process type
+    // Accepts: all biomass + all intermediates — pathway-agnostic
     const inputOptions = useMemo(
         () => productTypes
-            .filter(pt => (pt.category === 'biomass' || pt.category === 'intermediate') && matchesProcess(pt))
+            .filter(pt => pt.category === 'biomass' || pt.category === 'intermediate')
             .map(pt => ({ value: pt.name, label: pt.displayName })),
-        [productTypes, processType]
+        [productTypes]
     );
-    // Produces: intermediates + finished goods relevant to this process type
+    // Produces: intermediates + finished goods whose pathway tags match this process
     const outputOptions = useMemo(
         () => productTypes
             .filter(pt => (pt.category === 'intermediate' || pt.category === 'finished') && matchesProcess(pt))

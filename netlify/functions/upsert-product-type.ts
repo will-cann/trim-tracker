@@ -1,5 +1,5 @@
 import { Handler } from '@netlify/functions';
-import { sql } from './utils/db';
+import { pool } from './utils/db';
 import { resolveContext } from './utils/auth';
 
 const VALID_CATEGORIES = ['biomass', 'intermediate', 'finished', 'additive'];
@@ -57,22 +57,18 @@ export const handler: Handler = async (event) => {
         const procTypes: string[] = Array.isArray(processTypes) ? processTypes : [];
 
         if (id) {
-            // Update existing
-            const result = await sql`
-                UPDATE product_types
-                SET name = ${normalizedName},
-                    display_name = ${displayName},
-                    category = ${category},
-                    default_unit = ${unit},
-                    is_cannabis = ${cannabis},
-                    process_types = ${procTypes}::text[],
-                    metrc_item_category = ${metrcItemCategory || null},
-                    is_active = ${active},
-                    sort_order = ${sort},
-                    updated_at = NOW()
-                WHERE id = ${id} AND company_id = ${context.companyId}
-                RETURNING *
-            `;
+            // Update existing — use pool.query so the pg driver handles the
+            // JS string array natively for process_types (TEXT[]).
+            const result = await pool.query(
+                `UPDATE product_types
+                 SET name = $1, display_name = $2, category = $3, default_unit = $4,
+                     is_cannabis = $5, process_types = $6, metrc_item_category = $7,
+                     is_active = $8, sort_order = $9, updated_at = NOW()
+                 WHERE id = $10 AND company_id = $11
+                 RETURNING *`,
+                [normalizedName, displayName, category, unit, cannabis, procTypes,
+                 metrcItemCategory || null, active, sort, id, context.companyId]
+            );
             if (result.rows.length === 0) {
                 return { statusCode: 404, body: JSON.stringify({ error: 'Product type not found' }) };
             }
@@ -83,16 +79,13 @@ export const handler: Handler = async (event) => {
             };
         }
 
-        // Insert new (or no-op if already exists with same name)
-        const result = await sql`
-            INSERT INTO product_types (
+        // Insert new (or upsert on conflict)
+        const result = await pool.query(
+            `INSERT INTO product_types (
                 company_id, name, display_name, category, default_unit,
                 is_cannabis, process_types, metrc_item_category, is_active, sort_order
             )
-            VALUES (
-                ${context.companyId}, ${normalizedName}, ${displayName}, ${category}, ${unit},
-                ${cannabis}, ${procTypes}::text[], ${metrcItemCategory || null}, ${active}, ${sort}
-            )
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
             ON CONFLICT (company_id, name) DO UPDATE
             SET display_name = EXCLUDED.display_name,
                 category = EXCLUDED.category,
@@ -103,8 +96,10 @@ export const handler: Handler = async (event) => {
                 is_active = EXCLUDED.is_active,
                 sort_order = EXCLUDED.sort_order,
                 updated_at = NOW()
-            RETURNING *
-        `;
+            RETURNING *`,
+            [context.companyId, normalizedName, displayName, category, unit,
+             cannabis, procTypes, metrcItemCategory || null, active, sort]
+        );
 
         return {
             statusCode: 201,
