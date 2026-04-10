@@ -23,8 +23,10 @@ import type { ChatMessage, ProposedAction } from '../types/definitions';
 
 interface AmbientProviderProps {
     children: React.ReactNode;
-    /** Snapshot builder — called on every utterance flush. */
-    getContext: () => Record<string, unknown>;
+    /** Snapshot builder — called on every utterance flush. Typed as
+     *  Parameters<typeof apiService.aiParse>[0]['context'] so the provider
+     *  stays automatically aligned with the backend's input schema. */
+    getContext: () => Parameters<typeof apiService.aiParse>[0]['context'];
     /** Invoked for every non-intercepted task-style action (passive capture). */
     onCreateHumanTasks?: (tasks: Array<{ title: string; description?: string; priority: string; category: string; dueDate?: string; assignee?: string; location?: string }>) => Promise<void>;
     /** Return true to swallow an action (e.g. extraction card intercepts). */
