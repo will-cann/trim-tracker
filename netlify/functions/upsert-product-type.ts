@@ -65,7 +65,7 @@ export const handler: Handler = async (event) => {
                     category = ${category},
                     default_unit = ${unit},
                     is_cannabis = ${cannabis},
-                    process_types = ${procTypes},
+                    process_types = ${procTypes}::text[],
                     metrc_item_category = ${metrcItemCategory || null},
                     is_active = ${active},
                     sort_order = ${sort},
@@ -91,7 +91,7 @@ export const handler: Handler = async (event) => {
             )
             VALUES (
                 ${context.companyId}, ${normalizedName}, ${displayName}, ${category}, ${unit},
-                ${cannabis}, ${procTypes}, ${metrcItemCategory || null}, ${active}, ${sort}
+                ${cannabis}, ${procTypes}::text[], ${metrcItemCategory || null}, ${active}, ${sort}
             )
             ON CONFLICT (company_id, name) DO UPDATE
             SET display_name = EXCLUDED.display_name,
