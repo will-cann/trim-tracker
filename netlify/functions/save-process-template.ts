@@ -55,9 +55,10 @@ export const handler: Handler = async (event) => {
                 templateId = rows[0].id;
             }
 
-            // Insert steps
+            // Insert steps and collect their IDs for supply requirements
+            const stepIdByOrder: Record<number, string> = {};
             for (const step of steps) {
-                await client.query(
+                const { rows: [inserted] } = await client.query(
                     `INSERT INTO process_steps (
                         template_id, step_order, name, description,
                         input_type, output_type, equipment_type,
@@ -69,7 +70,8 @@ export const handler: Handler = async (event) => {
                         is_critical, recurrence
                     ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11,
                               $12, $13, $14,
-                              $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26)`,
+                              $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26)
+                    RETURNING id`,
                     [
                         templateId,
                         step.stepOrder,
@@ -101,6 +103,20 @@ export const handler: Handler = async (event) => {
                         step.recurrence ? JSON.stringify(step.recurrence) : null,
                     ]
                 );
+                stepIdByOrder[step.stepOrder] = inserted.id;
+
+                // Save structured supply requirements for this step
+                if (step.supplyRequirements?.length) {
+                    for (const req of step.supplyRequirements) {
+                        if (!req.supplyItemId || !req.quantityPer) continue;
+                        await client.query(
+                            `INSERT INTO step_supply_requirements (step_id, supply_item_id, quantity_per)
+                             VALUES ($1, $2, $3)
+                             ON CONFLICT (step_id, supply_item_id) DO UPDATE SET quantity_per = $3`,
+                            [inserted.id, req.supplyItemId, req.quantityPer]
+                        );
+                    }
+                }
             }
 
             await client.query('COMMIT');

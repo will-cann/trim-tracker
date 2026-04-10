@@ -1,8 +1,8 @@
 import { useState, useMemo, useEffect } from 'react';
-import { Check, Plus, Trash2, AlertCircle, Loader2 } from 'lucide-react';
+import { Check, Plus, Trash2, AlertCircle, AlertTriangle, Loader2 } from 'lucide-react';
 import { Modal, Button } from '../ui';
 import { apiService, type FinalizeRunOutput, type FinalizeRunCheckIn } from '../../services/apiService';
-import type { ExtractionRun, ProductType } from '../../types/definitions';
+import type { ExtractionRun, ProductType, SupplyItem } from '../../types/definitions';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // FinishRunModal — schedule-driven run finalization
@@ -78,6 +78,7 @@ function makeDefaultOutputLine(run: ExtractionRun, productTypes: ProductType[]):
 export const FinishRunModal: React.FC<FinishRunModalProps> = ({ run, onClose, onCompleted }) => {
     const [productTypes, setProductTypes] = useState<ProductType[]>([]);
     const [templateOutputs, setTemplateOutputs] = useState<string[]>([]); // producibleOutputs from the run's SOP
+    const [belowParItems, setBelowParItems] = useState<SupplyItem[]>([]);
     const [loadingCatalog, setLoadingCatalog] = useState(true);
     const [outputs, setOutputs] = useState<OutputLine[]>([]);
     // Check-in values — map of stepId → numeric string being edited
@@ -89,12 +90,14 @@ export const FinishRunModal: React.FC<FinishRunModalProps> = ({ run, onClose, on
     useEffect(() => {
         let cancelled = false;
         const loadCatalog = async () => {
-            const [types, templates] = await Promise.all([
+            const [types, templates, lowStock] = await Promise.all([
                 apiService.getProductTypes(),
                 run.templateId ? apiService.getProcessTemplates('extraction') : Promise.resolve([]),
+                apiService.getSupplyItems('extraction', true),
             ]);
             if (cancelled) return;
             setProductTypes(types);
+            setBelowParItems(lowStock);
             const tmpl = templates.find(t => t.id === run.templateId);
             if (tmpl?.producibleOutputs?.length) setTemplateOutputs(tmpl.producibleOutputs);
             return types;
@@ -262,6 +265,27 @@ export const FinishRunModal: React.FC<FinishRunModalProps> = ({ run, onClose, on
                     {error && (
                         <div className="finish-run-error">
                             <AlertCircle size={14} /> {error}
+                        </div>
+                    )}
+
+                    {/* ── Below-par supply alert ───────────────────────────────── */}
+                    {belowParItems.length > 0 && (
+                        <div style={{
+                            display: 'flex', alignItems: 'flex-start', gap: '8px',
+                            padding: '10px 12px', borderRadius: '8px',
+                            background: 'rgba(250, 158, 82, 0.08)', border: '1px solid rgba(250, 158, 82, 0.2)',
+                            fontSize: '12px', color: '#8B6914', marginBottom: '12px',
+                        }}>
+                            <AlertTriangle size={14} style={{ flexShrink: 0, marginTop: '1px' }} />
+                            <div>
+                                <strong>{belowParItems.length} supply {belowParItems.length === 1 ? 'item is' : 'items are'} below par level</strong>
+                                <div style={{ marginTop: '4px', color: '#A07D1C' }}>
+                                    {belowParItems.slice(0, 5).map(si => (
+                                        <div key={si.id}>{si.name}: {si.quantityOnHand} {si.unit} on hand{si.parLevel != null ? ` (par: ${si.parLevel} ${si.unit})` : ''}</div>
+                                    ))}
+                                    {belowParItems.length > 5 && <div>...and {belowParItems.length - 5} more</div>}
+                                </div>
+                            </div>
                         </div>
                     )}
 

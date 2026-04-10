@@ -45,10 +45,37 @@ export const handler: Handler = async (event) => {
                 WHERE template_id = ANY(${templateIds})
                 ORDER BY step_order ASC
             `;
+
+            // Load supply requirements for all steps in one query
+            const stepIds = steps.rows.map((s: any) => s.id);
+            let supplyReqMap: Record<string, any[]> = {};
+            if (stepIds.length > 0) {
+                const reqs = await sql`
+                    SELECT ssr.step_id, ssr.supply_item_id, ssr.quantity_per,
+                           si.name AS supply_name, si.unit AS supply_unit
+                    FROM step_supply_requirements ssr
+                    JOIN supply_items si ON si.id = ssr.supply_item_id
+                    WHERE ssr.step_id = ANY(${stepIds})
+                    ORDER BY si.name ASC
+                `;
+                for (const req of reqs.rows) {
+                    if (!supplyReqMap[req.step_id]) supplyReqMap[req.step_id] = [];
+                    supplyReqMap[req.step_id].push({
+                        supplyItemId: req.supply_item_id,
+                        quantityPer: parseFloat(req.quantity_per),
+                        supplyName: req.supply_name,
+                        supplyUnit: req.supply_unit,
+                    });
+                }
+            }
+
             for (const step of steps.rows) {
                 const tid = step.template_id;
                 if (!stepsMap[tid]) stepsMap[tid] = [];
-                stepsMap[tid].push(formatStep(step));
+                stepsMap[tid].push({
+                    ...formatStep(step),
+                    supplyRequirements: supplyReqMap[step.id] || [],
+                });
             }
         }
 

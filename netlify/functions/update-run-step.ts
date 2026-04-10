@@ -91,7 +91,11 @@ export const handler: Handler = async (event) => {
 
         values.push(id);
 
-        const result = await pool.query(
+        const client = await pool.connect();
+        try {
+        await client.query('BEGIN');
+
+        const result = await client.query(
             `UPDATE extraction_run_steps SET ${sets.join(', ')}
              WHERE id = $${idx}
              RETURNING *`,
@@ -99,6 +103,52 @@ export const handler: Handler = async (event) => {
         );
 
         const s = result.rows[0];
+
+        // ── Supply consumption hook ─────────────────────────────────────
+        // When a step transitions to 'completed' and has a template_step_id,
+        // look up step_supply_requirements and decrement supply inventory.
+        const justCompleted = status === 'completed' && s.template_step_id;
+        if (justCompleted) {
+            const reqResult = await client.query(
+                `SELECT ssr.supply_item_id, ssr.quantity_per,
+                        si.quantity_on_hand, si.name AS supply_name
+                 FROM step_supply_requirements ssr
+                 JOIN supply_items si ON si.id = ssr.supply_item_id
+                 WHERE ssr.step_id = $1`,
+                [s.template_step_id]
+            );
+
+            for (const req of reqResult.rows) {
+                const delta = -parseFloat(req.quantity_per);
+                const newQty = parseFloat(req.quantity_on_hand) + delta;
+
+                await client.query(
+                    `UPDATE supply_items
+                     SET quantity_on_hand = quantity_on_hand + $1, updated_at = NOW()
+                     WHERE id = $2`,
+                    [delta, req.supply_item_id]
+                );
+
+                await client.query(
+                    `INSERT INTO supply_ledger
+                        (company_id, supply_item_id, change_type, quantity_delta,
+                         quantity_after, reference_type, reference_id, performed_by, notes)
+                     VALUES ($1, $2, 'consume', $3, $4, 'extraction_run_step', $5, $6, $7)`,
+                    [
+                        context.companyId,
+                        req.supply_item_id,
+                        delta,
+                        Math.max(newQty, 0),
+                        s.id,
+                        context.userId,
+                        `Auto-consumed by step "${s.name}" completion`,
+                    ]
+                );
+            }
+        }
+
+        await client.query('COMMIT');
+
         return {
             statusCode: 200,
             headers: { 'Content-Type': 'application/json' },
@@ -123,6 +173,12 @@ export const handler: Handler = async (event) => {
                 timestampCapturedAt: s.timestamp_captured_at || null,
             }),
         };
+        } catch (e) {
+            await client.query('ROLLBACK');
+            throw e;
+        } finally {
+            client.release();
+        }
     } catch (error) {
         console.error('Error updating run step:', error);
         return { statusCode: 500, body: JSON.stringify({ error: 'Failed to update run step' }) };

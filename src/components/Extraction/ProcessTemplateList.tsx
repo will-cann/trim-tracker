@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Snowflake, Flame, Beaker, ChevronRight, ChevronDown, Clock, Percent, Wrench, ArrowRight, Plus, Trash2, GripVertical, Pencil, Check, X, Copy, User, Cog } from 'lucide-react';
-import type { ProcessTemplate, ProcessStep, ProductType } from '../../types/definitions';
+import type { ProcessTemplate, ProcessStep, ProductType, SupplyItem } from '../../types/definitions';
 import { apiService } from '../../services/apiService';
 import { CenteredSpinner } from '../Spinner';
 
@@ -85,6 +85,13 @@ const formatDuration = (hours: number | null) => {
 
 // ── Editable step type ──────────────────────────────────────────────────────
 
+interface EditableSupplyReq {
+    supplyItemId: string;
+    quantityPer: string;
+    supplyName?: string;
+    supplyUnit?: string;
+}
+
 interface EditableStep {
     _key: string; // client-side key for React
     stepOrder: number;
@@ -101,6 +108,7 @@ interface EditableStep {
     requiresWeight: boolean;
     weightUnit: string; // empty string when not required
     requiresTimestamp: boolean;
+    supplyRequirements: EditableSupplyReq[];
 }
 
 // Supported weight units — kept in sync with product_types.default_unit values
@@ -136,6 +144,12 @@ function stepToEditable(step: ProcessStep): EditableStep {
         requiresWeight: step.requiresWeight ?? false,
         weightUnit: step.weightUnit ?? '',
         requiresTimestamp: step.requiresTimestamp ?? false,
+        supplyRequirements: (step.supplyRequirements || []).map(r => ({
+            supplyItemId: r.supplyItemId,
+            quantityPer: String(r.quantityPer),
+            supplyName: r.supplyName,
+            supplyUnit: r.supplyUnit,
+        })),
     };
 }
 
@@ -155,6 +169,7 @@ function blankStep(order: number): EditableStep {
         requiresWeight: false,
         weightUnit: '',
         requiresTimestamp: false,
+        supplyRequirements: [],
     };
 }
 
@@ -302,6 +317,7 @@ const StepEditorRow: React.FC<{
     index: number;
     color: string;
     materialGroups: { label: string; options: MaterialOption[] }[];
+    supplyItems: SupplyItem[];
     onChange: (updated: EditableStep) => void;
     onRemove: () => void;
     onMoveUp: (() => void) | null;
@@ -313,7 +329,7 @@ const StepEditorRow: React.FC<{
         onDrop: () => void;
         draggable: boolean;
     };
-}> = ({ step, index, color, materialGroups, onChange, onRemove, dragHandleProps }) => {
+}> = ({ step, index, color, materialGroups, supplyItems, onChange, onRemove, dragHandleProps }) => {
     // Auto-expand on first render if any advanced field already has data
     // (editing an existing SOP). After that, the user's toggle is the sole
     // authority — useState initializer only runs once per component instance.
@@ -471,6 +487,77 @@ const StepEditorRow: React.FC<{
                             />
                             <span>Requires timestamp</span>
                         </label>
+
+                        {/* ── Supply requirements ─────────────────────────── */}
+                        {supplyItems.length > 0 && (
+                            <div style={{ marginTop: '8px' }}>
+                                <span style={{ fontSize: '11px', fontWeight: 600, color: '#959595', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                                    Supplies consumed
+                                </span>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', marginTop: '4px' }}>
+                                    {step.supplyRequirements.map((req, ri) => {
+                                        const item = supplyItems.find(si => si.id === req.supplyItemId);
+                                        return (
+                                            <div key={ri} style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                <select
+                                                    className="sop-edit-select"
+                                                    value={req.supplyItemId}
+                                                    onChange={e => {
+                                                        const updated = [...step.supplyRequirements];
+                                                        const sel = supplyItems.find(si => si.id === e.target.value);
+                                                        updated[ri] = { ...updated[ri], supplyItemId: e.target.value, supplyName: sel?.name, supplyUnit: sel?.unit };
+                                                        onChange({ ...step, supplyRequirements: updated });
+                                                    }}
+                                                    style={{ flex: 1 }}
+                                                >
+                                                    <option value="">Select supply...</option>
+                                                    {supplyItems.map(si => (
+                                                        <option key={si.id} value={si.id}>{si.name}</option>
+                                                    ))}
+                                                </select>
+                                                <input
+                                                    className="sop-edit-input sop-edit-input--sm"
+                                                    type="number"
+                                                    placeholder="Qty"
+                                                    value={req.quantityPer}
+                                                    onChange={e => {
+                                                        const updated = [...step.supplyRequirements];
+                                                        updated[ri] = { ...updated[ri], quantityPer: e.target.value };
+                                                        onChange({ ...step, supplyRequirements: updated });
+                                                    }}
+                                                    min="0"
+                                                    step="1"
+                                                    style={{ width: '60px' }}
+                                                />
+                                                <span style={{ fontSize: '10px', color: '#959595' }}>{item?.unit || req.supplyUnit || 'ea'}</span>
+                                                <button
+                                                    type="button"
+                                                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#C0C0C0', padding: '2px' }}
+                                                    onClick={() => {
+                                                        const updated = step.supplyRequirements.filter((_, i) => i !== ri);
+                                                        onChange({ ...step, supplyRequirements: updated });
+                                                    }}
+                                                >
+                                                    <Trash2 size={11} />
+                                                </button>
+                                            </div>
+                                        );
+                                    })}
+                                    <button
+                                        type="button"
+                                        className="sop-step-advanced-toggle"
+                                        onClick={() => {
+                                            onChange({
+                                                ...step,
+                                                supplyRequirements: [...step.supplyRequirements, { supplyItemId: '', quantityPer: '1' }],
+                                            });
+                                        }}
+                                    >
+                                        <Plus size={11} /> Add supply
+                                    </button>
+                                </div>
+                            </div>
+                        )}
                     </div>
                 )}
             </div>
@@ -519,10 +606,12 @@ const TemplateEditor: React.FC<TemplateEditorProps> = ({ template, onSave, onCan
     const [dragIdx, setDragIdx] = useState<number | null>(null);
     const nameRef = useRef<HTMLInputElement>(null);
 
-    // ── Product types catalog ──────────────────────────────────────────────
+    // ── Product types catalog + supply items ─────────────────────────────
     const [productTypes, setProductTypes] = useState<ProductType[]>([]);
+    const [supplyItems, setSupplyItems] = useState<SupplyItem[]>([]);
     useEffect(() => {
         apiService.getProductTypes().then(setProductTypes);
+        apiService.getSupplyItems('extraction').then(setSupplyItems);
     }, []);
 
     const materialGroups = useMemo(() => buildGroupedMaterialOptions(productTypes), [productTypes]);
@@ -603,6 +692,9 @@ const TemplateEditor: React.FC<TemplateEditorProps> = ({ template, onSave, onCan
                         requiresWeight: s.requiresWeight,
                         weightUnit: s.requiresWeight ? (s.weightUnit || 'g') : undefined,
                         requiresTimestamp: s.requiresTimestamp,
+                        supplyRequirements: s.supplyRequirements
+                            .filter(r => r.supplyItemId && r.quantityPer)
+                            .map(r => ({ supplyItemId: r.supplyItemId, quantityPer: parseFloat(r.quantityPer) || 0 })),
                     })),
             };
             const result = await apiService.saveProcessTemplate(payload);
@@ -738,6 +830,7 @@ const TemplateEditor: React.FC<TemplateEditorProps> = ({ template, onSave, onCan
                         index={idx}
                         color={color}
                         materialGroups={materialGroups}
+                        supplyItems={supplyItems}
                         onChange={updated => updateStep(idx, updated)}
                         onRemove={() => removeStep(idx)}
                         onMoveUp={idx > 0 ? () => moveStep(idx, idx - 1) : null}

@@ -411,6 +411,26 @@ export interface ProcessStep {
   requiresSupplies: string[] | null;
   isCritical: boolean;
   recurrence: { everyWeeks?: number } | null;
+  // Structured supply requirements (step_supply_requirements join table)
+  supplyRequirements?: StepSupplyRequirement[];
+}
+
+export interface StepSupplyRequirement {
+  supplyItemId: string;
+  quantityPer: number;
+  supplyName?: string;
+  supplyUnit?: string;
+}
+
+export interface YieldAverage {
+  strain: string;
+  inputType: string;
+  outputType: string;
+  avgYieldPct: number;
+  minYieldPct: number;
+  maxYieldPct: number;
+  sampleCount: number;
+  lastRunDate: string;
 }
 
 export interface ProcessTemplate {

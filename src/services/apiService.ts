@@ -1,4 +1,4 @@
-import type { TrimSession, CreateTrimSessionDTO, Trimmer, TrimmerProfile, ProposedAction, Harvest, CreateHarvestDTO, HarvestWasteType, HarvestAllocation, HarvestPlantWeight, HarvestBin, BinCureLog, CreateBinDTO, FloweringBatchGroup, Strain, License, SpeechMode, HumanTask, TeamRole, Tag, TagType, TagStats, TagSettings, Package, CreatePackageDTO, MetrcItem, PackageAdjustment, AdjustmentReason, ProductType, ProcessTemplate, ReportSpec, SavedReport, TaskViewSpec, SavedTaskView, SupplyPool, SupplyItem, SupplyLedgerEntry, SupplyChangeType, SupplyPoolSlug } from '../types/definitions';
+import type { TrimSession, CreateTrimSessionDTO, Trimmer, TrimmerProfile, ProposedAction, Harvest, CreateHarvestDTO, HarvestWasteType, HarvestAllocation, HarvestPlantWeight, HarvestBin, BinCureLog, CreateBinDTO, FloweringBatchGroup, Strain, License, SpeechMode, HumanTask, TeamRole, Tag, TagType, TagStats, TagSettings, Package, CreatePackageDTO, MetrcItem, PackageAdjustment, AdjustmentReason, ProductType, ProcessTemplate, StepSupplyRequirement, YieldAverage, ReportSpec, SavedReport, TaskViewSpec, SavedTaskView, SupplyPool, SupplyItem, SupplyLedgerEntry, SupplyChangeType, SupplyPoolSlug } from '../types/definitions';
 
 const API_BASE = '/.netlify/functions';
 
@@ -1169,6 +1169,7 @@ export const saveProcessTemplate = async (data: {
         isSpan?: boolean; spanEndWeek?: number; envTargets?: Record<string, any>;
         taskCategory?: string; onCompleteAction?: { type: string; data: Record<string, any> };
         requiresSupplies?: string[]; isCritical?: boolean; recurrence?: { everyWeeks?: number };
+        supplyRequirements?: { supplyItemId: string; quantityPer: number }[];
     }[];
 }): Promise<{ id: string }> => {
     const response = await fetchWithAuth(`${API_BASE}/save-process-template`, {
@@ -1698,6 +1699,30 @@ export const getSupplyLedger = async (itemId?: string, poolSlug?: string): Promi
     return await response.json();
 };
 
+// ── Yield Averages ──────────────────────────────────────────────────────────
+
+export const getYieldAverages = async (filters?: {
+    strain?: string; inputType?: string; outputType?: string; since?: string;
+}): Promise<YieldAverage[]> => {
+    const params = new URLSearchParams();
+    if (filters?.strain) params.set('strain', filters.strain);
+    if (filters?.inputType) params.set('inputType', filters.inputType);
+    if (filters?.outputType) params.set('outputType', filters.outputType);
+    if (filters?.since) params.set('since', filters.since);
+    const qs = params.toString();
+    const response = await fetchWithAuth(`${API_BASE}/get-yield-averages${qs ? `?${qs}` : ''}`);
+    if (!response.ok) return [];
+    return await response.json();
+};
+
+// ── Step Supply Requirements ────────────────────────────────────────────────
+
+export const getStepSupplyRequirements = async (templateId: string): Promise<StepSupplyRequirement[]> => {
+    const response = await fetchWithAuth(`${API_BASE}/get-step-supply-requirements?templateId=${templateId}`);
+    if (!response.ok) return [];
+    return await response.json();
+};
+
 export const apiService = {
     setAuthToken,
     getSession,
@@ -1844,6 +1869,10 @@ export const apiService = {
     matchProductsAi,
     saveProductAliases,
     clearSalesData,
+    // Yield averages
+    getYieldAverages,
+    // Step supply requirements
+    getStepSupplyRequirements,
     // Supply inventory
     getSupplyPools,
     getSupplyItems,
