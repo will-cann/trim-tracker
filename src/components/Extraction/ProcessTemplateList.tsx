@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { Snowflake, Flame, Beaker, ChevronRight, Percent, Wrench, ArrowRight, Plus, Trash2, GripVertical, Pencil, Check, X, Copy, User, Cog } from 'lucide-react';
+import { Snowflake, Flame, Beaker, ChevronRight, ChevronDown, Clock, Percent, Wrench, ArrowRight, Plus, Trash2, GripVertical, Pencil, Check, X, Copy, User, Cog } from 'lucide-react';
 import type { ProcessTemplate, ProcessStep } from '../../types/definitions';
 import { apiService } from '../../services/apiService';
 import { CenteredSpinner } from '../Spinner';
@@ -357,8 +357,17 @@ const StepEditorRow: React.FC<{
         draggable: boolean;
     };
 }> = ({ step, index, color, onChange, onRemove, dragHandleProps }) => {
+    const [showAdvanced, setShowAdvanced] = useState(false);
     const set = (field: keyof EditableStep, value: string | boolean) =>
         onChange({ ...step, [field]: value });
+
+    // Auto-expand the advanced section when any advanced field has a value.
+    // This way existing SOPs with input/output types, yield, or description
+    // filled in will show those fields immediately when loaded for editing.
+    const hasAdvancedValues = Boolean(
+        step.description || step.inputType || step.outputType ||
+        step.expectedYieldPct || step.estHandsOnHours || step.requiresTimestamp
+    );
 
     return (
         <div
@@ -378,6 +387,7 @@ const StepEditorRow: React.FC<{
             </div>
 
             <div className="sop-step-editor-fields">
+                {/* ── Always visible: name + optional ──────────────────── */}
                 <div className="sop-step-editor-row-top">
                     <input
                         className="sop-edit-input sop-edit-input--name"
@@ -395,78 +405,27 @@ const StepEditorRow: React.FC<{
                     </label>
                 </div>
 
-                <input
-                    className="sop-edit-input sop-edit-input--desc"
-                    placeholder="Description (optional)"
-                    value={step.description}
-                    onChange={e => set('description', e.target.value)}
-                />
-
+                {/* ── Always visible: essential scheduling fields ──────── */}
                 <div className="sop-step-editor-row-fields">
-                    <InlineSelect
-                        value={step.inputType}
-                        options={MATERIAL_OPTIONS}
-                        placeholder="Input type"
-                        onChange={v => set('inputType', v)}
-                    />
-                    <span className="sop-step-arrow">→</span>
-                    <InlineSelect
-                        value={step.outputType}
-                        options={MATERIAL_OPTIONS}
-                        placeholder="Output type"
-                        onChange={v => set('outputType', v)}
-                    />
                     <InlineSelect
                         value={step.equipmentType}
                         options={EQUIP_OPTIONS}
                         placeholder="Equipment"
                         onChange={v => set('equipmentType', v)}
                     />
-                    <div className="sop-step-editor-num-field" title="Expected yield %">
-                        <Percent size={11} style={{ color: '#C0C0C0' }} />
+                    <div className="sop-step-editor-num-field" title="Step duration (hours)">
+                        <Clock size={11} style={{ color: '#C0C0C0' }} />
                         <input
                             className="sop-edit-input sop-edit-input--sm"
                             type="number"
-                            placeholder="Yield"
-                            value={step.expectedYieldPct}
-                            onChange={e => set('expectedYieldPct', e.target.value)}
-                            min="0"
-                            max="100"
-                            step="0.1"
-                        />
-                    </div>
-                    <div className="sop-step-editor-num-field" title="Hands-on time (hours)">
-                        <User size={11} style={{ color: '#C0C0C0' }} />
-                        <input
-                            className="sop-edit-input sop-edit-input--sm"
-                            type="number"
-                            placeholder="Hands-on"
-                            value={step.estHandsOnHours}
-                            onChange={e => set('estHandsOnHours', e.target.value)}
-                            min="0"
-                            step="0.25"
-                        />
-                    </div>
-                    <div className="sop-step-editor-num-field" title="Equipment / total time (hours)">
-                        <Cog size={11} style={{ color: '#C0C0C0' }} />
-                        <input
-                            className="sop-edit-input sop-edit-input--sm"
-                            type="number"
-                            placeholder="Equip"
+                            placeholder="Duration"
                             value={step.estDurationHours}
                             onChange={e => set('estDurationHours', e.target.value)}
                             min="0"
                             step="0.25"
                         />
+                        <span style={{ fontSize: '10px', color: '#C0C0C0', marginLeft: '2px' }}>h</span>
                     </div>
-                </div>
-
-                {/* Composable step requirements (migration 047).
-                    A step with nothing checked is a pure "do it" step the
-                    operator never touches — the schedule advances virtually
-                    from est_duration_hours. When "Requires weight" is on,
-                    the Finish Run modal won't finalize without a value. */}
-                <div className="sop-step-editor-row-fields sop-step-editor-row-requirements">
                     <label className="sop-step-optional-toggle">
                         <input
                             type="checkbox"
@@ -483,15 +442,79 @@ const StepEditorRow: React.FC<{
                             onChange={v => set('weightUnit', v)}
                         />
                     )}
-                    <label className="sop-step-optional-toggle">
-                        <input
-                            type="checkbox"
-                            checked={step.requiresTimestamp}
-                            onChange={e => set('requiresTimestamp', e.target.checked)}
-                        />
-                        <span>Requires timestamp</span>
-                    </label>
                 </div>
+
+                {/* ── Collapsible advanced fields ─────────────────────── */}
+                <button
+                    type="button"
+                    className="sop-step-advanced-toggle"
+                    onClick={() => setShowAdvanced(prev => !prev)}
+                >
+                    {showAdvanced || hasAdvancedValues ? (
+                        <><ChevronDown size={11} /> Hide details</>
+                    ) : (
+                        <><ChevronRight size={11} /> Details</>
+                    )}
+                </button>
+
+                {(showAdvanced || hasAdvancedValues) && (
+                    <div className="sop-step-advanced">
+                        <input
+                            className="sop-edit-input sop-edit-input--desc"
+                            placeholder="Description (optional)"
+                            value={step.description}
+                            onChange={e => set('description', e.target.value)}
+                        />
+                        <div className="sop-step-editor-row-fields">
+                            <InlineSelect
+                                value={step.inputType}
+                                options={MATERIAL_OPTIONS}
+                                placeholder="Input type"
+                                onChange={v => set('inputType', v)}
+                            />
+                            <span className="sop-step-arrow">→</span>
+                            <InlineSelect
+                                value={step.outputType}
+                                options={MATERIAL_OPTIONS}
+                                placeholder="Output type"
+                                onChange={v => set('outputType', v)}
+                            />
+                            <div className="sop-step-editor-num-field" title="Expected yield %">
+                                <Percent size={11} style={{ color: '#C0C0C0' }} />
+                                <input
+                                    className="sop-edit-input sop-edit-input--sm"
+                                    type="number"
+                                    placeholder="Yield"
+                                    value={step.expectedYieldPct}
+                                    onChange={e => set('expectedYieldPct', e.target.value)}
+                                    min="0"
+                                    max="100"
+                                    step="0.1"
+                                />
+                            </div>
+                            <div className="sop-step-editor-num-field" title="Hands-on time (hours)">
+                                <User size={11} style={{ color: '#C0C0C0' }} />
+                                <input
+                                    className="sop-edit-input sop-edit-input--sm"
+                                    type="number"
+                                    placeholder="Hands-on"
+                                    value={step.estHandsOnHours}
+                                    onChange={e => set('estHandsOnHours', e.target.value)}
+                                    min="0"
+                                    step="0.25"
+                                />
+                            </div>
+                        </div>
+                        <label className="sop-step-optional-toggle" style={{ marginTop: '4px' }}>
+                            <input
+                                type="checkbox"
+                                checked={step.requiresTimestamp}
+                                onChange={e => set('requiresTimestamp', e.target.checked)}
+                            />
+                            <span>Requires timestamp</span>
+                        </label>
+                    </div>
+                )}
             </div>
 
             <button

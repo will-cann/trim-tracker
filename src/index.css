@@ -10308,6 +10308,35 @@ select.settings-inline-input {
   background: rgba(223, 91, 89, 0.06);
 }
 
+/* ── Collapsible advanced section ─── */
+
+.sop-step-advanced-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 2px 0;
+  border: none;
+  background: transparent;
+  color: #C0C0C0;
+  font-size: 11px;
+  cursor: pointer;
+  transition: color 0.15s;
+}
+
+.sop-step-advanced-toggle:hover {
+  color: #959595;
+}
+
+.sop-step-advanced {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-top: 4px;
+  border-top: 1px dashed rgba(0, 0, 0, 0.06);
+  margin-top: 2px;
+  animation: actionPreviewEnter 0.2s ease-out;
+}
+
 .sop-editor-add-step {
   display: flex;
   align-items: center;
