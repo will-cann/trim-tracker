@@ -316,6 +316,7 @@ export interface ProductType {
   category: ProductCategory;
   defaultUnit: string;       // 'g' | 'each' | 'ml' | 'trays' | ...
   isCannabis: boolean;       // false for botanical terpenes, butane, etc.
+  processTypes: string[];    // which extraction pathways (solventless, bho, distillate, custom). Empty = universal.
   metrcItemCategory: string | null;
   isActive: boolean;
   sortOrder: number;

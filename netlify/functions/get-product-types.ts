@@ -55,6 +55,7 @@ function formatRow(row: Record<string, unknown>) {
         defaultUnit: row.default_unit,
         isCannabis: row.is_cannabis,
         metrcItemCategory: row.metrc_item_category,
+        processTypes: (row.process_types as string[]) || [],
         isActive: row.is_active,
         sortOrder: row.sort_order,
         createdAt: row.created_at,

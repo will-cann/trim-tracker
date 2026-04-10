@@ -616,17 +616,25 @@ const TemplateEditor: React.FC<TemplateEditorProps> = ({ template, onSave, onCan
 
     const materialGroups = useMemo(() => buildGroupedMaterialOptions(productTypes), [productTypes]);
 
-    // Accepts: anything that can be an input — biomass + intermediates (not finished goods or additives)
+    // Filter product types by the template's process type.
+    // Biomass/additives are universal (empty processTypes = all pathways).
+    // Intermediates/finished show if their processTypes includes the current process OR is empty.
+    const matchesProcess = (pt: ProductType) =>
+        pt.processTypes.length === 0 || pt.processTypes.includes(processType);
+
+    // Accepts: biomass + intermediates relevant to this process type
     const inputOptions = useMemo(
-        () => productTypes.filter(pt => pt.category === 'biomass' || pt.category === 'intermediate').map(pt => ({ value: pt.name, label: pt.displayName })),
-        [productTypes]
+        () => productTypes
+            .filter(pt => (pt.category === 'biomass' || pt.category === 'intermediate') && matchesProcess(pt))
+            .map(pt => ({ value: pt.name, label: pt.displayName })),
+        [productTypes, processType]
     );
-    // Produces: anything that can be an output — intermediates + finished goods (not biomass or additives)
+    // Produces: intermediates + finished goods relevant to this process type
     const outputOptions = useMemo(
         () => productTypes
-            .filter(pt => pt.category === 'intermediate' || pt.category === 'finished')
+            .filter(pt => (pt.category === 'intermediate' || pt.category === 'finished') && matchesProcess(pt))
             .map(pt => ({ value: pt.name, label: pt.displayName })),
-        [productTypes]
+        [productTypes, processType]
     );
 
     const toggleArrayItem = (arr: string[], item: string) =>
