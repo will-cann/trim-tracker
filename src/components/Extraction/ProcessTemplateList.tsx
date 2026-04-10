@@ -357,17 +357,16 @@ const StepEditorRow: React.FC<{
         draggable: boolean;
     };
 }> = ({ step, index, color, onChange, onRemove, dragHandleProps }) => {
-    const [showAdvanced, setShowAdvanced] = useState(false);
-    const set = (field: keyof EditableStep, value: string | boolean) =>
-        onChange({ ...step, [field]: value });
-
-    // Auto-expand the advanced section when any advanced field has a value.
-    // This way existing SOPs with input/output types, yield, or description
-    // filled in will show those fields immediately when loaded for editing.
+    // Auto-expand on first render if any advanced field already has data
+    // (editing an existing SOP). After that, the user's toggle is the sole
+    // authority — useState initializer only runs once per component instance.
     const hasAdvancedValues = Boolean(
         step.description || step.inputType || step.outputType ||
         step.expectedYieldPct || step.estHandsOnHours || step.requiresTimestamp
     );
+    const [showAdvanced, setShowAdvanced] = useState(hasAdvancedValues);
+    const set = (field: keyof EditableStep, value: string | boolean) =>
+        onChange({ ...step, [field]: value });
 
     return (
         <div
@@ -450,14 +449,14 @@ const StepEditorRow: React.FC<{
                     className="sop-step-advanced-toggle"
                     onClick={() => setShowAdvanced(prev => !prev)}
                 >
-                    {showAdvanced || hasAdvancedValues ? (
+                    {showAdvanced ? (
                         <><ChevronDown size={11} /> Hide details</>
                     ) : (
                         <><ChevronRight size={11} /> Details</>
                     )}
                 </button>
 
-                {(showAdvanced || hasAdvancedValues) && (
+                {showAdvanced && (
                     <div className="sop-step-advanced">
                         <input
                             className="sop-edit-input sop-edit-input--desc"
