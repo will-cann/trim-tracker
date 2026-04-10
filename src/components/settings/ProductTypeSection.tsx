@@ -102,7 +102,7 @@ const ProductTypeRow: React.FC<ProductTypeRowProps> = ({ pt, onUpdate, onDeactiv
                                 key={p.value}
                                 type="button"
                                 onClick={() => toggleProcess(p.value)}
-                                className={`product-type-pathway-pill ${active ? 'product-type-pathway-pill--active' : ''}`}
+                                className={`product-type-pathway-pill product-type-pathway-pill--${p.value}${active ? ' product-type-pathway-pill--active' : ''}`}
                             >
                                 {p.label}
                             </button>

@@ -7299,10 +7299,25 @@ select.field-input {
   border-color: #959595;
   color: #1A1A1A;
 }
+/* Pathway-specific active colors — match extraction PROCESS_COLORS */
 .product-type-pathway-pill--active {
+  color: #fff;
+}
+.product-type-pathway-pill--solventless.product-type-pathway-pill--active {
   background: #1C9EFF;
   border-color: #1C9EFF;
-  color: #fff;
+}
+.product-type-pathway-pill--bho.product-type-pathway-pill--active {
+  background: #FA9E52;
+  border-color: #FA9E52;
+}
+.product-type-pathway-pill--distillate.product-type-pathway-pill--active {
+  background: #3BB570;
+  border-color: #3BB570;
+}
+.product-type-pathway-pill--custom.product-type-pathway-pill--active {
+  background: #6B7280;
+  border-color: #6B7280;
 }
 
 .product-type-toggle {
