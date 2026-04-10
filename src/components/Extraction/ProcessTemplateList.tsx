@@ -616,10 +616,12 @@ const TemplateEditor: React.FC<TemplateEditorProps> = ({ template, onSave, onCan
 
     const materialGroups = useMemo(() => buildGroupedMaterialOptions(productTypes), [productTypes]);
 
-    const biomassOptions = useMemo(
-        () => productTypes.filter(pt => pt.category === 'biomass').map(pt => ({ value: pt.name, label: pt.displayName })),
+    // Accepts: anything that can be an input — biomass + intermediates (not finished goods or additives)
+    const inputOptions = useMemo(
+        () => productTypes.filter(pt => pt.category === 'biomass' || pt.category === 'intermediate').map(pt => ({ value: pt.name, label: pt.displayName })),
         [productTypes]
     );
+    // Produces: anything that can be an output — intermediates + finished goods (not biomass or additives)
     const outputOptions = useMemo(
         () => productTypes
             .filter(pt => pt.category === 'intermediate' || pt.category === 'finished')
@@ -769,7 +771,7 @@ const TemplateEditor: React.FC<TemplateEditorProps> = ({ template, onSave, onCan
                     <div className="sop-editor-io-row">
                         <span className="sop-editor-io-label">Accepts</span>
                         <div className="sop-filter-pills">
-                            {biomassOptions.map(opt => (
+                            {inputOptions.map(opt => (
                                 <button
                                     key={opt.value}
                                     type="button"
