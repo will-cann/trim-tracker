@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { Snowflake, Flame, Beaker, ChevronRight, ChevronDown, Clock, Percent, Wrench, ArrowRight, Plus, Trash2, GripVertical, Pencil, Check, X, Copy, User, Cog, Info } from 'lucide-react';
+import { Snowflake, Flame, Beaker, ChevronRight, ChevronDown, Clock, Percent, Wrench, ArrowRight, Plus, Trash2, GripVertical, Pencil, Check, X, Copy, User, Cog, Info, Archive } from 'lucide-react';
 import type { ProcessTemplate, ProcessStep, ProductType, SupplyItem } from '../../types/definitions';
 import { apiService } from '../../services/apiService';
 import { CenteredSpinner } from '../Spinner';
@@ -997,11 +997,13 @@ const TemplateCard: React.FC<{
                             <button className="sop-card-action-btn" onClick={onDuplicate} title="Duplicate">
                                 <Copy size={13} /> Duplicate
                             </button>
-                            {!template.isPreset && (
-                                <button className="sop-card-action-btn sop-card-action-btn--danger" onClick={onDelete} title="Delete">
-                                    <Trash2 size={13} />
-                                </button>
-                            )}
+                            <button
+                                className="sop-card-action-btn sop-card-action-btn--danger"
+                                onClick={onDelete}
+                                title={template.isPreset ? 'Archive this preset SOP' : 'Archive'}
+                            >
+                                <Archive size={13} /> Archive
+                            </button>
                         </div>
                     </div>
 
@@ -1104,12 +1106,19 @@ export const ProcessTemplateList: React.FC<{ domain?: string }> = ({ domain = 'e
     };
 
     const handleDelete = async (id: string) => {
+        const target = templates.find(t => t.id === id);
+        const label = target?.name || 'this SOP';
+        const isPreset = target?.isPreset;
+        const msg = isPreset
+            ? `Archive "${label}"? Preset SOPs can be restored by reinstalling the library.`
+            : `Archive "${label}"? It won't appear in run creation or planning.`;
+        if (!window.confirm(msg)) return;
         try {
             await apiService.deleteProcessTemplate(id);
             setTemplates(prev => prev.filter(t => t.id !== id));
             if (expandedId === id) setExpandedId(null);
         } catch (err) {
-            console.error('Failed to delete template:', err);
+            console.error('Failed to archive template:', err);
         }
     };
 
