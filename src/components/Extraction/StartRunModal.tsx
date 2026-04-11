@@ -101,22 +101,42 @@ const formatWeight = (qty: number, unit: string) => {
     return `${qty.toLocaleString(undefined, { maximumFractionDigits: 2 })} ${u}`;
 };
 
+export interface StartRunPrefill {
+    templateId: string;
+    packageIds?: string[];
+    packageQuantities?: Record<string, number>;
+    targetProduct?: string;
+    // Plan-driven context — when opening the modal from a saved Planning session,
+    // we surface the exact biomass requirement so the operator can pick packages
+    // against a concrete number. All optional because direct "New run" still
+    // goes through this modal and has no plan attached.
+    targetInputQty?: number;
+    targetInputUnit?: string;
+    targetInputDisplayName?: string;
+    sourcePlanningSessionId?: string;
+    sessionName?: string;
+}
+
 interface StartRunModalProps {
     templates: ProcessTemplate[];
+    prefill?: StartRunPrefill | null;
     onClose: () => void;
     onCreated: () => void;
 }
 
 type Step = 'template' | 'packages' | 'product' | 'details';
 
-export const StartRunModal: React.FC<StartRunModalProps> = ({ templates, onClose, onCreated }) => {
-    const [step, setStep] = useState<Step>('template');
-    const [selectedTemplate, setSelectedTemplate] = useState<ProcessTemplate | null>(null);
+export const StartRunModal: React.FC<StartRunModalProps> = ({ templates, prefill, onClose, onCreated }) => {
+    const prefilledTemplate = prefill?.templateId
+        ? templates.find(t => t.id === prefill.templateId) || null
+        : null;
+    const [step, setStep] = useState<Step>(prefilledTemplate ? 'packages' : 'template');
+    const [selectedTemplate, setSelectedTemplate] = useState<ProcessTemplate | null>(prefilledTemplate);
     const [packages, setPackages] = useState<Package[]>([]);
     const [equipment, setEquipment] = useState<ExtractionEquipment[]>([]);
-    const [selectedPackageIds, setSelectedPackageIds] = useState<string[]>([]);
-    const [packageQuantities, setPackageQuantities] = useState<Record<string, number>>({}); // pkgId → grams to use
-    const [targetProduct, setTargetProduct] = useState('');
+    const [selectedPackageIds, setSelectedPackageIds] = useState<string[]>(prefill?.packageIds ?? []);
+    const [packageQuantities, setPackageQuantities] = useState<Record<string, number>>(prefill?.packageQuantities ?? {}); // pkgId → grams to use
+    const [targetProduct, setTargetProduct] = useState(prefill?.targetProduct ?? '');
     const [stepEquipment, setStepEquipment] = useState<Record<number, string>>({});
     const [name, setName] = useState('');
     const [plannedStart, setPlannedStart] = useState('');
@@ -153,9 +173,24 @@ export const StartRunModal: React.FC<StartRunModalProps> = ({ templates, onClose
     // Derived values
     const acceptedInputs = selectedTemplate?.acceptedInputs || [];
     const hasInputFilter = acceptedInputs.length > 0;
-    const relevantPackages = hasInputFilter
-        ? packages.filter(p => acceptedInputs.includes(p.packageType) && (!typeFilter || p.packageType === typeFilter))
-        : typeFilter ? packages.filter(p => p.packageType === typeFilter) : packages;
+    // Packages that were prefilled via the planning prefill should float to
+    // the top of the list so the user sees exactly what the planner picked
+    // without having to scroll — whether they agree or want to swap them out.
+    const prefillIds = useMemo(
+        () => new Set(prefill?.packageIds || []),
+        [prefill?.packageIds]
+    );
+    const relevantPackages = useMemo(() => {
+        const base = hasInputFilter
+            ? packages.filter(p => acceptedInputs.includes(p.packageType) && (!typeFilter || p.packageType === typeFilter))
+            : typeFilter ? packages.filter(p => p.packageType === typeFilter) : packages;
+        if (prefillIds.size === 0) return base;
+        // Stable partition: prefilled first (in their original order within base),
+        // then everything else in its original order.
+        const prefilled = base.filter(p => prefillIds.has(p.id));
+        const rest = base.filter(p => !prefillIds.has(p.id));
+        return [...prefilled, ...rest];
+    }, [packages, acceptedInputs, hasInputFilter, typeFilter, prefillIds]);
     const otherPackages = hasInputFilter
         ? packages.filter(p => !acceptedInputs.includes(p.packageType) && p.quantity > 0)
         : [];
@@ -285,6 +320,7 @@ export const StartRunModal: React.FC<StartRunModalProps> = ({ templates, onClose
                 plannedStart: plannedStart || undefined,
                 stepEquipment: Object.keys(stepEquipment).length > 0 ? stepEquipment : undefined,
                 notes: notes.trim() || undefined,
+                sourcePlanningSessionId: prefill?.sourcePlanningSessionId,
             });
             onCreated();
         } catch {
@@ -408,6 +444,42 @@ export const StartRunModal: React.FC<StartRunModalProps> = ({ templates, onClose
                             Process: <strong>{selectedTemplate.name}</strong>
                             <button className="start-run-change" onClick={handleBack}>Change</button>
                         </div>
+
+                        {/* Plan-driven target readout. Visible only when the modal was
+                            launched from a saved planning session with a biomass target. */}
+                        {prefill?.targetInputQty && prefill.targetInputQty > 0 && (() => {
+                            const need = prefill.targetInputQty;
+                            const have = totalInputWeight;
+                            const pct = need > 0 ? Math.min(1, have / need) : 0;
+                            const covered = have >= need;
+                            const delta = have - need;
+                            const unit = prefill.targetInputUnit || 'g';
+                            return (
+                                <div className={`start-run-target ${covered ? 'is-covered' : 'is-short'}`}>
+                                    <div className="start-run-target-head">
+                                        <div className="start-run-target-label">
+                                            Target from plan{prefill.sessionName ? ` — ${prefill.sessionName}` : ''}
+                                        </div>
+                                        <div className="start-run-target-qty">
+                                            {formatWeight(need, unit)}
+                                            {prefill.targetInputDisplayName && <span className="start-run-target-material"> {prefill.targetInputDisplayName}</span>}
+                                        </div>
+                                    </div>
+                                    <div className="start-run-target-track">
+                                        <div
+                                            className="start-run-target-track-fill"
+                                            style={{ transform: `scaleX(${pct})` }}
+                                        />
+                                    </div>
+                                    <div className="start-run-target-meta">
+                                        <span>Selected {formatWeight(have, unit)}</span>
+                                        {covered
+                                            ? delta > 0 && <span className="start-run-target-delta is-over">+ {formatWeight(delta, unit)} extra</span>
+                                            : <span className="start-run-target-delta is-under">{formatWeight(Math.abs(delta), unit)} short</span>}
+                                    </div>
+                                </div>
+                            );
+                        })()}
 
                         {hasInputFilter && (
                             <p className="start-run-hint">

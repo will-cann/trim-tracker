@@ -10908,40 +10908,340 @@ select.settings-inline-input {
   min-width: 0;
   padding-top: 0.25rem;
 }
-.planning-form {
-  background: #FAFAFA;
-  border: 1px solid #F0F0F0;
-  border-radius: 10px;
-  padding: 1.25rem 1.25rem 1.125rem;
+.planning-loading {
+  padding: 2rem 0;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: #959595;
+  font-size: 0.875rem;
+  font-weight: 300;
 }
-.planning-form-sentence {
+
+/* Session header — Linear/Notion-style inline title + unsaved dot + picker */
+.planning-session {
+  position: relative;
+  margin-bottom: 1.5rem;
+}
+.planning-session-row {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+}
+.planning-session-name {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-family: 'Lato', sans-serif;
+  font-size: 1.125rem;
+  font-weight: 700;
+  color: #1A1A1A;
+  letter-spacing: -0.015em;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 5px;
+  padding: 4px 6px;
+  margin-left: -6px;
+  outline: none;
+  transition: border-color 0.15s, background 0.15s;
+}
+.planning-session-name:hover { background: #F7F7F7; }
+.planning-session-name:focus { border-color: #E0E0E0; background: #fff; }
+.planning-session-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: #FA9E52;
+  flex-shrink: 0;
+  box-shadow: 0 0 0 0 rgba(250, 158, 82, 0.4);
+  animation: planningDot 2.4s ease-in-out infinite;
+}
+@keyframes planningDot {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(250, 158, 82, 0.45); }
+  50%      { box-shadow: 0 0 0 4px rgba(250, 158, 82, 0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .planning-session-dot { animation: none; }
+}
+.planning-session-switch {
+  border: none;
+  background: transparent;
+  color: #959595;
+  padding: 6px;
+  cursor: pointer;
+  border-radius: 5px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s, color 0.15s, transform 0.2s cubic-bezier(0.25, 1, 0.5, 1);
+}
+.planning-session-switch:hover { background: #F1F1F1; color: #1A1A1A; }
+.planning-session-switch.is-open { transform: rotate(180deg); color: #1A1A1A; }
+.planning-session-meta {
+  font-size: 0.75rem;
+  font-weight: 300;
+  color: #959595;
+  margin-top: 2px;
+  margin-left: 0;
+  font-feature-settings: "tnum" 1;
+}
+.planning-session-popover {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  left: auto;
+  min-width: 260px;
+  max-width: 320px;
+  background: #fff;
+  border: 1px solid #E8E8E8;
+  border-radius: 8px;
+  padding: 4px;
+  box-shadow: 0 12px 32px rgba(26, 26, 26, 0.08), 0 2px 6px rgba(26, 26, 26, 0.04);
+  z-index: 30;
+  animation: planningPopoverIn 0.18s cubic-bezier(0.25, 1, 0.5, 1);
+}
+@keyframes planningPopoverIn {
+  from { opacity: 0; transform: translateY(-4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.planning-session-popover-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  text-align: left;
+  padding: 8px 10px;
+  border: none;
+  background: transparent;
+  border-radius: 5px;
+  color: #1A1A1A;
+  font-size: 0.8125rem;
+  font-family: 'Lato', sans-serif;
+  font-weight: 400;
+  cursor: pointer;
+  transition: background 0.12s;
+}
+.planning-session-popover-item:hover { background: #F1F1F1; }
+.planning-session-popover-item.is-current { background: rgba(28, 158, 255, 0.08); color: #1C9EFF; }
+.planning-session-popover-item--primary { color: #3BB570; font-weight: 700; }
+.planning-session-popover-name {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.planning-session-popover-count {
+  font-size: 0.6875rem;
+  color: #959595;
+  font-feature-settings: "tnum" 1;
+  font-weight: 300;
+}
+.planning-session-popover-label {
+  font-size: 0.625rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-weight: 700;
+  color: #C0C0C0;
+  padding: 10px 10px 4px;
+}
+
+/* Basket — list of targets + inline draft form */
+.planning-basket {
+  margin-bottom: 1.125rem;
+}
+.planning-basket-list {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 0.5rem;
+  display: flex;
+  flex-direction: column;
+}
+.planning-basket-row {
+  display: grid;
+  grid-template-columns: auto 1fr auto auto;
+  align-items: baseline;
+  column-gap: 0.75rem;
+  padding: 10px 6px 10px 0;
+  border-bottom: 1px solid #F5F5F5;
+  animation: planningBasketIn 0.24s cubic-bezier(0.2, 0.9, 0.3, 1);
+}
+@keyframes planningBasketIn {
+  from { opacity: 0; transform: translateY(-4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.planning-basket-row:last-child { border-bottom: none; }
+.planning-basket-qty {
+  font-size: 1.125rem;
+  font-weight: 900;
+  font-feature-settings: "tnum" 1;
+  color: #1A1A1A;
+  letter-spacing: -0.02em;
+  display: inline-flex;
+  align-items: baseline;
+  gap: 3px;
+  min-width: 2.5rem;
+  text-align: right;
+  justify-content: flex-end;
+}
+.planning-basket-unit {
+  font-size: 0.6875rem;
+  font-weight: 300;
+  color: #959595;
+  text-transform: lowercase;
+}
+.planning-basket-product {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #1A1A1A;
+  letter-spacing: -0.005em;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.planning-basket-strain {
+  font-size: 0.75rem;
+  font-weight: 400;
+  color: #1C9EFF;
+  font-style: normal;
+  text-align: right;
+  white-space: nowrap;
+}
+.planning-basket-strain.is-any {
+  color: #C0C0C0;
+  font-style: italic;
+}
+.planning-basket-remove {
+  border: none;
+  background: transparent;
+  color: #C0C0C0;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.15s, background 0.15s;
+}
+.planning-basket-remove:hover {
+  color: #DF5B59;
+  background: rgba(223, 91, 89, 0.08);
+}
+
+/* Inline draft-target form */
+.planning-basket-add {
+  margin-top: 0.875rem;
+  padding: 0.875rem 0.875rem 0.75rem;
+  background: #FAFAFA;
+  border: 1px dashed #E8E8E8;
+  border-radius: 8px;
+}
+.planning-basket-list + .planning-basket-add {
+  margin-top: 0.5rem;
+}
+.planning-draft-row {
   display: flex;
   align-items: center;
   gap: 0.5rem;
   flex-wrap: wrap;
-  line-height: 1.8;
+  line-height: 1.6;
 }
-.planning-form-sentence--continuation {
+.planning-draft-row--strain {
   margin-top: 0.5rem;
 }
-.planning-form-prefix {
-  font-size: 0.9375rem;
+.planning-draft-prefix {
+  font-size: 0.8125rem;
   font-weight: 300;
   color: #959595;
   letter-spacing: -0.01em;
 }
-.planning-form-sentence .planning-input--type {
-  flex: 1 1 180px;
-  min-width: 160px;
+.planning-draft-qty {
+  font-family: 'Lato', sans-serif;
+  font-size: 0.9375rem;
+  font-weight: 700;
+  width: 72px;
+  padding: 6px 8px;
+  text-align: right;
+  border: 1px solid #E0E0E0;
+  border-radius: 5px;
+  background: #fff;
+  color: #1A1A1A;
+  outline: none;
+  font-feature-settings: "tnum" 1;
+  transition: border-color 0.15s;
 }
-.planning-form-sentence .planning-input--strain {
-  flex: 1 1 180px;
+.planning-draft-qty:focus { border-color: #1C9EFF; }
+.planning-draft-unit {
+  font-size: 0.8125rem;
+  font-weight: 300;
+  color: #959595;
+  min-width: 18px;
+}
+.planning-draft-input {
+  font-family: 'Lato', sans-serif;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #1A1A1A;
+  padding: 6px 8px;
+  border: 1px solid #E0E0E0;
+  border-radius: 5px;
+  background: #fff;
+  outline: none;
+  transition: border-color 0.15s;
+  flex: 1 1 160px;
   min-width: 0;
 }
-.planning-form-actions {
+.planning-draft-input:focus { border-color: #1C9EFF; }
+.planning-draft-input--strain { flex: 1 1 0; }
+.planning-draft-add {
+  margin-left: auto;
+  width: 30px;
+  height: 30px;
+  border-radius: 999px;
+  border: 1px solid #3BB570;
+  background: #3BB570;
+  color: #fff;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: background 0.15s, border-color 0.15s, transform 0.12s;
+}
+.planning-draft-add:hover:not(:disabled) {
+  background: #34A564;
+  border-color: #34A564;
+  transform: scale(1.05);
+}
+.planning-draft-add:disabled {
+  background: #fff;
+  border-color: #E8E8E8;
+  color: #C0C0C0;
+  cursor: not-allowed;
+}
+
+/* Primary action bar at the bottom of the form column */
+.planning-primary-actions {
   display: flex;
-  justify-content: flex-end;
+  gap: 0.5rem;
   margin-top: 1.125rem;
+  padding-top: 1.125rem;
+  border-top: 1px solid #F1F1F1;
+}
+.planning-btn--ghost {
+  background: #fff;
+  color: #1A1A1A;
+  border: 1px solid #E8E8E8;
+  margin-left: auto;
+}
+.planning-btn--ghost:hover:not(:disabled) {
+  background: #F7F7F7;
+  border-color: #C0C0C0;
+  transform: translateY(-1px);
+}
+.planning-btn--ghost:disabled {
+  background: #fff;
+  color: #C0C0C0;
+  border: 1px solid #E8E8E8;
 }
 
 /* Mobile: single column, actions full width */
@@ -10955,47 +11255,21 @@ select.settings-inline-input {
   }
 }
 @media (max-width: 560px) {
-  .planning-form {
-    padding: 1rem;
+  .planning-basket-add {
+    padding: 0.75rem;
   }
-  .planning-form-sentence {
+  .planning-draft-row {
     gap: 0.375rem 0.5rem;
   }
-  .planning-form-actions {
-    margin-top: 0.875rem;
+  .planning-primary-actions {
+    flex-direction: column;
   }
-  .planning-form-actions .planning-btn {
+  .planning-primary-actions .planning-btn {
     width: 100%;
     justify-content: center;
     padding: 10px 18px;
   }
-}
-.planning-input {
-  font-family: 'Lato', sans-serif;
-  font-size: 0.9375rem;
-  font-weight: 500;
-  color: #1A1A1A;
-  padding: 7px 10px;
-  border: 1px solid #E0E0E0;
-  border-radius: 6px;
-  background: #fff;
-  outline: none;
-  transition: border-color 0.15s;
-}
-.planning-input:focus { border-color: #1C9EFF; }
-.planning-input--qty {
-  width: 84px;
-  text-align: right;
-  font-feature-settings: "tnum" 1;
-  font-weight: 700;
-}
-.planning-input--type { flex: 1; }
-.planning-input--strain { flex: 1; }
-.planning-unit {
-  font-size: 0.9375rem;
-  font-weight: 300;
-  color: #959595;
-  min-width: 22px;
+  .planning-btn--ghost { margin-left: 0; }
 }
 .planning-btn {
   font-family: 'Lato', sans-serif;
@@ -11066,90 +11340,165 @@ select.settings-inline-input {
   background: rgba(250, 158, 82, 0.08);
   border-radius: 6px;
 }
-/* Headline biomass requirement (receipt top line) */
-.planning-headline {
+/* Biomass coverage section — replaces the single-target headline.
+   One row per (inputType × strain) bucket with a thin coverage bar. */
+.planning-biomass-section {
   margin-bottom: 2.25rem;
 }
-.planning-headline-label {
-  font-size: 0.75rem;
-  font-weight: 300;
-  line-height: 1;
-  color: #959595;
-  margin-bottom: 0.625rem;
-}
-.planning-headline-value {
+/* Collapsed single-line headline: "You'll need  34.7 kg biomass".
+   Label, value, and unit live on the same baseline; the value is the
+   weight, the label tethers it. No competing right-aligned number. */
+.planning-biomass-headline {
   display: flex;
   align-items: baseline;
   flex-wrap: wrap;
-  gap: 0.25rem 0.625rem;
-  margin-bottom: 1rem;
+  gap: 0.5rem;
+  margin-bottom: 1.125rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid #F1F1F1;
 }
-.planning-headline-qty {
-  font-size: clamp(2.25rem, 5vw, 3.25rem);
+.planning-biomass-label {
+  font-size: 0.9375rem;
+  font-weight: 300;
+  color: #959595;
+  letter-spacing: -0.005em;
+}
+.planning-biomass-total-qty {
+  font-size: 1.75rem;
   font-weight: 900;
-  line-height: 0.95;
   color: #1A1A1A;
-  font-feature-settings: "tnum" 1;
   letter-spacing: -0.03em;
+  font-feature-settings: "tnum" 1;
+  line-height: 1;
 }
-.planning-headline-unit {
-  font-size: 1rem;
+.planning-biomass-total-unit {
+  font-size: 0.875rem;
   font-weight: 300;
   color: #959595;
   margin-left: -0.125rem;
 }
-.planning-headline-type {
-  font-size: 1.125rem;
-  font-weight: 300;
-  color: #1A1A1A;
-  margin-left: 0.125rem;
-  letter-spacing: -0.005em;
-}
-/* Strain reads as a quiet annotation in the headline, not a blue pill */
-.planning-headline-value .planning-strain-tag {
-  background: transparent;
-  color: #959595;
+.planning-biomass-table {
+  list-style: none;
   padding: 0;
-  text-transform: none;
-  letter-spacing: 0;
-  font-weight: 300;
-  font-size: 0.9375rem;
-  font-style: italic;
-}
-.planning-headline-value .planning-strain-tag::before {
-  content: '· ';
-  font-style: normal;
-}
-.planning-headline-rails {
+  margin: 0;
   display: flex;
   flex-direction: column;
-  gap: 0.375rem;
-  padding-top: 0.875rem;
-  border-top: 1px solid #F1F1F1;
-}
-.planning-rail {
-  display: flex;
-  justify-content: space-between;
-  align-items: baseline;
   gap: 1rem;
-  font-size: 0.875rem;
-  line-height: 1.4;
 }
-.planning-rail-label {
+.planning-biomass-row {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.planning-biomass-row-top {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  column-gap: 0.75rem;
+  align-items: baseline;
+  line-height: 1.2;
+}
+.planning-biomass-strain {
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: #1A1A1A;
+  letter-spacing: -0.01em;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.planning-biomass-material {
+  font-size: 0.75rem;
+  font-weight: 300;
+  color: #959595;
+  text-align: right;
+  white-space: nowrap;
+}
+.planning-biomass-need {
+  font-size: 0.9375rem;
+  font-weight: 700;
+  color: #1A1A1A;
+  font-feature-settings: "tnum" 1;
+  letter-spacing: -0.015em;
+  text-align: right;
+  white-space: nowrap;
+}
+.planning-biomass-row-bottom {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 0.75rem;
+}
+.planning-biomass-track {
+  position: relative;
+  height: 3px;
+  background: #F1F1F1;
+  border-radius: 999px;
+  overflow: hidden;
+}
+.planning-biomass-track-fill {
+  position: absolute;
+  inset: 0;
+  transform-origin: left center;
+  background: #3BB570;
+  border-radius: 999px;
+  transition: transform 0.48s cubic-bezier(0.2, 0.9, 0.3, 1), background 0.2s;
+}
+.planning-biomass-row.is-short .planning-biomass-track-fill {
+  background: #DF5B59;
+}
+.planning-biomass-onhand {
+  font-size: 0.75rem;
   color: #959595;
   font-weight: 300;
-}
-.planning-rail-value {
-  color: #1A1A1A;
-  font-weight: 400;
   font-feature-settings: "tnum" 1;
   text-align: right;
+  white-space: nowrap;
 }
-.planning-rail-value--good { color: #3BB570; }
-.planning-rail-value--gap { color: #DF5B59; }
-.planning-rail-sub {
-  color: #959595;
-  font-weight: 300;
+.planning-biomass-short {
+  color: #DF5B59;
+  font-weight: 500;
+}
+@media (max-width: 560px) {
+  .planning-biomass-row-top {
+    grid-template-columns: 1fr auto;
+  }
+  .planning-biomass-material {
+    grid-column: 1 / -1;
+    text-align: left;
+    order: 3;
+  }
+}
+
+/* Strain group — outer container for each strain's waterfall */
+.planning-strain-groups {
+  display: flex;
+  flex-direction: column;
+  gap: 1.75rem;
+  margin-bottom: 2rem;
+}
+.planning-strain-group {
+  display: flex;
+  flex-direction: column;
+}
+.planning-strain-group-title {
+  font-size: 0.625rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: #1C9EFF;
+  padding-bottom: 0.75rem;
+  margin-bottom: 0.875rem;
+  border-bottom: 1px solid #F1F1F1;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+.planning-strain-group-count {
+  color: #C0C0C0;
+  font-weight: 400;
+  letter-spacing: 0.04em;
 }
 
 /* Stages — receipt line items, no card chrome */
@@ -11214,6 +11563,41 @@ select.settings-inline-input {
 }
 .planning-yield-badge--default {
   background: rgba(149, 149, 149, 0.1);
+  color: #959595;
+}
+.planning-stage-start {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 9px;
+  border: 1px solid #E8E8E8;
+  border-radius: 999px;
+  background: #FFFFFF;
+  color: #1A1A1A;
+  font-size: 0.6875rem;
+  font-weight: 500;
+  letter-spacing: -0.005em;
+  cursor: pointer;
+  transition: background 120ms ease, border-color 120ms ease, color 120ms ease;
+  white-space: nowrap;
+}
+.planning-stage-start:hover {
+  background: #1C9EFF;
+  border-color: #1C9EFF;
+  color: #FFFFFF;
+}
+/* Alternatives caption: subtle note when multiple SOPs could've been chosen.
+   Demoted from a top-of-plan warning banner to an inline stage footnote. */
+.planning-stage-alts {
+  grid-column: 2;
+  font-size: 0.6875rem;
+  font-weight: 300;
+  color: #C0C0C0;
+  letter-spacing: -0.005em;
+  cursor: help;
+  font-feature-settings: "tnum" 1;
+}
+.planning-stage-alts:hover {
   color: #959595;
 }
 .planning-stage-flow {
@@ -11835,6 +12219,84 @@ select.settings-inline-input {
   line-height: 1.5;
 }
 
+/* Plan-target readout — shown when the modal is launched from a saved
+   Planning session. Tells the operator "pick against this number." */
+.start-run-target {
+  margin-top: 0.75rem;
+  padding: 0.875rem 1rem 0.75rem;
+  background: #FAFAFA;
+  border: 1px solid #F0F0F0;
+  border-radius: 8px;
+  border-left: 3px solid #3BB570;
+  transition: border-left-color 0.2s;
+}
+.start-run-target.is-short {
+  border-left-color: #DF5B59;
+}
+.start-run-target-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.5rem;
+}
+.start-run-target-label {
+  font-size: 0.625rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #959595;
+}
+.start-run-target-qty {
+  font-size: 1rem;
+  font-weight: 900;
+  color: #1A1A1A;
+  font-feature-settings: "tnum" 1;
+  letter-spacing: -0.015em;
+}
+.start-run-target-material {
+  font-weight: 400;
+  font-size: 0.8125rem;
+  color: #959595;
+  margin-left: 4px;
+}
+.start-run-target-track {
+  position: relative;
+  height: 3px;
+  background: #EDEDED;
+  border-radius: 999px;
+  overflow: hidden;
+  margin-bottom: 0.5rem;
+}
+.start-run-target-track-fill {
+  position: absolute;
+  inset: 0;
+  transform-origin: left center;
+  background: #3BB570;
+  border-radius: 999px;
+  transition: transform 0.4s cubic-bezier(0.2, 0.9, 0.3, 1), background 0.2s;
+}
+.start-run-target.is-short .start-run-target-track-fill {
+  background: #DF5B59;
+}
+.start-run-target-meta {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem;
+  font-size: 0.75rem;
+  font-weight: 300;
+  color: #959595;
+  font-feature-settings: "tnum" 1;
+}
+.start-run-target-delta.is-over {
+  color: #959595;
+}
+.start-run-target-delta.is-under {
+  color: #DF5B59;
+  font-weight: 500;
+}
+
 .start-run-type-filters {
   display: flex;
   flex-wrap: wrap;
@@ -12211,56 +12673,50 @@ select.settings-inline-input {
   border-radius: 3px;
 }
 
+/* Equipment row: two-line layout so the type pill, projection, and
+   select each get breathing room instead of fighting for horizontal space.
+
+   Row 1 (meta):   [num] [step name] [type pill]  ·····  [weight · cycles]
+   Row 2 (action): [full-width equipment select]                          */
 .start-run-equip-row {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.375rem 0;
-  border-radius: 4px;
-  transition: background 0.15s;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  column-gap: 0.5rem;
+  row-gap: 0.375rem;
+  padding: 0.75rem 0;
+  border-bottom: 1px solid #F5F5F5;
 }
-
-.start-run-equip-proj {
-  display: flex;
-  align-items: center;
-  gap: 0.375rem;
-  font-size: 0.625rem;
-  font-variant-numeric: tabular-nums;
-  color: #6B6B6B;
-  white-space: nowrap;
-  flex-shrink: 0;
-}
-
-.start-run-equip-proj-weight {
-  font-weight: 500;
+.start-run-equip-row:last-child {
+  border-bottom: none;
 }
 
 .start-run-equip-step {
   display: flex;
   align-items: center;
-  gap: 0.375rem;
-  flex: 1;
+  gap: 0.5rem;
   min-width: 0;
 }
 
 .start-run-equip-step-num {
-  width: 18px;
-  height: 18px;
+  width: 20px;
+  height: 20px;
   border-radius: 5px;
   background: #F1F1F1;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 0.5625rem;
+  font-size: 0.625rem;
   font-weight: 700;
   color: #959595;
   flex-shrink: 0;
+  font-feature-settings: "tnum" 1;
 }
 
 .start-run-equip-step-name {
-  font-size: 0.75rem;
-  font-weight: 600;
+  font-size: 0.8125rem;
+  font-weight: 700;
   color: #1A1A1A;
+  letter-spacing: -0.005em;
   white-space: nowrap;
 }
 
@@ -12268,15 +12724,35 @@ select.settings-inline-input {
   font-size: 0.5625rem;
   color: #959595;
   background: #F1F1F1;
-  padding: 1px 5px;
+  padding: 2px 6px;
   border-radius: 3px;
   white-space: nowrap;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-weight: 700;
+}
+
+.start-run-equip-proj {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  font-size: 0.6875rem;
+  font-variant-numeric: tabular-nums;
+  color: #959595;
+  white-space: nowrap;
+  justify-self: end;
+  align-self: center;
+}
+
+.start-run-equip-proj-weight {
+  font-weight: 500;
+  color: #1A1A1A;
 }
 
 .start-run-equip-select-wrap {
   position: relative;
-  flex-shrink: 0;
-  width: 180px;
+  grid-column: 1 / -1;
+  width: 100%;
 }
 
 .start-run-equip-select {

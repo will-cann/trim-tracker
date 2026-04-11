@@ -5,7 +5,7 @@ import { apiService } from '../../services/apiService';
 import { CenteredSpinner } from '../Spinner';
 import { RunDetail } from './RunDetail';
 import { RunKanban } from './RunKanban';
-import { StartRunModal } from './StartRunModal';
+import { StartRunModal, type StartRunPrefill } from './StartRunModal';
 import ResourceTimeline from '../ui/ResourceTimeline';
 import ResourceCalendar from '../ui/ResourceCalendar';
 import { buildExtractionSchedule } from './extractionScheduleAdapter';
@@ -124,12 +124,21 @@ const RunCard: React.FC<{
 
 // ── Main Component ──────────────────────────────────────────────────────────
 
-export const RunList: React.FC = () => {
+interface RunListProps {
+    startRunPrefill?: StartRunPrefill | null;
+    onPrefillConsumed?: () => void;
+    // Fires after a run is successfully created from a plan prefill, so the
+    // parent can return the user to the Planning tab to schedule the next stage.
+    onRunCreatedFromPlan?: () => void;
+}
+
+export const RunList: React.FC<RunListProps> = ({ startRunPrefill, onPrefillConsumed, onRunCreatedFromPlan }) => {
     const [runs, setRuns] = useState<ExtractionRun[]>([]);
     const [templates, setTemplates] = useState<ProcessTemplate[]>([]);
     const [loading, setLoading] = useState(true);
     const [expandedId, setExpandedId] = useState<string | null>(null);
     const [showStartModal, setShowStartModal] = useState(false);
+    const [modalPrefill, setModalPrefill] = useState<StartRunPrefill | null>(null);
     const [statusFilter, setStatusFilter] = useState<string>('all');
     const [viewMode, setViewMode] = useState<ViewMode>(() => {
         return (sessionStorage.getItem('extraction-runs-view') as ViewMode) || 'kanban';
@@ -150,6 +159,15 @@ export const RunList: React.FC = () => {
     useEffect(() => {
         Promise.all([loadRuns(), loadTemplates()]).finally(() => setLoading(false));
     }, [loadRuns, loadTemplates]);
+
+    // Open the Start Run modal with a prefill handed in from the Planning tab.
+    // Wait until templates have loaded so the modal can resolve templateId.
+    useEffect(() => {
+        if (!startRunPrefill || templates.length === 0) return;
+        setModalPrefill(startRunPrefill);
+        setShowStartModal(true);
+        onPrefillConsumed?.();
+    }, [startRunPrefill, templates, onPrefillConsumed]);
 
     // Lazy-load equipment for schedule view
     useEffect(() => {
@@ -176,8 +194,16 @@ export const RunList: React.FC = () => {
     }, [scheduleDataRaw, statusFilter]);
 
     const handleRunCreated = async () => {
+        const cameFromPlan = !!modalPrefill?.sourcePlanningSessionId;
         setShowStartModal(false);
+        setModalPrefill(null);
         await loadRuns();
+        if (cameFromPlan) onRunCreatedFromPlan?.();
+    };
+
+    const handleModalClose = () => {
+        setShowStartModal(false);
+        setModalPrefill(null);
     };
 
     const handleViewChange = (mode: ViewMode) => {
@@ -340,7 +366,8 @@ export const RunList: React.FC = () => {
             {showStartModal && (
                 <StartRunModal
                     templates={templates}
-                    onClose={() => setShowStartModal(false)}
+                    prefill={modalPrefill}
+                    onClose={handleModalClose}
                     onCreated={handleRunCreated}
                 />
             )}

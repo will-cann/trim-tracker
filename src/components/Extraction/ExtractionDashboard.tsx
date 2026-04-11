@@ -2,11 +2,18 @@ import { useState } from 'react';
 import { RunList } from './RunList';
 import { ProcessTemplateList } from './ProcessTemplateList';
 import { PlanningCalculator } from './PlanningCalculator';
+import type { StartRunPrefill } from './StartRunModal';
 
 type DashboardTab = 'runs' | 'processes' | 'planning';
 
 export const ExtractionDashboard: React.FC = () => {
     const [tab, setTab] = useState<DashboardTab>('runs');
+    const [startRunPrefill, setStartRunPrefill] = useState<StartRunPrefill | null>(null);
+
+    const handleStartRunFromPlan = (prefill: StartRunPrefill) => {
+        setStartRunPrefill(prefill);
+        setTab('runs');
+    };
 
     return (
         <div className="dashboard">
@@ -40,9 +47,23 @@ export const ExtractionDashboard: React.FC = () => {
                 </button>
             </div>
 
-            {tab === 'runs' && <RunList />}
-            {tab === 'processes' && <ProcessTemplateList />}
-            {tab === 'planning' && <PlanningCalculator />}
+            {/* All tabs stay mounted so their state survives a tab switch —
+                critical for the Planning tab, where a user builds a basket,
+                kicks off stage 1 on the Runs tab, and needs to come back to
+                the same plan to schedule the next stage. */}
+            <div style={{ display: tab === 'runs' ? 'block' : 'none' }}>
+                <RunList
+                    startRunPrefill={startRunPrefill}
+                    onPrefillConsumed={() => setStartRunPrefill(null)}
+                    onRunCreatedFromPlan={() => setTab('planning')}
+                />
+            </div>
+            <div style={{ display: tab === 'processes' ? 'block' : 'none' }}>
+                <ProcessTemplateList />
+            </div>
+            <div style={{ display: tab === 'planning' ? 'block' : 'none' }}>
+                <PlanningCalculator onStartRun={handleStartRunFromPlan} />
+            </div>
         </div>
     );
 };
