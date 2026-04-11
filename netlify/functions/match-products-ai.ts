@@ -114,7 +114,7 @@ export const handler: Handler = async (event) => {
         }));
 
         // Batch the unmatched items to keep prompts manageable (~50 per call)
-        const BATCH_SIZE = 50;
+        const BATCH_SIZE = 25;
         const allMatches: MatchResult[] = [];
 
         for (let i = 0; i < unmatched.length; i += BATCH_SIZE) {
@@ -136,7 +136,7 @@ export const handler: Handler = async (event) => {
                     'anthropic-version': '2023-06-01',
                 },
                 body: JSON.stringify({
-                    model: 'claude-sonnet-4-20250514',
+                    model: 'claude-opus-4-20250514',
                     max_tokens: 8192,
                     system: MATCH_PROMPT,
                     messages: [{ role: 'user', content: userMessage }],

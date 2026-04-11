@@ -3,6 +3,19 @@
   publish = "dist"
   functions = "netlify/functions"
 
+[dev]
+  # lambda-local default is 30s — bump for AI functions
+  timeout = 120
+
+[functions]
+  node_bundler = "esbuild"
+
+[functions."match-products-ai"]
+  timeout = 120
+
+[functions."ai-parse"]
+  timeout = 120
+
 [[redirects]]
   from = "/*"
   to = "/index.html"

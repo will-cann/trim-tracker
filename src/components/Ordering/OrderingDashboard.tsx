@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { Store as StoreIcon, ShoppingCart, Package, Building2, Upload, Loader2, CheckCircle2, X, TrendingUp, Link2, Trash2 } from 'lucide-react';
 import { apiService } from '../../services/apiService';
 import type { Vendor, VendorProduct, Store, PurchaseOrder } from '../../types/definitions';
+import type { AiMatchResult, SkuMatchProgress } from './SkuMatcherModal';
 import { VendorList } from './VendorList';
 import { ProductCatalog } from './ProductCatalog';
 import { StoreList } from './StoreList';
@@ -27,6 +28,10 @@ export const OrderingDashboard = () => {
     const [showSalesImport, setShowSalesImport] = useState(false);
     const [showSkuMatcher, setShowSkuMatcher] = useState(false);
     const [unmatchedCount, setUnmatchedCount] = useState(0);
+    const [skuMatchProgress, setSkuMatchProgress] = useState<SkuMatchProgress>({
+        status: 'idle', completed: 0, total: 0, results: [],
+    });
+    const skuMatchAbortRef = useRef(false);
     const [buildingOrderVendorId, setBuildingOrderVendorId] = useState<string | null>(null);
     const [editingOrderId, setEditingOrderId] = useState<string | null>(null);
 
@@ -138,9 +143,46 @@ export const OrderingDashboard = () => {
         loadAll();
     }, [loadAll]);
 
+    const runSkuMatching = useCallback(async (unmatchedSkus: Array<{ sku: string; productName?: string; units60d?: number }>) => {
+        if (unmatchedSkus.length === 0) return;
+        skuMatchAbortRef.current = false;
+        setSkuMatchProgress({ status: 'running', completed: 0, total: unmatchedSkus.length, results: [] });
+
+        const results: AiMatchResult[] = [];
+        for (let i = 0; i < unmatchedSkus.length; i++) {
+            if (skuMatchAbortRef.current) break;
+            try {
+                const resp = await apiService.matchProductsAi({
+                    unmatched: [unmatchedSkus[i]],
+                });
+                if (resp.matches.length > 0) results.push(...resp.matches);
+            } catch (e) {
+                // Log but continue — one failure shouldn't stop the rest
+                console.error(`SKU match failed for ${unmatchedSkus[i].sku}:`, e);
+                results.push({
+                    sku: unmatchedSkus[i].sku,
+                    vendorProductId: null,
+                    confidence: 0,
+                    reasoning: 'AI call failed',
+                });
+            }
+            setSkuMatchProgress(prev => ({ ...prev, completed: i + 1, results: [...results] }));
+        }
+        setSkuMatchProgress(prev => ({ ...prev, status: skuMatchAbortRef.current ? 'idle' : 'done' }));
+    }, []);
+
+    const cancelSkuMatching = useCallback(() => {
+        skuMatchAbortRef.current = true;
+    }, []);
+
+    const clearSkuMatchResults = useCallback(() => {
+        setSkuMatchProgress({ status: 'idle', completed: 0, total: 0, results: [] });
+    }, []);
+
     const isParsing = parseState.active && parseState.step === 'parsing';
     const parseReady = parseState.active && parseState.step === 'review';
-    const showToast = !showUpload && (isParsing || parseReady);
+    const showParseToast = !showUpload && (isParsing || parseReady);
+    const showSkuToast = !showSkuMatcher && skuMatchProgress.status !== 'idle';
 
     const doneCount = parseState.fileStatuses.filter(f => f.status === 'done').length;
     const totalCount = parseState.fileStatuses.length;
@@ -285,6 +327,10 @@ export const OrderingDashboard = () => {
                 <SkuMatcherModal
                     products={products}
                     vendors={vendors}
+                    progress={skuMatchProgress}
+                    onRunMatching={runSkuMatching}
+                    onCancelMatching={cancelSkuMatching}
+                    onClearResults={clearSkuMatchResults}
                     onClose={() => setShowSkuMatcher(false)}
                     onSaved={refreshUnmatchedCount}
                 />
@@ -292,8 +338,68 @@ export const OrderingDashboard = () => {
 
         </div>
 
+            {/* SKU matching toast */}
+            {showSkuToast && createPortal(
+                <div style={{
+                    position: 'fixed',
+                    bottom: 24,
+                    left: '50%',
+                    transform: 'translateX(-50%)',
+                    zIndex: 9999,
+                    animation: 'slideUp 0.2s ease-out',
+                }}>
+                    <div style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 12,
+                        background: '#1A1A1A',
+                        color: '#fff',
+                        borderRadius: 10,
+                        boxShadow: '0 8px 24px rgba(0,0,0,0.25)',
+                        padding: '10px 16px',
+                        minWidth: 300,
+                        fontSize: '0.8125rem',
+                    }}>
+                        {skuMatchProgress.status === 'running' ? (
+                            <>
+                                <Loader2 size={16} color="#3BB570" style={{ animation: 'spin 1s linear infinite', flexShrink: 0 }} />
+                                <span style={{ flex: 1 }}>
+                                    Matching SKUs... {skuMatchProgress.completed}/{skuMatchProgress.total}
+                                </span>
+                                <button
+                                    onClick={() => setShowSkuMatcher(true)}
+                                    style={{ color: '#3BB570', background: 'none', border: 'none', cursor: 'pointer', fontSize: '0.8125rem', fontWeight: 500, whiteSpace: 'nowrap' }}
+                                >
+                                    View
+                                </button>
+                            </>
+                        ) : (
+                            <>
+                                <CheckCircle2 size={16} color="#3BB570" style={{ flexShrink: 0 }} />
+                                <span style={{ flex: 1 }}>
+                                    {skuMatchProgress.results.filter(m => m.vendorProductId).length} matches ready to review
+                                </span>
+                                <button
+                                    onClick={() => setShowSkuMatcher(true)}
+                                    style={{ color: '#3BB570', background: 'none', border: 'none', cursor: 'pointer', fontSize: '0.8125rem', fontWeight: 700, whiteSpace: 'nowrap' }}
+                                >
+                                    Review
+                                </button>
+                                <button
+                                    onClick={clearSkuMatchResults}
+                                    style={{ color: 'rgba(255,255,255,0.4)', background: 'none', border: 'none', cursor: 'pointer', padding: 2 }}
+                                >
+                                    <X size={14} />
+                                </button>
+                            </>
+                        )}
+                    </div>
+                </div>,
+                document.body,
+            )}
+
             {/* Background parse toast — portaled to body to escape any overflow/transform containers */}
-            {showToast && createPortal(
+            {showParseToast && createPortal(
                 <div style={{
                     position: 'fixed',
                     bottom: 24,

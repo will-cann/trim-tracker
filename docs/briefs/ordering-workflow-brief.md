@@ -143,12 +143,43 @@ The existing `ai-parse` function pattern works well here. New function:
 - Velocity calculations are automated — no more manual spreadsheet math
 - Vendor menu ingestion takes < 1 min vs. manual reformatting
 
-## Build Order
+## Current Status (April 2026)
 
-1. **Vendor + store data model** (tables, migrations, CRUD functions)
-2. **Menu upload + AI parsing** (most novel, highest risk — validate early)
-3. **Dutchie integration** (unlocks velocity — investigate API access first)
-4. **Velocity engine** (calculations, caching, trend detection)
-5. **Order matrix UI** (the core interface)
+### Done
+- **Phase 1: Menu Ingestion** — multi-file upload with AI parsing (Claude), per-file vendor detection, grouped review UI, bulk save per vendor. Handles Excel/CSV/PDF.
+- **Phase 2: Sales Velocity (CSV MVP)** — CSV import modal with auto-column mapping, date normalization, bulk insert. Stores, vendors, products all CRUD-complete. Rolling 8-week velocity engine with trend detection (recent vs older half). Test fixtures generated for 3 stores.
+- **Phase 2: SKU Matching** — `vendor_product_aliases` table for many-to-one POS→vendor mapping. AI matcher (Opus, one-SKU-at-a-time for reliability) with progressive UI updates — runs in background with toast, closeable modal, stop/resume. Confidence scoring, accept/reject per row, bulk-accept >= 85%. Needs prompt tuning for match accuracy.
+- **Phase 3: Order Builder** — stores-as-columns matrix with velocity-based suggestions. Color-coded cells (red/yellow/green/gray), suggestion placeholders with reasoning tooltips, "Apply Suggestions" bulk fill. Draft save/load.
+- **Utility: Clear Sales Data** — destructive reset (sales, inventory, imports, AI aliases) preserving manual aliases and vendor products. For dev/testing.
+
+### Remaining Work
+
+**Near-term (next sessions):**
+- **AI match prompt tuning** — current matching has false positives on brand/strain. Tighten prompt, add few-shot examples, possibly split by vendor to reduce catalog noise.
+- **Order submission & lifecycle** — status flow: `draft → submitted → confirmed → received → closed`. No submission path exists yet.
+- **Store-level order splitting** — the builder is vendor-centric but orders ship direct to stores. Need a "split to stores" export step.
+- **Order history & reorder** — view past orders, quick-reorder, compare suggested vs actual.
+- **Inventory sync improvements** — on_hand currently comes from CSV; needs to stay fresh (manual update or Dutchie pull).
+
+**Medium-term:**
+- **Dutchie API integration** — replace CSV import with live POS pull. Eliminates manual import step.
+- **AI chat integration** — "What should I order from Wyld this week?" through existing NeuroCann AI chat.
+- **Export to vendor format** — generate filled-out order form in vendor's own template. Email draft.
+- **Reorder reminders** — based on vendor cadence, notify when it's time to reorder.
+- **Vault space warnings** — flag when incoming orders exceed estimated storage capacity.
+
+**Longer-term:**
+- **Promo flagging & washout** — mark promotional periods to exclude from velocity.
+- **Seasonality overlay** — year-over-year comparison when enough data exists.
+- **Direct POS ordering** — submit through Dutchie/Leaflink API.
+- **Margin analysis** — cost vs revenue per SKU per store.
+
+## Build Order (Original)
+
+1. ~~**Vendor + store data model** (tables, migrations, CRUD functions)~~ Done
+2. ~~**Menu upload + AI parsing** (most novel, highest risk — validate early)~~ Done
+3. **Dutchie integration** (unlocks velocity — investigate API access first) — CSV MVP built instead
+4. ~~**Velocity engine** (calculations, caching, trend detection)~~ Done
+5. ~~**Order matrix UI** (the core interface)~~ Done (draft)
 6. **AI chat integration** (leverage existing patterns)
 7. **Export + email** (order submission)
