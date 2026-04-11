@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { Plus, Sprout, Scissors } from 'lucide-react';
+import { Plus, Sprout, Scissors, ArrowRight } from 'lucide-react';
 import type { Harvest, HarvestWasteType, CreateHarvestDTO } from '../../types/definitions';
 import { apiService } from '../../services/apiService';
 import { HarvestCard } from './HarvestCard';
@@ -17,7 +17,7 @@ const STATUS_FILTER_OPTIONS = [
     { value: 'cutting', label: 'Cutting' },
     { value: 'submitted', label: 'Submitted' },
     { value: 'hanging', label: 'Hanging' },
-    { value: 'bucking', label: 'Binning' },
+    { value: 'bucking', label: 'Final Prep' },
     { value: 'completed', label: 'Completed' },
 ];
 
@@ -30,7 +30,21 @@ const formatWeight = (g: number) => {
 const formatDate = (d: string | null | undefined) =>
     d ? new Date(d).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) : '—';
 
-const HARVEST_COLUMNS: Column<Harvest>[] = [
+// Next-stage action map — mirrors the kanban drag transitions so the table view
+// gives mobile/tap users the same pipeline advance capability.
+const NEXT_STAGE: Record<string, { nextStatus: string; label: string; useApprove?: boolean }> = {
+    planning:  { nextStatus: 'cutting',   label: 'Start Cutting' },
+    cutting:   { nextStatus: 'submitted', label: 'Submit' },
+    submitted: { nextStatus: 'hanging',   label: 'Approve & Hang', useApprove: true },
+    hanging:   { nextStatus: 'bucking',   label: 'Move to Binning' },
+    drying:    { nextStatus: 'bucking',   label: 'Move to Binning' },
+    bucking:   { nextStatus: 'completed', label: 'Complete' },
+    ready:     { nextStatus: 'completed', label: 'Complete' },
+};
+
+const buildHarvestColumns = (
+    onAdvance: (h: Harvest) => void,
+): Column<Harvest>[] => [
     {
         key: 'strain', label: 'Strain', sortable: true,
         render: (h) => <span style={{ fontWeight: 600 }}>{h.strain}</span>,
@@ -62,6 +76,37 @@ const HARVEST_COLUMNS: Column<Harvest>[] = [
     {
         key: 'createdAt', label: 'Created', sortable: true, width: 90,
         render: (h) => <span style={{ color: '#959595' }}>{formatDate(h.createdAt)}</span>,
+    },
+    {
+        key: 'advance', label: '', width: 160, sortable: false,
+        render: (h) => {
+            const next = NEXT_STAGE[h.status];
+            if (!next) return null;
+            return (
+                <button
+                    type="button"
+                    onClick={(e) => { e.stopPropagation(); onAdvance(h); }}
+                    style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: 4,
+                        padding: '4px 10px',
+                        borderRadius: 6,
+                        border: '1px solid #E0E0E0',
+                        background: '#FFFFFF',
+                        color: '#1A1A1A',
+                        fontSize: '0.75rem',
+                        fontWeight: 600,
+                        cursor: 'pointer',
+                        whiteSpace: 'nowrap',
+                    }}
+                    title={`Advance to ${next.nextStatus}`}
+                >
+                    {next.label}
+                    <ArrowRight size={12} />
+                </button>
+            );
+        },
     },
 ];
 
@@ -216,6 +261,23 @@ export const HarvestDashboard: React.FC<HarvestDashboardProps> = ({ onStartHarve
         await loadHarvests();
     };
 
+    const handleAdvance = useCallback(async (h: Harvest) => {
+        const next = NEXT_STAGE[h.status];
+        if (!next) return;
+        try {
+            if (next.useApprove) {
+                await apiService.approveHarvestDay([h.id]);
+            } else {
+                await apiService.updateHarvest(h.id, { status: next.nextStatus });
+            }
+            await loadHarvests();
+        } catch (e) {
+            console.error('Failed to advance harvest stage:', e);
+        }
+    }, [loadHarvests]);
+
+    const tableColumns = useMemo(() => buildHarvestColumns(handleAdvance), [handleAdvance]);
+
     const handleCreatePackage = async (data: Parameters<typeof apiService.createPackage>[0]) => {
         await apiService.createPackage(data);
     };
@@ -300,7 +362,7 @@ export const HarvestDashboard: React.FC<HarvestDashboardProps> = ({ onStartHarve
                         <div className="harvest-summary-divider" />
                         <div className="harvest-summary-stat">
                             <span className="stat-number" style={{ color: 'var(--color-flower)' }}>{pipelineCounts.bucking}</span>
-                            <span className="stat-label">binning</span>
+                            <span className="stat-label">final prep</span>
                         </div>
                     </>)}
                     {(binsCuring > 0 || binsReady > 0) && (<>
@@ -381,7 +443,7 @@ export const HarvestDashboard: React.FC<HarvestDashboardProps> = ({ onStartHarve
             ) : viewMode === 'table' ? (
                 <div className="mt-4">
                     <DataTable
-                        columns={HARVEST_COLUMNS}
+                        columns={tableColumns}
                         data={filteredHarvests}
                         loading={loading}
                         emptyMessage={hasFilters ? 'No harvests match your filters.' : 'Create your first harvest to start tracking weights and allocations.'}

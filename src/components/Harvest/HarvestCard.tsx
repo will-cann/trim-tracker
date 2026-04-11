@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { ChevronDown, X, Trash2, Snowflake, Flower2, ArrowRightLeft, Scissors, Clock, Plus, Scale, PackagePlus, PauseCircle } from 'lucide-react';
+import { ChevronDown, X, Trash2, Snowflake, Flower2, ArrowRightLeft, Scissors, Clock, Plus, Scale, PauseCircle } from 'lucide-react';
 import type { Harvest, HarvestWasteType, CreatePackageDTO } from '../../types/definitions';
 import { WasteEntryForm } from './WasteEntryForm';
 import { RecordWeightModal } from './RecordWeightModal';
@@ -286,7 +286,7 @@ export const HarvestCard: React.FC<HarvestCardProps> = ({
                                                     Send to Trim
                                                 </button>
                                             )}
-                                            {alloc.allocationType === 'frozen' && onCreatePackage && (
+                                            {alloc.allocationType === 'frozen' && alloc.status !== 'completed' && onCreatePackage && (
                                                 <button
                                                     className="btn-start-batch"
                                                     onClick={() => {
@@ -298,9 +298,10 @@ export const HarvestCard: React.FC<HarvestCardProps> = ({
                                                         });
                                                         setShowPackageModal(true);
                                                     }}
+                                                    title="Package fresh frozen material for extraction handoff"
                                                 >
-                                                    <PackagePlus size={12} className="mr-1" />
-                                                    Package
+                                                    <Snowflake size={12} className="mr-1" />
+                                                    Send to Extraction
                                                 </button>
                                             )}
                                         </div>

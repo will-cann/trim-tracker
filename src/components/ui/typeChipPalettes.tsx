@@ -63,7 +63,7 @@ const HARVEST_STATUS: Record<string, TypeChipStyle> = {
     submitted: { ...TINT.lion,      icon: <Send size={11} />,          label: 'Submitted' },
     hanging:   { ...TINT.lion,      icon: <HangingIcon size={11} />,   label: 'Hanging' },
     drying:    { ...TINT.lion,      icon: <HangingIcon size={11} />,   label: 'Drying' },
-    bucking:   { ...TINT.chameleon, icon: <Boxes size={11} />,         label: 'Binning' },
+    bucking:   { ...TINT.chameleon, icon: <Boxes size={11} />,         label: 'Final Prep' },
     ready:     { ...TINT.chameleon, icon: <Boxes size={11} />,         label: 'Ready' },
     completed: { ...TINT.rhino,     icon: <CheckCircle2 size={11} />,  label: 'Completed' },
 };

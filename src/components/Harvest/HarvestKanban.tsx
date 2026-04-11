@@ -13,7 +13,7 @@ const COLUMNS: { status: HarvestStatus; label: string; color: string; icon: type
     { status: 'cutting', label: 'Cutting', color: '#3BB570', icon: Scissors },          // chameleon
     { status: 'submitted', label: 'Submitted', color: '#FA9E52', icon: Send },          // lion
     { status: 'hanging', label: 'Hanging', color: '#FA9E52', icon: Clock },             // lion
-    { status: 'bucking', label: 'Binning', color: '#3BB570', icon: Package },           // chameleon
+    { status: 'bucking', label: 'Final Prep', color: '#3BB570', icon: Package },        // chameleon — bucking flower to bins OR packaging frozen for extraction
     { status: 'completed', label: 'Completed', color: '#959595', icon: CheckCircle2 },  // rhino
 ];
 
