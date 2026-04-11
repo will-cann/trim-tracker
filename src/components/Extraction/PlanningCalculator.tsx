@@ -761,6 +761,7 @@ export const PlanningCalculator: React.FC<PlanningCalculatorProps> = ({ onStartR
                                                         <span className="planning-stage-name">{stage.templateName}</span>
                                                         <span className="planning-stage-yield" title={`Source: ${stage.yieldSource.replace(/_/g, ' ')}${stage.sampleCount ? ` (${stage.sampleCount} runs)` : ''}`}>
                                                             {stage.yieldPct}% yield
+                                                            {stage.yieldSource === 'manual_override' && <span className="planning-yield-badge planning-yield-badge--manual">manual</span>}
                                                             {stage.yieldSource === 'historical_avg' && <span className="planning-yield-badge">historical</span>}
                                                             {stage.yieldSource === 'template_default' && <span className="planning-yield-badge planning-yield-badge--default">template</span>}
                                                         </span>

@@ -18,14 +18,14 @@ export const handler: Handler = async (event) => {
 
         const result = includeInactive
             ? await sql`
-                SELECT id, name, display_name, category, default_unit, is_cannabis,
+                SELECT id, name, display_name, category, default_unit, gram_weight, is_cannabis,
                        process_types, metrc_item_category, is_active, sort_order, created_at, updated_at
                 FROM product_types
                 WHERE company_id = ${context.companyId}
                 ORDER BY sort_order ASC, name ASC
             `
             : await sql`
-                SELECT id, name, display_name, category, default_unit, is_cannabis,
+                SELECT id, name, display_name, category, default_unit, gram_weight, is_cannabis,
                        process_types, metrc_item_category, is_active, sort_order, created_at, updated_at
                 FROM product_types
                 WHERE company_id = ${context.companyId} AND is_active = true
@@ -53,6 +53,7 @@ function formatRow(row: Record<string, unknown>) {
         displayName: row.display_name,
         category: row.category,
         defaultUnit: row.default_unit,
+        gramWeight: row.gram_weight != null ? parseFloat(row.gram_weight as string) : null,
         isCannabis: row.is_cannabis,
         metrcItemCategory: row.metrc_item_category,
         processTypes: (row.process_types as string[]) || [],

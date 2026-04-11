@@ -92,6 +92,27 @@ const ProductTypeRow: React.FC<ProductTypeRowProps> = ({ pt, onUpdate, onDeactiv
                     ))}
                 </select>
             </td>
+            <td className="product-type-cell product-type-cell-fill">
+                {pt.defaultUnit === 'each' ? (
+                    <input
+                        type="number"
+                        min={0}
+                        step="0.1"
+                        defaultValue={pt.gramWeight ?? ''}
+                        placeholder="—"
+                        onBlur={e => {
+                            const raw = e.target.value.trim();
+                            const next = raw === '' ? null : parseFloat(raw);
+                            if (next !== pt.gramWeight) onUpdate({ gramWeight: next });
+                        }}
+                        onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
+                        className="product-type-fill-input"
+                        title="Grams of input material per unit (0.5g cart, 1g cart, 4g bucket, etc.)"
+                    />
+                ) : (
+                    <span className="product-type-fill-na">—</span>
+                )}
+            </td>
             <td className="product-type-cell-pathways">
                 <div className="product-type-pathways">
                     {PROCESS_PATHWAYS.map(p => {
@@ -175,6 +196,7 @@ export const ProductTypeSection: React.FC<ProductTypeSectionProps> = () => {
             displayName: updates.displayName ?? pt.displayName,
             category: updates.category ?? pt.category,
             defaultUnit: updates.defaultUnit ?? pt.defaultUnit,
+            gramWeight: updates.gramWeight !== undefined ? updates.gramWeight : pt.gramWeight,
             isCannabis: updates.isCannabis ?? pt.isCannabis,
             processTypes: updates.processTypes ?? pt.processTypes,
             isActive: updates.isActive ?? pt.isActive,
@@ -282,6 +304,7 @@ export const ProductTypeSection: React.FC<ProductTypeSectionProps> = () => {
                                 <th className="product-type-th">Product</th>
                                 <th className="product-type-th">Category</th>
                                 <th className="product-type-th">Unit</th>
+                                <th className="product-type-th" style={{ width: 72 }} title="Grams per unit (for carts, pens, buckets)">Fill (g)</th>
                                 <th className="product-type-th">Pathways</th>
                                 <th className="product-type-th" style={{ width: 48, textAlign: 'center', padding: '0.6875rem 0.25rem' }} title="Cannabis">
                                     <Leaf size={11} style={{ display: 'inline-block', verticalAlign: 'middle' }} />

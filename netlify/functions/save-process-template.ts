@@ -109,11 +109,13 @@ export const handler: Handler = async (event) => {
                 if (step.supplyRequirements?.length) {
                     for (const req of step.supplyRequirements) {
                         if (!req.supplyItemId || !req.quantityPer) continue;
+                        const scales = req.scalesWithOutput === true;
                         await client.query(
-                            `INSERT INTO step_supply_requirements (step_id, supply_item_id, quantity_per)
-                             VALUES ($1, $2, $3)
-                             ON CONFLICT (step_id, supply_item_id) DO UPDATE SET quantity_per = $3`,
-                            [inserted.id, req.supplyItemId, req.quantityPer]
+                            `INSERT INTO step_supply_requirements (step_id, supply_item_id, quantity_per, scales_with_output)
+                             VALUES ($1, $2, $3, $4)
+                             ON CONFLICT (step_id, supply_item_id) DO UPDATE
+                               SET quantity_per = $3, scales_with_output = $4`,
+                            [inserted.id, req.supplyItemId, req.quantityPer, scales]
                         );
                     }
                 }

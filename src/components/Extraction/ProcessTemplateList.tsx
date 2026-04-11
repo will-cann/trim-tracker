@@ -101,6 +101,7 @@ const formatDuration = (hours: number | null) => {
 interface EditableSupplyReq {
     supplyItemId: string;
     quantityPer: string;
+    scalesWithOutput: boolean;
     supplyName?: string;
     supplyUnit?: string;
 }
@@ -160,6 +161,7 @@ function stepToEditable(step: ProcessStep): EditableStep {
         supplyRequirements: (step.supplyRequirements || []).map(r => ({
             supplyItemId: r.supplyItemId,
             quantityPer: String(r.quantityPer),
+            scalesWithOutput: r.scalesWithOutput === true,
             supplyName: r.supplyName,
             supplyUnit: r.supplyUnit,
         })),
@@ -543,6 +545,22 @@ const StepEditorRow: React.FC<{
                                                     style={{ width: '60px' }}
                                                 />
                                                 <span style={{ fontSize: '10px', color: '#959595' }}>{item?.unit || req.supplyUnit || 'ea'}</span>
+                                                <label
+                                                    title="When on, this quantity multiplies by the step's output at plan/run time (e.g. 1 empty cart × 1000 carts = 1000 cart bodies)."
+                                                    style={{ display: 'inline-flex', alignItems: 'center', gap: '3px', fontSize: '10px', color: req.scalesWithOutput ? '#1C9EFF' : '#959595', cursor: 'pointer' }}
+                                                >
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={req.scalesWithOutput}
+                                                        onChange={e => {
+                                                            const updated = [...step.supplyRequirements];
+                                                            updated[ri] = { ...updated[ri], scalesWithOutput: e.target.checked };
+                                                            onChange({ ...step, supplyRequirements: updated });
+                                                        }}
+                                                        style={{ width: 11, height: 11, margin: 0 }}
+                                                    />
+                                                    per output
+                                                </label>
                                                 <button
                                                     type="button"
                                                     style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#C0C0C0', padding: '2px' }}
@@ -562,7 +580,7 @@ const StepEditorRow: React.FC<{
                                         onClick={() => {
                                             onChange({
                                                 ...step,
-                                                supplyRequirements: [...step.supplyRequirements, { supplyItemId: '', quantityPer: '1' }],
+                                                supplyRequirements: [...step.supplyRequirements, { supplyItemId: '', quantityPer: '1', scalesWithOutput: false }],
                                             });
                                         }}
                                     >
@@ -719,7 +737,11 @@ const TemplateEditor: React.FC<TemplateEditorProps> = ({ template, onSave, onCan
                         requiresTimestamp: s.requiresTimestamp,
                         supplyRequirements: s.supplyRequirements
                             .filter(r => r.supplyItemId && r.quantityPer)
-                            .map(r => ({ supplyItemId: r.supplyItemId, quantityPer: parseFloat(r.quantityPer) || 0 })),
+                            .map(r => ({
+                                supplyItemId: r.supplyItemId,
+                                quantityPer: parseFloat(r.quantityPer) || 0,
+                                scalesWithOutput: r.scalesWithOutput,
+                            })),
                     })),
             };
             const result = await apiService.saveProcessTemplate(payload);

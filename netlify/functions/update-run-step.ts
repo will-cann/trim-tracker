@@ -110,7 +110,7 @@ export const handler: Handler = async (event) => {
         const justCompleted = status === 'completed' && s.template_step_id;
         if (justCompleted) {
             const reqResult = await client.query(
-                `SELECT ssr.supply_item_id, ssr.quantity_per,
+                `SELECT ssr.supply_item_id, ssr.quantity_per, ssr.scales_with_output,
                         si.quantity_on_hand, si.name AS supply_name
                  FROM step_supply_requirements ssr
                  JOIN supply_items si ON si.id = ssr.supply_item_id
@@ -118,8 +118,34 @@ export const handler: Handler = async (event) => {
                 [s.template_step_id]
             );
 
+            // For output-scaling supplies we need the run's target product's
+            // gram_weight so we can convert the step's output_weight_g to an
+            // each-count. One query, reused for every req on this step.
+            let outputEachCount: number | null = null;
+            if (reqResult.rows.some((r: Record<string, unknown>) => r.scales_with_output === true)) {
+                const runMeta = await client.query(
+                    `SELECT pt.gram_weight
+                     FROM extraction_runs er
+                     LEFT JOIN product_types pt
+                       ON pt.company_id = er.company_id AND pt.name = er.target_product
+                     WHERE er.id = $1`,
+                    [s.run_id]
+                );
+                const gramWeight = runMeta.rows[0]?.gram_weight;
+                const outputG = s.output_weight_g ? parseFloat(s.output_weight_g) : null;
+                if (gramWeight && gramWeight > 0 && outputG && outputG > 0) {
+                    outputEachCount = Math.round(outputG / parseFloat(gramWeight));
+                }
+            }
+
             for (const req of reqResult.rows) {
-                const delta = -parseFloat(req.quantity_per);
+                // When scales_with_output is true and we resolved an each-count
+                // for this run's output, multiply the per-unit requirement by
+                // that count. Otherwise fall back to the per-batch value.
+                const multiplier = req.scales_with_output === true && outputEachCount != null
+                    ? outputEachCount
+                    : 1;
+                const delta = -parseFloat(req.quantity_per) * multiplier;
                 const newQty = parseFloat(req.quantity_on_hand) + delta;
 
                 await client.query(

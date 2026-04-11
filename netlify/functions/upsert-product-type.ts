@@ -31,6 +31,7 @@ export const handler: Handler = async (event) => {
             displayName,
             category,
             defaultUnit,
+            gramWeight,
             isCannabis,
             processTypes,
             metrcItemCategory,
@@ -55,6 +56,10 @@ export const handler: Handler = async (event) => {
         const active = isActive !== false; // default true
         const sort = typeof sortOrder === 'number' ? sortOrder : 100;
         const procTypes: string[] = Array.isArray(processTypes) ? processTypes : [];
+        // Fill weight for each-unit products (carts, pens, buckets). Stored as
+        // null for bulk-weight items; a positive number for each-unit items.
+        const gw = gramWeight == null || gramWeight === '' ? null
+            : (Number.isFinite(Number(gramWeight)) && Number(gramWeight) > 0 ? Number(gramWeight) : null);
 
         if (id) {
             // Update existing — use pool.query so the pg driver handles the
@@ -62,11 +67,12 @@ export const handler: Handler = async (event) => {
             const result = await pool.query(
                 `UPDATE product_types
                  SET name = $1, display_name = $2, category = $3, default_unit = $4,
-                     is_cannabis = $5, process_types = $6, metrc_item_category = $7,
-                     is_active = $8, sort_order = $9, updated_at = NOW()
-                 WHERE id = $10 AND company_id = $11
+                     gram_weight = $5,
+                     is_cannabis = $6, process_types = $7, metrc_item_category = $8,
+                     is_active = $9, sort_order = $10, updated_at = NOW()
+                 WHERE id = $11 AND company_id = $12
                  RETURNING *`,
-                [normalizedName, displayName, category, unit, cannabis, procTypes,
+                [normalizedName, displayName, category, unit, gw, cannabis, procTypes,
                  metrcItemCategory || null, active, sort, id, context.companyId]
             );
             if (result.rows.length === 0) {
@@ -82,14 +88,15 @@ export const handler: Handler = async (event) => {
         // Insert new (or upsert on conflict)
         const result = await pool.query(
             `INSERT INTO product_types (
-                company_id, name, display_name, category, default_unit,
+                company_id, name, display_name, category, default_unit, gram_weight,
                 is_cannabis, process_types, metrc_item_category, is_active, sort_order
             )
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
             ON CONFLICT (company_id, name) DO UPDATE
             SET display_name = EXCLUDED.display_name,
                 category = EXCLUDED.category,
                 default_unit = EXCLUDED.default_unit,
+                gram_weight = EXCLUDED.gram_weight,
                 is_cannabis = EXCLUDED.is_cannabis,
                 process_types = EXCLUDED.process_types,
                 metrc_item_category = EXCLUDED.metrc_item_category,
@@ -97,7 +104,7 @@ export const handler: Handler = async (event) => {
                 sort_order = EXCLUDED.sort_order,
                 updated_at = NOW()
             RETURNING *`,
-            [context.companyId, normalizedName, displayName, category, unit,
+            [context.companyId, normalizedName, displayName, category, unit, gw,
              cannabis, procTypes, metrcItemCategory || null, active, sort]
         );
 
@@ -122,6 +129,7 @@ function formatRow(row: Record<string, unknown>) {
         displayName: row.display_name,
         category: row.category,
         defaultUnit: row.default_unit,
+        gramWeight: row.gram_weight != null ? parseFloat(row.gram_weight as string) : null,
         isCannabis: row.is_cannabis,
         processTypes: (row.process_types as string[]) || [],
         metrcItemCategory: row.metrc_item_category,

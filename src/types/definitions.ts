@@ -315,6 +315,7 @@ export interface ProductType {
   displayName: string;       // human label, e.g. "Live Rosin"
   category: ProductCategory;
   defaultUnit: string;       // 'g' | 'each' | 'ml' | 'trays' | ...
+  gramWeight: number | null; // grams of input material per each-unit (carts, pens). Null for bulk products.
   isCannabis: boolean;       // false for botanical terpenes, butane, etc.
   processTypes: string[];    // which extraction pathways (solventless, bho, distillate, custom). Empty = universal.
   metrcItemCategory: string | null;
@@ -419,6 +420,7 @@ export interface ProcessStep {
 export interface StepSupplyRequirement {
   supplyItemId: string;
   quantityPer: number;
+  scalesWithOutput?: boolean; // when true, quantity_per multiplies by stage output qty at plan/run time
   supplyName?: string;
   supplyUnit?: string;
 }
@@ -464,9 +466,23 @@ export interface PlanStage {
   outputQty: number;
   outputUnit: string;
   yieldPct: number;
-  yieldSource: 'historical_avg' | 'template_default' | 'assumed';
+  yieldSource: 'historical_avg' | 'template_default' | 'assumed' | 'manual_override';
   sampleCount?: number;
   contributingTargets: number[];
+}
+
+export interface StrainYieldOverride {
+  id: string;
+  companyId: string;
+  strain: string;
+  templateId: string;
+  templateName?: string;
+  inputType: string;
+  outputType: string;
+  yieldPct: number;
+  notes: string | null;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface BiomassBucket {

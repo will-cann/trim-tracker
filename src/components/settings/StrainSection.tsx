@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
-import { Plus, Trash2 } from 'lucide-react';
+import { Plus, Trash2, Percent } from 'lucide-react';
 import { CenteredSpinner } from '../Spinner';
-import type { Strain, StretchTrait } from '../../types/definitions';
+import type { Strain, StretchTrait, ProcessTemplate, ProductType } from '../../types/definitions';
 import { apiService } from '../../services/apiService';
+import { StrainYieldsModal } from './StrainYieldsModal';
 
 /** Inline-editable row for a single strain */
 const STRETCH_OPTIONS: { value: StretchTrait | ''; label: string }[] = [
@@ -12,10 +13,11 @@ const STRETCH_OPTIONS: { value: StretchTrait | ''; label: string }[] = [
     { value: 'high', label: 'High' },
 ];
 
-const StrainRow = ({ strain, onUpdate, onDelete }: {
+const StrainRow = ({ strain, onUpdate, onDelete, onOpenYields }: {
     strain: Strain;
     onUpdate: (updates: { defaultVegDays?: number | null; defaultFloweringDays?: number | null; stretchTrait?: StretchTrait | null; notes?: string | null }) => Promise<void>;
     onDelete: () => void;
+    onOpenYields: () => void;
 }) => {
     const saveDays = async (field: 'defaultVegDays' | 'defaultFloweringDays', raw: string) => {
         const val = parseInt(raw);
@@ -69,6 +71,9 @@ const StrainRow = ({ strain, onUpdate, onDelete }: {
                 />
             </td>
             <td className="strain-cell-action">
+                <button onClick={onOpenYields} className="strain-yields-btn" title="Known yields per SOP">
+                    <Percent size={13} />
+                </button>
                 <button onClick={onDelete} className="strain-delete-btn" title="Delete strain">
                     <Trash2 size={14} />
                 </button>
@@ -87,6 +92,30 @@ interface StrainSectionProps {
 export const StrainSection: React.FC<StrainSectionProps> = ({ strains, loading, onReload, onDelete }) => {
     const [isAdding, setIsAdding] = useState(false);
     const [newStrainName, setNewStrainName] = useState('');
+    const [yieldsFor, setYieldsFor] = useState<Strain | null>(null);
+    const [templates, setTemplates] = useState<ProcessTemplate[] | null>(null);
+    const [productTypes, setProductTypes] = useState<ProductType[] | null>(null);
+    const [loadingMeta, setLoadingMeta] = useState(false);
+
+    // Lazy-load SOP templates + product catalog on first open of the yields
+    // modal. Cheaper than eager-loading just for the sake of a low-frequency
+    // settings action.
+    const openYields = async (strain: Strain) => {
+        if (!templates || !productTypes) {
+            setLoadingMeta(true);
+            try {
+                const [tmpls, pts] = await Promise.all([
+                    apiService.getProcessTemplates('extraction'),
+                    apiService.getProductTypes(),
+                ]);
+                setTemplates(tmpls);
+                setProductTypes(pts);
+            } finally {
+                setLoadingMeta(false);
+            }
+        }
+        setYieldsFor(strain);
+    };
 
     const handleAdd = async () => {
         const name = newStrainName.trim();
@@ -153,14 +182,32 @@ export const StrainSection: React.FC<StrainSectionProps> = ({ strains, loading, 
                         </thead>
                         <tbody>
                             {strains.map(s => (
-                                <StrainRow key={s.id} strain={s} onUpdate={async (updates) => {
-                                    await apiService.upsertStrain(s.name, updates);
-                                    await onReload();
-                                }} onDelete={() => onDelete(s.id, s.name)} />
+                                <StrainRow
+                                    key={s.id}
+                                    strain={s}
+                                    onUpdate={async (updates) => {
+                                        await apiService.upsertStrain(s.name, updates);
+                                        await onReload();
+                                    }}
+                                    onDelete={() => onDelete(s.id, s.name)}
+                                    onOpenYields={() => openYields(s)}
+                                />
                             ))}
                         </tbody>
                     </table>
                 </div>
+            )}
+
+            {yieldsFor && templates && productTypes && (
+                <StrainYieldsModal
+                    strain={yieldsFor}
+                    templates={templates}
+                    productTypes={productTypes}
+                    onClose={() => setYieldsFor(null)}
+                />
+            )}
+            {loadingMeta && (
+                <div className="strain-yields-loading-toast">Loading SOPs…</div>
             )}
         </div>
     );

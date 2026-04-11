@@ -7131,10 +7131,16 @@ select.field-input {
 
 .strain-cell-action {
   padding: 0.5rem 0.5rem;
-  width: 40px;
+  width: 72px;
+  white-space: nowrap;
+  display: flex;
+  gap: 2px;
+  align-items: center;
+  justify-content: flex-end;
 }
 
-.strain-delete-btn {
+.strain-delete-btn,
+.strain-yields-btn {
   opacity: 0;
   padding: 6px;
   border: none;
@@ -7148,13 +7154,184 @@ select.field-input {
   justify-content: center;
 }
 
-.strain-row:hover .strain-delete-btn {
+.strain-row:hover .strain-delete-btn,
+.strain-row:hover .strain-yields-btn {
   opacity: 1;
 }
 
+.strain-yields-btn:hover {
+  color: #1C9EFF;
+  background: rgba(28, 158, 255, 0.08);
+}
 .strain-delete-btn:hover {
   color: #DF5B59;
   background: rgba(223, 91, 89, 0.08);
+}
+
+/* ── Strain Yields Modal ──────────────────────────────────────────────── */
+.strain-yields-modal .modal-content { max-width: 680px; }
+.strain-yields {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+.strain-yields-strain {
+  color: #1C9EFF;
+  font-weight: 700;
+  margin-left: 6px;
+}
+.strain-yields-hint {
+  font-size: 0.8125rem;
+  font-weight: 300;
+  color: #959595;
+  line-height: 1.55;
+  margin: 0;
+  max-width: 58ch;
+}
+.strain-yields-hint strong {
+  color: #1A1A1A;
+  font-weight: 700;
+}
+.strain-yields-loading {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: #959595;
+  font-size: 0.8125rem;
+  padding: 1.5rem 0;
+  justify-content: center;
+}
+.strain-yields-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+.strain-yields-table thead th {
+  text-align: left;
+  font-size: 0.625rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #959595;
+  padding: 0.5rem 0.5rem 0.625rem;
+  border-bottom: 1px solid #F1F1F1;
+}
+.strain-yields-table tbody td {
+  padding: 0.625rem 0.5rem;
+  border-bottom: 1px solid #F5F5F5;
+  vertical-align: middle;
+  font-size: 0.8125rem;
+  color: #1A1A1A;
+}
+.strain-yields-table tbody tr:last-child td { border-bottom: none; }
+.strain-yields-tmpl {
+  font-weight: 500;
+  letter-spacing: -0.005em;
+}
+.strain-yields-inout {
+  font-size: 0.75rem;
+  font-weight: 300;
+  color: #959595;
+}
+.strain-yields-inout--dim { color: #C0C0C0; font-style: italic; }
+.strain-yields-empty-row td {
+  text-align: center;
+  color: #C0C0C0;
+  font-style: italic;
+  padding: 1.25rem 0;
+}
+.strain-yields-pct-wrap {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 2px;
+}
+.strain-yields-pct-input {
+  width: 56px;
+  padding: 5px 8px;
+  border: 1px solid #E8E8E8;
+  border-radius: 5px;
+  font-family: 'Lato', sans-serif;
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: #1A1A1A;
+  font-feature-settings: "tnum" 1;
+  text-align: right;
+  outline: none;
+  transition: border-color 0.15s;
+}
+.strain-yields-pct-input:focus { border-color: #1C9EFF; }
+.strain-yields-pct-sign {
+  font-size: 0.75rem;
+  font-weight: 300;
+  color: #959595;
+}
+.strain-yields-delete {
+  padding: 5px;
+  border: none;
+  background: transparent;
+  border-radius: 5px;
+  color: #C0C0C0;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s, color 0.15s;
+}
+.strain-yields-delete:hover {
+  color: #DF5B59;
+  background: rgba(223, 91, 89, 0.08);
+}
+.strain-yields-draft-row td {
+  background: #FAFAFA;
+  border-bottom: none;
+  border-top: 1px dashed #E8E8E8;
+}
+.strain-yields-draft-select {
+  width: 100%;
+  padding: 5px 8px;
+  border: 1px solid #E8E8E8;
+  border-radius: 5px;
+  font-family: 'Lato', sans-serif;
+  font-size: 0.8125rem;
+  color: #1A1A1A;
+  background: #fff;
+  outline: none;
+  transition: border-color 0.15s;
+}
+.strain-yields-draft-select:focus { border-color: #1C9EFF; }
+.strain-yields-add {
+  width: 26px;
+  height: 26px;
+  border-radius: 999px;
+  border: 1px solid #3BB570;
+  background: #3BB570;
+  color: #fff;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s, border-color 0.15s, transform 0.12s;
+}
+.strain-yields-add:hover:not(:disabled) {
+  background: #34A564;
+  border-color: #34A564;
+  transform: scale(1.05);
+}
+.strain-yields-add:disabled {
+  background: #fff;
+  border-color: #E8E8E8;
+  color: #C0C0C0;
+  cursor: not-allowed;
+}
+.strain-yields-loading-toast {
+  position: fixed;
+  bottom: 1.5rem;
+  right: 1.5rem;
+  padding: 8px 14px;
+  background: #1A1A1A;
+  color: #fff;
+  font-size: 0.75rem;
+  border-radius: 6px;
+  z-index: 100;
 }
 
 /* ── Product Type Catalog ─────────────────────────────────────────────── */
@@ -7325,6 +7502,39 @@ select.field-input {
   border-color: #3BB570;
   background-color: #fff;
   box-shadow: 0 0 0 3px rgba(59, 181, 112, 0.12);
+}
+
+/* Fill (g) column: grams-per-each input for container products */
+.product-type-cell-fill {
+  text-align: right;
+}
+.product-type-fill-input {
+  width: 52px;
+  padding: 4px 8px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: #1A1A1A;
+  font-family: 'Lato', sans-serif;
+  font-size: 0.75rem;
+  font-weight: 500;
+  font-feature-settings: "tnum" 1;
+  text-align: right;
+  outline: none;
+  transition: border-color 0.12s, background 0.12s, box-shadow 0.12s;
+}
+.product-type-fill-input:hover {
+  border-color: #EBEBEB;
+  background-color: #fff;
+}
+.product-type-fill-input:focus {
+  border-color: #3BB570;
+  background-color: #fff;
+  box-shadow: 0 0 0 3px rgba(59, 181, 112, 0.12);
+}
+.product-type-fill-na {
+  color: #C0C0C0;
+  font-size: 0.75rem;
 }
 
 /* Pathway pills — outline by default, brand-colored when active */
@@ -11579,6 +11789,10 @@ select.settings-inline-input {
 .planning-yield-badge--default {
   background: rgba(149, 149, 149, 0.1);
   color: #959595;
+}
+.planning-yield-badge--manual {
+  background: rgba(28, 158, 255, 0.1);
+  color: #1C9EFF;
 }
 .planning-stage-start {
   display: inline-flex;

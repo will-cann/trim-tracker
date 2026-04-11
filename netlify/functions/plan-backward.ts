@@ -31,6 +31,7 @@ interface ProductTypeRowFull {
     default_unit: string;
     is_cannabis: boolean;
     process_types: string[];
+    gram_weight: number | null;
 }
 
 interface StepRow {
@@ -72,8 +73,11 @@ interface PlanStage {
     outputDisplayName: string;
     outputQty: number;
     outputUnit: string;
+    // Internal: the stage's output in grams, used for supply scaling and
+    // downstream chain math even when the displayed unit is 'each'.
+    outputGrams: number;
     yieldPct: number;
-    yieldSource: 'historical_avg' | 'template_default' | 'assumed';
+    yieldSource: 'historical_avg' | 'template_default' | 'assumed' | 'manual_override';
     sampleCount?: number;
     contributingTargets: number[];
 }
@@ -184,8 +188,10 @@ function buildChain(
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Compute stages for a single target along a pre-built chain. Stages are
-// emitted with a synthetic `key` so the caller can merge them across targets.
+// Compute stages for a single target along a pre-built chain. Internal math
+// runs in grams; the leaf stage (the one producing the user-facing target)
+// displays its output in the target's native unit so "1000 rosin carts"
+// reads as "1000 carts" in the UI even though the backward math was 500 g.
 // ─────────────────────────────────────────────────────────────────────────────
 function stagesForTarget(
     target: PlanTargetInput,
@@ -193,12 +199,31 @@ function stagesForTarget(
     chain: ChainLink[],
     productTypes: Map<string, ProductTypeRowFull>,
     yieldMapByStrain: Map<string, Map<string, { avg: number; count: number }>>,
+    overrideMap: Map<string, number>,
     warnings: string[],
 ): PlanStage[] {
     const stages: PlanStage[] = [];
-    let requiredOutput = target.quantity;
     const strainKey = target.strain || '';
     const yieldMap = yieldMapByStrain.get(strainKey);
+
+    // Each→gram conversion for the target. If the target is measured in an
+    // each-unit (carts, pens) we multiply by gram_weight before walking the
+    // yield chain. Without gram_weight we can't compute biomass — warn loudly.
+    const targetPt = productTypes.get(target.outputType);
+    const unit = (target.unit || targetPt?.default_unit || 'g').toLowerCase();
+    const isEachTarget = unit !== 'g' && unit !== 'grams' && unit !== 'kg';
+    let targetGrams = target.quantity;
+    if (isEachTarget) {
+        if (!targetPt?.gram_weight || targetPt.gram_weight <= 0) {
+            warnings.push(
+                `${targetPt?.display_name || target.outputType} has no fill weight set. Can't compute biomass — set a gram weight in the product catalog.`
+            );
+            return [];
+        }
+        targetGrams = target.quantity * Number(targetPt.gram_weight);
+    }
+
+    let requiredOutputGrams = targetGrams;
 
     for (let i = chain.length - 1; i >= 0; i--) {
         const link = chain[i];
@@ -206,33 +231,52 @@ function stagesForTarget(
         const outputPt = productTypes.get(link.outputType);
 
         let yieldPct = 100;
-        let yieldSource: 'historical_avg' | 'template_default' | 'assumed' = 'assumed';
+        let yieldSource: 'historical_avg' | 'template_default' | 'assumed' | 'manual_override' = 'assumed';
         let sampleCount: number | undefined;
 
-        const histKey = `${link.inputType}→${link.outputType}`;
-        const hist = yieldMap?.get(histKey);
-        if (hist && hist.count >= 1) {
-            yieldPct = hist.avg;
-            yieldSource = 'historical_avg';
-            sampleCount = hist.count;
+        // Lookup order: manual override → historical → template default.
+        const overrideKey = `${target.strain || ''}::${link.template.id}::${link.inputType}::${link.outputType}`;
+        const override = overrideMap.get(overrideKey);
+        if (override != null) {
+            yieldPct = override;
+            yieldSource = 'manual_override';
         } else {
-            const cumulativeYield = link.steps.reduce((acc, step) => {
-                const stepYield = step.expected_yield_pct ? parseFloat(step.expected_yield_pct) : 100;
-                return acc * (stepYield / 100);
-            }, 1) * 100;
-
-            if (cumulativeYield > 0 && cumulativeYield < 100) {
-                yieldPct = Math.round(cumulativeYield * 100) / 100;
-                yieldSource = 'template_default';
+            const histKey = `${link.inputType}→${link.outputType}`;
+            const hist = yieldMap?.get(histKey);
+            if (hist && hist.count >= 1) {
+                yieldPct = hist.avg;
+                yieldSource = 'historical_avg';
+                sampleCount = hist.count;
             } else {
-                warnings.push(
-                    `No yield data for ${inputPt?.display_name || link.inputType} → ${outputPt?.display_name || link.outputType}. Using 100%.`
-                );
+                const cumulativeYield = link.steps.reduce((acc, step) => {
+                    const stepYield = step.expected_yield_pct ? parseFloat(step.expected_yield_pct) : 100;
+                    return acc * (stepYield / 100);
+                }, 1) * 100;
+
+                if (cumulativeYield > 0 && cumulativeYield < 100) {
+                    yieldPct = Math.round(cumulativeYield * 100) / 100;
+                    yieldSource = 'template_default';
+                } else {
+                    warnings.push(
+                        `No yield data for ${inputPt?.display_name || link.inputType} → ${outputPt?.display_name || link.outputType}. Using 100%.`
+                    );
+                }
             }
         }
 
-        const requiredInput = yieldPct > 0 ? (requiredOutput / (yieldPct / 100)) : requiredOutput;
+        const requiredInputGrams = yieldPct > 0 ? (requiredOutputGrams / (yieldPct / 100)) : requiredOutputGrams;
         const strain = target.strain || null;
+
+        // The leaf stage (the one whose output matches the user's target) can
+        // display in the target's native unit. Every other stage stays in grams.
+        const isLeaf = i === chain.length - 1;
+        const leafUsesEach = isLeaf && isEachTarget;
+        const outputUnitDisplay = leafUsesEach
+            ? (target.unit || outputPt?.default_unit || 'each')
+            : (outputPt?.default_unit || 'g');
+        const outputQtyDisplay = leafUsesEach
+            ? target.quantity
+            : requiredOutputGrams;
 
         stages.unshift({
             key: `${link.template.id}::${strain || 'any'}`,
@@ -242,19 +286,20 @@ function stagesForTarget(
             strain,
             inputType: link.inputType,
             inputDisplayName: inputPt?.display_name || link.inputType.replace(/_/g, ' '),
-            inputQty: Math.ceil(requiredInput * 100) / 100,
+            inputQty: Math.ceil(requiredInputGrams * 100) / 100,
             inputUnit: inputPt?.default_unit || 'g',
             outputType: link.outputType,
             outputDisplayName: outputPt?.display_name || link.outputType.replace(/_/g, ' '),
-            outputQty: Math.ceil(requiredOutput * 100) / 100,
-            outputUnit: outputPt?.default_unit || target.unit || 'g',
+            outputQty: Math.ceil(outputQtyDisplay * 100) / 100,
+            outputUnit: outputUnitDisplay,
+            outputGrams: Math.ceil(requiredOutputGrams * 100) / 100,
             yieldPct,
             yieldSource,
             sampleCount,
             contributingTargets: [targetIdx],
         });
 
-        requiredOutput = requiredInput;
+        requiredOutputGrams = requiredInputGrams;
     }
     return stages;
 }
@@ -267,6 +312,7 @@ function mergeStage(a: PlanStage, b: PlanStage): PlanStage {
         ...a,
         inputQty: Math.ceil((a.inputQty + b.inputQty) * 100) / 100,
         outputQty: Math.ceil((a.outputQty + b.outputQty) * 100) / 100,
+        outputGrams: Math.ceil((a.outputGrams + b.outputGrams) * 100) / 100,
         contributingTargets: [...a.contributingTargets, ...b.contributingTargets],
     };
 }
@@ -320,7 +366,8 @@ export const handler: Handler = async (event) => {
         );
         const productTypesResult = await pool.query<ProductTypeRowFull>(
             `SELECT name, display_name, category, default_unit, is_cannabis,
-                    COALESCE(process_types, '{}'::text[]) AS process_types
+                    COALESCE(process_types, '{}'::text[]) AS process_types,
+                    gram_weight
              FROM product_types
              WHERE company_id = $1 AND is_active = true`,
             [companyId]
@@ -346,10 +393,28 @@ export const handler: Handler = async (event) => {
             }
         }
 
+        // Manual strain yield overrides — loaded for every referenced strain
+        // in a single query. Keyed on `${strain}::${templateId}::${in}::${out}`
+        // so the lookup inside stagesForTarget is O(1) per link.
+        const overrideMap = new Map<string, number>();
         // Yield data: one query covering every referenced strain.
         const strainsReferenced = Array.from(new Set(
             rawTargets.map(t => t.strain).filter((s): s is string => !!s)
         ));
+        if (strainsReferenced.length > 0) {
+            const overrideRes = await pool.query(
+                `SELECT strain, template_id, input_type, output_type, yield_pct
+                 FROM strain_yield_overrides
+                 WHERE company_id = $1 AND strain = ANY($2::text[])`,
+                [companyId, strainsReferenced]
+            );
+            for (const row of overrideRes.rows as Record<string, unknown>[]) {
+                overrideMap.set(
+                    `${row.strain}::${row.template_id}::${row.input_type}::${row.output_type}`,
+                    parseFloat(row.yield_pct as string),
+                );
+            }
+        }
         const yieldMapByStrain = new Map<string, Map<string, { avg: number; count: number }>>();
         yieldMapByStrain.set('', new Map()); // "any strain" bucket (empty lookups fall through to template defaults)
         if (strainsReferenced.length > 0) {
@@ -410,7 +475,7 @@ export const handler: Handler = async (event) => {
                 warnings.push(`No matching SOP for "${pt?.display_name || target.outputType}" — target skipped.`);
                 return;
             }
-            const targetStages = stagesForTarget(target, idx, chain, productTypes, yieldMapByStrain, warnings);
+            const targetStages = stagesForTarget(target, idx, chain, productTypes, yieldMapByStrain, overrideMap, warnings);
             for (const stage of targetStages) {
                 const existing = stageMap.get(stage.key);
                 stageMap.set(stage.key, existing ? mergeStage(existing, stage) : stage);
@@ -497,39 +562,72 @@ export const handler: Handler = async (event) => {
             }
         }
 
-        // ── Supplies: sum across all stages in the merged plan ──────────
-        // A stage needs its template's step supplies × (inputQty / templateBatchSize).
-        // For simplicity we sum per-step supply quantities once per stage; users can
-        // refine in a future pass. This matches the single-target behavior.
+        // ── Supplies: per-stage, output-scaled when requested ───────────
+        // For each stage in the merged plan, look up the supply requirements
+        // of its template's steps. When a requirement is marked scales_with_
+        // output, multiply quantity_per by the stage's output qty (so 1000
+        // filled carts debit 1000 empty cart bodies). Otherwise treat it as
+        // per-template-batch and add it once per stage. The map is keyed on
+        // supply item id so identical supplies across stages aggregate.
         const allStepIds = Array.from(new Set(
             stages.flatMap(s => (stepsByTemplate.get(s.templateId) || []).map(step => step.id))
         ));
         let suppliesNeeded: SupplyNeed[] = [];
         if (allStepIds.length > 0) {
             const supplyResult = await pool.query(
-                `SELECT ssr.step_id, si.name AS supply_name, si.unit AS supply_unit,
-                        ssr.quantity_per, si.quantity_on_hand
+                `SELECT ssr.step_id, ps.template_id, ssr.scales_with_output,
+                        ssr.quantity_per, si.id AS supply_id, si.name AS supply_name,
+                        si.unit AS supply_unit, si.quantity_on_hand
                  FROM step_supply_requirements ssr
+                 JOIN process_steps ps ON ps.id = ssr.step_id
                  JOIN supply_items si ON si.id = ssr.supply_item_id
                  WHERE ssr.step_id = ANY($1::uuid[])`,
                 [allStepIds]
             );
-            const supplyMap = new Map<string, SupplyNeed>();
+            // Group supply reqs by template_id for per-stage lookup.
+            type SupplyReq = {
+                supplyId: string;
+                name: string;
+                unit: string;
+                quantityPer: number;
+                onHand: number;
+                scales: boolean;
+            };
+            const reqsByTemplate = new Map<string, SupplyReq[]>();
             for (const row of supplyResult.rows as Record<string, unknown>[]) {
-                const key = row.supply_name as string;
-                const existing = supplyMap.get(key) || {
+                const tmplId = row.template_id as string;
+                const req: SupplyReq = {
+                    supplyId: row.supply_id as string,
                     name: row.supply_name as string,
                     unit: row.supply_unit as string,
-                    needed: 0,
+                    quantityPer: parseFloat(row.quantity_per as string),
                     onHand: parseFloat(row.quantity_on_hand as string),
-                    gap: 0,
+                    scales: row.scales_with_output === true,
                 };
-                existing.needed += parseFloat(row.quantity_per as string);
-                supplyMap.set(key, existing);
+                if (!reqsByTemplate.has(tmplId)) reqsByTemplate.set(tmplId, []);
+                reqsByTemplate.get(tmplId)!.push(req);
+            }
+
+            const supplyMap = new Map<string, SupplyNeed>();
+            for (const stage of stages) {
+                const reqs = reqsByTemplate.get(stage.templateId) || [];
+                for (const req of reqs) {
+                    const quantity = req.scales ? req.quantityPer * stage.outputQty : req.quantityPer;
+                    const existing = supplyMap.get(req.supplyId) || {
+                        name: req.name,
+                        unit: req.unit,
+                        needed: 0,
+                        onHand: req.onHand,
+                        gap: 0,
+                    };
+                    existing.needed += quantity;
+                    supplyMap.set(req.supplyId, existing);
+                }
             }
             suppliesNeeded = Array.from(supplyMap.values()).map(s => ({
                 ...s,
-                gap: Math.max(0, s.needed - s.onHand),
+                needed: Math.ceil(s.needed * 100) / 100,
+                gap: Math.max(0, Math.ceil((s.needed - s.onHand) * 100) / 100),
             }));
         }
 

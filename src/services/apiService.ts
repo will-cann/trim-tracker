@@ -1,4 +1,4 @@
-import type { TrimSession, CreateTrimSessionDTO, Trimmer, TrimmerProfile, ProposedAction, Harvest, CreateHarvestDTO, HarvestWasteType, HarvestAllocation, HarvestPlantWeight, HarvestBin, BinCureLog, CreateBinDTO, FloweringBatchGroup, Strain, License, SpeechMode, HumanTask, TeamRole, Tag, TagType, TagStats, TagSettings, Package, CreatePackageDTO, MetrcItem, PackageAdjustment, AdjustmentReason, ProductType, ProcessTemplate, StepSupplyRequirement, YieldAverage, BackwardPlan, PlanningSession, ReportSpec, SavedReport, TaskViewSpec, SavedTaskView, SupplyPool, SupplyItem, SupplyLedgerEntry, SupplyChangeType, SupplyPoolSlug } from '../types/definitions';
+import type { TrimSession, CreateTrimSessionDTO, Trimmer, TrimmerProfile, ProposedAction, Harvest, CreateHarvestDTO, HarvestWasteType, HarvestAllocation, HarvestPlantWeight, HarvestBin, BinCureLog, CreateBinDTO, FloweringBatchGroup, Strain, License, SpeechMode, HumanTask, TeamRole, Tag, TagType, TagStats, TagSettings, Package, CreatePackageDTO, MetrcItem, PackageAdjustment, AdjustmentReason, ProductType, ProcessTemplate, StepSupplyRequirement, YieldAverage, BackwardPlan, PlanningSession, StrainYieldOverride, ReportSpec, SavedReport, TaskViewSpec, SavedTaskView, SupplyPool, SupplyItem, SupplyLedgerEntry, SupplyChangeType, SupplyPoolSlug } from '../types/definitions';
 
 const API_BASE = '/.netlify/functions';
 
@@ -1032,6 +1032,7 @@ export const upsertProductType = async (data: {
     displayName: string;
     category: 'biomass' | 'intermediate' | 'finished' | 'additive';
     defaultUnit?: string;
+    gramWeight?: number | null;
     isCannabis?: boolean;
     processTypes?: string[];
     metrcItemCategory?: string | null;
@@ -1786,6 +1787,48 @@ export const deletePlanningSession = async (id: string): Promise<void> => {
     if (!response.ok) throw new Error('Failed to delete planning session');
 };
 
+// ── Strain Yield Overrides ──────────────────────────────────────────────────
+
+export const getStrainYields = async (filter?: { strain?: string; templateId?: string }): Promise<StrainYieldOverride[]> => {
+    const qs = new URLSearchParams();
+    if (filter?.strain) qs.set('strain', filter.strain);
+    if (filter?.templateId) qs.set('templateId', filter.templateId);
+    const suffix = qs.toString() ? `?${qs.toString()}` : '';
+    const response = await fetchWithAuth(`${API_BASE}/get-strain-yields${suffix}`);
+    if (!response.ok) throw new Error('Failed to fetch strain yields');
+    return await response.json();
+};
+
+export const saveStrainYield = async (payload: {
+    id?: string;
+    strain: string;
+    templateId: string;
+    inputType: string;
+    outputType: string;
+    yieldPct: number;
+    notes?: string;
+}): Promise<StrainYieldOverride> => {
+    const response = await fetchWithAuth(`${API_BASE}/save-strain-yield`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+    });
+    if (!response.ok) {
+        const err = await response.json().catch(() => ({ error: 'Save failed' }));
+        throw new Error(err.error || 'Save failed');
+    }
+    return await response.json();
+};
+
+export const deleteStrainYield = async (id: string): Promise<void> => {
+    const response = await fetchWithAuth(`${API_BASE}/delete-strain-yield`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id }),
+    });
+    if (!response.ok) throw new Error('Failed to delete strain yield');
+};
+
 export const apiService = {
     setAuthToken,
     getSession,
@@ -1938,6 +1981,9 @@ export const apiService = {
     getPlanningSession,
     savePlanningSession,
     deletePlanningSession,
+    getStrainYields,
+    saveStrainYield,
+    deleteStrainYield,
     // Yield averages
     getYieldAverages,
     // Step supply requirements
