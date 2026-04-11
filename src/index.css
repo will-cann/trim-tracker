@@ -303,22 +303,46 @@ body {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
+  gap: 0.75rem;
+}
+
+.trim-card-title {
+  min-width: 0;
+  flex: 1 1 auto;
 }
 
 .trim-card-title h3 {
   margin: 0 0 8px 0;
-  font-size: 1.25rem;
+  font-size: clamp(1rem, 0.92rem + 0.4vw, 1.1875rem);
   font-weight: 700;
   color: var(--text-color);
+  line-height: 1.25;
+  word-break: normal;
+  overflow-wrap: anywhere;
+  hyphens: none;
 }
 
 .trim-card-subtitle {
   display: flex;
   align-items: center;
-  gap: 8px;
+  flex-wrap: wrap;
+  gap: 6px 8px;
   font-size: 0.875rem;
   color: var(--text-secondary);
   margin-top: 4px;
+  min-width: 0;
+}
+
+.trim-card-subtitle .total-time {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.trim-card-subtitle .total-time svg {
+  flex-shrink: 0;
 }
 
 .strain-name {
@@ -907,8 +931,9 @@ body {
 
 /* Trim Card Summary */
 .trim-card-summary {
-  display: flex;
-  gap: var(--space-lg);
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(0, 1fr));
+  gap: 0.5rem 1rem;
   margin-top: 0;
   padding-top: 0.75rem;
   border-top: 1px solid var(--background-color);
@@ -918,20 +943,28 @@ body {
   display: flex;
   flex-direction: column;
   gap: 4px;
+  min-width: 0;
 }
 
 .summary-item .label {
-  font-size: 0.75rem;
+  font-size: 0.6875rem;
   color: var(--text-secondary);
   text-transform: uppercase;
   font-weight: 600;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .summary-item .value {
-  font-size: 1.125rem;
+  font-size: clamp(0.9375rem, 0.85rem + 0.35vw, 1.125rem);
   font-weight: 700;
   color: var(--text-color);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-variant-numeric: tabular-nums;
 }
 
 /* Ghost action — inline "add" affordance inside summary rows */
@@ -4292,7 +4325,18 @@ select.field-input {
 .title-with-badge {
   display: flex;
   align-items: center;
-  gap: 12px;
+  flex-wrap: wrap;
+  gap: 6px 10px;
+  min-width: 0;
+}
+
+.title-with-badge h3 {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.title-with-badge .status-badge {
+  flex: 0 0 auto;
 }
 
 .status-badge {
@@ -4354,14 +4398,16 @@ select.field-input {
   background-color: var(--primary-color);
   color: white;
   border: none;
-  padding: 0.5rem 1rem;
+  padding: 0.5rem 0.875rem;
   border-radius: 6px;
   font-weight: 500;
-  font-size: 0.875rem;
+  font-size: 0.8125rem;
   cursor: pointer;
   transition: background-color 0.2s, transform 0.1s;
   display: inline-flex;
   align-items: center;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .btn-start-batch:hover {
@@ -8891,6 +8937,37 @@ select.settings-inline-input {
   flex-direction: column;
   flex: 1;
   overflow: hidden;
+}
+
+/* ── DashboardHeader nav-button (used in Reports date-range nav) ──────── */
+
+.dashboard-header-nav-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  border: none;
+  background: transparent;
+  color: #737373;
+  cursor: pointer;
+  transition: background 120ms ease-out, color 120ms ease-out;
+}
+
+.dashboard-header-nav-btn:hover {
+  background: #F1F1F1;
+  color: #1A1A1A;
+}
+
+.dashboard-header-nav-btn:focus-visible {
+  outline: 2px solid #1C9EFF;
+  outline-offset: 2px;
+}
+
+.dashboard-header-nav-btn:disabled {
+  color: #C0C0C0;
+  cursor: not-allowed;
 }
 
 /* ── FilterToolbar ─────────────────────────────────────────────────────── */

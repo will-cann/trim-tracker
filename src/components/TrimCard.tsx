@@ -141,6 +141,22 @@ export const TrimCard: React.FC<TrimCardProps> = ({
 
     const statusBadge = getStatusBadge();
 
+    // The raw harvestName often embeds `[LIC-xxxxxx]` which is already shown as a chip below.
+    // Strip it for display so the title doesn't wrap mid-token on narrow cards.
+    const displayTitle = (entry.harvestName || '').replace(/\s*\[[^\]]*\]\s*/g, ' ').replace(/\s+/g, ' ').trim() || entry.harvestName;
+
+    // Compact weight: ≥1kg renders as "2kg" / "1.5kg"; below 1kg stays in grams.
+    const fmtWeight = (grams: number, opts: { signed?: boolean } = {}) => {
+        const sign = opts.signed && grams !== 0 ? (grams > 0 ? '+' : '-') : '';
+        const abs = Math.abs(grams);
+        if (abs >= 1000) {
+            const kg = abs / 1000;
+            const str = kg >= 10 ? kg.toFixed(0) : kg.toFixed(1).replace(/\.0$/, '');
+            return `${sign}${str}kg`;
+        }
+        return `${sign}${Math.round(abs).toLocaleString()}g`;
+    };
+
     const handleStatusBadgeClick = (e: React.MouseEvent) => {
         e.stopPropagation();
         if (canRevertToUpcoming && onRevertBatch) {
@@ -155,7 +171,7 @@ export const TrimCard: React.FC<TrimCardProps> = ({
                     <div className="trim-card-top">
                         <div className="trim-card-title">
                             <div className="title-with-badge">
-                                <h3>{entry.harvestName}</h3>
+                                <h3 title={entry.harvestName}>{displayTitle}</h3>
                                 {statusBadge.text && (
                                     <span
                                         className={`status-badge ${statusBadge.className} ${canRevertToUpcoming ? 'status-badge-outline clickable' : ''}`}
@@ -205,13 +221,10 @@ export const TrimCard: React.FC<TrimCardProps> = ({
                                 <span className="separator">•</span>
                                 <span className="license-number">{entry.licenseNumber}</span>
                                 {isExpanded && totalTimeText && (
-                                    <>
-                                        <span className="separator">•</span>
-                                        <span className="total-time">
-                                            <Clock size={14} />
-                                            {totalTimeText}
-                                        </span>
-                                    </>
+                                    <span className="total-time">
+                                        <Clock size={14} />
+                                        {totalTimeText}
+                                    </span>
                                 )}
 
                             </div>
@@ -262,13 +275,13 @@ export const TrimCard: React.FC<TrimCardProps> = ({
                                 <>
                                     {hasWetWeight && (
                                         <div className="summary-item">
-                                            <span className="label">Allocation</span>
-                                            <span className="value">{Math.round(entry.wetWeight!).toLocaleString()}g wet</span>
+                                            <span className="label">Alloc. Wet</span>
+                                            <span className="value">{fmtWeight(entry.wetWeight!)}</span>
                                         </div>
                                     )}
                                     <div className="summary-item">
                                         <span className="label">Est. Dry</span>
-                                        <span className="value">{Math.round(entry.startWeight).toLocaleString()}g</span>
+                                        <span className="value">{fmtWeight(entry.startWeight)}</span>
                                     </div>
                                     {hasWetWeight && (
                                         <div className="summary-item">
@@ -277,7 +290,7 @@ export const TrimCard: React.FC<TrimCardProps> = ({
                                                 Moisture
                                             </span>
                                             <span className="value" style={{ color: 'var(--color-dolphin, #3b82f6)' }}>
-                                                -{Math.round(entry.wetWeight! - entry.startWeight).toLocaleString()}g
+                                                -{fmtWeight(entry.wetWeight! - entry.startWeight)}
                                             </span>
                                         </div>
                                     )}
@@ -286,13 +299,13 @@ export const TrimCard: React.FC<TrimCardProps> = ({
                                 <>
                                     {hasWetWeight && (
                                         <div className="summary-item">
-                                            <span className="label">Allocation</span>
-                                            <span className="value">{Math.round(entry.wetWeight!).toLocaleString()}g wet</span>
+                                            <span className="label">Alloc. Wet</span>
+                                            <span className="value">{fmtWeight(entry.wetWeight!)}</span>
                                         </div>
                                     )}
                                     <div className="summary-item">
                                         <span className="label">Start</span>
-                                        <span className="value">{Math.round(entry.startWeight).toLocaleString()}g</span>
+                                        <span className="value">{fmtWeight(entry.startWeight)}</span>
                                     </div>
                                     {hasWetWeight && (
                                         <div className="summary-item">
@@ -301,17 +314,17 @@ export const TrimCard: React.FC<TrimCardProps> = ({
                                                 Moisture
                                             </span>
                                             <span className="value" style={{ color: 'var(--color-dolphin, #3b82f6)' }}>
-                                                -{Math.round(entry.wetWeight! - entry.startWeight).toLocaleString()}g
+                                                -{fmtWeight(entry.wetWeight! - entry.startWeight)}
                                             </span>
                                         </div>
                                     )}
                                     <div className="summary-item">
-                                        <span className="label">Completed</span>
-                                        <span className="value">{totalWeight.toFixed(0)}g</span>
+                                        <span className="label">Done</span>
+                                        <span className="value">{fmtWeight(totalWeight)}</span>
                                     </div>
                                     <div className="summary-item">
-                                        <span className="label">Remaining</span>
-                                        <span className="value">{(entry.startWeight - totalWeight).toFixed(0)}g</span>
+                                        <span className="label">Left</span>
+                                        <span className="value">{fmtWeight(Math.max(0, entry.startWeight - totalWeight))}</span>
                                     </div>
                                 </>
                             )}
