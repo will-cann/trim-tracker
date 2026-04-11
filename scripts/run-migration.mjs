@@ -1,14 +1,52 @@
 import { neon } from '@neondatabase/serverless';
-import { readFileSync } from 'fs';
+import { readFileSync, existsSync } from 'fs';
 import { config } from 'dotenv';
 
-config();
+// Parse --prod flag out of argv before we use the rest as file paths.
+const rawArgs = process.argv.slice(2);
+const isProd = rawArgs.includes('--prod');
+const fileArgs = rawArgs.filter(a => a !== '--prod');
 
-const DATABASE_URL = process.env.DATABASE_URL;
+if (isProd) {
+    // Prod mode: refuse to run unless .env.production.local exists with a DATABASE_URL.
+    // This keeps prod credentials out of the default .env and forces a deliberate opt-in.
+    const prodEnvPath = '.env.production.local';
+    if (!existsSync(prodEnvPath)) {
+        console.error(`--prod requires ${prodEnvPath} with DATABASE_URL (or NETLIFY_DATABASE_URL_UNPOOLED) set.`);
+        console.error(`Create the file, paste the prod connection string, run the migration, then clear the file.`);
+        process.exit(1);
+    }
+    config({ path: prodEnvPath });
+} else {
+    config();
+}
+
+// Prefer the unpooled endpoint for migrations — some DDL patterns (advisory locks, session-level
+// state) misbehave under PgBouncer transaction-mode pooling. Fall back to whatever .env provides.
+const DATABASE_URL = process.env.NETLIFY_DATABASE_URL_UNPOOLED ?? process.env.DATABASE_URL;
 if (!DATABASE_URL) {
-    console.error('DATABASE_URL is not set');
+    console.error('No database connection string set (NETLIFY_DATABASE_URL_UNPOOLED or DATABASE_URL)');
     process.exit(1);
 }
+
+// Print the resolved host so you always know which DB you just hit. Never print the password.
+const resolvedHost = (() => {
+    try { return new URL(DATABASE_URL).host; } catch { return '(unparseable)'; }
+})();
+console.log(`Target: ${resolvedHost} ${isProd ? '[PROD]' : '[dev]'}`);
+
+if (isProd) {
+    // 5-second countdown so a fat-fingered --prod is recoverable with Ctrl+C.
+    console.log('Running against PRODUCTION in 5 seconds. Ctrl+C to abort.');
+    await new Promise(resolve => {
+        let n = 5;
+        const t = setInterval(() => {
+            process.stdout.write(`  ${n}... `);
+            if (--n < 0) { clearInterval(t); process.stdout.write('\n'); resolve(); }
+        }, 1000);
+    });
+}
+
 const sql = neon(DATABASE_URL);
 
 function splitSQL(content) {
@@ -77,15 +115,13 @@ async function run(filePath, label) {
 }
 
 async function main() {
-    const files = process.argv.slice(2);
-
-    if (files.length === 0) {
-        console.error('Usage: node scripts/run-migration.mjs <migration-file> [...]');
+    if (fileArgs.length === 0) {
+        console.error('Usage: node scripts/run-migration.mjs [--prod] <migration-file> [...]');
         process.exit(1);
     }
 
     let totalFail = 0;
-    for (const file of files) {
+    for (const file of fileArgs) {
         totalFail += await run(file, file);
     }
 

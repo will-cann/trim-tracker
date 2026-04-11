@@ -28,9 +28,18 @@ npm run preview      # Preview production build
 
 ### Database Migrations
 
+Dev and prod use separate Neon branches. Local `.env` `DATABASE_URL` points at the `dev` branch; prod credentials live only in Netlify env vars and must never be pasted into `.env`.
+
 ```bash
-node scripts/run-migration.mjs migrations/<filename>.sql   # Run one or more migration files against DATABASE_URL
+# Against the dev branch (default — reads .env)
+node scripts/run-migration.mjs migrations/<filename>.sql
+
+# Against prod — requires .env.production.local (gitignored) with the prod DATABASE_URL.
+# Prints the resolved host and waits 5 seconds before executing so a mistake is recoverable.
+node scripts/run-migration.mjs --prod migrations/<filename>.sql
 ```
+
+Rule: prod connection strings never live in `.env`. Create `.env.production.local`, run the migration, clear the file.
 
 ### AI Eval Suite (Python, in `tests/eval/`)
 
