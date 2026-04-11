@@ -5,15 +5,23 @@ import { apiService } from '../../services/apiService';
 import { PackageCard } from './PackageCard';
 import { CreatePackageModal } from './CreatePackageModal';
 import { CardsSkeleton } from '../Skeleton';
-import { FilterToolbar, DataTable, ViewToggle, useViewMode } from '../ui';
+import { FilterToolbar, DataTable, ViewToggle, useViewMode, TypeChip, getTypeChipStyle } from '../ui';
 import type { FilterDef, SortOption, Column } from '../ui';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
-const STATUS_COLORS: Record<string, string> = {
-    active: '#3BB570',
-    on_hold: '#FA9E52',
-    finished: '#959595',
+const STATUS_CLASS: Record<string, string> = {
+    active: 'status-complete',
+    on_hold: 'status-upcoming',
+    finished: 'status-finished',
+    archived: 'status-finished',
+};
+
+const STATUS_LABEL: Record<string, string> = {
+    active: 'Active',
+    on_hold: 'On Hold',
+    finished: 'Finished',
+    archived: 'Archived',
 };
 
 const LAB_COLORS: Record<string, string> = {
@@ -23,10 +31,8 @@ const LAB_COLORS: Record<string, string> = {
     failed: '#DF5B59',
 };
 
-const TYPE_LABELS: Record<PkgType, string> = {
-    flower: 'Flower', trim: 'Trim', shake: 'Shake', fresh_frozen: 'Fresh Frozen',
-    bubble_hash: 'Bubble Hash', rosin: 'Rosin', rosin_cart: 'Rosin Carts',
-};
+const typeLabel = (t: PkgType): string =>
+    getTypeChipStyle('packageType', t)?.label || t;
 
 const formatDate = (d: string | null) =>
     d ? new Date(d).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) : '—';
@@ -55,12 +61,8 @@ const PACKAGE_COLUMNS: Column<PackageType>[] = [
         ),
     },
     {
-        key: 'packageType', label: 'Type', sortable: true, width: 110,
-        render: (r) => (
-            <span className="data-table-badge data-table-badge--muted">
-                {TYPE_LABELS[r.packageType] || r.packageType}
-            </span>
-        ),
+        key: 'packageType', label: 'Type', sortable: true, width: 130,
+        render: (r) => <TypeChip palette="packageType" value={r.packageType} />,
     },
     { key: 'strain', label: 'Strain', sortable: true },
     {
@@ -72,10 +74,10 @@ const PACKAGE_COLUMNS: Column<PackageType>[] = [
         ),
     },
     {
-        key: 'status', label: 'Status', sortable: true, width: 90,
+        key: 'status', label: 'Status', sortable: true, width: 110,
         render: (r) => (
-            <span className="data-table-badge" style={{ background: STATUS_COLORS[r.status] || '#959595' }}>
-                {r.status === 'on_hold' ? 'On Hold' : r.status.charAt(0).toUpperCase() + r.status.slice(1)}
+            <span className={`status-badge ${STATUS_CLASS[r.status] || ''}`}>
+                {STATUS_LABEL[r.status] || r.status}
             </span>
         ),
     },
@@ -91,6 +93,12 @@ const PACKAGE_COLUMNS: Column<PackageType>[] = [
                 </span>
             );
         },
+    },
+    {
+        key: 'licenseNumber', label: 'License', sortable: true, width: 140,
+        render: (r) => r.licenseNumber
+            ? <span className="license-number">{r.licenseNumber}</span>
+            : <span style={{ color: '#C0C0C0' }}>—</span>,
     },
     {
         key: 'location', label: 'Location', sortable: true,
@@ -134,7 +142,7 @@ export const PackageDashboard: React.FC = () => {
         multi: true,
         options: PRODUCT_TYPES.map(t => ({
             value: t,
-            label: TYPE_LABELS[t],
+            label: typeLabel(t),
         })),
     };
 
@@ -208,6 +216,7 @@ export const PackageDashboard: React.FC = () => {
                 case 'quantity': cmp = a.quantity - b.quantity; break;
                 case 'strain': cmp = (a.strain || '').localeCompare(b.strain || ''); break;
                 case 'type': cmp = a.packageType.localeCompare(b.packageType); break;
+                case 'licenseNumber': cmp = (a.licenseNumber || '').localeCompare(b.licenseNumber || ''); break;
             }
             return sortDir === 'desc' ? -cmp : cmp;
         })

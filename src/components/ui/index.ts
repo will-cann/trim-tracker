@@ -11,3 +11,6 @@ export type { Column, DataTableProps } from './DataTable';
 export { ViewToggle, useViewMode } from './ViewToggle';
 export type { ViewMode } from './ViewToggle';
 export { ViewSwitcherPills } from './ViewSwitcherPills';
+export { TypeChip } from './TypeChip';
+export { getTypeChipStyle } from './typeChipPalettes';
+export type { TypeChipPalette, TypeChipStyle } from './typeChipPalettes';

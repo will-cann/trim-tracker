@@ -3,6 +3,7 @@ import { ChevronDown, Trash2, Pause, Play, CheckCircle, MapPin, Tag, FlaskConica
 import type { Package, LabTestingState, AdjustmentReason, PackageAdjustment } from '../../types/definitions';
 import { apiService } from '../../services/apiService';
 import { DeleteConfirmationModal } from '../DeleteConfirmationModal';
+import { TypeChip } from '../ui';
 
 interface PackageCardProps {
     pkg: Package;
@@ -11,10 +12,10 @@ interface PackageCardProps {
 }
 
 const STATUS_CLASS: Record<string, string> = {
-    active: 'status-active',
+    active: 'status-complete',
     on_hold: 'status-upcoming',
-    finished: 'status-complete',
-    archived: 'status-complete',
+    finished: 'status-finished',
+    archived: 'status-finished',
 };
 
 const STATUS_LABEL: Record<string, string> = {
@@ -22,26 +23,6 @@ const STATUS_LABEL: Record<string, string> = {
     on_hold: 'On Hold',
     finished: 'Finished',
     archived: 'Archived',
-};
-
-const TYPE_CLASS: Record<string, string> = {
-    flower: 'bg-[#FFF8E7] text-[#B8860B]',
-    trim: 'bg-[#ECFDF5] text-[var(--color-flower)]',
-    shake: 'bg-[#EFF8FF] text-[#1C9EFF]',
-    fresh_frozen: 'bg-[#ECFEFF] text-[#0E7490]',
-    bubble_hash: 'bg-[#FFF7ED] text-[#FA9E52]',
-    rosin: 'bg-[#FFF8E7] text-[#B8860B]',
-    rosin_cart: 'bg-[#F5F3FF] text-[#7C6AE8]',
-};
-
-const TYPE_LABEL: Record<string, string> = {
-    flower: 'Flower',
-    trim: 'Trim',
-    shake: 'Shake',
-    fresh_frozen: 'Fresh Frozen',
-    bubble_hash: 'Bubble Hash',
-    rosin: 'Rosin',
-    rosin_cart: 'Rosin Cart',
 };
 
 const LAB_LABEL: Record<string, string> = {
@@ -220,9 +201,7 @@ export const PackageCard: React.FC<PackageCardProps> = ({ pkg, onUpdate, onDelet
                                 <span className={`status-badge ${STATUS_CLASS[pkg.status] || ''}`}>
                                     {STATUS_LABEL[pkg.status] || pkg.status}
                                 </span>
-                                <span className={`status-badge ${TYPE_CLASS[pkg.packageType] || ''}`}>
-                                    {TYPE_LABEL[pkg.packageType] || pkg.packageType.charAt(0).toUpperCase() + pkg.packageType.slice(1)}
-                                </span>
+                                <TypeChip palette="packageType" value={pkg.packageType} />
                             </div>
                             <div className="trim-card-subtitle">
                                 <span className="strain-name">{pkg.strain}</span>

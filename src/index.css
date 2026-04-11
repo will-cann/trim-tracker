@@ -331,13 +331,28 @@ body {
 }
 
 .license-number {
-  font-family: monospace;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   background-color: #F1F1F1;
-  padding: 2px 6px;
-  border-radius: 4px;
-  font-size: 0.8rem;
-  font-weight: 600;
-  letter-spacing: 0.025em;
+  color: #4A4A4A;
+  padding: 2px 8px;
+  border-radius: 6px;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  line-height: 1.4;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+}
+
+.license-number::before {
+  content: "";
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: #959595;
+  flex-shrink: 0;
 }
 
 .strain-edit-container {
@@ -4309,6 +4324,11 @@ select.field-input {
 .status-badge.status-complete {
   background-color: rgba(59, 181, 112, 0.12);
   color: #2a8a50;
+}
+
+.status-badge.status-finished {
+  background-color: #F1F1F1;
+  color: #6A6A6A;
 }
 
 /* Outline variant for active batches without trimmers */

@@ -1,7 +1,7 @@
 import { useState } from 'react';
-import { Package, Plus, UserPlus, User, Loader2, Check, X, Sprout, Scale, ArrowRightLeft, Trash2, MapPin, CheckCircle2, XCircle, ChevronDown, Scissors, ClipboardList, Send, UserMinus, RefreshCw, Pencil, Leaf, MoveRight, TrendingUp, Skull, KeyRound, Tag, Upload, LayoutGrid, ArrowRight, Percent, Snowflake, Flame, Droplets, Wind, FlaskConical } from 'lucide-react';
-import type { ReactNode } from 'react';
+import { Package, Plus, UserPlus, User, Loader2, Check, X, Sprout, Scale, ArrowRightLeft, Trash2, MapPin, CheckCircle2, XCircle, ChevronDown, Scissors, ClipboardList, Send, UserMinus, RefreshCw, Pencil, Leaf, MoveRight, TrendingUp, Skull, KeyRound, Tag, Upload, LayoutGrid, ArrowRight, Percent, Flame, Snowflake, Droplets } from 'lucide-react';
 import type { ProposedAction } from '../types/definitions';
+import { TypeChip } from './ui';
 
 interface ActionPreviewProps {
     actions: ProposedAction[];
@@ -488,57 +488,6 @@ const OPTIONS_BY_ACTION: Record<string, Record<string, Array<{ value: string; la
     },
 };
 
-const TYPE_CHIP: Record<string, { bg: string; color: string; icon: ReactNode; label: string }> = {
-    // Raw biomass — mint green family
-    flower:       { bg: '#E8F8EE', color: '#1A7A42', icon: <Leaf size={11} />,         label: 'Flower' },
-    trim:         { bg: '#E8F8EE', color: '#1A7A42', icon: <Scissors size={11} />,     label: 'Trim' },
-    shake:        { bg: '#F0FAF3', color: '#2F8A54', icon: <Leaf size={11} />,         label: 'Shake' },
-    // Fresh frozen — cyan
-    fresh_frozen: { bg: '#E8F6FA', color: '#0E7490', icon: <Snowflake size={11} />,    label: 'Fresh Frozen' },
-    // Solventless — amber / flame family
-    bubble_hash:  { bg: '#FFF3E8', color: '#B06A1F', icon: <Droplets size={11} />,     label: 'Bubble Hash' },
-    rosin:        { bg: '#FFF3E8', color: '#B06A1F', icon: <Flame size={11} />,        label: 'Rosin' },
-    live_rosin:   { bg: '#FFF3E8', color: '#B06A1F', icon: <Flame size={11} />,        label: 'Live Rosin' },
-    // Solvent concentrates — sand / teal
-    live_resin:   { bg: '#FEF3E2', color: '#8B5E14', icon: <Droplets size={11} />,     label: 'Live Resin' },
-    distillate:   { bg: '#E8FEFA', color: '#167A6F', icon: <FlaskConical size={11} />, label: 'Distillate' },
-    // Vape / cartridge — blue
-    cart:         { bg: '#E8F0FE', color: '#1B5EB5', icon: <Wind size={11} />,         label: 'Cart' },
-    rosin_cart:   { bg: '#E8F0FE', color: '#1B5EB5', icon: <Wind size={11} />,         label: 'Rosin Cart' },
-    vape:         { bg: '#E8F0FE', color: '#1B5EB5', icon: <Wind size={11} />,         label: 'Vape' },
-};
-
-function TypeChip({ value }: { value: unknown }) {
-    if (value === null || value === undefined || value === '') {
-        return <span style={{ color: '#959595' }}>—</span>;
-    }
-    const key = String(value).toLowerCase().replace(/\s+/g, '_');
-    const style = TYPE_CHIP[key] || {
-        bg: '#F1F1F1',
-        color: '#1A1A1A',
-        icon: <Package size={11} />,
-        label: String(value).replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()),
-    };
-    return (
-        <span style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: 4,
-            padding: '2px 8px',
-            borderRadius: 6,
-            fontSize: '0.6875rem',
-            fontWeight: 700,
-            lineHeight: 1.4,
-            whiteSpace: 'nowrap',
-            background: style.bg,
-            color: style.color,
-        }}>
-            {style.icon}
-            {style.label}
-        </span>
-    );
-}
-
 function FieldRow({
     fieldKey,
     value,
@@ -590,7 +539,7 @@ function FieldRow({
                 // the type from the catalog and users who need to change it
                 // should cancel and re-prompt rather than edit the raw value.
                 <div className="flex-1 min-w-0">
-                    <TypeChip value={value} />
+                    <TypeChip palette="packageType" value={value == null ? null : String(value)} fallback="—" />
                 </div>
             ) : isDisplayOnly ? (
                 // DB / catalog reference — locked. Rendered as plain text so

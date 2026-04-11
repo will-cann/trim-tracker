@@ -1,46 +1,9 @@
 import { useState, useMemo } from 'react';
-import { Plus, Leaf, Flame, Candy, Droplets, Wind, Sparkles, FlaskConical, Package } from 'lucide-react';
+import { Plus } from 'lucide-react';
 import type { Vendor, VendorProduct } from '../../types/definitions';
 import { apiService } from '../../services/apiService';
-import { DataTable, FilterToolbar, Modal } from '../ui';
+import { DataTable, FilterToolbar, Modal, TypeChip, getTypeChipStyle } from '../ui';
 import type { Column, FilterDef } from '../ui';
-
-const CATEGORY_STYLES: Record<string, { bg: string; color: string; icon: React.ReactNode; label: string }> = {
-    flower:      { bg: '#E8F8EE', color: '#1A7A42', icon: <Leaf size={11} />,          label: 'Flower' },
-    'pre-roll':  { bg: '#FFF3E8', color: '#B06A1F', icon: <Flame size={11} />,         label: 'Pre-Roll' },
-    edible:      { bg: '#FCE8F0', color: '#A8305C', icon: <Candy size={11} />,          label: 'Edible' },
-    concentrate: { bg: '#FEF3E2', color: '#8B5E14', icon: <Droplets size={11} />,       label: 'Concentrate' },
-    vape:        { bg: '#E8F0FE', color: '#1B5EB5', icon: <Wind size={11} />,           label: 'Vape' },
-    topical:     { bg: '#F0E8FE', color: '#6B3FA0', icon: <Sparkles size={11} />,       label: 'Topical' },
-    tincture:    { bg: '#E8FEFA', color: '#167A6F', icon: <FlaskConical size={11} />,   label: 'Tincture' },
-    accessory:   { bg: '#F1F1F1', color: '#1A1A1A', icon: <Package size={11} />,        label: 'Accessory' },
-};
-
-const CategoryBadge: React.FC<{ category: string | null }> = ({ category }) => {
-    if (!category) return <span style={{ color: '#959595' }}>--</span>;
-    const style = CATEGORY_STYLES[category.toLowerCase()];
-    if (!style) {
-        return <span className="data-table-badge data-table-badge--muted">{category}</span>;
-    }
-    return (
-        <span style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: 4,
-            padding: '2px 8px',
-            borderRadius: 6,
-            fontSize: '0.6875rem',
-            fontWeight: 700,
-            lineHeight: 1.4,
-            whiteSpace: 'nowrap',
-            background: style.bg,
-            color: style.color,
-        }}>
-            {style.icon}
-            {style.label}
-        </span>
-    );
-};
 
 interface Props {
     products: VendorProduct[];
@@ -135,7 +98,7 @@ export const ProductCatalog: React.FC<Props> = ({ products, vendors, loading, on
             options: [
                 { value: '', label: 'All Categories' },
                 ...categories.map(c => {
-                    const s = CATEGORY_STYLES[c.toLowerCase()];
+                    const s = getTypeChipStyle('productCategory', c);
                     return { value: c, label: s?.label || c.charAt(0).toUpperCase() + c.slice(1), dot: undefined };
                 }),
             ],
@@ -174,7 +137,7 @@ export const ProductCatalog: React.FC<Props> = ({ products, vendors, loading, on
             render: (p) => p.vendorName || '--',
         },
         { key: 'category', label: 'Category', sortable: true,
-            render: (p) => <CategoryBadge category={p.category} />,
+            render: (p) => <TypeChip palette="productCategory" value={p.category} />,
         },
         { key: 'sku', label: 'SKU', width: 100, sortable: true,
             render: (p) => p.sku ? <code style={{ fontSize: '0.75rem' }}>{p.sku}</code> : '--',
