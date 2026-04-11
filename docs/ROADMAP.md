@@ -2,7 +2,7 @@
 
 Planned features, integrations, and improvements. Updated as priorities evolve.
 
-> Last updated: 2026-04-10
+> Last updated: 2026-04-11
 
 ---
 
@@ -110,13 +110,22 @@ Planned features, integrations, and improvements. Updated as priorities evolve.
 
 ### Assign-to-AI Tasks
 - Planned "Assign to AI" button for bot-executable tasks from ambient voice transcription
-- **Build order before UI:** (1) bot service account / audit identity, (2) action type allowlist (safe-only: record_wet_weight, etc.; never destructive), (3) new task statuses `ai_pending` / `ai_failed`, (4) pre-flight validation, (5) UI button only for allowlisted actions
+- **Runtime:** Anthropic Managed Agents (`/v1/agents`, `/v1/sessions`) — one persisted agent per company per tier (Opus/Haiku), one session per task. Custom tools wrap existing `ProposedAction` handlers; credentials stay host-side.
+- **Build order before UI:** (1) bot service account / audit identity, (2) action type allowlist (safe-only: record_wet_weight, etc.; never destructive), (3) new task statuses `ai_pending` / `ai_running` / `ai_failed`, (4) `ai_task_events` audit table with `UNIQUE (session_id, event_id)` for stream-reconnect dedup, (5) `ai-task-runner.ts` + `ai-task-approve.ts` Netlify functions, (6) UI button only for allowlisted actions
+- **`always_ask` is emulated in the handler**, not configured on the agent — built-in policy only covers server-executed tools, not custom tools. Gate maps to `ai_pending` status rendered in our UI.
 - Alternative path: AI-assisted confirmation (one-tap human approval) for non-allowlisted actions
+- **Design brief:** `docs/briefs/assign-to-ai-managed-agents-brief.md`
 
 ### Eval Framework
 - **Built:** Python + pytest suite at `tests/eval/` — 103 test cases across 5 areas (silence chunking, intent classification, entity extraction, edge cases, end-to-end)
 - 40 chunking tests pass without fixtures
 - **Next:** record fixtures via `pytest --eval-mode=record` against live netlify dev (~$1.70 in Sonnet tokens), then run freely with `pytest --eval-mode=mock`
+
+### Ambient Mode (deferred — deletion planned)
+- **Out of scope short term.** Deferred until chat-mode chunking + intent quality are measured and more of the pathways ambient needs to execute are working in chat mode first.
+- **Planned action:** delete the dormant `AmbientProvider` + `AmbientActionCenter` UI/lifecycle layer from main (~1,700 LOC, currently flag-off and unreachable). Keep the `ambientChunker.ts` primitive since it's already reused in `ChatPanel` and is directly applicable to chat-mode chunking work.
+- **Revive strategy:** tag `ambient-v1-dormant` before deletion; when ambient comes back on the roadmap, reference the tag + deletion brief rather than trying to revert — integration points will have drifted.
+- **Deletion brief:** `docs/briefs/ambient-mode-deletion-brief.md`
 
 ---
 
