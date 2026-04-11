@@ -436,10 +436,25 @@ export interface YieldAverage {
 
 // ── Demand-Backward Planning ────────────────────────────────────────────────
 
+export interface PlanTargetInput {
+  outputType: string;
+  quantity: number;
+  unit?: string;
+  strain?: string | null;
+}
+
+export interface ResolvedPlanTarget extends PlanTargetInput {
+  displayName: string;
+  resolvedUnit: string;
+  strain: string | null;
+}
+
 export interface PlanStage {
+  key: string; // `${templateId}::${strain || 'any'}`
   stepName: string;
   templateId: string;
   templateName: string;
+  strain: string | null;
   inputType: string;
   inputDisplayName: string;
   inputQty: number;
@@ -451,20 +466,48 @@ export interface PlanStage {
   yieldPct: number;
   yieldSource: 'historical_avg' | 'template_default' | 'assumed';
   sampleCount?: number;
+  contributingTargets: number[];
+}
+
+export interface BiomassBucket {
+  type: string;
+  displayName: string;
+  strain: string | null;
+  quantity: number;
+  unit: string;
+}
+
+export interface BiomassOnHandBucket {
+  type: string;
+  strain: string | null;
+  quantity: number;
+  unit: string;
+  packages: { id: string; label: string; strain: string | null; quantity: number }[];
 }
 
 export interface BackwardPlan {
-  targetOutputType: string;
-  targetQuantity: number;
-  targetUnit: string;
-  strain: string | null;
+  targets: ResolvedPlanTarget[];
   stages: PlanStage[];
-  biomassRequired: { type: string; displayName: string; quantity: number; unit: string };
-  biomassOnHand: { quantity: number; unit: string; packages: { id: string; label: string; strain: string | null; quantity: number }[] };
-  biomassGap: { quantity: number; unit: string };
+  biomassRequired: BiomassBucket[];
+  biomassOnHand: BiomassOnHandBucket[];
+  biomassGap: BiomassBucket[];
   suppliesNeeded: { name: string; unit: string; needed: number; onHand: number; gap: number }[];
-  templateChain: { id: string; name: string }[];
   warnings: string[];
+}
+
+export type PlanningSessionStatus = 'draft' | 'scheduled' | 'archived';
+
+export interface PlanningSession {
+  id: string;
+  companyId: string;
+  name: string;
+  targets: PlanTargetInput[];
+  plan: BackwardPlan | null;
+  status: PlanningSessionStatus;
+  notes: string | null;
+  createdBy: string | null;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface ProcessTemplate {

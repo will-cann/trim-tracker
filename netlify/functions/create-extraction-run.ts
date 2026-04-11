@@ -13,7 +13,7 @@ export const handler: Handler = async (event) => {
             return { statusCode: 401, body: JSON.stringify({ error: 'Unauthorized' }) };
         }
 
-        const { templateId, name, strain, notes, inputMaterial, targetProduct, sourcePackageIds, sourcePackageQuantities, plannedStart, stepEquipment, status } = JSON.parse(event.body || '{}');
+        const { templateId, name, strain, notes, inputMaterial, targetProduct, sourcePackageIds, sourcePackageQuantities, plannedStart, stepEquipment, status, sourcePlanningSessionId } = JSON.parse(event.body || '{}');
         if (!templateId || !name) {
             return { statusCode: 400, body: JSON.stringify({ error: 'templateId and name are required' }) };
         }
@@ -38,10 +38,10 @@ export const handler: Handler = async (event) => {
 
             // Create the run
             const runResult = await client.query(
-                `INSERT INTO extraction_runs (company_id, template_id, name, strain, input_material, target_product, status, planned_start, started_at, notes)
-                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+                `INSERT INTO extraction_runs (company_id, template_id, name, strain, input_material, target_product, status, planned_start, started_at, notes, source_planning_session_id)
+                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
                  RETURNING *`,
-                [context.companyId, templateId, name.trim(), strain?.trim() || null, derivedInputMaterial, targetProduct || null, initialStatus, plannedStart || null, startedAt, notes?.trim() || null]
+                [context.companyId, templateId, name.trim(), strain?.trim() || null, derivedInputMaterial, targetProduct || null, initialStatus, plannedStart || null, startedAt, notes?.trim() || null, sourcePlanningSessionId || null]
             );
             const run = runResult.rows[0];
 

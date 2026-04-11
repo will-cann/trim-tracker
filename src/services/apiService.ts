@@ -1,4 +1,4 @@
-import type { TrimSession, CreateTrimSessionDTO, Trimmer, TrimmerProfile, ProposedAction, Harvest, CreateHarvestDTO, HarvestWasteType, HarvestAllocation, HarvestPlantWeight, HarvestBin, BinCureLog, CreateBinDTO, FloweringBatchGroup, Strain, License, SpeechMode, HumanTask, TeamRole, Tag, TagType, TagStats, TagSettings, Package, CreatePackageDTO, MetrcItem, PackageAdjustment, AdjustmentReason, ProductType, ProcessTemplate, StepSupplyRequirement, YieldAverage, BackwardPlan, ReportSpec, SavedReport, TaskViewSpec, SavedTaskView, SupplyPool, SupplyItem, SupplyLedgerEntry, SupplyChangeType, SupplyPoolSlug } from '../types/definitions';
+import type { TrimSession, CreateTrimSessionDTO, Trimmer, TrimmerProfile, ProposedAction, Harvest, CreateHarvestDTO, HarvestWasteType, HarvestAllocation, HarvestPlantWeight, HarvestBin, BinCureLog, CreateBinDTO, FloweringBatchGroup, Strain, License, SpeechMode, HumanTask, TeamRole, Tag, TagType, TagStats, TagSettings, Package, CreatePackageDTO, MetrcItem, PackageAdjustment, AdjustmentReason, ProductType, ProcessTemplate, StepSupplyRequirement, YieldAverage, BackwardPlan, PlanningSession, ReportSpec, SavedReport, TaskViewSpec, SavedTaskView, SupplyPool, SupplyItem, SupplyLedgerEntry, SupplyChangeType, SupplyPoolSlug } from '../types/definitions';
 
 const API_BASE = '/.netlify/functions';
 
@@ -1213,6 +1213,7 @@ export const createExtractionRun = async (data: {
     notes?: string;
     status?: 'planned' | 'active';
     inputMaterial?: string;
+    sourcePlanningSessionId?: string;
 }): Promise<any> => {
     const response = await fetchWithAuth(`${API_BASE}/create-extraction-run`, {
         method: 'POST',
@@ -1727,10 +1728,7 @@ export const getStepSupplyRequirements = async (templateId: string): Promise<Ste
 // ── Demand-Backward Planning ────────────────────────────────────────────────
 
 export const planBackward = async (params: {
-    targetOutputType: string;
-    targetQuantity: number;
-    targetUnit?: string;
-    strain?: string;
+    targets: Array<{ outputType: string; quantity: number; unit?: string; strain?: string | null }>;
 }): Promise<BackwardPlan> => {
     const response = await fetchWithAuth(`${API_BASE}/plan-backward`, {
         method: 'POST',
@@ -1742,6 +1740,50 @@ export const planBackward = async (params: {
         throw new Error(err.error || 'Planning failed');
     }
     return await response.json();
+};
+
+// ── Planning Sessions ───────────────────────────────────────────────────────
+
+export const getPlanningSessions = async (status?: string): Promise<PlanningSession[]> => {
+    const qs = status ? `?status=${encodeURIComponent(status)}` : '';
+    const response = await fetchWithAuth(`${API_BASE}/get-planning-sessions${qs}`);
+    if (!response.ok) throw new Error('Failed to fetch planning sessions');
+    return await response.json();
+};
+
+export const getPlanningSession = async (id: string): Promise<PlanningSession> => {
+    const response = await fetchWithAuth(`${API_BASE}/get-planning-sessions?id=${encodeURIComponent(id)}`);
+    if (!response.ok) throw new Error('Failed to fetch planning session');
+    return await response.json();
+};
+
+export const savePlanningSession = async (payload: {
+    id?: string;
+    name: string;
+    targets: Array<{ outputType: string; quantity: number; unit?: string; strain?: string | null }>;
+    plan?: BackwardPlan | null;
+    status?: 'draft' | 'scheduled' | 'archived';
+    notes?: string;
+}): Promise<PlanningSession> => {
+    const response = await fetchWithAuth(`${API_BASE}/save-planning-session`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+    });
+    if (!response.ok) {
+        const err = await response.json().catch(() => ({ error: 'Save failed' }));
+        throw new Error(err.error || 'Save failed');
+    }
+    return await response.json();
+};
+
+export const deletePlanningSession = async (id: string): Promise<void> => {
+    const response = await fetchWithAuth(`${API_BASE}/delete-planning-session`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id }),
+    });
+    if (!response.ok) throw new Error('Failed to delete planning session');
 };
 
 export const apiService = {
@@ -1892,6 +1934,10 @@ export const apiService = {
     clearSalesData,
     // Demand-backward planning
     planBackward,
+    getPlanningSessions,
+    getPlanningSession,
+    savePlanningSession,
+    deletePlanningSession,
     // Yield averages
     getYieldAverages,
     // Step supply requirements
