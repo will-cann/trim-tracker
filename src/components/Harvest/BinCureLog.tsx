@@ -83,7 +83,7 @@ export const BinCureLog: React.FC<BinCureLogProps> = ({ binId, logs, onLogged })
 
             {showForm && (
                 <div style={{
-                    background: '#F9FAFB', border: '1px solid #E5E7EB', borderRadius: 8,
+                    background: '#F8F8F8', border: '1px solid #E0E0E0', borderRadius: 8,
                     padding: 12, display: 'flex', flexDirection: 'column', gap: 10,
                 }}>
                     <div style={{ display: 'flex', gap: 6 }}>
@@ -98,9 +98,9 @@ export const BinCureLog: React.FC<BinCureLogProps> = ({ binId, logs, onLogged })
                                     style={{
                                         display: 'flex', alignItems: 'center', gap: 4,
                                         padding: '4px 10px', borderRadius: 6, fontSize: '0.75rem',
-                                        border: `1px solid ${selected ? cfg.color : '#E5E7EB'}`,
+                                        border: `1px solid ${selected ? cfg.color : '#E0E0E0'}`,
                                         background: selected ? `${cfg.color}15` : 'white',
-                                        color: selected ? cfg.color : '#6B7280',
+                                        color: selected ? cfg.color : '#737373',
                                         cursor: 'pointer', fontWeight: selected ? 600 : 400,
                                     }}
                                 >
@@ -115,14 +115,14 @@ export const BinCureLog: React.FC<BinCureLogProps> = ({ binId, logs, onLogged })
                             placeholder="Notes (optional)"
                             value={notes}
                             onChange={e => setNotes(e.target.value)}
-                            style={{ flex: 1, padding: '6px 10px', borderRadius: 6, border: '1px solid #E5E7EB', fontSize: '0.813rem' }}
+                            style={{ flex: 1, padding: '6px 10px', borderRadius: 6, border: '1px solid #E0E0E0', fontSize: '0.813rem' }}
                         />
                         <input
                             type="number"
                             placeholder="Moisture %"
                             value={moistureReading}
                             onChange={e => setMoistureReading(e.target.value)}
-                            style={{ width: 90, padding: '6px 10px', borderRadius: 6, border: '1px solid #E5E7EB', fontSize: '0.813rem' }}
+                            style={{ width: 90, padding: '6px 10px', borderRadius: 6, border: '1px solid #E0E0E0', fontSize: '0.813rem' }}
                         />
                     </div>
                     <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
@@ -145,7 +145,7 @@ export const BinCureLog: React.FC<BinCureLogProps> = ({ binId, logs, onLogged })
                         return (
                             <div key={log.id} style={{
                                 display: 'flex', gap: 10, padding: '6px 0',
-                                borderLeft: `2px solid ${i === 0 ? cfg.color : '#E5E7EB'}`,
+                                borderLeft: `2px solid ${i === 0 ? cfg.color : '#E0E0E0'}`,
                                 marginLeft: 8, paddingLeft: 14,
                             }}>
                                 <div style={{
@@ -160,11 +160,11 @@ export const BinCureLog: React.FC<BinCureLogProps> = ({ binId, logs, onLogged })
                                         <span style={{ fontWeight: 600, color: cfg.color }}>{cfg.label}</span>
                                         <span style={{ color: '#959595' }}>{formatTimestamp(log.createdAt)}</span>
                                         {log.moistureReading != null && (
-                                            <span style={{ color: '#6B7280' }}>{log.moistureReading}%</span>
+                                            <span style={{ color: '#737373' }}>{log.moistureReading}%</span>
                                         )}
                                     </div>
                                     {log.notes && (
-                                        <div style={{ fontSize: '0.75rem', color: '#6B7280', marginTop: 2 }}>{log.notes}</div>
+                                        <div style={{ fontSize: '0.75rem', color: '#737373', marginTop: 2 }}>{log.notes}</div>
                                     )}
                                 </div>
                             </div>

@@ -35,9 +35,10 @@ const chipBaseStyle = (bg: string, color: string): React.CSSProperties => ({
     gap: 4,
     padding: '2px 8px',
     borderRadius: 6,
-    fontSize: '0.6875rem',
+    fontSize: '0.6875rem',  // text-micro: 11px
     fontWeight: 700,
     lineHeight: 1.4,
+    letterSpacing: 0,
     whiteSpace: 'nowrap',
     background: bg,
     color,

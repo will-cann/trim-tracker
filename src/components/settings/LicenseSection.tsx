@@ -101,7 +101,7 @@ export const LicenseSection: React.FC<LicenseSectionProps> = ({ licenses, loadin
                             {licenses.map(lic => (
                                 <tr key={lic.id} className="strain-row">
                                     <td className="strain-cell-name">
-                                        <span className="font-mono font-medium text-[#1A1A1A]">{lic.licenseNumber}</span>
+                                        <span className="tabular-nums font-semibold text-[#1A1A1A]">{lic.licenseNumber}</span>
                                     </td>
                                     <td className="strain-cell-notes">
                                         {editingId === lic.id ? (

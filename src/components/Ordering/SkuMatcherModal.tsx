@@ -256,7 +256,7 @@ export const SkuMatcherModal: React.FC<Props> = ({
                                                 {isProcessing && <Loader2 size={12} color="#DC8B47" style={{ animation: 'spin 1s linear infinite', flexShrink: 0 }} />}
                                                 <div>
                                                     <div style={{ fontWeight: 500 }}>{u.productName || <span style={{ color: '#959595' }}>(no name)</span>}</div>
-                                                    <div style={{ fontSize: '0.6875rem', color: '#959595', fontFamily: 'monospace' }}>{u.sku}</div>
+                                                    <div style={{ fontSize: '0.6875rem', color: '#959595', fontVariantNumeric: 'tabular-nums' }}>{u.sku}</div>
                                                 </div>
                                             </div>
                                         </td>

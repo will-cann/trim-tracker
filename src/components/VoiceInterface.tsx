@@ -262,7 +262,7 @@ export const VoiceInterface = ({
                     {mode === 'ambient' && isListening && (
                         <div className="flex items-center gap-1.5 mt-2 text-xs text-gray-400">
                             <Clock size={12} />
-                            <span className="font-mono">{formatTime(elapsedSeconds)}</span>
+                            <span className="tabular-nums">{formatTime(elapsedSeconds)}</span>
                         </div>
                     )}
 

@@ -10,7 +10,7 @@ import {
 } from 'lucide-react';
 import type { HumanTask, HumanTaskStatus, HumanTaskCategory, HumanTaskPriority, TaskViewSpec } from '../types/definitions';
 import { executeAction } from '../services/actionExecutor';
-import { Modal, Button, FilterToolbar, ViewToggle, useViewMode, UndoToast, ViewSwitcherPills } from './ui';
+import { Modal, Button, FilterToolbar, ViewToggle, useViewMode, UndoToast, ViewSwitcherPills, DashboardHeader } from './ui';
 import type { FilterDef, SortOption } from './ui';
 import ResourceCalendar from './ui/ResourceCalendar';
 import { buildTasksSchedule } from './tasksCalendarAdapter';
@@ -45,29 +45,39 @@ interface TasksPanelProps {
     teamMembers: TeamMember[];
 }
 
+// Brand-palette tint presets. All category/priority styles resolve to one of these
+// five tuples — icons disambiguate category identity, not color.
+const TONE = {
+    chameleon: { text: 'text-[#1A7A42]', bg: 'bg-[#ECFDF5] border-[#A7F3D0]', dot: 'bg-[#3BB570]' },
+    macaw:     { text: 'text-[#1B5EB5]', bg: 'bg-[#EFF8FF] border-[#BDE0FE]', dot: 'bg-[#1C9EFF]' },
+    lion:      { text: 'text-[#B06A1F]', bg: 'bg-[#FFF7ED] border-[#FED7AA]', dot: 'bg-[#FA9E52]' },
+    cardinal:  { text: 'text-[#A8403E]', bg: 'bg-[#FDECEC] border-[#F5C6C6]', dot: 'bg-[#DF5B59]' },
+    rhino:     { text: 'text-[#5C5C5C]', bg: 'bg-[#F1F1F1] border-[#C0C0C0]', dot: 'bg-[#959595]' },
+} as const;
+
 const CATEGORY_CONFIG: Record<HumanTaskCategory, { icon: typeof ClipboardList; label: string; color: string; bg: string; dot: string }> = {
-    drying_curing: { icon: Thermometer, label: 'Drying/Curing', color: 'text-[#B8860B]', bg: 'bg-[#FFF8E7] border-[#F5DEB3]', dot: 'bg-[#DAA520]' },
-    ipm: { icon: Bug, label: 'IPM', color: 'text-[#DF5B59]', bg: 'bg-[#FDF2F2] border-[#F5C6C6]', dot: 'bg-[#DF5B59]' },
-    compliance: { icon: Shield, label: 'Compliance', color: 'text-[#1C9EFF]', bg: 'bg-[#EFF8FF] border-[#BDE0FE]', dot: 'bg-[#1C9EFF]' },
-    equipment: { icon: Wrench, label: 'Equipment', color: 'text-[#6B7280]', bg: 'bg-[#F3F4F6] border-[#D1D5DB]', dot: 'bg-[#959595]' },
-    environmental: { icon: CloudSun, label: 'Environmental', color: 'text-[#0E7490]', bg: 'bg-[#ECFEFF] border-[#A5F3FC]', dot: 'bg-[#0E7490]' },
-    packaging: { icon: Package, label: 'Packaging', color: 'text-[#3BB570]', bg: 'bg-[#ECFDF5] border-[#A7F3D0]', dot: 'bg-[#3BB570]' },
-    qc_testing: { icon: FlaskConical, label: 'QC/Testing', color: 'text-[#7C6AE8]', bg: 'bg-[#F5F3FF] border-[#DDD6FE]', dot: 'bg-[#7C6AE8]' },
-    inventory: { icon: Warehouse, label: 'Inventory', color: 'text-[#FA9E52]', bg: 'bg-[#FFF7ED] border-[#FED7AA]', dot: 'bg-[#FA9E52]' },
-    transportation: { icon: Truck, label: 'Transport', color: 'text-[#959595]', bg: 'bg-[#F1F1F1] border-[#C0C0C0]', dot: 'bg-[#959595]' },
-    sanitation: { icon: SprayCan, label: 'Sanitation', color: 'text-[#2BBFB3]', bg: 'bg-[#F0FDFA] border-[#99F6E4]', dot: 'bg-[#2BBFB3]' },
-    training: { icon: GraduationCap, label: 'Training', color: 'text-[#D4708A]', bg: 'bg-[#FDF2F8] border-[#FBCFE8]', dot: 'bg-[#D4708A]' },
-    trim: { icon: Scissors, label: 'Trim', color: 'text-[#3BB570]', bg: 'bg-[#ECFDF5] border-[#A7F3D0]', dot: 'bg-[#3BB570]' },
-    harvest: { icon: Sprout, label: 'Harvest', color: 'text-[#2E9A5C]', bg: 'bg-[#F0FDF4] border-[#BBF7D0]', dot: 'bg-[#2E9A5C]' },
-    cultivation: { icon: Leaf, label: 'Cultivation', color: 'text-[#65A30D]', bg: 'bg-[#F7FEE7] border-[#D9F99D]', dot: 'bg-[#65A30D]' },
-    other: { icon: Circle, label: 'Other', color: 'text-[#959595]', bg: 'bg-[#F1F1F1] border-[#C0C0C0]', dot: 'bg-[#C0C0C0]' },
+    drying_curing:  { icon: Thermometer,   label: 'Drying/Curing', color: TONE.lion.text,      bg: TONE.lion.bg,      dot: TONE.lion.dot },
+    ipm:            { icon: Bug,           label: 'IPM',           color: TONE.cardinal.text,  bg: TONE.cardinal.bg,  dot: TONE.cardinal.dot },
+    compliance:     { icon: Shield,        label: 'Compliance',    color: TONE.macaw.text,     bg: TONE.macaw.bg,     dot: TONE.macaw.dot },
+    equipment:      { icon: Wrench,        label: 'Equipment',     color: TONE.rhino.text,     bg: TONE.rhino.bg,     dot: TONE.rhino.dot },
+    environmental:  { icon: CloudSun,      label: 'Environmental', color: TONE.macaw.text,     bg: TONE.macaw.bg,     dot: TONE.macaw.dot },
+    packaging:      { icon: Package,       label: 'Packaging',     color: TONE.chameleon.text, bg: TONE.chameleon.bg, dot: TONE.chameleon.dot },
+    qc_testing:     { icon: FlaskConical,  label: 'QC/Testing',    color: TONE.macaw.text,     bg: TONE.macaw.bg,     dot: TONE.macaw.dot },
+    inventory:      { icon: Warehouse,     label: 'Inventory',     color: TONE.lion.text,      bg: TONE.lion.bg,      dot: TONE.lion.dot },
+    transportation: { icon: Truck,         label: 'Transport',     color: TONE.rhino.text,     bg: TONE.rhino.bg,     dot: TONE.rhino.dot },
+    sanitation:     { icon: SprayCan,      label: 'Sanitation',    color: TONE.macaw.text,     bg: TONE.macaw.bg,     dot: TONE.macaw.dot },
+    training:       { icon: GraduationCap, label: 'Training',      color: TONE.rhino.text,     bg: TONE.rhino.bg,     dot: TONE.rhino.dot },
+    trim:           { icon: Scissors,      label: 'Trim',          color: TONE.chameleon.text, bg: TONE.chameleon.bg, dot: TONE.chameleon.dot },
+    harvest:        { icon: Sprout,        label: 'Harvest',       color: TONE.chameleon.text, bg: TONE.chameleon.bg, dot: TONE.chameleon.dot },
+    cultivation:    { icon: Leaf,          label: 'Cultivation',   color: TONE.chameleon.text, bg: TONE.chameleon.bg, dot: TONE.chameleon.dot },
+    other:          { icon: Circle,        label: 'Other',         color: TONE.rhino.text,     bg: TONE.rhino.bg,     dot: TONE.rhino.dot },
 };
 
 const PRIORITY_CONFIG: Record<HumanTaskPriority, { label: string; color: string; dot: string }> = {
-    low: { label: 'Low', color: 'text-[#959595]', dot: 'bg-[#C0C0C0]' },
-    medium: { label: 'Medium', color: 'text-[#1C9EFF]', dot: 'bg-[#1C9EFF]' },
-    high: { label: 'High', color: 'text-[#FA9E52]', dot: 'bg-[#FA9E52]' },
-    urgent: { label: 'Urgent', color: 'text-[#DF5B59]', dot: 'bg-[#DF5B59]' },
+    low:    { label: 'Low',    color: TONE.rhino.text,    dot: TONE.rhino.dot },
+    medium: { label: 'Medium', color: TONE.macaw.text,    dot: TONE.macaw.dot },
+    high:   { label: 'High',   color: TONE.lion.text,     dot: TONE.lion.dot },
+    urgent: { label: 'Urgent', color: TONE.cardinal.text, dot: TONE.cardinal.dot },
 };
 
 
@@ -1136,29 +1146,30 @@ export const TasksPanel = ({
     return (
         <div className="flex flex-col h-full bg-white">
             {/* Header */}
-            <div className="px-6 pt-6 pb-2">
-                <div className="flex items-center justify-between">
-                    <div>
-                        <h1 className="text-2xl font-bold text-[#1A1A1A]">Tasks</h1>
-                        <p className="text-sm text-[#959595] mt-0.5">
-                            {pendingCount > 0
-                                ? `${pendingCount} incomplete task${pendingCount !== 1 ? 's' : ''}`
-                                : 'No pending tasks'}
-                        </p>
-                    </div>
-                    <div className="flex items-center gap-2">
-                        <ViewToggle mode={viewMode} onChange={setViewMode} showCalendar />
-                        {onCreateTask && (
-                            <button
-                                onClick={() => setShowCreateRow(true)}
-                                className="inline-flex items-center gap-1.5 px-3.5 py-2 text-sm font-medium text-white bg-[#3BB570] hover:bg-[#2a8f56] rounded-lg transition-colors"
-                            >
-                                <Plus size={15} />
-                                New task
-                            </button>
-                        )}
-                    </div>
-                </div>
+            <div className="px-6 pt-2 pb-2">
+                <DashboardHeader
+                    eyebrow="Tasks"
+                    title={
+                        pendingCount > 0
+                            ? `${pendingCount} incomplete task${pendingCount !== 1 ? 's' : ''}`
+                            : 'Tasks'
+                    }
+                    density="compact"
+                    actions={
+                        <>
+                            <ViewToggle mode={viewMode} onChange={setViewMode} showCalendar />
+                            {onCreateTask && (
+                                <button
+                                    onClick={() => setShowCreateRow(true)}
+                                    className="inline-flex items-center gap-1.5 px-3.5 py-2 text-sm font-medium text-white bg-[#3BB570] hover:bg-[#2a8f56] rounded-lg transition-colors"
+                                >
+                                    <Plus size={15} />
+                                    New task
+                                </button>
+                            )}
+                        </>
+                    }
+                />
 
                 {/* Attention summary — only when there's something noteworthy */}
                 {(overdueCount > 0 || todayCount > 0 || urgentCount > 0) && (

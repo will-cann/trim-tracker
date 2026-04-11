@@ -13,10 +13,16 @@ const PHASE_COLORS: Record<string, string> = {
     harvested: '#959595',
 };
 
-// Strain-color rotation for distinguishing batches in the same room
+// Strain-color rotation for distinguishing batches in the same room.
+// Brand palette + deeper tonal variants — no invented hues.
 const STRAIN_COLORS = [
-    '#3BB570', '#1C9EFF', '#FA9E52', '#DF5B59',
-    '#8B5CF6', '#0EA5E9', '#F59E0B',
+    '#3BB570', // chameleon
+    '#1C9EFF', // macaw
+    '#FA9E52', // lion
+    '#DF5B59', // cardinal
+    '#1A7A42', // chameleon deep
+    '#0E6A8A', // macaw deep
+    '#B06A1F', // lion deep
 ];
 
 function strainColor(strain: string): string {

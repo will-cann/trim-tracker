@@ -24,7 +24,7 @@ export const PlantHealthCircle: React.FC<PlantHealthCircleProps> = ({ health, si
                     cy={center}
                     r={radius}
                     fill="none"
-                    stroke="#e5e7eb"
+                    stroke="#E0E0E0"
                     strokeWidth={strokeWidth}
                     strokeDasharray="4 3"
                 />

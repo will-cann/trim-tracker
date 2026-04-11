@@ -22,7 +22,7 @@ const TAG_COLUMNS: Column<Tag>[] = [
     {
         key: 'tagNumber', label: 'Tag Number', sortable: true,
         render: (r) => (
-            <span style={{ fontFamily: 'monospace', fontWeight: 500, fontSize: '0.8125rem' }}>
+            <span style={{ fontVariantNumeric: 'tabular-nums', fontWeight: 600, fontSize: '0.8125rem' }}>
                 {r.tagNumber}
             </span>
         ),

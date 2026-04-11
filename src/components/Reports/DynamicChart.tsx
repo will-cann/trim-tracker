@@ -5,17 +5,11 @@ import {
   XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
 } from 'recharts';
 import type { ReportSpec } from '../../types/definitions';
+import { CHART_PALETTE, CHART_CHROME, CHART_TOOLTIP_STYLE } from '../../lib/chartColors';
 
-const COLORS = ['#4E79A7', '#F28E2B', '#E15759', '#76B7B2', '#59A14F', '#EDC948', '#B07AA1', '#FF9DA7'];
-
-const TOOLTIP_STYLE = {
-  borderRadius: '6px',
-  border: 'none',
-  boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
-  fontSize: '13px',
-};
-
-const AXIS_TICK = { fontSize: 12, fill: '#959595' };
+const COLORS = CHART_PALETTE;
+const TOOLTIP_STYLE = CHART_TOOLTIP_STYLE;
+const AXIS_TICK = CHART_CHROME.axisTick;
 
 interface DynamicChartProps {
   spec: ReportSpec;
@@ -89,7 +83,7 @@ const ChartView: React.FC<DynamicChartProps> = ({ spec, data }) => {
 
   const renderAxes = (
     <>
-      <CartesianGrid stroke="#f5f5f5" vertical={false} />
+      <CartesianGrid stroke={CHART_CHROME.gridline} vertical={false} />
       <XAxis
         dataKey={xAxis}
         tick={AXIS_TICK}

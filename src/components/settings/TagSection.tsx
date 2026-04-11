@@ -206,7 +206,7 @@ export const TagSection: React.FC<TagSectionProps> = ({ tagSettings, onSaveSetti
                                         rows={5}
                                         autoFocus
                                         className="field-input"
-                                        style={{ resize: 'vertical', fontFamily: 'monospace', fontSize: '0.75rem' }}
+                                        style={{ resize: 'vertical', fontVariantNumeric: 'tabular-nums', fontSize: '0.75rem' }}
                                     />
                                     <div className="flex gap-2">
                                         <button
@@ -269,7 +269,7 @@ export const TagSection: React.FC<TagSectionProps> = ({ tagSettings, onSaveSetti
                                             {tags.map(t => (
                                                 <tr key={t.id} className="strain-row">
                                                     <td className="strain-cell-name">
-                                                        <span style={{ fontFamily: 'monospace', fontSize: '0.75rem', fontWeight: 500 }}>
+                                                        <span style={{ fontVariantNumeric: 'tabular-nums', fontSize: '0.75rem', fontWeight: 600 }}>
                                                             {t.tagNumber}
                                                         </span>
                                                     </td>

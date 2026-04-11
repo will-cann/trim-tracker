@@ -5,31 +5,10 @@ import { apiService } from '../../services/apiService';
 import { PackageCard } from './PackageCard';
 import { CreatePackageModal } from './CreatePackageModal';
 import { CardsSkeleton } from '../Skeleton';
-import { FilterToolbar, DataTable, ViewToggle, useViewMode, TypeChip, getTypeChipStyle } from '../ui';
+import { FilterToolbar, DataTable, ViewToggle, useViewMode, TypeChip, getTypeChipStyle, EmptyState, DashboardHeader, StatCard } from '../ui';
 import type { FilterDef, SortOption, Column } from '../ui';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
-
-const STATUS_CLASS: Record<string, string> = {
-    active: 'status-complete',
-    on_hold: 'status-upcoming',
-    finished: 'status-finished',
-    archived: 'status-finished',
-};
-
-const STATUS_LABEL: Record<string, string> = {
-    active: 'Active',
-    on_hold: 'On Hold',
-    finished: 'Finished',
-    archived: 'Archived',
-};
-
-const LAB_COLORS: Record<string, string> = {
-    not_submitted: '#959595',
-    submitted: '#1C9EFF',
-    passed: '#3BB570',
-    failed: '#DF5B59',
-};
 
 const typeLabel = (t: PkgType): string =>
     getTypeChipStyle('packageType', t)?.label || t;
@@ -55,7 +34,7 @@ const PACKAGE_COLUMNS: Column<PackageType>[] = [
     {
         key: 'label', label: 'Label', sortable: true,
         render: (r) => (
-            <span style={{ fontFamily: 'monospace', fontWeight: 500, fontSize: '0.8125rem' }}>
+            <span style={{ fontVariantNumeric: 'tabular-nums', fontWeight: 600, fontSize: '0.8125rem' }}>
                 {r.label || '—'}
             </span>
         ),
@@ -74,25 +53,12 @@ const PACKAGE_COLUMNS: Column<PackageType>[] = [
         ),
     },
     {
-        key: 'status', label: 'Status', sortable: true, width: 110,
-        render: (r) => (
-            <span className={`status-badge ${STATUS_CLASS[r.status] || ''}`}>
-                {STATUS_LABEL[r.status] || r.status}
-            </span>
-        ),
+        key: 'status', label: 'Status', sortable: true, width: 120,
+        render: (r) => <TypeChip palette="packageStatus" value={r.status} />,
     },
     {
-        key: 'labTestingState', label: 'Lab', sortable: true, width: 100,
-        render: (r) => {
-            const state = r.labTestingState || 'not_submitted';
-            const label = state === 'not_submitted' ? 'Not Sent' : state.charAt(0).toUpperCase() + state.slice(1);
-            return (
-                <span className="flex items-center gap-1.5">
-                    <span className="data-table-dot" style={{ background: LAB_COLORS[state] || '#959595' }} />
-                    <span style={{ color: '#959595', fontSize: '0.8125rem' }}>{label}</span>
-                </span>
-            );
-        },
+        key: 'labTestingState', label: 'Lab', sortable: true, width: 120,
+        render: (r) => <TypeChip palette="labState" value={r.labTestingState || 'not_submitted'} />,
     },
     {
         key: 'licenseNumber', label: 'License', sortable: true, width: 140,
@@ -266,45 +232,49 @@ export const PackageDashboard: React.FC = () => {
 
     return (
         <div className="dashboard">
+            <DashboardHeader
+                eyebrow="Inventory"
+                title={activePackages.length > 0 ? `${activePackages.length} active ${activePackages.length === 1 ? 'package' : 'packages'}` : 'Packages'}
+                density="compact"
+                actions={
+                    <button
+                        type="button"
+                        className="btn-new-batch"
+                        onClick={() => setShowCreateModal(true)}
+                    >
+                        <Plus size={20} />
+                        New Package
+                    </button>
+                }
+            />
+
             {/* Stats */}
             <div className="dashboard-top-section">
                 <div className="stats-grid">
-                    <div className="stat-item">
-                        <div className="stat-icon" style={{ backgroundColor: 'rgba(59, 181, 112, 0.1)', color: '#3BB570' }}>
-                            <Package size={24} />
-                        </div>
-                        <div className="stat-content">
-                            <label>Active Packages</label>
-                            <p className="stat-value">{activePackages.length}</p>
-                        </div>
-                    </div>
-                    <div className="stat-item">
-                        <div className="stat-icon flower-icon">
-                            <Flower2 size={24} />
-                        </div>
-                        <div className="stat-content">
-                            <label>Active Weight</label>
-                            <p className="stat-value">{totalActiveWeight.toFixed(0)}g</p>
-                        </div>
-                    </div>
-                    <div className="stat-item">
-                        <div className="stat-icon" style={{ backgroundColor: 'rgba(250, 158, 82, 0.15)', color: '#FA9E52' }}>
-                            <Pause size={24} />
-                        </div>
-                        <div className="stat-content">
-                            <label>On Hold</label>
-                            <p className="stat-value">{onHoldCount}</p>
-                        </div>
-                    </div>
-                    <div className="stat-item">
-                        <div className="stat-icon" style={{ backgroundColor: 'rgba(59, 181, 112, 0.15)', color: '#3BB570' }}>
-                            <CheckCircle size={24} />
-                        </div>
-                        <div className="stat-content">
-                            <label>Finished</label>
-                            <p className="stat-value">{finishedCount}</p>
-                        </div>
-                    </div>
+                    <StatCard
+                        icon={<Package size={24} />}
+                        variant="flower"
+                        label="Active Packages"
+                        value={activePackages.length}
+                    />
+                    <StatCard
+                        icon={<Flower2 size={24} />}
+                        variant="flower"
+                        label="Active Weight"
+                        value={`${totalActiveWeight.toFixed(0)}g`}
+                    />
+                    <StatCard
+                        icon={<Pause size={24} />}
+                        variant="shake"
+                        label="On Hold"
+                        value={onHoldCount}
+                    />
+                    <StatCard
+                        icon={<CheckCircle size={24} />}
+                        variant="neutral"
+                        label="Finished"
+                        value={finishedCount}
+                    />
                 </div>
             </div>
 
@@ -322,17 +292,7 @@ export const PackageDashboard: React.FC = () => {
                 sortDir={sortDir}
                 onSortChange={viewMode === 'cards' ? handleSortChange : undefined}
                 trailing={
-                    <div className="flex items-center gap-2">
-                        <ViewToggle mode={viewMode} onChange={setViewMode} />
-                        <button
-                            type="button"
-                            className="btn-new-batch"
-                            onClick={() => setShowCreateModal(true)}
-                        >
-                            <Plus size={20} />
-                            New Package
-                        </button>
-                    </div>
+                    <ViewToggle mode={viewMode} onChange={setViewMode} />
                 }
             />
 
@@ -340,28 +300,26 @@ export const PackageDashboard: React.FC = () => {
             {loading ? (
                 <CardsSkeleton count={3} />
             ) : sortedPackages.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-16 text-center">
-                    <div className="w-14 h-14 rounded-full bg-[#F1F1F1] flex items-center justify-center mb-4">
-                        <Package size={24} className="text-[#C0C0C0]" />
-                    </div>
-                    <h3 className="text-base font-semibold text-[#1A1A1A] mb-1">
-                        {hasFilters ? 'No matching packages' : 'Package your finished product'}
-                    </h3>
-                    <p className="text-sm text-[#959595] max-w-xs mb-4">
-                        {hasFilters
+                <EmptyState
+                    icon={Package}
+                    title={hasFilters ? 'No matching packages' : 'Package your finished product'}
+                    description={
+                        hasFilters
                             ? 'Try adjusting your search or filters.'
-                            : 'Packages are the final inventory units — flower, trim, or shake — ready for sale or transfer. Create them from completed trim entries.'}
-                    </p>
-                    {!hasFilters && (
-                        <button
-                            onClick={() => setShowCreateModal(true)}
-                            className="btn-new-batch px-4 py-2 text-sm"
-                        >
-                            <Plus size={16} />
-                            Create First Package
-                        </button>
-                    )}
-                </div>
+                            : 'Packages are the final inventory units — flower, trim, or shake — ready for sale or transfer. Create them from completed trim entries.'
+                    }
+                    action={
+                        !hasFilters && (
+                            <button
+                                onClick={() => setShowCreateModal(true)}
+                                className="btn-new-batch px-4 py-2 text-sm"
+                            >
+                                <Plus size={16} />
+                                Create First Package
+                            </button>
+                        )
+                    }
+                />
             ) : viewMode === 'table' ? (
                 <div className="mt-4">
                     <DataTable

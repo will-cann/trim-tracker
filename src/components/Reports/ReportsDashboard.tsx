@@ -10,6 +10,7 @@ import { getReportsData, shiftWeek, formatDateRange, type ReportsData, type Date
 import { ChevronLeft, ChevronRight, MoreVertical, ChevronUp, BarChart3 } from 'lucide-react';
 import { PageSkeleton } from '../Skeleton';
 import { useAuth } from '../../contexts/authContext';
+import { DashboardHeader, EmptyState } from '../ui';
 
 type ReportsTab = 'dashboards' | 'trim-performance';
 
@@ -45,8 +46,48 @@ export const ReportsDashboard: React.FC = () => {
         if (dateRange) setDateRange(shiftWeek(dateRange, 1));
     };
 
-    // const tabClass = (tab: ReportsTab) =>
-    //     `reports-tab ${activeTab === tab ? 'reports-tab-active' : ''}`;
+    const dateRangeNav = dateRange ? (
+        <div
+            style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 4,
+                background: '#FFFFFF',
+                padding: '4px 6px',
+                borderRadius: 8,
+                border: '1px solid #E0E0E0',
+            }}
+        >
+            <button
+                type="button"
+                onClick={handlePrev}
+                aria-label="Previous week"
+                className="dashboard-header-nav-btn"
+            >
+                <ChevronLeft size={18} />
+            </button>
+            <span
+                className="text-body"
+                style={{
+                    color: '#1A1A1A',
+                    fontWeight: 600,
+                    whiteSpace: 'nowrap',
+                    fontVariantNumeric: 'tabular-nums',
+                    padding: '0 6px',
+                }}
+            >
+                {formatDateRange(dateRange)}
+            </span>
+            <button
+                type="button"
+                onClick={handleNext}
+                aria-label="Next week"
+                className="dashboard-header-nav-btn"
+            >
+                <ChevronRight size={18} />
+            </button>
+        </div>
+    ) : null;
 
     const renderTrimPerformance = () => {
         if (loading) {
@@ -55,33 +96,11 @@ export const ReportsDashboard: React.FC = () => {
 
         if (!data || data.summary.trimLaborHours === 0) {
             return (
-                <>
-                    {dateRange && (
-                        <div className="flex justify-end mb-6">
-                            <div className="flex items-center gap-4 bg-white px-4 py-2 rounded-lg border border-gray-200 shadow-sm">
-                                <button onClick={handlePrev} className="p-1 hover:bg-gray-100 rounded-full text-gray-400 hover:text-gray-600">
-                                    <ChevronLeft size={20} />
-                                </button>
-                                <span className="text-sm font-medium text-green-600 whitespace-nowrap">
-                                    {formatDateRange(dateRange)}
-                                </span>
-                                <button onClick={handleNext} className="p-1 hover:bg-gray-100 rounded-full text-gray-400 hover:text-gray-600">
-                                    <ChevronRight size={20} />
-                                </button>
-                            </div>
-                        </div>
-                    )}
-                    <div className="bg-white p-12 rounded-xl border border-gray-100 shadow-sm text-center">
-                        <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center mb-4 mx-auto">
-                            <BarChart3 size={28} className="text-gray-300" />
-                        </div>
-                        <h3 className="text-lg font-semibold text-gray-700 mb-2">No data for this week</h3>
-                        <p className="text-sm text-gray-400 max-w-sm mx-auto">
-                            No completed trim sessions in this period. Use the arrows above to browse other weeks,
-                            or start a new session from the Trim Tracker.
-                        </p>
-                    </div>
-                </>
+                <EmptyState
+                    icon={BarChart3}
+                    title="No data for this week"
+                    description="No completed trim sessions in this period. Use the arrows above to browse other weeks, or start a new session from the Trim Tracker."
+                />
             );
         }
 
@@ -91,27 +110,11 @@ export const ReportsDashboard: React.FC = () => {
 
         return (
             <div className="space-y-8">
-                {dateRange && (
-                    <div className="flex justify-end">
-                        <div className="flex items-center gap-4 bg-white px-4 py-2 rounded-lg border border-gray-200 shadow-sm">
-                            <button onClick={handlePrev} className="p-1 hover:bg-gray-100 rounded-full text-gray-400 hover:text-gray-600">
-                                <ChevronLeft size={20} />
-                            </button>
-                            <span className="text-sm font-medium text-green-600 whitespace-nowrap">
-                                {formatDateRange(dateRange)}
-                            </span>
-                            <button onClick={handleNext} className="p-1 hover:bg-gray-100 rounded-full text-gray-400 hover:text-gray-600">
-                                <ChevronRight size={20} />
-                            </button>
-                        </div>
-                    </div>
-                )}
-
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                    <MetricCard value={summary.trimLaborHours} label="Trim Labor Hours" color="blue" />
-                    <MetricCard value={summary.avgGramsPerHour} label="Avg g/hour" color="green" />
-                    <MetricCard value={summary.flowerTrimmedLbs} label="Flower Trimmed (LBs)" color="purple" />
-                    <MetricCard value={summary.trimLbs} label="Trim (LBs)" color="red" />
+                    <MetricCard value={summary.trimLaborHours} label="Trim Labor Hours" variant="trim" />
+                    <MetricCard value={summary.avgGramsPerHour} label="Avg g/hour" variant="flower" />
+                    <MetricCard value={summary.flowerTrimmedLbs} label="Flower Trimmed (LBs)" variant="flower" />
+                    <MetricCard value={summary.trimLbs} label="Trim (LBs)" variant="shake" />
                 </div>
 
                 {isExecutive && (
@@ -149,22 +152,12 @@ export const ReportsDashboard: React.FC = () => {
 
     return (
         <div className="reports-dashboard">
-            {/* Header */}
-            <div className="reports-header">
-                <h1>Reports</h1>
-                {/* Dashboards tab hidden until prod API key is resolved
-                <div className="reports-tabs">
-                    <button onClick={() => setActiveTab('dashboards')} className={tabClass('dashboards')}>
-                        <Sparkles size={14} />
-                        Dashboards
-                    </button>
-                    <button onClick={() => setActiveTab('trim-performance')} className={tabClass('trim-performance')}>
-                        <BarChart3 size={14} />
-                        Trim Performance
-                    </button>
-                </div>
-                */}
-            </div>
+            <DashboardHeader
+                eyebrow="Reports"
+                title="Trim Performance"
+                density="compact"
+                actions={dateRangeNav}
+            />
 
             {/* Tab content */}
             {activeTab === 'dashboards' ? <ReportsBuilder /> : renderTrimPerformance()}

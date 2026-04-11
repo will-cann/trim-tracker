@@ -3,6 +3,7 @@ import { ChevronDown, Clock, MapPin, Scissors, AlertTriangle } from 'lucide-reac
 import type { HarvestBin, BinCureLog } from '../../types/definitions';
 import { apiService } from '../../services/apiService';
 import { BinCureLog as BinCureLogTimeline } from './BinCureLog';
+import { TypeChip } from '../ui';
 
 interface BinCardProps {
     bin: HarvestBin;
@@ -10,13 +11,6 @@ interface BinCardProps {
     onSendToTrim?: (binId: string) => void;
     compact?: boolean;
 }
-
-const STATUS_CONFIG: Record<string, { label: string; className: string }> = {
-    curing: { label: 'Curing', className: 'status-drying' },
-    ready: { label: 'Ready', className: 'status-active' },
-    in_trim: { label: 'In Trim', className: 'status-upcoming' },
-    completed: { label: 'Completed', className: 'status-complete' },
-};
 
 const formatWeight = (g: number | null) => {
     if (!g) return '—';
@@ -64,7 +58,6 @@ export const BinCard: React.FC<BinCardProps> = ({ bin, onUpdate, onSendToTrim, c
     const [logsLoaded, setLogsLoaded] = useState(false);
     const [loading, setLoading] = useState(false);
 
-    const statusConfig = STATUS_CONFIG[bin.status] || STATUS_CONFIG.curing;
     const nextAction = getNextActionInfo(bin);
     const curingDays = getCuringDays(bin);
 
@@ -112,7 +105,7 @@ export const BinCard: React.FC<BinCardProps> = ({ bin, onUpdate, onSendToTrim, c
                                 <span style={{ color: '#959595' }}>{formatWeight(bin.weight)}</span>
                             </div>
                         </div>
-                        <span className={`status-badge ${statusConfig.className}`}>{statusConfig.label}</span>
+                        <TypeChip palette="binStatus" value={bin.status} />
                     </div>
                 </div>
             </div>
@@ -145,7 +138,7 @@ export const BinCard: React.FC<BinCardProps> = ({ bin, onUpdate, onSendToTrim, c
                             {nextAction && (
                                 <span style={{
                                     display: 'flex', alignItems: 'center', gap: 4,
-                                    color: nextAction.overdue ? '#DF5B59' : '#FA9E52',
+                                    color: nextAction.overdue ? 'var(--color-waste)' : 'var(--color-shake)',
                                     fontWeight: nextAction.overdue ? 600 : 400,
                                 }}>
                                     {nextAction.overdue ? <AlertTriangle size={12} /> : <Clock size={12} />}
@@ -155,7 +148,7 @@ export const BinCard: React.FC<BinCardProps> = ({ bin, onUpdate, onSendToTrim, c
                         </div>
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                        <span className={`status-badge ${statusConfig.className}`}>{statusConfig.label}</span>
+                        <TypeChip palette="binStatus" value={bin.status} />
                         <ChevronDown size={16} className="expand-icon" />
                     </div>
                 </div>
@@ -165,7 +158,7 @@ export const BinCard: React.FC<BinCardProps> = ({ bin, onUpdate, onSendToTrim, c
                 <div className="trim-card-body">
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
                         {/* Info row */}
-                        <div style={{ display: 'flex', gap: 24, fontSize: '0.813rem', color: '#6B7280' }}>
+                        <div style={{ display: 'flex', gap: 24, fontSize: '0.813rem', color: '#737373' }}>
                             <span>Harvest: {bin.harvestBatchId || '—'}</span>
                             {bin.licenseNumber && <span>License: {bin.licenseNumber}</span>}
                             <span>Bucked: {formatRelativeTime(bin.buckedAt)}</span>

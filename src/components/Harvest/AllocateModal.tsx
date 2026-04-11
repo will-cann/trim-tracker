@@ -150,7 +150,7 @@ export const AllocateModal: React.FC<AllocateModalProps> = ({ harvest, onClose, 
 
                 {/* Projections */}
                 <div style={{
-                    background: '#F9FAFB', border: '1px solid #E5E7EB', borderRadius: 8,
+                    background: '#F8F8F8', border: '1px solid #E0E0E0', borderRadius: 8,
                     padding: 14, display: 'flex', flexDirection: 'column', gap: 10,
                 }}>
                     <div style={{ fontSize: '0.688rem', fontWeight: 600, textTransform: 'uppercase', color: '#959595', letterSpacing: '0.05em' }}>
@@ -160,7 +160,7 @@ export const AllocateModal: React.FC<AllocateModalProps> = ({ harvest, onClose, 
                     {/* Frozen output */}
                     {(mode === 'frozen' || mode === 'both') && projections.frozenAmount > 0 && (
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.813rem' }}>
-                            <span style={{ color: '#0E7490', fontWeight: 500 }}>Fresh Frozen</span>
+                            <span style={{ color: '#1B5EB5', fontWeight: 500 }}>Fresh Frozen</span>
                             <strong>{formatWeight(projections.frozenAmount)}</strong>
                         </div>
                     )}
@@ -172,7 +172,7 @@ export const AllocateModal: React.FC<AllocateModalProps> = ({ harvest, onClose, 
                                 <span style={{ color: '#959595' }}>Dry weight ({100 - moisturePct}% of {formatWeight(projections.flowerWet)})</span>
                                 <span style={{ fontWeight: 500 }}>{formatWeight(projections.dryWeight)}</span>
                             </div>
-                            <div style={{ borderTop: '1px solid #E5E7EB', paddingTop: 8, display: 'flex', flexDirection: 'column', gap: 6 }}>
+                            <div style={{ borderTop: '1px solid #E0E0E0', paddingTop: 8, display: 'flex', flexDirection: 'column', gap: 6 }}>
                                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.813rem' }}>
                                     <span style={{ color: '#3BB570', fontWeight: 500 }}>Flower</span>
                                     <strong>{formatWeight(projections.flower)}</strong>

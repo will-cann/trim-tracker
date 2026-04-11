@@ -3,22 +3,30 @@ import type { Resource, ResourceBlock } from './ui/ResourceTimeline';
 
 const MS_PER_DAY = 86_400_000;
 
+// Brand palette only — categories are disambiguated by label/icon in the UI,
+// not by color. Maps each category to one of five animal-palette anchors.
+const CHAMELEON = '#3BB570';
+const MACAW = '#1C9EFF';
+const LION = '#FA9E52';
+const CARDINAL = '#DF5B59';
+const RHINO = '#959595';
+
 const CATEGORY_COLORS: Record<HumanTaskCategory, string> = {
-    drying_curing: '#DAA520',
-    ipm: '#DF5B59',
-    compliance: '#1C9EFF',
-    equipment: '#959595',
-    environmental: '#0E7490',
-    packaging: '#3BB570',
-    qc_testing: '#7C6AE8',
-    inventory: '#FA9E52',
-    transportation: '#959595',
-    sanitation: '#2BBFB3',
-    training: '#D4708A',
-    trim: '#3BB570',
-    harvest: '#2E9A5C',
-    cultivation: '#65A30D',
-    other: '#C0C0C0',
+    drying_curing:  LION,
+    ipm:            CARDINAL,
+    compliance:     MACAW,
+    equipment:      RHINO,
+    environmental:  MACAW,
+    packaging:      CHAMELEON,
+    qc_testing:     MACAW,
+    inventory:      LION,
+    transportation: RHINO,
+    sanitation:     MACAW,
+    training:       RHINO,
+    trim:           CHAMELEON,
+    harvest:        CHAMELEON,
+    cultivation:    CHAMELEON,
+    other:          RHINO,
 };
 
 const CATEGORY_LABELS: Record<string, string> = {

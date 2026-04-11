@@ -9,12 +9,12 @@ import { apiService } from '../../services/apiService';
 // ── Config ───────────────────────────────────────────────────────────────────
 
 const COLUMNS: { status: HarvestStatus; label: string; color: string; icon: typeof Clock }[] = [
-    { status: 'planning', label: 'Planning', color: '#1C9EFF', icon: ClipboardList },
-    { status: 'cutting', label: 'Cutting', color: '#3BB570', icon: Scissors },
-    { status: 'submitted', label: 'Submitted', color: '#FA9E52', icon: Send },
-    { status: 'hanging', label: 'Hanging', color: '#FA9E52', icon: Clock },
-    { status: 'bucking', label: 'Binning', color: '#C27ADB', icon: Package },
-    { status: 'completed', label: 'Completed', color: '#959595', icon: CheckCircle2 },
+    { status: 'planning', label: 'Planning', color: '#1C9EFF', icon: ClipboardList },  // macaw
+    { status: 'cutting', label: 'Cutting', color: '#3BB570', icon: Scissors },          // chameleon
+    { status: 'submitted', label: 'Submitted', color: '#FA9E52', icon: Send },          // lion
+    { status: 'hanging', label: 'Hanging', color: '#FA9E52', icon: Clock },             // lion
+    { status: 'bucking', label: 'Binning', color: '#3BB570', icon: Package },           // chameleon
+    { status: 'completed', label: 'Completed', color: '#959595', icon: CheckCircle2 },  // rhino
 ];
 
 // Map old statuses to new columns for backward compat
@@ -79,7 +79,7 @@ const HarvestKanbanCard: React.FC<{
             <div className="kanban-card-content">
                 <div className="kanban-card-name">{harvest.strain}</div>
                 <div className="kanban-card-meta">
-                    <span className="kanban-card-strain" style={{ fontFamily: 'monospace', fontSize: '0.688rem' }}>
+                    <span className="kanban-card-strain" style={{ fontVariantNumeric: 'tabular-nums', fontSize: '0.688rem' }}>
                         {harvest.batchId}
                     </span>
                     {harvest.plantCount > 0 && (
@@ -91,7 +91,7 @@ const HarvestKanbanCard: React.FC<{
 
                 {/* Context-dependent info */}
                 {harvest.totalWetWeight > 0 && (
-                    <div style={{ fontSize: '0.688rem', color: '#6B7280', marginTop: 4 }}>
+                    <div style={{ fontSize: '0.688rem', color: '#737373', marginTop: 4 }}>
                         {formatWeight(harvest.totalWetWeight)} wet
                         {harvest.dryWeight ? ` · ${formatWeight(harvest.dryWeight)} dry` : ''}
                     </div>
@@ -110,7 +110,7 @@ const HarvestKanbanCard: React.FC<{
 
                 {col === 'bucking' && binCount > 0 && (
                     <div style={{ fontSize: '0.688rem', marginTop: 4, display: 'flex', gap: 8 }}>
-                        <span style={{ color: '#C27ADB' }}>{binCount} bins</span>
+                        <span style={{ color: '#3BB570' }}>{binCount} bins</span>
                         {curingBins > 0 && <span style={{ color: '#FA9E52' }}>{curingBins} curing</span>}
                         {readyBins > 0 && <span style={{ color: '#3BB570' }}>{readyBins} ready</span>}
                     </div>

@@ -580,7 +580,7 @@ const MockPackages: React.FC = () => {
               </div>
               <div className="flex items-center gap-2 text-[10px] text-gray-400">
                 <span className="font-bold tracking-wider">METRC</span>
-                <span className="tabular-nums font-mono">{pkg.tag}</span>
+                <span className="tabular-nums">{pkg.tag}</span>
               </div>
             </div>
             <div className="text-xs font-bold text-gray-700 tabular-nums shrink-0">{pkg.weight}</div>

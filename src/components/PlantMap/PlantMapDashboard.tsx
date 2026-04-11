@@ -9,7 +9,7 @@ import { RoomCard } from './RoomCard';
 import { ExpandedRoom } from './ExpandedRoom';
 import { RoomGridSkeleton } from '../Skeleton';
 import { CreatePlantingModal } from './CreatePlantingModal';
-import { DataTable, ViewToggle, useViewMode, FilterToolbar } from '../ui';
+import { DataTable, ViewToggle, useViewMode, FilterToolbar, TypeChip, EmptyState, DashboardHeader } from '../ui';
 import type { Column, FilterDef } from '../ui';
 import { apiService } from '../../services/apiService';
 import ResourceTimeline from '../ui/ResourceTimeline';
@@ -18,14 +18,8 @@ import { buildCultivationSchedule } from './cultivationScheduleAdapter';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
-const PHASE_COLORS: Record<string, string> = {
-    nursery: '#1C9EFF',
-    vegetative: '#3BB570',
-    flowering: '#FA9E52',
-    harvested: '#959595',
-};
-
-const healthDotColor = (h: number) => h >= 80 ? '#3BB570' : h >= 50 ? '#FA9E52' : '#DF5B59';
+const healthDotColor = (h: number) =>
+    h >= 80 ? 'var(--color-flower)' : h >= 50 ? 'var(--color-shake)' : 'var(--color-waste)';
 
 const formatDate = (d: string | null) =>
     d ? new Date(d).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) : '—';
@@ -39,7 +33,7 @@ const PLANT_COLUMNS: Column<any>[] = [
     {
         key: 'label', label: 'Label', sortable: true,
         render: (r) => (
-            <span style={{ fontFamily: 'monospace', fontWeight: 500, fontSize: '0.8125rem' }}>
+            <span style={{ fontVariantNumeric: 'tabular-nums', fontWeight: 600, fontSize: '0.8125rem' }}>
                 {r.label}
                 {r.batchCount && <span style={{ color: '#959595', fontWeight: 400 }}> ({r.batchCount})</span>}
             </span>
@@ -47,12 +41,8 @@ const PLANT_COLUMNS: Column<any>[] = [
     },
     { key: 'strainName', label: 'Strain', sortable: true },
     {
-        key: 'growthPhase', label: 'Phase', sortable: true, width: 100,
-        render: (r) => (
-            <span className="data-table-badge" style={{ background: PHASE_COLORS[r.growthPhase] || '#959595' }}>
-                {r.growthPhase === 'vegetative' ? 'Veg' : r.growthPhase.charAt(0).toUpperCase() + r.growthPhase.slice(1)}
-            </span>
-        ),
+        key: 'growthPhase', label: 'Phase', sortable: true, width: 120,
+        render: (r) => <TypeChip palette="plantPhase" value={r.growthPhase} />,
     },
     { key: 'roomName', label: 'Room', sortable: true },
     {
@@ -281,18 +271,11 @@ export const PlantMapDashboard: React.FC<PlantMapDashboardProps> = ({ refreshKey
 
     return (
         <div className="dashboard">
-            {/* Header */}
-            <div className="flex items-center justify-between mb-6">
-                <div className="flex items-center gap-3">
-                    <div>
-                        <h1 className="text-lg font-semibold text-gray-900">Plant Map</h1>
-                        <p className="text-xs text-gray-400">
-                            {viewMode === 'schedule' ? 'Room occupancy timeline' : viewMode === 'calendar' ? 'Monthly cultivation calendar' : viewMode === 'table' ? 'All plants across your facility' : 'Rooms and plant health across your facility'}
-                        </p>
-                    </div>
-                </div>
-                <div className="flex items-center gap-2">
-                    <ViewToggle mode={viewMode} onChange={setViewMode} showSchedule showCalendar />
+            <DashboardHeader
+                eyebrow="Plant Map"
+                title="Cultivation"
+                density="compact"
+                actions={
                     <button
                         onClick={() => setShowCreateModal(true)}
                         className="btn-new-batch"
@@ -300,8 +283,8 @@ export const PlantMapDashboard: React.FC<PlantMapDashboardProps> = ({ refreshKey
                         <Plus size={16} />
                         New Planting
                     </button>
-                </div>
-            </div>
+                }
+            />
 
             <FilterToolbar
                     search={search}
@@ -318,6 +301,9 @@ export const PlantMapDashboard: React.FC<PlantMapDashboardProps> = ({ refreshKey
                         }
                     }}
                     onClearFilters={() => { setActiveFilters({}); handlePhaseChange('all'); }}
+                    trailing={
+                        <ViewToggle mode={viewMode} onChange={setViewMode} showSchedule showCalendar />
+                    }
                 />
 
             {viewMode === 'cards' && (
@@ -326,28 +312,37 @@ export const PlantMapDashboard: React.FC<PlantMapDashboardProps> = ({ refreshKey
                     {loading ? (
                         <RoomGridSkeleton count={3} />
                     ) : filteredRooms.length === 0 ? (
-                        <div className="flex flex-col items-center justify-center py-20 text-center">
-                            <div className="w-12 h-12 rounded-xl bg-gray-100 flex items-center justify-center mb-3">
-                                <Leaf size={22} className="text-gray-400" />
-                            </div>
-                            <h3 className="text-sm font-semibold text-gray-700 mb-1">
-                                {search || Object.values(activeFilters).some(v => v.length) ? 'No rooms match your filters' : activePhase === 'all' ? 'No plants yet' : `No ${currentTab.label.toLowerCase()} plants`}
-                            </h3>
-                            <p className="text-xs text-gray-400 max-w-[240px] mb-5">
-                                {search || Object.values(activeFilters).some(v => v.length)
-                                    ? 'Try adjusting your search or filters.'
-                                    : activePhase === 'all' ? 'Rooms with plants will appear here once added.' : `Rooms with ${currentTab.label.toLowerCase()} plants will appear here once added.`}
-                            </p>
-                            {!search && !Object.values(activeFilters).some(v => v.length) && (
-                                <button
-                                    onClick={() => setShowCreateModal(true)}
-                                    className="btn-new-batch"
-                                >
-                                    <Plus size={16} />
-                                    Add Plants
-                                </button>
-                            )}
-                        </div>
+                        (() => {
+                            const hasFilters = !!search || Object.values(activeFilters).some(v => v.length);
+                            return (
+                                <EmptyState
+                                    icon={Leaf}
+                                    title={
+                                        hasFilters
+                                            ? 'No rooms match your filters'
+                                            : activePhase === 'all' ? 'No plants yet' : `No ${currentTab.label.toLowerCase()} plants`
+                                    }
+                                    description={
+                                        hasFilters
+                                            ? 'Try adjusting your search or filters.'
+                                            : activePhase === 'all'
+                                                ? 'Rooms with plants will appear here once added.'
+                                                : `Rooms with ${currentTab.label.toLowerCase()} plants will appear here once added.`
+                                    }
+                                    action={
+                                        !hasFilters && (
+                                            <button
+                                                onClick={() => setShowCreateModal(true)}
+                                                className="btn-new-batch"
+                                            >
+                                                <Plus size={16} />
+                                                Add Plants
+                                            </button>
+                                        )
+                                    }
+                                />
+                            );
+                        })()
                     ) : (
                         <div className="plant-map-grid">
                             <PlantMapSummary data={data!} />

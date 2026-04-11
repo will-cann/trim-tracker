@@ -88,35 +88,8 @@ body {
   gap: var(--space-sm);
 }
 
-.start-icon {
-  background-color: rgba(28, 158, 255, 0.1);
-  color: #1C9EFF;
-}
-
-.remaining-icon {
-  background-color: #F1F1F1;
-  color: #959595;
-}
-
-.flower-icon {
-  background: rgba(59, 181, 112, 0.08);
-  color: var(--primary-color);
-}
-
-.shake-icon {
-  background: rgba(250, 158, 82, 0.08);
-  color: #FA9E52;
-}
-
-.waste-icon {
-  background: #FEF2F2;
-  color: #DF5B59;
-}
-
-.output-icon {
-  background: #F5F3FF;
-  color: #1C9EFF;
-}
+/* Legacy per-variant .stat-icon classes retired — use <StatCard variant="..." />
+ * which maps to brand-anchored tint/accent pairs via VARIANT_STYLES. */
 
 .stat-content {
   display: flex;

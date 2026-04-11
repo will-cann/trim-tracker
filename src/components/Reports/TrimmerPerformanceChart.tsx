@@ -11,6 +11,7 @@ import {
 } from 'recharts';
 import type { TrimmerPerformanceData, TrimmerStat } from '../../services/reportsData';
 import { MoreVertical } from 'lucide-react';
+import { CHART_PALETTE, CHART_CHROME, CHART_TOOLTIP_STYLE } from '../../lib/chartColors';
 
 interface TrimmerPerformanceChartProps {
     data: TrimmerPerformanceData[];
@@ -42,8 +43,7 @@ export const TrimmerPerformanceChart: React.FC<TrimmerPerformanceChartProps> = (
         }
     };
 
-    // Colorblind-safe data viz palette (Tableau-inspired, perceptually distinct)
-    const colors = ['#4E79A7', '#F28E2B', '#E15759', '#76B7B2', '#59A14F', '#EDC948'];
+    const colors = CHART_PALETTE;
 
     return (
         <div className="bg-white p-6 rounded-xl border border-gray-100 shadow-sm">
@@ -94,24 +94,22 @@ export const TrimmerPerformanceChart: React.FC<TrimmerPerformanceChartProps> = (
                                 left: 20,
                             }}
                         >
-                            <CartesianGrid stroke="#f5f5f5" vertical={false} />
+                            <CartesianGrid stroke={CHART_CHROME.gridline} vertical={false} />
                             <XAxis
                                 dataKey="date"
                                 scale="point"
                                 padding={{ left: 30, right: 30 }}
-                                tick={{ fontSize: 12, fill: '#959595' }}
+                                tick={CHART_CHROME.axisTick}
                                 axisLine={false}
                                 tickLine={false}
                             />
                             <YAxis
-                                tick={{ fontSize: 12, fill: '#959595' }}
+                                tick={CHART_CHROME.axisTick}
                                 axisLine={false}
                                 tickLine={false}
-                                label={{ value: 'Grams Per Hour (AVG)', angle: -90, position: 'insideLeft', style: { textAnchor: 'middle', fill: '#959595', fontSize: 12 } }}
+                                label={{ value: 'Grams Per Hour (AVG)', angle: -90, position: 'insideLeft', style: { textAnchor: 'middle', fill: CHART_CHROME.axisLabel, fontSize: 12 } }}
                             />
-                            <Tooltip
-                                contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)' }}
-                            />
+                            <Tooltip contentStyle={CHART_TOOLTIP_STYLE} />
                             {selectedTrimmers.map((name, index) => (
                                 <Line
                                     key={name}

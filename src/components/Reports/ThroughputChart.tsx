@@ -11,6 +11,7 @@ import {
     ResponsiveContainer
 } from 'recharts';
 import type { DailyThroughput } from '../../services/reportsData';
+import { CHART_ACCENT, CHART_CHROME, CHART_TOOLTIP_STYLE } from '../../lib/chartColors';
 
 interface ThroughputChartProps {
     data: DailyThroughput[];
@@ -30,35 +31,33 @@ export const ThroughputChart: React.FC<ThroughputChartProps> = ({ data }) => {
                         left: 20,
                     }}
                 >
-                    <CartesianGrid stroke="#f5f5f5" vertical={false} />
+                    <CartesianGrid stroke={CHART_CHROME.gridline} vertical={false} />
                     <XAxis
                         dataKey="date"
                         scale="point"
                         padding={{ left: 30, right: 30 }}
-                        tick={{ fontSize: 12, fill: '#959595' }}
+                        tick={CHART_CHROME.axisTick}
                         axisLine={false}
                         tickLine={false}
                     />
                     <YAxis
                         yAxisId="left"
-                        tick={{ fontSize: 12, fill: '#959595' }}
+                        tick={CHART_CHROME.axisTick}
                         axisLine={false}
                         tickLine={false}
                     />
                     <YAxis
                         yAxisId="right"
                         orientation="right"
-                        tick={{ fontSize: 12, fill: '#959595' }}
+                        tick={CHART_CHROME.axisTick}
                         axisLine={false}
                         tickLine={false}
                     />
-                    <Tooltip
-                        contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)' }}
-                    />
+                    <Tooltip contentStyle={CHART_TOOLTIP_STYLE} />
                     <Legend iconType="circle" />
-                    <Bar yAxisId="left" dataKey="flowerLbs" name="Flower (LBs)" stackId="a" fill="#4E79A7" radius={[0, 0, 4, 4]} barSize={40} />
-                    <Bar yAxisId="left" dataKey="trimLbs" name="Trim (LBs)" stackId="a" fill="#76B7B2" radius={[4, 4, 0, 0]} barSize={40} />
-                    <Line yAxisId="right" type="monotone" dataKey="laborHours" name="Labor Hours" stroke="#E15759" strokeWidth={2} dot={false} strokeDasharray="5 5" />
+                    <Bar yAxisId="left" dataKey="flowerLbs" name="Flower (LBs)" stackId="a" fill={CHART_ACCENT.flower} radius={[0, 0, 4, 4]} barSize={40} />
+                    <Bar yAxisId="left" dataKey="trimLbs" name="Trim (LBs)" stackId="a" fill={CHART_ACCENT.trim} radius={[4, 4, 0, 0]} barSize={40} />
+                    <Line yAxisId="right" type="monotone" dataKey="laborHours" name="Labor Hours" stroke={CHART_ACCENT.labor} strokeWidth={2} dot={false} strokeDasharray="5 5" />
                 </ComposedChart>
             </ResponsiveContainer>
         </div>

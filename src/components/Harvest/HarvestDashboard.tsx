@@ -6,7 +6,7 @@ import { HarvestCard } from './HarvestCard';
 import { HarvestKanban } from './HarvestKanban';
 import { CreateHarvestModal } from './CreateHarvestModal';
 import { CardsSkeleton } from '../Skeleton';
-import { DataTable, FilterToolbar, ViewToggle, useViewMode } from '../ui';
+import { DataTable, FilterToolbar, ViewToggle, useViewMode, TypeChip, EmptyState, DashboardHeader } from '../ui';
 import type { Column } from '../ui';
 import ResourceTimeline from '../ui/ResourceTimeline';
 import ResourceCalendar from '../ui/ResourceCalendar';
@@ -20,30 +20,6 @@ const STATUS_FILTER_OPTIONS = [
     { value: 'bucking', label: 'Binning' },
     { value: 'completed', label: 'Completed' },
 ];
-
-const STATUS_COLORS: Record<string, string> = {
-    planning: '#1C9EFF',
-    cutting: '#3BB570',
-    active: '#3BB570',
-    submitted: '#FA9E52',
-    hanging: '#FA9E52',
-    drying: '#FA9E52',
-    bucking: '#C27ADB',
-    ready: '#C27ADB',
-    completed: '#959595',
-};
-
-const STATUS_LABELS: Record<string, string> = {
-    planning: 'Planning',
-    cutting: 'Cutting',
-    active: 'Active',
-    submitted: 'Submitted',
-    hanging: 'Hanging',
-    drying: 'Drying',
-    bucking: 'Binning',
-    ready: 'Ready',
-    completed: 'Completed',
-};
 
 const formatWeight = (g: number) => {
     if (g === 0) return '—';
@@ -61,15 +37,11 @@ const HARVEST_COLUMNS: Column<Harvest>[] = [
     },
     {
         key: 'batchId', label: 'Batch', sortable: true,
-        render: (h) => <span style={{ fontFamily: 'monospace', fontSize: '0.75rem', color: '#959595' }}>{h.batchId}</span>,
+        render: (h) => <span style={{ fontVariantNumeric: 'tabular-nums', fontSize: '0.75rem', color: '#959595' }}>{h.batchId}</span>,
     },
     {
-        key: 'status', label: 'Status', sortable: true, width: 100,
-        render: (h) => (
-            <span className="data-table-badge" style={{ background: STATUS_COLORS[h.status] || '#959595' }}>
-                {STATUS_LABELS[h.status] || h.status}
-            </span>
-        ),
+        key: 'status', label: 'Status', sortable: true, width: 120,
+        render: (h) => <TypeChip palette="harvestStatus" value={h.status} />,
     },
     {
         key: 'plantCount', label: 'Plants', sortable: true, width: 70, align: 'right',
@@ -273,64 +245,12 @@ export const HarvestDashboard: React.FC<HarvestDashboardProps> = ({ onStartHarve
 
     return (
         <div className="dashboard">
-            {/* Pipeline summary bar */}
-            {activeCount > 0 && (
-                <div className="harvest-summary-bar">
-                    {pipelineCounts.planning > 0 && (
-                        <div className="harvest-summary-stat">
-                            <span className="stat-number" style={{ color: '#1C9EFF' }}>{pipelineCounts.planning}</span>
-                            <span className="stat-label">planning</span>
-                        </div>
-                    )}
-                    {pipelineCounts.cutting > 0 && (<>
-                        <div className="harvest-summary-divider" />
-                        <div className="harvest-summary-stat">
-                            <span className="stat-number" style={{ color: '#3BB570' }}>{pipelineCounts.cutting}</span>
-                            <span className="stat-label">cutting</span>
-                        </div>
-                    </>)}
-                    {pipelineCounts.hanging > 0 && (<>
-                        <div className="harvest-summary-divider" />
-                        <div className="harvest-summary-stat">
-                            <span className="stat-number" style={{ color: '#FA9E52' }}>{pipelineCounts.hanging}</span>
-                            <span className="stat-label">hanging</span>
-                        </div>
-                    </>)}
-                    {pipelineCounts.bucking > 0 && (<>
-                        <div className="harvest-summary-divider" />
-                        <div className="harvest-summary-stat">
-                            <span className="stat-number" style={{ color: '#C27ADB' }}>{pipelineCounts.bucking}</span>
-                            <span className="stat-label">binning</span>
-                        </div>
-                    </>)}
-                    {(binsCuring > 0 || binsReady > 0) && (<>
-                        <div className="harvest-summary-divider" />
-                        <div className="harvest-summary-stat">
-                            <span className="stat-number">{binsCuring}</span>
-                            <span className="stat-label">bins curing</span>
-                        </div>
-                        {binsReady > 0 && (<>
-                            <div className="harvest-summary-divider" />
-                            <div className="harvest-summary-stat">
-                                <span className="stat-number" style={{ color: '#3BB570' }}>{binsReady}</span>
-                                <span className="stat-label">bins ready</span>
-                            </div>
-                        </>)}
-                    </>)}
-                </div>
-            )}
-
-            <FilterToolbar
-                search={search}
-                onSearchChange={setSearch}
-                searchPlaceholder="Search harvests..."
-                filters={[statusFilterDef, strainFilterDef]}
-                activeFilters={activeFilters}
-                onFilterChange={(key, values) => setActiveFilters(prev => ({ ...prev, [key]: values }))}
-                onClearFilters={() => setActiveFilters({})}
-                trailing={
-                    <div className="flex items-center gap-2">
-                        <ViewToggle mode={viewMode} onChange={setViewMode} showKanban showSchedule showCalendar />
+            <DashboardHeader
+                eyebrow="Harvests"
+                title={activeCount > 0 ? `${activeCount} active ${activeCount === 1 ? 'batch' : 'batches'}` : 'Harvests'}
+                density="compact"
+                actions={
+                    <>
                         {onStartHarvestDay && (
                             <button
                                 type="button"
@@ -349,7 +269,67 @@ export const HarvestDashboard: React.FC<HarvestDashboardProps> = ({ onStartHarve
                             <Plus size={20} />
                             New Harvest
                         </button>
-                    </div>
+                    </>
+                }
+            />
+
+            {/* Pipeline summary bar */}
+            {activeCount > 0 && (
+                <div className="harvest-summary-bar">
+                    {pipelineCounts.planning > 0 && (
+                        <div className="harvest-summary-stat">
+                            <span className="stat-number" style={{ color: 'var(--color-trim)' }}>{pipelineCounts.planning}</span>
+                            <span className="stat-label">planning</span>
+                        </div>
+                    )}
+                    {pipelineCounts.cutting > 0 && (<>
+                        <div className="harvest-summary-divider" />
+                        <div className="harvest-summary-stat">
+                            <span className="stat-number" style={{ color: 'var(--color-flower)' }}>{pipelineCounts.cutting}</span>
+                            <span className="stat-label">cutting</span>
+                        </div>
+                    </>)}
+                    {pipelineCounts.hanging > 0 && (<>
+                        <div className="harvest-summary-divider" />
+                        <div className="harvest-summary-stat">
+                            <span className="stat-number" style={{ color: 'var(--color-shake)' }}>{pipelineCounts.hanging}</span>
+                            <span className="stat-label">hanging</span>
+                        </div>
+                    </>)}
+                    {pipelineCounts.bucking > 0 && (<>
+                        <div className="harvest-summary-divider" />
+                        <div className="harvest-summary-stat">
+                            <span className="stat-number" style={{ color: 'var(--color-flower)' }}>{pipelineCounts.bucking}</span>
+                            <span className="stat-label">binning</span>
+                        </div>
+                    </>)}
+                    {(binsCuring > 0 || binsReady > 0) && (<>
+                        <div className="harvest-summary-divider" />
+                        <div className="harvest-summary-stat">
+                            <span className="stat-number">{binsCuring}</span>
+                            <span className="stat-label">bins curing</span>
+                        </div>
+                        {binsReady > 0 && (<>
+                            <div className="harvest-summary-divider" />
+                            <div className="harvest-summary-stat">
+                                <span className="stat-number" style={{ color: 'var(--color-flower)' }}>{binsReady}</span>
+                                <span className="stat-label">bins ready</span>
+                            </div>
+                        </>)}
+                    </>)}
+                </div>
+            )}
+
+            <FilterToolbar
+                search={search}
+                onSearchChange={setSearch}
+                searchPlaceholder="Search harvests..."
+                filters={[statusFilterDef, strainFilterDef]}
+                activeFilters={activeFilters}
+                onFilterChange={(key, values) => setActiveFilters(prev => ({ ...prev, [key]: values }))}
+                onClearFilters={() => setActiveFilters({})}
+                trailing={
+                    <ViewToggle mode={viewMode} onChange={setViewMode} showKanban showSchedule showCalendar />
                 }
             />
 
@@ -413,28 +393,26 @@ export const HarvestDashboard: React.FC<HarvestDashboardProps> = ({ onStartHarve
             ) : loading ? (
                 <CardsSkeleton count={3} />
             ) : filteredHarvests.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-16 text-center">
-                    <div className="w-16 h-16 rounded-2xl flex items-center justify-center mb-4" style={{ backgroundColor: 'rgba(59, 181, 112, 0.08)' }}>
-                        <Sprout size={28} style={{ color: 'var(--primary-color)' }} />
-                    </div>
-                    <h3 className="text-base font-semibold mb-1" style={{ color: 'var(--text-secondary)' }}>
-                        {hasFilters ? 'No harvests match your filters' : 'Ready to track a harvest'}
-                    </h3>
-                    <p className="text-sm max-w-xs mb-4" style={{ color: 'var(--color-dolphin)' }}>
-                        {hasFilters
+                <EmptyState
+                    icon={Sprout}
+                    title={hasFilters ? 'No harvests match your filters' : 'Ready to track a harvest'}
+                    description={
+                        hasFilters
                             ? 'Try adjusting your search or filters.'
-                            : 'Record wet weights, track drying progress, and allocate flower vs. frozen. Each harvest flows through the pipeline from cut to completion.'}
-                    </p>
-                    {!hasFilters && (
-                        <button
-                            onClick={() => setShowCreateModal(true)}
-                            className="btn-new-batch px-4 py-2 text-sm"
-                        >
-                            <Plus size={16} />
-                            Create First Harvest
-                        </button>
-                    )}
-                </div>
+                            : 'Record wet weights, track drying progress, and allocate flower vs. frozen. Each harvest flows through the pipeline from cut to completion.'
+                    }
+                    action={
+                        !hasFilters && (
+                            <button
+                                onClick={() => setShowCreateModal(true)}
+                                className="btn-new-batch px-4 py-2 text-sm"
+                            >
+                                <Plus size={16} />
+                                Create First Harvest
+                            </button>
+                        )
+                    }
+                />
             ) : (
                 <div className="harvest-grid">
                     {filteredHarvests.map(harvest => (

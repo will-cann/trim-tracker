@@ -1,11 +1,12 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { ChevronDown, X, Trash2, Snowflake, Flower2, ArrowRightLeft, Scissors, Clock, Plus, Scale, PackagePlus } from 'lucide-react';
+import { ChevronDown, X, Trash2, Snowflake, Flower2, ArrowRightLeft, Scissors, Clock, Plus, Scale, PackagePlus, PauseCircle } from 'lucide-react';
 import type { Harvest, HarvestWasteType, CreatePackageDTO } from '../../types/definitions';
 import { WasteEntryForm } from './WasteEntryForm';
 import { RecordWeightModal } from './RecordWeightModal';
 import { AllocateModal } from './AllocateModal';
 import { DeleteConfirmationModal } from '../DeleteConfirmationModal';
 import { CreatePackageModal } from '../Packages/CreatePackageModal';
+import { TypeChip } from '../ui';
 
 interface HarvestCardProps {
     harvest: Harvest;
@@ -19,30 +20,6 @@ interface HarvestCardProps {
     defaultExpanded?: boolean;
     onClose?: () => void;
 }
-
-const STATUS_CLASS: Record<string, string> = {
-    planning: 'status-upcoming',
-    active: 'status-active',
-    cutting: 'status-active',
-    submitted: 'status-drying',
-    drying: 'status-drying',
-    hanging: 'status-drying',
-    ready: 'status-complete',
-    bucking: 'status-complete',
-    completed: 'status-complete',
-};
-
-const STATUS_LABEL: Record<string, string> = {
-    planning: 'Planning',
-    active: 'Active',
-    cutting: 'Cutting',
-    submitted: 'Submitted',
-    drying: 'Drying',
-    hanging: 'Hanging',
-    ready: 'Ready',
-    bucking: 'Binning',
-    completed: 'Completed',
-};
 
 export const HarvestCard: React.FC<HarvestCardProps> = ({
     harvest,
@@ -107,11 +84,25 @@ export const HarvestCard: React.FC<HarvestCardProps> = ({
                         <div className="trim-card-title">
                             <div className="title-with-badge">
                                 <h3>{harvest.batchId}</h3>
-                                <span className={`status-badge ${STATUS_CLASS[harvest.status] || ''}`}>
-                                    {STATUS_LABEL[harvest.status] || harvest.status}
-                                </span>
+                                <TypeChip palette="harvestStatus" value={harvest.status} />
                                 {harvest.isOnHold && (
-                                    <span className="status-badge" style={{ backgroundColor: 'rgba(223, 91, 89, 0.12)', color: 'var(--danger-color)' }}>Hold</span>
+                                    <span
+                                        style={{
+                                            display: 'inline-flex',
+                                            alignItems: 'center',
+                                            gap: 4,
+                                            padding: '2px 8px',
+                                            borderRadius: 6,
+                                            fontSize: '0.6875rem',
+                                            fontWeight: 700,
+                                            lineHeight: 1.4,
+                                            background: '#FDECEC',
+                                            color: '#A8403E',
+                                        }}
+                                    >
+                                        <PauseCircle size={11} />
+                                        Hold
+                                    </span>
                                 )}
                             </div>
                             <div className="trim-card-subtitle">

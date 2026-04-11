@@ -11,20 +11,6 @@ interface PackageCardProps {
     onDelete: (packageId: string) => void;
 }
 
-const STATUS_CLASS: Record<string, string> = {
-    active: 'status-complete',
-    on_hold: 'status-upcoming',
-    finished: 'status-finished',
-    archived: 'status-finished',
-};
-
-const STATUS_LABEL: Record<string, string> = {
-    active: 'Active',
-    on_hold: 'On Hold',
-    finished: 'Finished',
-    archived: 'Archived',
-};
-
 const LAB_LABEL: Record<string, string> = {
     not_submitted: 'Not Submitted',
     submitted: 'Submitted',
@@ -198,9 +184,7 @@ export const PackageCard: React.FC<PackageCardProps> = ({ pkg, onUpdate, onDelet
                         <div className="trim-card-title">
                             <div className="title-with-badge">
                                 <h3>{pkg.label}</h3>
-                                <span className={`status-badge ${STATUS_CLASS[pkg.status] || ''}`}>
-                                    {STATUS_LABEL[pkg.status] || pkg.status}
-                                </span>
+                                <TypeChip palette="packageStatus" value={pkg.status} />
                                 <TypeChip palette="packageType" value={pkg.packageType} />
                             </div>
                             <div className="trim-card-subtitle">
