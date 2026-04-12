@@ -38,6 +38,16 @@ Planned features, integrations, and improvements. Updated as priorities evolve.
 - **Harvest Day cockpit built** — live weighing ops tool with allocation-type mode switching (flower/frozen/both)
 - **Moisture loss tracking built** — `moisture_loss_pct` on harvests (default 75%), estimated dry weight calculated for trim entries, progress bars use dry weight baseline
 
+### Frozen Pathway Separation
+- Current harvest lifecycle assumes dry-flower path; frozen harvests are forced through stages that don't apply (hanging, bucking)
+- **Proposed:** Two pathway-specific state machines sharing `planning → cutting` then diverging:
+  - Dry: `submitted → hanging → final_prep → completed` (unchanged)
+  - Frozen: `submitted → completed` (compressed — no drying, no bins, bulk weight to package)
+- **Planning-time split:** one harvest can declare intent for both dry + frozen allocations
+- **Cutting-time auto-split:** system creates two daughter batches when both pathways are present, each pathway-pure from that point
+- **Frozen material doesn't need intermediate tracking** — no bin concept, just bulk weight → package
+- **Design brief:** `docs/briefs/frozen-pathway-separation.md`
+
 ---
 
 ## Plant Lifecycle & SOPs
