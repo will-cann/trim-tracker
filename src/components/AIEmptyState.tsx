@@ -281,7 +281,7 @@ export const AIEmptyState: React.FC<AIEmptyStateProps> = ({
     conversations,
     onSelectConversation,
     onDeleteConversation,
-    isDragOver,
+    isDragOver: _isDragOver,
     onDragOver,
     onDragLeave,
     onDrop,

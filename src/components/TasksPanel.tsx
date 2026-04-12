@@ -857,7 +857,7 @@ export const TasksPanel = ({
     onDeleteTask,
     onCreateTask,
     onNavigateToAI,
-    pendingCount,
+    pendingCount: _pendingCount,
     loadError,
     onRetry,
     teamMembers,
