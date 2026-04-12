@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Plus, Sprout, Scissors, ArrowRight } from 'lucide-react';
 import type { Harvest, HarvestWasteType, CreateHarvestDTO } from '../../types/definitions';
+import { getHarvestPathway } from '../../types/definitions';
 import { apiService } from '../../services/apiService';
 import { HarvestCard } from './HarvestCard';
 import { HarvestKanban } from './HarvestKanban';
@@ -32,14 +33,20 @@ const formatDate = (d: string | null | undefined) =>
 
 // Next-stage action map — mirrors the kanban drag transitions so the table view
 // gives mobile/tap users the same pipeline advance capability.
-const NEXT_STAGE: Record<string, { nextStatus: string; label: string; useApprove?: boolean }> = {
+const DRY_NEXT_STAGE: Record<string, { nextStatus: string; label: string; useApprove?: boolean }> = {
     planning:  { nextStatus: 'cutting',   label: 'Start Cutting' },
     cutting:   { nextStatus: 'submitted', label: 'Submit' },
     submitted: { nextStatus: 'hanging',   label: 'Approve & Hang', useApprove: true },
-    hanging:   { nextStatus: 'bucking',   label: 'Move to Binning' },
-    drying:    { nextStatus: 'bucking',   label: 'Move to Binning' },
+    hanging:   { nextStatus: 'bucking',   label: 'Move to Final Prep' },
+    drying:    { nextStatus: 'bucking',   label: 'Move to Final Prep' },
     bucking:   { nextStatus: 'completed', label: 'Complete' },
     ready:     { nextStatus: 'completed', label: 'Complete' },
+};
+
+const FROZEN_NEXT_STAGE: Record<string, { nextStatus: string; label: string }> = {
+    planning:  { nextStatus: 'cutting',   label: 'Start Cutting' },
+    cutting:   { nextStatus: 'submitted', label: 'Submit' },
+    submitted: { nextStatus: 'completed', label: 'Complete' },
 };
 
 const buildHarvestColumns = (
@@ -80,7 +87,9 @@ const buildHarvestColumns = (
     {
         key: 'advance', label: '', width: 160, sortable: false,
         render: (h) => {
-            const next = NEXT_STAGE[h.status];
+            const pathway = getHarvestPathway(h.allocations);
+            const stageMap = pathway === 'frozen' ? FROZEN_NEXT_STAGE : DRY_NEXT_STAGE;
+            const next = stageMap[h.status];
             if (!next) return null;
             return (
                 <button
@@ -262,10 +271,12 @@ export const HarvestDashboard: React.FC<HarvestDashboardProps> = ({ onStartHarve
     };
 
     const handleAdvance = useCallback(async (h: Harvest) => {
-        const next = NEXT_STAGE[h.status];
+        const pathway = getHarvestPathway(h.allocations);
+        const stageMap = pathway === 'frozen' ? FROZEN_NEXT_STAGE : DRY_NEXT_STAGE;
+        const next = stageMap[h.status];
         if (!next) return;
         try {
-            if (next.useApprove) {
+            if ('useApprove' in next && next.useApprove) {
                 await apiService.approveHarvestDay([h.id]);
             } else {
                 await apiService.updateHarvest(h.id, { status: next.nextStatus });

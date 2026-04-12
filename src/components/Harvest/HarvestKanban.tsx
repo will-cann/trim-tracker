@@ -1,9 +1,10 @@
 import { useState, useRef } from 'react';
 import {
     ClipboardList, Scissors, Send, Clock, Package, CheckCircle2,
-    GripVertical, Sprout, MapPin, AlertTriangle,
+    GripVertical, Sprout, MapPin, AlertTriangle, Snowflake,
 } from 'lucide-react';
 import type { Harvest, HarvestStatus } from '../../types/definitions';
+import { getHarvestPathway } from '../../types/definitions';
 import { apiService } from '../../services/apiService';
 
 // ── Config ───────────────────────────────────────────────────────────────────
@@ -17,7 +18,8 @@ const COLUMNS: { status: HarvestStatus; label: string; color: string; icon: type
     { status: 'completed', label: 'Completed', color: '#959595', icon: CheckCircle2 },  // rhino
 ];
 
-// Map old statuses to new columns for backward compat
+// Map statuses to kanban columns. Frozen harvests skip hanging/bucking
+// and stay in submitted until packages are created.
 const STATUS_COLUMN_MAP: Record<string, string> = {
     planning: 'planning',
     active: 'cutting',
@@ -28,6 +30,13 @@ const STATUS_COLUMN_MAP: Record<string, string> = {
     ready: 'bucking',
     bucking: 'bucking',
     completed: 'completed',
+};
+
+const frozenColumnOverride = (status: string): string => {
+    if (status === 'hanging' || status === 'drying' || status === 'bucking' || status === 'ready') {
+        return 'submitted';
+    }
+    return STATUS_COLUMN_MAP[status] || status;
 };
 
 // Valid drag transitions (from → to[])
@@ -61,7 +70,10 @@ const HarvestKanbanCard: React.FC<{
     onDragStart: (e: React.DragEvent, id: string) => void;
     onClick: (id: string) => void;
 }> = ({ harvest, onDragStart, onClick }) => {
-    const col = STATUS_COLUMN_MAP[harvest.status] || harvest.status;
+    const pathway = getHarvestPathway(harvest.allocations);
+    const col = pathway === 'frozen'
+        ? frozenColumnOverride(harvest.status)
+        : (STATUS_COLUMN_MAP[harvest.status] || harvest.status);
     const binCount = harvest.bins?.length || 0;
     const curingBins = harvest.bins?.filter(b => b.status === 'curing').length || 0;
     const readyBins = harvest.bins?.filter(b => b.status === 'ready').length || 0;
@@ -77,7 +89,12 @@ const HarvestKanbanCard: React.FC<{
                 <GripVertical size={12} />
             </div>
             <div className="kanban-card-content">
-                <div className="kanban-card-name">{harvest.strain}</div>
+                <div className="kanban-card-name" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    {harvest.strain}
+                    {pathway === 'frozen' && (
+                        <Snowflake size={12} style={{ color: '#1C9EFF', flexShrink: 0 }} />
+                    )}
+                </div>
                 <div className="kanban-card-meta">
                     <span className="kanban-card-strain" style={{ fontVariantNumeric: 'tabular-nums', fontSize: '0.688rem' }}>
                         {harvest.batchId}
@@ -113,6 +130,13 @@ const HarvestKanbanCard: React.FC<{
                         <span style={{ color: '#3BB570' }}>{binCount} bins</span>
                         {curingBins > 0 && <span style={{ color: '#FA9E52' }}>{curingBins} curing</span>}
                         {readyBins > 0 && <span style={{ color: '#3BB570' }}>{readyBins} ready</span>}
+                    </div>
+                )}
+
+                {pathway === 'frozen' && col === 'submitted' && (
+                    <div style={{ fontSize: '0.688rem', marginTop: 4, color: '#1C9EFF', display: 'flex', alignItems: 'center', gap: 4 }}>
+                        <Snowflake size={10} />
+                        Awaiting package
                     </div>
                 )}
 
@@ -210,15 +234,26 @@ export const HarvestKanban: React.FC<HarvestKanbanProps> = ({ harvests, onUpdate
             return;
         }
 
-        const currentCol = STATUS_COLUMN_MAP[harvest.status] || harvest.status;
+        const pathway = getHarvestPathway(harvest.allocations);
+        const currentCol = pathway === 'frozen'
+            ? frozenColumnOverride(harvest.status)
+            : (STATUS_COLUMN_MAP[harvest.status] || harvest.status);
         if (currentCol === targetStatus) {
             draggedId.current = null;
             setDragOverStatus(null);
             return;
         }
 
+        // Frozen pathway has its own transition map
+        const frozenTransitions: Record<string, string[]> = {
+            planning: ['cutting'],
+            cutting: ['submitted'],
+            submitted: ['completed'],
+        };
+        const transitionMap = pathway === 'frozen' ? frozenTransitions : VALID_TRANSITIONS;
+
         // Check valid transitions
-        const allowed = VALID_TRANSITIONS[currentCol];
+        const allowed = transitionMap[currentCol];
         if (!allowed || !allowed.includes(targetStatus)) {
             draggedId.current = null;
             setDragOverStatus(null);
@@ -246,13 +281,16 @@ export const HarvestKanban: React.FC<HarvestKanbanProps> = ({ harvests, onUpdate
         onUpdate();
     };
 
-    // Group harvests by column (map old statuses)
+    // Group harvests by column — frozen pathway skips hanging/bucking
     const grouped: Record<string, Harvest[]> = {};
     for (const col of COLUMNS) {
         grouped[col.status] = [];
     }
     for (const h of harvests) {
-        const col = STATUS_COLUMN_MAP[h.status] || h.status;
+        const pathway = getHarvestPathway(h.allocations);
+        const col = pathway === 'frozen'
+            ? frozenColumnOverride(h.status)
+            : (STATUS_COLUMN_MAP[h.status] || h.status);
         if (grouped[col]) {
             grouped[col].push(h);
         }

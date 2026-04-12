@@ -132,8 +132,8 @@ Deferred to METRC Phase 1 (see `docs/briefs/project_metrc_integration.md`), but 
 - `netlify/functions/create-package.ts` — auto-completion trigger
 - `migrations/NNNN_harvest_pathway.sql` — pathway column + parent_harvest_id FK
 
-## Open Questions
+## Resolved Questions
 
-1. **Batch ID format for frozen daughters**: `BD-FF` suffix? Or separate numbering? Needs to be METRC-compatible eventually.
-2. **Existing mixed-allocation harvests**: should the backfill migration auto-split them, or leave them as-is and only apply the new model going forward?
-3. **Rot-driven frozen at scale**: if rot is discovered on 3 of 200 plants, does the frozen daughter batch reference just those 3 plants? Or is it weight-only with no plant linkage until METRC integration?
+1. **Batch ID format for frozen daughters**: parent batch ID + `-FF` suffix (e.g., `032626[LIC-123456]BD-FF`).
+2. **Existing mixed-allocation harvests**: auto-split on migration. Backfill creates frozen daughter batches for any harvest with both flower and frozen allocations.
+3. **Rot-driven frozen at scale**: weight-only. No plant linkage on the frozen daughter until METRC integration requires it.

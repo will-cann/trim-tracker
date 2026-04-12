@@ -80,6 +80,17 @@ export type HarvestStatus = 'planning' | 'active' | 'submitted' | 'drying' | 're
 export type ContaminantFlag = 'powdery_mildew' | 'bud_rot' | 'insects' | 'other';
 export type AllocationType = 'flower' | 'frozen';
 export type AllocationStatus = 'pending' | 'in_progress' | 'completed';
+
+export type HarvestPathway = 'dry' | 'frozen' | 'mixed';
+
+export const getHarvestPathway = (allocations: { allocationType: AllocationType }[]): HarvestPathway => {
+    if (allocations.length === 0) return 'dry';
+    const hasFlower = allocations.some(a => a.allocationType === 'flower');
+    const hasFrozen = allocations.some(a => a.allocationType === 'frozen');
+    if (hasFlower && hasFrozen) return 'mixed';
+    if (hasFrozen) return 'frozen';
+    return 'dry';
+};
 export type AllocationChoice = 'Flower' | 'Frozen' | 'Both';
 
 export type HarvestWasteType =
