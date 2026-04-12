@@ -1,7 +1,7 @@
 import React, { useRef, useEffect } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { Loader2, ArrowRight, Upload, Pencil } from 'lucide-react';
+import { Loader2, ArrowRight, FileText, Pencil } from 'lucide-react';
 import { ActionPreview } from './ActionPreview';
 import { ActionResult } from './ActionResult';
 import { ExtractionRunCard } from './ExtractionRunCard';
@@ -34,8 +34,8 @@ interface AIChatProps {
     onToggleListening: () => void;
     onSwitchMode: (mode: SpeechMode) => void;
     micError?: string | null;
-    // License selector
-    licenseSelector?: React.ReactNode;
+    // Sources dropdown (rendered by parent to avoid duplicating state)
+    sourcesSlot?: React.ReactNode;
     // Focus input
     onFocusInput: () => void;
     // Extraction cards
@@ -66,7 +66,7 @@ export const AIChat: React.FC<AIChatProps> = ({
     onToggleListening,
     onSwitchMode,
     micError,
-    licenseSelector,
+    sourcesSlot,
     onFocusInput,
     extractionRunCards = [],
     onExtractionSubmit,
@@ -85,6 +85,12 @@ export const AIChat: React.FC<AIChatProps> = ({
 
     return (
         <div className="ai-home-chat">
+            <div className="ai-chat-header">
+                <img src={logo} alt="neurocann" className="ai-chat-header-logo" />
+                <span className="ai-chat-header-name">
+                    <span style={{ color: 'var(--color-flower)' }}>neuro</span>cann
+                </span>
+            </div>
             <div className="ai-home-messages">
                 {messages.map((msg) => {
                     const isThePendingMsg = msg.status === 'pending';
@@ -181,20 +187,10 @@ export const AIChat: React.FC<AIChatProps> = ({
                 <div ref={messagesEndRef} />
             </div>
 
-            {/* Input bar */}
+            {/* Input bar — reuses hero input card pattern */}
             <div className="ai-home-input-bar">
-                {micError && (
-                    <div className="ai-cmd-row-wrap">
-                        <p className="text-xs px-1" style={{ color: 'var(--color-waste)' }}>{micError}</p>
-                    </div>
-                )}
-                {licenseSelector && (
-                    <div className="ai-cmd-row-wrap mb-2">
-                        {licenseSelector}
-                    </div>
-                )}
-                <form onSubmit={onSubmit} className="ai-chat-form">
-                    <div className="ai-chat-input-wrap">
+                <form onSubmit={onSubmit} className="ai-hero-form" style={{ maxWidth: '100%', marginBottom: 0 }}>
+                    <div className="ai-hero-input">
                         <textarea
                             ref={textareaRef}
                             value={inputText}
@@ -203,55 +199,57 @@ export const AIChat: React.FC<AIChatProps> = ({
                             placeholder={
                                 pendingActions && pendingActions.length > 0
                                     ? "Add more details or send to update..."
-                                    : isListening && voiceMode === 'ambient'
-                                        ? "Listening... tasks will be created automatically"
-                                        : "Type a message..."
+                                    : "What needs to happen?"
                             }
                             rows={1}
                             disabled={isLoading || isExecuting}
-                            className="ai-chat-textarea"
                             onInput={(e) => {
                                 const target = e.target as HTMLTextAreaElement;
                                 target.style.height = '44px';
                                 target.style.height = Math.min(target.scrollHeight, 120) + 'px';
                             }}
                         />
+                        <div className="ai-hero-toolbar">
+                            <div className="ai-hero-toolbar-left">
+                                <button
+                                    type="button"
+                                    className="ai-hero-import"
+                                    onClick={() => fileInputRef.current?.click()}
+                                    title="Import CSV"
+                                >
+                                    <FileText size={16} />
+                                </button>
+                                {sourcesSlot}
+                            </div>
+                            <div className="ai-hero-toolbar-right">
+                                <VoicePill
+                                    isListening={isListening}
+                                    mode={voiceMode}
+                                    onToggleListening={onToggleListening}
+                                    onSwitchMode={onSwitchMode}
+                                    error={micError}
+                                />
+                                <button
+                                    type="submit"
+                                    disabled={!inputText.trim() || isLoading || isExecuting}
+                                    className="ai-hero-send"
+                                >
+                                    <ArrowRight size={18} />
+                                </button>
+                            </div>
+                        </div>
                     </div>
-                    <div className="ai-chat-actions">
-                        <button
-                            type="button"
-                            onClick={() => fileInputRef.current?.click()}
-                            className="ai-chat-icon-btn"
-                            title="Upload CSV"
-                        >
-                            <Upload size={18} />
-                        </button>
-                        <input
-                            ref={fileInputRef}
-                            type="file"
-                            accept=".csv"
-                            onChange={(e) => {
-                                const file = e.target.files?.[0];
-                                if (file) onFileUpload(file);
-                                e.target.value = '';
-                            }}
-                            className="hidden"
-                        />
-                        <VoicePill
-                            isListening={isListening}
-                            mode={voiceMode}
-                            onToggleListening={onToggleListening}
-                            onSwitchMode={onSwitchMode}
-                            error={micError}
-                        />
-                        <button
-                            type="submit"
-                            disabled={!inputText.trim() || isLoading || isExecuting}
-                            className="ai-chat-send"
-                        >
-                            <ArrowRight size={18} />
-                        </button>
-                    </div>
+                    <input
+                        ref={fileInputRef}
+                        type="file"
+                        accept=".csv"
+                        onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) onFileUpload(file);
+                            e.target.value = '';
+                        }}
+                        className="hidden"
+                    />
                 </form>
             </div>
         </div>

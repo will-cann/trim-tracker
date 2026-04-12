@@ -3,11 +3,12 @@ import {
     ArrowRight, FileText, Scissors, Sprout, ClipboardList,
     Leaf, Radio, ChevronDown, type LucideIcon, Thermometer,
     MoveRight, Package, User, Scale, ArrowRightLeft, Trash2,
-    MessageSquare, Check, Shield, Dna, DoorOpen,
+    Check, Shield, Dna, DoorOpen,
 } from 'lucide-react';
 import { VoicePill } from './VoicePill';
+import { SourcesDropdown } from './SourcesDropdown';
 import { AMBIENT_ENABLED } from '../lib/featureFlags';
-import type { ConversationSummary, SpeechMode } from '../types/definitions';
+import type { ConversationSummary, License, SpeechMode } from '../types/definitions';
 
 // ── Setup status for first-run checklist ──
 export interface FacilitySetupStatus {
@@ -206,6 +207,16 @@ const WORKFLOW_CATEGORIES: WorkflowCategory[] = [
     },
 ];
 
+// ── Derive a category color from conversation title keywords ──
+const getCategoryColor = (title: string): string => {
+    const t = title.toLowerCase();
+    if (t.includes('trim') || t.includes('session')) return '#1C9EFF';
+    if (t.includes('harvest') || t.includes('extraction') || t.includes('frozen') || t.includes('rosin')) return '#FA9E52';
+    if (t.includes('plant') || t.includes('clone') || t.includes('veg') || t.includes('flower')) return '#3BB570';
+    if (t.includes('ipm') || t.includes('task') || t.includes('schedule') || t.includes('report')) return '#959595';
+    return '#C0C0C0';
+};
+
 const formatRelativeTime = (dateStr: string) => {
     const date = new Date(dateStr);
     const now = new Date();
@@ -250,6 +261,10 @@ interface AIEmptyStateProps {
     // Setup status
     facilitySetup?: FacilitySetupStatus;
     onNavigateToSettings?: () => void;
+    // License selector (inline in input)
+    licenses?: License[];
+    activeLicenseId?: string | null;
+    onLicenseChange?: (id: string) => void;
 }
 
 export const AIEmptyState: React.FC<AIEmptyStateProps> = ({
@@ -277,6 +292,9 @@ export const AIEmptyState: React.FC<AIEmptyStateProps> = ({
     onKeyDown,
     facilitySetup,
     onNavigateToSettings,
+    licenses = [],
+    activeLicenseId,
+    onLicenseChange,
 }) => {
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [showAllWorkflows, setShowAllWorkflows] = useState(false);
@@ -307,21 +325,38 @@ export const AIEmptyState: React.FC<AIEmptyStateProps> = ({
                         rows={2}
                         disabled={isLoading || isExecuting}
                     />
-                    <div className="ai-hero-input-actions">
-                        <VoicePill
-                            isListening={isListening}
-                            mode={voiceMode}
-                            onToggleListening={onToggleListening}
-                            onSwitchMode={onSwitchMode}
-                            error={micError}
-                        />
-                        <button
-                            type="submit"
-                            disabled={!inputText.trim() || isLoading || isExecuting}
-                            className="ai-hero-send"
-                        >
-                            <ArrowRight size={18} />
-                        </button>
+                    <div className="ai-hero-toolbar">
+                        <div className="ai-hero-toolbar-left">
+                            <button
+                                type="button"
+                                className="ai-hero-import"
+                                onClick={() => fileInputRef.current?.click()}
+                                title="Import CSV"
+                            >
+                                <FileText size={16} />
+                            </button>
+                            <SourcesDropdown
+                                licenses={licenses}
+                                activeLicenseId={activeLicenseId ?? null}
+                                onLicenseChange={onLicenseChange}
+                            />
+                        </div>
+                        <div className="ai-hero-toolbar-right">
+                            <VoicePill
+                                isListening={isListening}
+                                mode={voiceMode}
+                                onToggleListening={onToggleListening}
+                                onSwitchMode={onSwitchMode}
+                                error={micError}
+                            />
+                            <button
+                                type="submit"
+                                disabled={!inputText.trim() || isLoading || isExecuting}
+                                className="ai-hero-send"
+                            >
+                                <ArrowRight size={18} />
+                            </button>
+                        </div>
                     </div>
                 </div>
                 <input
@@ -360,16 +395,16 @@ export const AIEmptyState: React.FC<AIEmptyStateProps> = ({
                 })}
             </div>
 
-            {/* Feature cards: Ambient (gated) + Import */}
-            <div className="ai-features">
-                {AMBIENT_ENABLED && (
+            {/* Feature cards: Ambient (gated) */}
+            {AMBIENT_ENABLED && (
+                <div className="ai-features">
                     <button
                         className={`ai-feature-card${isListening && voiceMode === 'ambient' ? ' ai-feature-active' : ''}`}
                         onClick={onStartAmbient}
                         type="button"
                     >
                         <div className="ai-feature-icon" style={{ background: 'rgba(28,158,255,0.08)', color: '#1C9EFF' }}>
-                            <Radio size={20} />
+                            <Radio size={16} />
                         </div>
                         <div className="ai-feature-text">
                             <span className="ai-feature-title">Ambient Listening</span>
@@ -380,22 +415,8 @@ export const AIEmptyState: React.FC<AIEmptyStateProps> = ({
                             </span>
                         </div>
                     </button>
-                )}
-
-                <button
-                    className={`ai-feature-card${isDragOver ? ' ai-feature-drop' : ''}`}
-                    onClick={() => fileInputRef.current?.click()}
-                    type="button"
-                >
-                    <div className="ai-feature-icon" style={{ background: 'rgba(250,158,82,0.08)', color: '#FA9E52' }}>
-                        <FileText size={20} />
-                    </div>
-                    <div className="ai-feature-text">
-                        <span className="ai-feature-title">Spreadsheet Import</span>
-                        <span className="ai-feature-desc">Bulk create harvests, plants, or tag assignments from CSV</span>
-                    </div>
-                </button>
-            </div>
+                </div>
+            )}
 
             {/* Recent conversations — inline */}
             {conversations.length > 0 && (
@@ -403,14 +424,17 @@ export const AIEmptyState: React.FC<AIEmptyStateProps> = ({
                     <span className="ai-recent-label">Recent</span>
                     <div className="ai-recent-list">
                         {conversations.slice(0, 5).map((convo) => {
-                            const Icon = convo.kind === 'ambient' ? Radio : MessageSquare;
+                            const catColor = getCategoryColor(convo.title);
                             return (
                                 <div
                                     key={convo.id}
                                     className="ai-recent-item"
                                     onClick={() => onSelectConversation(convo.id)}
                                 >
-                                    <Icon size={13} className="ai-recent-icon" />
+                                    <span
+                                        className="ai-recent-dot"
+                                        style={{ background: catColor }}
+                                    />
                                     <span className="ai-recent-title">{convo.title}</span>
                                     <span className="ai-recent-time">{formatRelativeTime(convo.updatedAt)}</span>
                                     <button
@@ -430,15 +454,22 @@ export const AIEmptyState: React.FC<AIEmptyStateProps> = ({
                 </div>
             )}
 
-            {/* All workflows — progressive disclosure */}
+            {/* All workflows — progressive disclosure with category preview */}
             <div className="ai-wf-section">
                 <button
                     className={`ai-wf-toggle${showAllWorkflows ? ' open' : ''}`}
                     onClick={() => setShowAllWorkflows(v => !v)}
                     type="button"
                 >
-                    All workflows
-                    <ChevronDown size={14} />
+                    <span className="ai-wf-toggle-label">Explore all workflows</span>
+                    {!showAllWorkflows && (
+                        <span className="ai-wf-preview-cats">
+                            {WORKFLOW_CATEGORIES.map(cat => (
+                                <span key={cat.label} className="ai-wf-preview-dot" style={{ background: cat.color }} />
+                            ))}
+                        </span>
+                    )}
+                    <ChevronDown size={13} />
                 </button>
                 <div className={`ai-wf-expand${showAllWorkflows ? ' open' : ''}`}>
                     <div className="ai-wf-expand-inner">

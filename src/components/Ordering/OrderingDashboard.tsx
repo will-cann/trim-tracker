@@ -13,6 +13,7 @@ import { MenuUploadModal, processFiles, EMPTY_PARSE_STATE } from './MenuUploadMo
 import type { ParseState } from './MenuUploadModal';
 import { SalesImportModal } from './SalesImportModal';
 import { SkuMatcherModal } from './SkuMatcherModal';
+import { DashboardHeader } from '../ui';
 
 type Tab = 'vendors' | 'products' | 'stores' | 'orders';
 
@@ -211,46 +212,48 @@ export const OrderingDashboard = () => {
     return (
         <>
         <div className="dashboard">
-            <div className="dashboard-top-section" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <div className="header-title">
-                    <h4>Ordering</h4>
-                </div>
-                <div style={{ display: 'flex', gap: 8 }}>
-                    <button
-                        className="btn-cancel"
-                        onClick={() => setShowSkuMatcher(true)}
-                        title={
-                            unmatchedCount > 0
-                                ? `${unmatchedCount} POS SKU${unmatchedCount !== 1 ? 's' : ''} in your sales data don't match any vendor product yet. Click to run AI matching.`
-                                : 'Map POS SKUs from imported sales data to canonical vendor products so order suggestions can use sales velocity.'
-                        }
-                    >
-                        <Link2 size={15} style={{ marginRight: 4 }} />
-                        Match SKUs
-                        {unmatchedCount > 0 && (
-                            <span style={{
-                                marginLeft: 6, fontSize: '0.6875rem', background: '#DC8B47', color: '#fff',
-                                borderRadius: 10, padding: '1px 7px', fontWeight: 600,
-                            }}>
-                                {unmatchedCount}
-                            </span>
-                        )}
-                    </button>
-                    <button
-                        className="btn-cancel"
-                        onClick={handleClearSales}
-                        title="Wipe all imported sales data, inventory snapshots, and AI-generated aliases for this company"
-                    >
-                        <Trash2 size={15} style={{ marginRight: 4 }} /> Clear Sales
-                    </button>
-                    <button className="btn-cancel" onClick={() => setShowSalesImport(true)}>
-                        <TrendingUp size={15} style={{ marginRight: 4 }} /> Import Sales
-                    </button>
-                    <button className="btn-primary" onClick={() => setShowUpload(true)}>
-                        <Upload size={15} style={{ marginRight: 4 }} /> Upload Menu
-                    </button>
-                </div>
-            </div>
+            <DashboardHeader
+                eyebrow="Ordering"
+                title="Order Management"
+                density="compact"
+                actions={
+                    <>
+                        <button
+                            className="btn-cancel"
+                            onClick={() => setShowSkuMatcher(true)}
+                            title={
+                                unmatchedCount > 0
+                                    ? `${unmatchedCount} POS SKU${unmatchedCount !== 1 ? 's' : ''} in your sales data don't match any vendor product yet. Click to run AI matching.`
+                                    : 'Map POS SKUs from imported sales data to canonical vendor products so order suggestions can use sales velocity.'
+                            }
+                        >
+                            <Link2 size={15} style={{ marginRight: 4 }} />
+                            Match SKUs
+                            {unmatchedCount > 0 && (
+                                <span style={{
+                                    marginLeft: 6, fontSize: '0.6875rem', background: '#DC8B47', color: '#fff',
+                                    borderRadius: 10, padding: '1px 7px', fontWeight: 600,
+                                }}>
+                                    {unmatchedCount}
+                                </span>
+                            )}
+                        </button>
+                        <button
+                            className="btn-cancel"
+                            onClick={handleClearSales}
+                            title="Wipe all imported sales data, inventory snapshots, and AI-generated aliases for this company"
+                        >
+                            <Trash2 size={15} style={{ marginRight: 4 }} /> Clear Sales
+                        </button>
+                        <button className="btn-cancel" onClick={() => setShowSalesImport(true)}>
+                            <TrendingUp size={15} style={{ marginRight: 4 }} /> Import Sales
+                        </button>
+                        <button className="btn-new-batch" onClick={() => setShowUpload(true)}>
+                            <Upload size={15} style={{ marginRight: 4 }} /> Upload Menu
+                        </button>
+                    </>
+                }
+            />
 
             <div className="extraction-tabs">
                 {TABS.map(t => (

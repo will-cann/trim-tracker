@@ -4662,64 +4662,72 @@ select.field-input {
   padding: 1.25rem 1.5rem 2rem;
 }
 
-/* ── Brand hero — anchored, not hero-y ── */
-.ai-hero {
-  text-align: center;
-  margin: 0;
-  animation: ai-enter 0.45s cubic-bezier(0.16, 1, 0.3, 1) both;
-}
-
+/* ── Hero logo — centered icon on empty state ── */
 .ai-hero-logo {
-  width: 56px;
-  height: 56px;
+  width: 48px;
+  height: 48px;
   object-fit: contain;
-  margin: 0 auto 0.4375rem;
-}
-
-.ai-hero-brand {
-  font-family: 'Lato', sans-serif;
-  font-weight: 900;
-  font-size: 1.75rem;
-  letter-spacing: -0.03em;
-  color: var(--text-color);
-  line-height: 1;
-  margin: 0;
+  animation: ai-enter 0.45s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
 .ai-hero-accent {
   color: var(--color-flower);
 }
 
-/* ── Primary input ── */
+/* ── Chat header — compact logo + wordmark shown during conversation ── */
+.ai-chat-header {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4375rem;
+  padding: 0.75rem 1rem;
+  flex-shrink: 0;
+}
+
+.ai-chat-header-logo {
+  width: 22px;
+  height: 22px;
+  object-fit: contain;
+}
+
+.ai-chat-header-name {
+  font-family: 'Lato', sans-serif;
+  font-weight: 900;
+  font-size: 0.9375rem;
+  letter-spacing: -0.03em;
+  color: var(--text-color);
+  line-height: 1;
+}
+
+/* ── Primary input — the hero of the empty state ── */
 .ai-hero-form {
   width: 100%;
-  max-width: 560px;
-  margin-bottom: 0.5rem;
+  max-width: 600px;
+  margin-bottom: 0.75rem;
   animation: ai-enter 0.45s cubic-bezier(0.16, 1, 0.3, 1) both;
   animation-delay: 0.06s;
 }
 
 .ai-hero-input {
   position: relative;
-  border: 1px solid var(--border-color);
-  border-radius: 14px;
+  border: 1px solid #D4D4D4;
+  border-radius: 16px;
   background: white;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.04), 0 6px 16px rgba(0,0,0,0.03);
+  box-shadow: 0 1px 4px rgba(0,0,0,0.05), 0 8px 24px rgba(0,0,0,0.04);
   transition: border-color 0.15s, box-shadow 0.15s;
 }
 
 .ai-hero-input:focus-within {
   border-color: var(--primary-color);
-  box-shadow: 0 0 0 3px var(--primary-light), 0 1px 3px rgba(0,0,0,0.04);
+  box-shadow: 0 0 0 3px var(--primary-light), 0 1px 4px rgba(0,0,0,0.05), 0 8px 24px rgba(0,0,0,0.04);
 }
 
 .ai-hero-input textarea {
   width: 100%;
   border: none;
   background: transparent;
-  padding: 0.875rem 1rem;
-  padding-right: 6rem;
-  font-size: 0.9375rem;
+  padding: 1rem 1.25rem 0.5rem;
+  font-size: 1rem;
   line-height: 1.5;
   color: var(--text-color);
   resize: none;
@@ -4729,21 +4737,199 @@ select.field-input {
 
 .ai-hero-input textarea::placeholder {
   color: var(--text-secondary);
-  font-weight: 300;
+  font-weight: 400;
 }
 
-.ai-hero-input-actions {
-  position: absolute;
-  right: 0.5rem;
-  bottom: 0.5rem;
+/* ── Input toolbar — bottom bar with left context + right actions ── */
+.ai-hero-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.375rem 0.5rem;
+  border-top: 1px solid #F1F1F1;
+}
+
+.ai-hero-toolbar-left {
   display: flex;
   align-items: center;
   gap: 0.25rem;
 }
 
+.ai-hero-toolbar-right {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.ai-hero-import {
+  width: 32px;
+  height: 32px;
+  border-radius: 7px;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: color 0.15s, background 0.15s;
+}
+
+.ai-hero-import:hover {
+  color: var(--text-color);
+  background: rgba(0, 0, 0, 0.04);
+}
+
+/* ── Sources dropdown — context selector inside input ── */
+.ai-sources-wrap {
+  position: relative;
+}
+
+.ai-sources-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3125rem;
+  padding: 0.25rem 0.5rem;
+  border: none;
+  border-radius: 6px;
+  background: rgba(0, 0, 0, 0.04);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-family: inherit;
+  transition: background 0.15s, color 0.15s;
+  white-space: nowrap;
+}
+
+.ai-sources-btn:hover,
+.ai-sources-btn.open {
+  background: rgba(0, 0, 0, 0.07);
+  color: var(--text-color);
+}
+
+.ai-sources-btn.open svg {
+  transform: rotate(180deg);
+}
+
+.ai-sources-btn svg {
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.ai-sources-label {
+  /* inherits */
+}
+
+.ai-sources-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 15px;
+  height: 15px;
+  border-radius: 9999px;
+  background: var(--primary-color);
+  color: white;
+  font-size: 0.5625rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.ai-sources-menu {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 0;
+  min-width: 220px;
+  background: white;
+  border: 1px solid #E8E8E8;
+  border-radius: 12px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.12);
+  padding: 0.5rem;
+  z-index: 20;
+  animation: ai-enter 0.15s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.ai-sources-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+}
+
+.ai-sources-group + .ai-sources-group {
+  margin-top: 0.5rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid #F1F1F1;
+}
+
+.ai-sources-group-label {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 0.25rem 0.375rem 0.375rem;
+}
+
+.ai-sources-options {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.ai-sources-option {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+  padding: 0.4375rem 0.5rem;
+  border: none;
+  border-radius: 8px;
+  background: none;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--text-color);
+  cursor: pointer;
+  font-family: inherit;
+  transition: background 0.1s;
+  text-align: left;
+}
+
+.ai-sources-option:hover {
+  background: rgba(0, 0, 0, 0.03);
+}
+
+.ai-sources-option.active {
+  font-weight: 600;
+}
+
+.ai-sources-option-radio {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 1.5px solid #C0C0C0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: border-color 0.15s;
+}
+
+.ai-sources-option.active .ai-sources-option-radio {
+  border-color: var(--primary-color);
+}
+
+.ai-sources-option-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--primary-color);
+}
+
 .ai-hero-send {
-  width: 36px;
-  height: 36px;
+  width: 34px;
+  height: 34px;
   border-radius: 8px;
   border: none;
   background: var(--primary-color);
@@ -4758,14 +4944,15 @@ select.field-input {
 .ai-hero-send:hover { background: var(--primary-dark); }
 .ai-hero-send:disabled { opacity: 0.4; cursor: not-allowed; }
 
-/* ── Static suggestion chips ── */
+/* ── Static suggestion chips — subordinate to input ── */
 .ai-suggestions {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
   gap: 0.375rem;
   width: 100%;
-  max-width: 560px;
-  margin-bottom: 2.25rem;
+  max-width: 600px;
+  margin-bottom: 2rem;
   animation: ai-enter 0.45s cubic-bezier(0.16, 1, 0.3, 1) both;
   animation-delay: 0.1s;
 }
@@ -4773,11 +4960,9 @@ select.field-input {
 .ai-suggestion-chip {
   display: inline-flex;
   align-items: center;
-  justify-content: center;
-  justify-self: center;
-  gap: 0.375rem;
-  padding: 0.4375rem 0.875rem;
-  font-size: 0.8125rem;
+  gap: 0.3125rem;
+  padding: 0.375rem 0.75rem;
+  font-size: 0.75rem;
   font-weight: 500;
   color: var(--chip-color);
   background: var(--chip-bg);
@@ -4794,17 +4979,18 @@ select.field-input {
 }
 
 .ai-suggestion-chip:active {
-  transform: scale(0.95);
+  transform: scale(0.96);
 }
 
-/* ── Feature cards (generous break above) ── */
+/* ── Tools strip — compact, inline, extensible ── */
 .ai-features {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 0.75rem;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.5rem;
   width: 100%;
-  max-width: 560px;
-  margin-bottom: 1.5rem;
+  max-width: 600px;
+  margin-bottom: 1.75rem;
   animation: ai-enter 0.45s cubic-bezier(0.16, 1, 0.3, 1) both;
   animation-delay: 0.14s;
 }
@@ -4812,13 +4998,13 @@ select.field-input {
 .ai-feature-card {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
-  padding: 0.875rem 1rem;
+  gap: 0.5rem;
+  padding: 0.5rem 0.875rem;
   border: 1px solid var(--border-color);
-  border-radius: 8px;
+  border-radius: 10px;
   background: white;
   cursor: pointer;
-  transition: border-color 0.2s, box-shadow 0.2s, background 0.2s, transform 0.1s;
+  transition: border-color 0.15s, box-shadow 0.15s, background 0.15s, transform 0.1s;
   text-align: left;
   font-family: inherit;
 }
@@ -4829,7 +5015,7 @@ select.field-input {
 }
 
 .ai-feature-card:active {
-  transform: scale(0.98);
+  transform: scale(0.97);
   box-shadow: none;
 }
 
@@ -4844,9 +5030,9 @@ select.field-input {
 }
 
 .ai-feature-icon {
-  width: 40px;
-  height: 40px;
-  border-radius: 8px;
+  width: 30px;
+  height: 30px;
+  border-radius: 7px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -4856,20 +5042,33 @@ select.field-input {
 .ai-feature-text {
   display: flex;
   flex-direction: column;
-  gap: 0.125rem;
+  gap: 0;
   min-width: 0;
 }
 
 .ai-feature-title {
   font-size: 0.8125rem;
-  font-weight: 700;
+  font-weight: 600;
   color: var(--text-color);
+  line-height: 1.2;
 }
 
 .ai-feature-desc {
-  font-size: 0.6875rem;
+  font-size: 0;
   color: var(--text-secondary);
-  line-height: 1.4;
+  line-height: 0;
+  height: 0;
+  overflow: hidden;
+  opacity: 0;
+  transition: font-size 0.2s, height 0.2s, opacity 0.2s, line-height 0.2s;
+}
+
+.ai-feature-card:hover .ai-feature-desc {
+  font-size: 0.6875rem;
+  line-height: 1.35;
+  height: auto;
+  opacity: 1;
+  margin-top: 0.125rem;
 }
 
 /* ────────────────────────────────────────────────────────────────────────
@@ -5039,18 +5238,12 @@ select.field-input {
    Sticky so it never scrolls away regardless of which container scrolls.
    ──────────────────────────────────────────────────────────────────────── */
 .ai-home-brand-block {
-  position: sticky;
-  top: 0;
-  z-index: 5;
   flex-shrink: 0;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 0.875rem;
-  padding: 2.25rem 1.5rem 1rem;
-  background: white;
-  background:
-    linear-gradient(180deg, white 0%, white 78%, rgba(255, 255, 255, 0.8) 100%);
+  gap: 0.625rem;
+  padding: 3rem 1.5rem 1rem;
 }
 
 /* When the brand block is present, the empty state below it gets less
@@ -5961,7 +6154,7 @@ select.field-input {
 /* ── Inline conversation history ── */
 .ai-recent {
   width: 100%;
-  max-width: 560px;
+  max-width: 600px;
   margin-bottom: 1.5rem;
   animation: ai-enter 0.45s cubic-bezier(0.16, 1, 0.3, 1) both;
   animation-delay: 0.16s;
@@ -5970,11 +6163,12 @@ select.field-input {
 .ai-recent-label {
   display: block;
   font-size: 0.6875rem;
-  font-weight: 600;
+  font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.06em;
   color: var(--text-secondary);
-  margin-bottom: 0.375rem;
+  margin-bottom: 0.5rem;
+  padding-left: 0.5rem;
 }
 
 .ai-recent-list {
@@ -5986,10 +6180,10 @@ select.field-input {
 .ai-recent-item {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  padding: 0.4375rem 0.5rem;
+  gap: 0.625rem;
+  padding: 0.5rem 0.625rem;
   margin: 0 -0.5rem;
-  border-radius: 6px;
+  border-radius: 8px;
   cursor: pointer;
   transition: background 0.15s;
 }
@@ -5998,10 +6192,16 @@ select.field-input {
   background: rgba(0, 0, 0, 0.03);
 }
 
-.ai-recent-icon {
-  color: var(--text-secondary);
-  opacity: 0.5;
+.ai-recent-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
   flex-shrink: 0;
+  opacity: 0.7;
+}
+
+.ai-recent-item:hover .ai-recent-dot {
+  opacity: 1;
 }
 
 .ai-recent-title {
@@ -6021,7 +6221,7 @@ select.field-input {
 .ai-recent-time {
   font-size: 0.6875rem;
   color: var(--text-secondary);
-  opacity: 0.6;
+  opacity: 0.5;
   flex-shrink: 0;
   white-space: nowrap;
 }
@@ -6052,7 +6252,7 @@ select.field-input {
   flex-direction: column;
   align-items: center;
   width: 100%;
-  max-width: 560px;
+  max-width: 600px;
   animation: ai-enter 0.45s cubic-bezier(0.16, 1, 0.3, 1) both;
   animation-delay: 0.18s;
 }
@@ -6060,20 +6260,47 @@ select.field-input {
 .ai-wf-toggle {
   display: inline-flex;
   align-items: center;
-  gap: 0.375rem;
-  padding: 0.375rem 0;
+  gap: 0.5rem;
+  padding: 0.5rem 0.875rem;
   background: none;
-  border: none;
+  border: 1px solid transparent;
+  border-radius: 8px;
   font-size: 0.75rem;
-  font-weight: 500;
+  font-weight: 600;
   color: var(--text-secondary);
   cursor: pointer;
   font-family: inherit;
-  transition: color 0.15s;
+  transition: color 0.15s, background 0.15s, border-color 0.15s;
   margin-bottom: 0.25rem;
 }
 
-.ai-wf-toggle:hover { color: var(--text-color); }
+.ai-wf-toggle:hover {
+  color: var(--text-color);
+  background: rgba(0, 0, 0, 0.02);
+  border-color: var(--border-color);
+}
+
+.ai-wf-toggle-label {
+  /* inherits from parent */
+}
+
+.ai-wf-preview-cats {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: 2px;
+}
+
+.ai-wf-preview-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  opacity: 0.5;
+}
+
+.ai-wf-toggle:hover .ai-wf-preview-dot {
+  opacity: 0.8;
+}
 
 .ai-wf-toggle svg {
   transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
@@ -6159,13 +6386,13 @@ select.field-input {
 
 @media (max-width: 640px) {
   .ai-home-empty { padding-top: 2rem; }
-  .ai-features { grid-template-columns: 1fr; }
+  .ai-features { flex-direction: column; align-items: stretch; }
   .ai-workflows { grid-template-columns: 1fr; gap: 1rem; }
 }
 
 @media (max-width: 420px) {
-  .ai-suggestions { grid-template-columns: 1fr; }
-  .ai-suggestion-chip { font-size: 0.75rem; padding: 0.3125rem 0.625rem; }
+  .ai-suggestions { gap: 0.25rem; }
+  .ai-suggestion-chip { font-size: 0.6875rem; padding: 0.3125rem 0.625rem; }
 }
 
 /* Chat view */
@@ -6405,28 +6632,30 @@ select.field-input {
 
 /* License selector pills */
 
+/* License selector pills — kept for non-AI views that may still use them */
 .ai-license-selector {
   display: flex;
-  gap: 0.375rem;
+  gap: 0.25rem;
   flex-wrap: wrap;
-  margin-bottom: 0.5rem;
 }
 
 .ai-license-pill {
-  padding: 0.25rem 0.75rem;
+  padding: 0.25rem 0.625rem;
   border-radius: 9999px;
-  border: 1px solid var(--border-color);
-  background: white;
-  font-size: 0.75rem;
-  font-weight: 500;
+  border: 1px solid transparent;
+  background: rgba(0, 0, 0, 0.04);
+  font-size: 0.6875rem;
+  font-weight: 600;
   color: #959595;
   cursor: pointer;
   transition: all 0.15s;
   white-space: nowrap;
+  letter-spacing: 0.01em;
+  font-family: inherit;
 }
 
 .ai-license-pill:hover {
-  border-color: var(--primary-color);
+  background: rgba(59, 181, 112, 0.08);
   color: var(--primary-dark);
 }
 
@@ -6524,97 +6753,23 @@ select.field-input {
   background: rgba(59, 181, 112, 0.2);
 }
 
+/* ── Chat input bar — floats at bottom, reuses hero input card style ── */
 .ai-home-input-bar {
-  border-top: 1px solid var(--border-color);
-  padding: 0.75rem 1rem;
+  padding: 0.75rem 1rem 1rem;
   background: white;
 }
 
-.ai-chat-form {
-  max-width: 768px;
+.ai-home-input-bar .ai-hero-input {
+  max-width: 640px;
   margin: 0 auto;
-  width: 100%;
-  display: flex;
-  align-items: flex-end;
-  gap: 0.5rem;
 }
 
-.ai-chat-input-wrap {
-  flex: 1;
-}
-
-.ai-chat-textarea {
-  width: 100%;
-  padding: 0.75rem 1rem;
-  border: 1px solid var(--border-color);
-  border-radius: 8px;
-  resize: none;
-  font-size: 0.875rem;
-  line-height: 1.5;
-  color: var(--text-color);
-  background: white;
-  font-family: inherit;
-  outline: none;
+.ai-home-input-bar .ai-hero-input textarea {
   min-height: 44px;
   max-height: 120px;
-  transition: border-color 0.15s, box-shadow 0.15s;
+  padding: 0.75rem 1rem 0.5rem;
+  font-size: 0.9375rem;
 }
-
-.ai-chat-textarea::placeholder {
-  color: var(--text-secondary);
-}
-
-.ai-chat-textarea:focus {
-  border-color: var(--primary-color);
-  box-shadow: 0 0 0 3px var(--primary-light);
-}
-
-.ai-chat-textarea:disabled {
-  background: var(--bg-secondary, #F5F5F5);
-}
-
-.ai-chat-actions {
-  display: flex;
-  align-items: center;
-  gap: 0.25rem;
-  padding-bottom: 0.25rem;
-}
-
-.ai-chat-icon-btn {
-  width: 36px;
-  height: 36px;
-  border-radius: 8px;
-  border: none;
-  background: none;
-  color: var(--text-secondary);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  transition: color 0.15s, background 0.15s;
-}
-
-.ai-chat-icon-btn:hover {
-  color: var(--text-color);
-  background: rgba(0, 0, 0, 0.04);
-}
-
-.ai-chat-send {
-  width: 36px;
-  height: 36px;
-  border-radius: 8px;
-  border: none;
-  background: var(--primary-color);
-  color: white;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  transition: background 0.15s;
-}
-
-.ai-chat-send:hover { background: var(--primary-dark); }
-.ai-chat-send:disabled { opacity: 0.4; cursor: not-allowed; }
 
 /* (Old sidebar conversation history styles removed) */
 
@@ -13920,73 +14075,6 @@ select.settings-inline-input {
 /* ============================================================================
    SOPs Dashboard
    ============================================================================ */
-
-.sops-dashboard {
-  padding: var(--space-lg);
-  max-width: 1200px;
-  margin: 0 auto;
-}
-
-.sops-dashboard-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: var(--space-lg);
-}
-
-/* sops btn-primary — handled by button system */
-
-.sops-dashboard-title {
-  display: flex;
-  align-items: center;
-  gap: var(--space-sm);
-}
-
-.sops-dashboard-title h1 {
-  font-size: 1.25rem;
-  font-weight: 700;
-  margin: 0;
-}
-
-.sops-domain-tabs {
-  display: flex;
-  gap: 0;
-  border-bottom: 1px solid #E5E5E5;
-  margin-bottom: var(--space-lg);
-}
-
-.sops-domain-tab {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 10px 20px;
-  border: none;
-  background: transparent;
-  border-bottom: 2px solid transparent;
-  margin-bottom: -1px;
-  font-size: 0.8125rem;
-  font-weight: 500;
-  color: var(--text-secondary);
-  cursor: pointer;
-  transition: color 0.15s, border-color 0.15s;
-}
-
-.sops-domain-tab:hover {
-  color: var(--text-color);
-}
-
-.sops-domain-tab.active {
-  color: var(--text-color);
-  border-bottom-color: var(--primary-color);
-  font-weight: 600;
-}
-
-.sops-domain-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  flex-shrink: 0;
-}
 
 .sops-empty {
   display: flex;

@@ -234,7 +234,7 @@ export const PackageDashboard: React.FC = () => {
         <div className="dashboard">
             <DashboardHeader
                 eyebrow="Inventory"
-                title={activePackages.length > 0 ? `${activePackages.length} active ${activePackages.length === 1 ? 'package' : 'packages'}` : 'Packages'}
+                title="Packages"
                 density="compact"
                 actions={
                     <button

@@ -320,7 +320,7 @@ export const HarvestDashboard: React.FC<HarvestDashboardProps> = ({ onStartHarve
         <div className="dashboard">
             <DashboardHeader
                 eyebrow="Harvests"
-                title={activeCount > 0 ? `${activeCount} active ${activeCount === 1 ? 'batch' : 'batches'}` : 'Harvests'}
+                title="Harvest Pipeline"
                 density="compact"
                 actions={
                     <>

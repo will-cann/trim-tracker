@@ -3,6 +3,7 @@ import { Plus, BookOpen, Pencil, Trash2 } from 'lucide-react';
 import type { ProcessTemplate, SOPDomain } from '../../types/definitions';
 import { apiService } from '../../services/apiService';
 import { CenteredSpinner } from '../Spinner';
+import { DashboardHeader } from '../ui';
 import { CultivationSOPBuilder } from '../Cultivation/CultivationSOPBuilder';
 import { ProcessTemplateList } from '../Extraction/ProcessTemplateList';
 import { PHASE_LABELS } from '../Cultivation/cultivationSOPAdapter';
@@ -65,32 +66,32 @@ export function SOPsDashboard() {
 
     // ── List view ───────────────────────────────────────────────────────────
     return (
-        <div className="sops-dashboard">
-            <div className="sops-dashboard-header">
-                <div className="sops-dashboard-title">
-                    <BookOpen size={22} color="#3BB570" />
-                    <h1>SOPs</h1>
-                </div>
-                {domain !== 'extraction' && (
-                    <button className="btn-primary" onClick={() => setEditing('new')}>
-                        <Plus size={14} /> New SOP
-                    </button>
-                )}
-            </div>
+        <div className="dashboard">
+            <DashboardHeader
+                eyebrow="Operations"
+                title="SOPs"
+                density="compact"
+                actions={
+                    domain !== 'extraction' ? (
+                        <button className="btn-new-batch" onClick={() => setEditing('new')}>
+                            <Plus size={16} /> New SOP
+                        </button>
+                    ) : undefined
+                }
+            />
 
             {/* Domain tabs */}
-            <div className="sops-domain-tabs">
+            <div className="extraction-tabs">
                 {DOMAIN_TABS.map(tab => {
                     const disabled = tab.available !== true;
                     return (
                         <button
                             key={tab.domain}
-                            className={`sops-domain-tab ${domain === tab.domain ? 'active' : ''} ${disabled ? 'disabled' : ''}`}
+                            className={`extraction-tab ${domain === tab.domain ? 'extraction-tab--active' : ''}`}
                             onClick={disabled ? undefined : () => { setDomain(tab.domain); setEditing(null); }}
                             style={disabled ? { opacity: 0.4, cursor: 'default' } : undefined}
                             title={disabled ? 'Coming soon' : undefined}
                         >
-                            <span className="sops-domain-dot" style={{ background: tab.color }} />
                             {tab.label}
                             {disabled && <span style={{ fontSize: '0.6rem', fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.04em', color: '#959595', marginLeft: 4 }}>Soon</span>}
                         </button>

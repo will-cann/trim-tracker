@@ -1149,11 +1149,7 @@ export const TasksPanel = ({
             <div className="px-6 pt-2 pb-2">
                 <DashboardHeader
                     eyebrow="Tasks"
-                    title={
-                        pendingCount > 0
-                            ? `${pendingCount} incomplete task${pendingCount !== 1 ? 's' : ''}`
-                            : 'Tasks'
-                    }
+                    title="Task Board"
                     density="compact"
                     actions={
                         <>

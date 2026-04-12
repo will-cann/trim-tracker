@@ -8,6 +8,7 @@ import { AIChat } from './AIChat';
 import { isCardReady } from './ExtractionRunCard';
 import type { ExtractionRunCardData } from './ExtractionRunCard';
 import { AmbientActionCenter } from './AmbientActionCenter';
+import { SourcesDropdown } from './SourcesDropdown';
 import { AmbientStatusPill } from './AmbientStatusPill';
 import logo from '../assets/logo.png';
 import { apiService } from '../services/apiService';
@@ -399,22 +400,6 @@ export const AIHome: React.FC<AIHomeProps> = ({
         reader.readAsText(file);
     }, [conversationId, onConversationStarted, sendCSV, setConversationId]);
 
-    // ── License selector ──
-    const licenseSelector = licenses.length > 0 ? (
-        <div className="ai-license-selector">
-            {licenses.map(lic => (
-                <button
-                    key={lic.id}
-                    className={`ai-license-pill ${lic.id === activeLicenseId ? 'active' : ''}`}
-                    onClick={() => onLicenseChange?.(lic.id)}
-                    title={lic.label || lic.licenseNumber}
-                >
-                    {lic.label || lic.licenseNumber}
-                </button>
-            ))}
-        </div>
-    ) : null;
-
     const combinedError = micError || deepgramError || ambient.micError || null;
     const hasMessages = messages.length > 0;
     // The Action Center is visible on the AI home whenever an ambient
@@ -441,26 +426,7 @@ export const AIHome: React.FC<AIHomeProps> = ({
                 for the chat view which owns its own full-bleed scroll layout. */}
             {!hasMessages && (
                 <div className="ai-home-brand-block">
-                    <div className="ai-hero">
-                        <img src={logo} alt="neurocann" className="ai-hero-logo" />
-                        <h1 className="ai-hero-brand">
-                            <span className="ai-hero-accent">neuro</span>cann
-                        </h1>
-                    </div>
-                    {licenses.length > 0 && (
-                        <div className="ai-license-selector">
-                            {licenses.map(lic => (
-                                <button
-                                    key={lic.id}
-                                    className={`ai-license-pill ${lic.id === activeLicenseId ? 'active' : ''}`}
-                                    onClick={() => onLicenseChange?.(lic.id)}
-                                    title={lic.label || lic.licenseNumber}
-                                >
-                                    {lic.label || lic.licenseNumber}
-                                </button>
-                            ))}
-                        </div>
-                    )}
+                    <img src={logo} alt="neurocann" className="ai-hero-logo" />
                     {showAmbientCenter && (
                         <AmbientStatusPill
                             isPaused={ambient.isPaused}
@@ -499,7 +465,13 @@ export const AIHome: React.FC<AIHomeProps> = ({
                     onToggleListening={handleVoiceToggle}
                     onSwitchMode={handleModeSwitch}
                     micError={combinedError}
-                    licenseSelector={licenseSelector}
+                    sourcesSlot={
+                        <SourcesDropdown
+                            licenses={licenses}
+                            activeLicenseId={activeLicenseId ?? null}
+                            onLicenseChange={onLicenseChange}
+                        />
+                    }
                     onFocusInput={() => textareaRef.current?.focus()}
                     extractionRunCards={extractionRunCards}
                     onExtractionSubmit={handleExtractionSubmit}
@@ -557,6 +529,9 @@ export const AIHome: React.FC<AIHomeProps> = ({
                             onKeyDown={handleKeyDown}
                             facilitySetup={facilitySetup}
                             onNavigateToSettings={() => onViewChange?.('settings')}
+                            licenses={licenses}
+                            activeLicenseId={activeLicenseId ?? null}
+                            onLicenseChange={onLicenseChange}
                         />
                     )}
                 </div>

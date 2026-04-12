@@ -1,7 +1,7 @@
 import { useState, useCallback, useMemo } from 'react';
 import { Plus, PackagePlus, PackageMinus, History, Pencil, Trash2, FlaskConical, Leaf, HardHat, AlertTriangle } from 'lucide-react';
 import { useSupplyInventory } from '../../hooks/useSupplyInventory';
-import { FilterToolbar } from '../ui';
+import { FilterToolbar, DashboardHeader } from '../ui';
 import { SupplyItemModal } from './SupplyItemModal';
 import { ReceiveModal } from './ReceiveModal';
 import { SupplyLedgerPanel } from './SupplyLedgerPanel';
@@ -142,11 +142,11 @@ export const SupplyDashboard = () => {
 
     return (
         <div className="dashboard">
-            <div className="dashboard-top-section" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <div className="header-title">
-                    <h4>Supplies</h4>
-                </div>
-            </div>
+            <DashboardHeader
+                eyebrow="Supplies"
+                title="Inventory"
+                density="compact"
+            />
 
             {/* Tabs */}
             <div className="extraction-tabs">
