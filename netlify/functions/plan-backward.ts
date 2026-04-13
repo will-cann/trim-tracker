@@ -42,6 +42,7 @@ interface StepRow {
     input_type: string | null;
     output_type: string | null;
     expected_yield_pct: string | null;
+    equipment_type: string | null;
     is_optional: boolean;
 }
 
@@ -381,7 +382,7 @@ export const handler: Handler = async (event) => {
         if (templateIds.length > 0) {
             const stepsResult = await pool.query<StepRow>(
                 `SELECT id, template_id, step_order, name, input_type, output_type,
-                        expected_yield_pct, is_optional
+                        expected_yield_pct, equipment_type, is_optional
                  FROM process_steps
                  WHERE template_id = ANY($1::uuid[])
                  ORDER BY step_order ASC`,
@@ -574,16 +575,34 @@ export const handler: Handler = async (event) => {
         ));
         let suppliesNeeded: SupplyNeed[] = [];
         if (allStepIds.length > 0) {
-            const supplyResult = await pool.query(
-                `SELECT ssr.step_id, ps.template_id, ssr.scales_with_output,
-                        ssr.quantity_per, si.id AS supply_id, si.name AS supply_name,
-                        si.unit AS supply_unit, si.quantity_on_hand
-                 FROM step_supply_requirements ssr
-                 JOIN process_steps ps ON ps.id = ssr.step_id
-                 JOIN supply_items si ON si.id = ssr.supply_item_id
-                 WHERE ssr.step_id = ANY($1::uuid[])`,
-                [allStepIds]
-            );
+            const [supplyResult, equipResult] = await Promise.all([
+                pool.query(
+                    `SELECT ssr.step_id, ps.template_id, ps.equipment_type,
+                            ssr.scales_with_output, ssr.scaling_mode, ssr.quantity_per,
+                            si.id AS supply_id, si.name AS supply_name,
+                            si.unit AS supply_unit, si.quantity_on_hand
+                     FROM step_supply_requirements ssr
+                     JOIN process_steps ps ON ps.id = ssr.step_id
+                     JOIN supply_items si ON si.id = ssr.supply_item_id
+                     WHERE ssr.step_id = ANY($1::uuid[])`,
+                    [allStepIds]
+                ),
+                // Load one equipment piece per type for capacity reference
+                pool.query(
+                    `SELECT DISTINCT ON (equipment_type) equipment_type, capacity_grams
+                     FROM extraction_equipment
+                     WHERE company_id = $1 AND status = 'available' AND capacity_grams IS NOT NULL
+                     ORDER BY equipment_type, name`,
+                    [companyId]
+                ),
+            ]);
+            // Equipment capacity by type for per-cycle calculations
+            const equipCapByType = new Map<string, number>();
+            for (const row of equipResult.rows as Record<string, unknown>[]) {
+                const cap = parseFloat(row.capacity_grams as string);
+                if (cap > 0) equipCapByType.set(row.equipment_type as string, cap);
+            }
+
             // Group supply reqs by template_id for per-stage lookup.
             type SupplyReq = {
                 supplyId: string;
@@ -591,18 +610,21 @@ export const handler: Handler = async (event) => {
                 unit: string;
                 quantityPer: number;
                 onHand: number;
-                scales: boolean;
+                scalingMode: string;
+                equipmentType: string | null;
             };
             const reqsByTemplate = new Map<string, SupplyReq[]>();
             for (const row of supplyResult.rows as Record<string, unknown>[]) {
                 const tmplId = row.template_id as string;
+                const mode = (row.scaling_mode as string) || (row.scales_with_output === true ? 'per_output' : 'fixed');
                 const req: SupplyReq = {
                     supplyId: row.supply_id as string,
                     name: row.supply_name as string,
                     unit: row.supply_unit as string,
                     quantityPer: parseFloat(row.quantity_per as string),
                     onHand: parseFloat(row.quantity_on_hand as string),
-                    scales: row.scales_with_output === true,
+                    scalingMode: mode,
+                    equipmentType: (row.equipment_type as string) || null,
                 };
                 if (!reqsByTemplate.has(tmplId)) reqsByTemplate.set(tmplId, []);
                 reqsByTemplate.get(tmplId)!.push(req);
@@ -612,7 +634,16 @@ export const handler: Handler = async (event) => {
             for (const stage of stages) {
                 const reqs = reqsByTemplate.get(stage.templateId) || [];
                 for (const req of reqs) {
-                    const quantity = req.scales ? req.quantityPer * stage.outputQty : req.quantityPer;
+                    let quantity: number;
+                    if (req.scalingMode === 'per_cycle' && req.equipmentType) {
+                        const cap = equipCapByType.get(req.equipmentType);
+                        const cycles = cap && cap > 0 ? Math.ceil(stage.inputQty / cap) : 1;
+                        quantity = req.quantityPer * cycles;
+                    } else if (req.scalingMode === 'per_output') {
+                        quantity = req.quantityPer * stage.outputQty;
+                    } else {
+                        quantity = req.quantityPer;
+                    }
                     const existing = supplyMap.get(req.supplyId) || {
                         name: req.name,
                         unit: req.unit,

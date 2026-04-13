@@ -110,7 +110,7 @@ export const handler: Handler = async (event) => {
         const justCompleted = status === 'completed' && s.template_step_id;
         if (justCompleted) {
             const reqResult = await client.query(
-                `SELECT ssr.supply_item_id, ssr.quantity_per, ssr.scales_with_output,
+                `SELECT ssr.supply_item_id, ssr.quantity_per, ssr.scales_with_output, ssr.scaling_mode,
                         si.quantity_on_hand, si.name AS supply_name
                  FROM step_supply_requirements ssr
                  JOIN supply_items si ON si.id = ssr.supply_item_id
@@ -122,7 +122,10 @@ export const handler: Handler = async (event) => {
             // gram_weight so we can convert the step's output_weight_g to an
             // each-count. One query, reused for every req on this step.
             let outputEachCount: number | null = null;
-            if (reqResult.rows.some((r: Record<string, unknown>) => r.scales_with_output === true)) {
+            const hasPerOutput = reqResult.rows.some((r: Record<string, unknown>) =>
+                r.scaling_mode === 'per_output' || r.scales_with_output === true
+            );
+            if (hasPerOutput) {
                 const runMeta = await client.query(
                     `SELECT pt.gram_weight
                      FROM extraction_runs er
@@ -138,13 +141,37 @@ export const handler: Handler = async (event) => {
                 }
             }
 
+            // For per-cycle supplies, compute cycles from the step's input weight
+            // and the assigned equipment's capacity.
+            let cyclesNeeded: number | null = null;
+            const hasPerCycle = reqResult.rows.some((r: Record<string, unknown>) => r.scaling_mode === 'per_cycle');
+            if (hasPerCycle && s.equipment_id) {
+                const inputG = s.input_weight_g ? parseFloat(s.input_weight_g)
+                    : (s.check_in_value ? parseFloat(s.check_in_value) : null);
+                if (inputG && inputG > 0) {
+                    const equipRes = await client.query(
+                        `SELECT capacity_grams FROM extraction_equipment WHERE id = $1`,
+                        [s.equipment_id]
+                    );
+                    const cap = equipRes.rows[0]?.capacity_grams;
+                    if (cap && parseFloat(cap) > 0) {
+                        cyclesNeeded = Math.ceil(inputG / parseFloat(cap));
+                    }
+                }
+            }
+
             for (const req of reqResult.rows) {
-                // When scales_with_output is true and we resolved an each-count
-                // for this run's output, multiply the per-unit requirement by
-                // that count. Otherwise fall back to the per-batch value.
-                const multiplier = req.scales_with_output === true && outputEachCount != null
-                    ? outputEachCount
-                    : 1;
+                // Determine supply multiplier based on scaling mode:
+                // per_output → each-count of output units (e.g. 1 cart body per cart)
+                // per_cycle  → equipment cycles needed (e.g. 1 rosin bag per press)
+                // fixed      → 1 (consumed once per run)
+                let multiplier = 1;
+                const mode = req.scaling_mode || (req.scales_with_output === true ? 'per_output' : 'fixed');
+                if (mode === 'per_output' && outputEachCount != null) {
+                    multiplier = outputEachCount;
+                } else if (mode === 'per_cycle' && cyclesNeeded != null) {
+                    multiplier = cyclesNeeded;
+                }
                 const delta = -parseFloat(req.quantity_per) * multiplier;
                 const newQty = parseFloat(req.quantity_on_hand) + delta;
 

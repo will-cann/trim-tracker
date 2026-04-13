@@ -102,6 +102,7 @@ interface EditableSupplyReq {
     supplyItemId: string;
     quantityPer: string;
     scalesWithOutput: boolean;
+    scalingMode: 'fixed' | 'per_output' | 'per_cycle';
     supplyName?: string;
     supplyUnit?: string;
 }
@@ -162,6 +163,7 @@ function stepToEditable(step: ProcessStep): EditableStep {
             supplyItemId: r.supplyItemId,
             quantityPer: String(r.quantityPer),
             scalesWithOutput: r.scalesWithOutput === true,
+            scalingMode: r.scalingMode || (r.scalesWithOutput === true ? 'per_output' : 'fixed'),
             supplyName: r.supplyName,
             supplyUnit: r.supplyUnit,
         })),
@@ -545,22 +547,21 @@ const StepEditorRow: React.FC<{
                                                     style={{ width: '60px' }}
                                                 />
                                                 <span style={{ fontSize: '10px', color: '#959595' }}>{item?.unit || req.supplyUnit || 'ea'}</span>
-                                                <label
-                                                    title="When on, this quantity multiplies by the step's output at plan/run time (e.g. 1 empty cart × 1000 carts = 1000 cart bodies)."
-                                                    style={{ display: 'inline-flex', alignItems: 'center', gap: '3px', fontSize: '10px', color: req.scalesWithOutput ? '#1C9EFF' : '#959595', cursor: 'pointer' }}
+                                                <select
+                                                    value={req.scalingMode}
+                                                    onChange={e => {
+                                                        const mode = e.target.value as EditableSupplyReq['scalingMode'];
+                                                        const updated = [...step.supplyRequirements];
+                                                        updated[ri] = { ...updated[ri], scalingMode: mode, scalesWithOutput: mode === 'per_output' };
+                                                        onChange({ ...step, supplyRequirements: updated });
+                                                    }}
+                                                    title="Fixed: once per run. Per output: × output count (e.g. cart bodies). Per cycle: × equipment cycles (e.g. rosin bags per press)."
+                                                    style={{ fontSize: '10px', padding: '1px 4px', border: '1px solid #E0E0E0', borderRadius: '4px', color: req.scalingMode !== 'fixed' ? '#1C9EFF' : '#959595', background: 'white', cursor: 'pointer' }}
                                                 >
-                                                    <input
-                                                        type="checkbox"
-                                                        checked={req.scalesWithOutput}
-                                                        onChange={e => {
-                                                            const updated = [...step.supplyRequirements];
-                                                            updated[ri] = { ...updated[ri], scalesWithOutput: e.target.checked };
-                                                            onChange({ ...step, supplyRequirements: updated });
-                                                        }}
-                                                        style={{ width: 11, height: 11, margin: 0 }}
-                                                    />
-                                                    per output
-                                                </label>
+                                                    <option value="fixed">fixed</option>
+                                                    <option value="per_output">per output</option>
+                                                    <option value="per_cycle">per cycle</option>
+                                                </select>
                                                 <button
                                                     type="button"
                                                     style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#C0C0C0', padding: '2px' }}
@@ -580,7 +581,7 @@ const StepEditorRow: React.FC<{
                                         onClick={() => {
                                             onChange({
                                                 ...step,
-                                                supplyRequirements: [...step.supplyRequirements, { supplyItemId: '', quantityPer: '1', scalesWithOutput: false }],
+                                                supplyRequirements: [...step.supplyRequirements, { supplyItemId: '', quantityPer: '1', scalesWithOutput: false, scalingMode: 'fixed' as const }],
                                             });
                                         }}
                                     >
@@ -740,7 +741,8 @@ const TemplateEditor: React.FC<TemplateEditorProps> = ({ template, onSave, onCan
                             .map(r => ({
                                 supplyItemId: r.supplyItemId,
                                 quantityPer: parseFloat(r.quantityPer) || 0,
-                                scalesWithOutput: r.scalesWithOutput,
+                                scalesWithOutput: r.scalingMode === 'per_output',
+                                scalingMode: r.scalingMode,
                             })),
                     })),
             };

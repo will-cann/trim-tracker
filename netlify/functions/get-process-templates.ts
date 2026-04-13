@@ -51,7 +51,7 @@ export const handler: Handler = async (event) => {
             let supplyReqMap: Record<string, any[]> = {};
             if (stepIds.length > 0) {
                 const reqs = await sql`
-                    SELECT ssr.step_id, ssr.supply_item_id, ssr.quantity_per, ssr.scales_with_output,
+                    SELECT ssr.step_id, ssr.supply_item_id, ssr.quantity_per, ssr.scales_with_output, ssr.scaling_mode,
                            si.name AS supply_name, si.unit AS supply_unit
                     FROM step_supply_requirements ssr
                     JOIN supply_items si ON si.id = ssr.supply_item_id
@@ -64,6 +64,7 @@ export const handler: Handler = async (event) => {
                         supplyItemId: req.supply_item_id,
                         quantityPer: parseFloat(req.quantity_per),
                         scalesWithOutput: req.scales_with_output === true,
+                        scalingMode: req.scaling_mode || (req.scales_with_output === true ? 'per_output' : 'fixed'),
                         supplyName: req.supply_name,
                         supplyUnit: req.supply_unit,
                     });

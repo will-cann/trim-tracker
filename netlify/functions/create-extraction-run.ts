@@ -87,8 +87,28 @@ export const handler: Handler = async (event) => {
                 }
             }
 
-            // stepEquipment is a map of stepOrder -> equipmentId from the user's confirmation
+            // stepEquipment is a map of stepOrder -> equipmentId from the user's confirmation.
+            // When empty (AI-created runs), auto-assign by matching equipment_type.
             const equipMap: Record<number, string> = stepEquipment || {};
+            if (Object.keys(equipMap).length === 0) {
+                const { rows: equipRows } = await client.query(
+                    `SELECT id, equipment_type FROM extraction_equipment
+                     WHERE company_id = $1 AND status = 'available'
+                     ORDER BY name`,
+                    [context.companyId]
+                );
+                const usedIds = new Set<string>();
+                for (const ts of stepsResult.rows) {
+                    if (!ts.equipment_type) continue;
+                    const match = equipRows.find(
+                        (e: { id: string; equipment_type: string }) => e.equipment_type === ts.equipment_type && !usedIds.has(e.id)
+                    );
+                    if (match) {
+                        equipMap[ts.step_order] = match.id;
+                        usedIds.add(match.id);
+                    }
+                }
+            }
 
             // Create run steps from template
             const steps = [];
@@ -128,7 +148,7 @@ export const handler: Handler = async (event) => {
                         inputWeightG: null,
                         outputWeightG: null,
                         yieldPct: null,
-                        equipmentId: null,
+                        equipmentId: s.equipment_id,
                         isOptional: s.is_optional,
                         startedAt: null,
                         completedAt: null,

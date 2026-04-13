@@ -1867,6 +1867,21 @@ IMPORTANT: If the user is correcting or updating a previous statement (e.g. "act
             }
         } catch { /* proceed without template context */ }
 
+        // Add extraction equipment catalog so the AI can reference equipment in responses
+        try {
+            const { rows: equipRows } = await sql`
+                SELECT name, equipment_type, capacity_grams, status
+                FROM extraction_equipment
+                WHERE company_id = ${authContext.companyId} AND status = 'available'
+                ORDER BY equipment_type, name
+            `;
+            if (equipRows.length > 0) {
+                contextInfo.push(`- Extraction equipment: ${equipRows.map(e =>
+                    `"${e.name}" [${e.equipment_type}]${e.capacity_grams ? ' ' + e.capacity_grams + 'g cap' : ''}`
+                ).join('; ')}`);
+            }
+        } catch { /* proceed without equipment context */ }
+
         // Add active extraction runs so AI knows what's already in flight
         try {
             const { rows: runRows } = await sql`

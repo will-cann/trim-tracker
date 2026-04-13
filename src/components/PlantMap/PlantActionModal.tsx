@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { AlertTriangle, Loader2, Calendar, Flower2, Snowflake, ArrowRightLeft } from 'lucide-react';
 import type { PlantPhase, PlantGroup } from '../../types/plantMap';
-import { CONTAMINANT_MAP } from '../../types/plantMap';
+import { CONTAMINANT_MAP, computeHealthFromIssues } from '../../types/plantMap';
 import type { Strain, AllocationChoice, License } from '../../types/definitions';
 import { apiService } from '../../services/apiService';
 import { Modal, Button } from '../ui';
@@ -146,16 +146,22 @@ export const PlantActionModal: React.FC<PlantActionModalProps> = ({
         }
     }, [targetPhase, strains, selectedStrainNames]);
 
-    // Pre-fill health from selected groups average
+    // Pre-fill health from selected groups — recompute from contaminants if any
     useEffect(() => {
         if (action === 'plant-health' && selectedGroups.length > 0) {
-            const avgHealth = Math.round(
-                selectedGroups.reduce((sum, g) => sum + g.plantHealth * g.totalPlants, 0) / totalPlants
-            );
-            setHealth(avgHealth);
             const contams = new Set<string>();
             selectedGroups.forEach(g => g.contamination.forEach(c => contams.add(c)));
             setSelectedContaminants(contams);
+
+            if (contams.size > 0) {
+                const { score } = computeHealthFromIssues(contams);
+                setHealth(score);
+            } else {
+                const avgHealth = Math.round(
+                    selectedGroups.reduce((sum, g) => sum + g.plantHealth * g.totalPlants, 0) / totalPlants
+                );
+                setHealth(avgHealth);
+            }
         }
     }, [action, selectedGroups, totalPlants]);
 
@@ -294,9 +300,13 @@ export const PlantActionModal: React.FC<PlantActionModalProps> = ({
             const next = new Set(prev);
             if (next.has(name)) next.delete(name);
             else next.add(name);
+            const { score } = computeHealthFromIssues(next);
+            setHealth(score);
             return next;
         });
     };
+
+    const healthBand = computeHealthFromIssues(selectedContaminants);
 
     const isDestructive = action === 'destroy';
     const isNurseryUppot = action === 'change-phase' && phase === 'nursery';
@@ -679,36 +689,19 @@ export const PlantActionModal: React.FC<PlantActionModalProps> = ({
 
                     {action === 'plant-health' && (
                         <div className="space-y-4">
-                            <div>
-                                <div className="flex items-center justify-between mb-2">
-                                    <label className="text-xs font-medium text-gray-700">Health Score</label>
-                                    <span className="text-sm font-semibold tabular-nums text-gray-900">{health}%</span>
-                                </div>
-                                <input
-                                    type="range"
-                                    min={0}
-                                    max={100}
-                                    value={health}
-                                    onChange={e => setHealth(Number(e.target.value))}
-                                    className="w-full h-1.5 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-emerald-500"
-                                />
-                                <div className="flex justify-between text-[10px] text-gray-400 mt-1">
-                                    <span>Critical</span>
-                                    <span>Perfect</span>
-                                </div>
-                            </div>
+                            {/* Issues first — they drive the score */}
                             <div>
                                 <label className="block text-xs font-medium text-gray-700 mb-2">
-                                    Contaminants
+                                    Issues
                                 </label>
                                 <div className="flex flex-wrap gap-1.5">
-                                    {Object.entries(CONTAMINANT_MAP).map(([key, { label, abbrev }]) => {
+                                    {Object.entries(CONTAMINANT_MAP).map(([key, { label, abbrev, impact }]) => {
                                         const isActive = selectedContaminants.has(key);
                                         return (
                                             <button
                                                 key={key}
                                                 onClick={() => toggleContaminant(key)}
-                                                title={label}
+                                                title={`${label} (−${impact})`}
                                                 className={`px-2 py-1 rounded-md text-[11px] font-medium border transition-colors ${
                                                     isActive
                                                         ? 'border-red-300 bg-red-50 text-red-700'
@@ -716,9 +709,42 @@ export const PlantActionModal: React.FC<PlantActionModalProps> = ({
                                                 }`}
                                             >
                                                 {abbrev}
+                                                {isActive && <span style={{ opacity: 0.6, marginLeft: 2 }}>−{impact}</span>}
                                             </button>
                                         );
                                     })}
+                                </div>
+                            </div>
+
+                            {/* Health score — auto-computed, adjustable within band */}
+                            <div>
+                                <div className="flex items-center justify-between mb-2">
+                                    <label className="text-xs font-medium text-gray-700">
+                                        Health Score
+                                        {health !== healthBand.score && (
+                                            <span className="text-[10px] font-normal text-gray-400 ml-1.5">
+                                                adjusted from {healthBand.score}%
+                                            </span>
+                                        )}
+                                    </label>
+                                    <span className="text-sm font-semibold tabular-nums" style={{
+                                        color: health > 67 ? 'var(--color-flower)' : health > 33 ? '#F0BF00' : 'var(--color-waste)',
+                                    }}>
+                                        {health}%
+                                    </span>
+                                </div>
+                                <input
+                                    type="range"
+                                    min={healthBand.min}
+                                    max={healthBand.max}
+                                    value={health}
+                                    onChange={e => setHealth(Number(e.target.value))}
+                                    className="w-full h-1.5 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-emerald-500"
+                                />
+                                <div className="flex justify-between text-[10px] text-gray-400 mt-1">
+                                    <span>{healthBand.min}%</span>
+                                    {selectedContaminants.size === 0 && <span>No issues reported</span>}
+                                    <span>{healthBand.max}%</span>
                                 </div>
                             </div>
                         </div>

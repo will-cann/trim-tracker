@@ -431,7 +431,8 @@ export interface ProcessStep {
 export interface StepSupplyRequirement {
   supplyItemId: string;
   quantityPer: number;
-  scalesWithOutput?: boolean; // when true, quantity_per multiplies by stage output qty at plan/run time
+  scalesWithOutput?: boolean; // legacy — use scalingMode instead
+  scalingMode?: 'fixed' | 'per_output' | 'per_cycle';
   supplyName?: string;
   supplyUnit?: string;
 }

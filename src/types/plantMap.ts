@@ -76,24 +76,48 @@ export const HEALTH_COLOR_MAP: Record<HealthColor, string> = {
 // CONTAMINATION CONSTANTS
 // ============================================================================
 
-export type ContaminantInfo = { label: string; abbrev: string };
+export type ContaminantInfo = { label: string; abbrev: string; impact: number };
 
 export const CONTAMINANT_MAP: Record<string, ContaminantInfo> = {
-  spider_mites:        { label: 'Spider mites',        abbrev: 'SM'  },
-  thrips:              { label: 'Thrips',               abbrev: 'TH'  },
-  whiteflies:          { label: 'Whiteflies',           abbrev: 'WF'  },
-  aphids:              { label: 'Aphids',               abbrev: 'AP'  },
-  fungus_gnats:        { label: 'Fungus gnats',         abbrev: 'FG'  },
-  powdery_mildew:      { label: 'Powdery mildew',       abbrev: 'PM'  },
-  botrytis:            { label: 'Botrytis',             abbrev: 'BO'  },
-  fusarium:            { label: 'Fusarium',             abbrev: 'FU'  },
-  verticillium:        { label: 'Verticillium',         abbrev: 'VE'  },
-  tobacco_mosaic_virus:{ label: 'Tobacco mosaic virus',  abbrev: 'TMV' },
-  root_aphids:         { label: 'Root aphids',          abbrev: 'RA'  },
-  hops_latent_viroid:  { label: 'Hops latent viroid',   abbrev: 'HLV' },
-  nutrient_deficiency: { label: 'Nutrient deficiency',  abbrev: 'ND'  },
-  other:               { label: 'Other',                abbrev: 'O'   },
+  // Pests — treatable, moderate impact
+  spider_mites:        { label: 'Spider mites',        abbrev: 'SM',  impact: 15 },
+  thrips:              { label: 'Thrips',               abbrev: 'TH',  impact: 10 },
+  whiteflies:          { label: 'Whiteflies',           abbrev: 'WF',  impact: 10 },
+  aphids:              { label: 'Aphids',               abbrev: 'AP',  impact: 10 },
+  fungus_gnats:        { label: 'Fungus gnats',         abbrev: 'FG',  impact: 5  },
+  root_aphids:         { label: 'Root aphids',          abbrev: 'RA',  impact: 20 },
+
+  // Fungi — serious, can spread fast
+  powdery_mildew:      { label: 'Powdery mildew',       abbrev: 'PM',  impact: 25 },
+  botrytis:            { label: 'Botrytis',             abbrev: 'BO',  impact: 30 },
+  fusarium:            { label: 'Fusarium',             abbrev: 'FU',  impact: 35 },
+  verticillium:        { label: 'Verticillium',         abbrev: 'VE',  impact: 30 },
+
+  // Viruses — severe, often terminal
+  tobacco_mosaic_virus:{ label: 'Tobacco mosaic virus',  abbrev: 'TMV', impact: 40 },
+  hops_latent_viroid:  { label: 'Hops latent viroid',   abbrev: 'HLV', impact: 35 },
+
+  // General
+  nutrient_deficiency: { label: 'Nutrient deficiency',  abbrev: 'ND',  impact: 10 },
+  other:               { label: 'Other',                abbrev: 'O',   impact: 5  },
 };
+
+/** Band half-width: operator can adjust ±BAND from computed score */
+const HEALTH_BAND = 15;
+
+/** Compute health score from active contaminants. Returns { score, min, max }. */
+export function computeHealthFromIssues(contaminants: Iterable<string>): { score: number; min: number; max: number } {
+  let totalImpact = 0;
+  for (const key of contaminants) {
+    totalImpact += CONTAMINANT_MAP[key]?.impact ?? 0;
+  }
+  const score = Math.max(0, 100 - totalImpact);
+  return {
+    score,
+    min: Math.max(0, score - HEALTH_BAND),
+    max: Math.min(100, score + HEALTH_BAND),
+  };
+}
 
 /** @deprecated Use CONTAMINANT_MAP instead */
 export const CONTAMINANT_ABBREVS: Record<string, string> = Object.fromEntries(
