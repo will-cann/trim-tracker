@@ -2,7 +2,7 @@
 
 Planned features, integrations, and improvements. Updated as priorities evolve.
 
-> Last updated: 2026-04-11
+> Last updated: 2026-04-13
 
 ---
 
@@ -191,6 +191,19 @@ Planned features, integrations, and improvements. Updated as priorities evolve.
 - Role hierarchy: admin, manager, lead, worker
 - Admin auto-provisioned into team roster
 - Task assignment to any team member including self
+
+### Email Service (Team Invites & Transactional)
+- Transactional email server for sending team invite links directly (vs. current copy-to-clipboard flow)
+- Foundation for all outbound email: invites, task notifications, daily summaries, CRM outreach
+- Evaluate providers: Resend, Postmark, or SES
+- Templates for invite emails with branded NeuroCann styling
+
+### Lightweight CRM (Suppliers & Customers)
+- Contact management for both suppliers (growers, vendors) and customers (stores, dispensaries)
+- **Supplier side:** email suppliers with material requests, track pricing history, seasonal reminders (extends existing Supplier CRM concept in Extraction section)
+- **Customer side:** email customers with product menus/availability, track order history, manage store relationships
+- Ties into ordering workflow — 20+ vendors, 11-12 stores, velocity-based pars
+- Future: automated outreach via AI ("what fresh frozen do you have?" / "here's this week's menu")
 
 ### Department Leads
 - Each department (cultivation, harvest, extraction, trim, packaging, etc.) can have a designated lead
