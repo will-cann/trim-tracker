@@ -1,7 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Scale, Plus, Loader2, Check } from 'lucide-react';
+import { Scale, Plus, Loader2, Check, Mic, MicOff } from 'lucide-react';
 import type { Harvest, HarvestPlantWeight } from '../../types/definitions';
 import { apiService } from '../../services/apiService';
+import { useSpeechToText } from '../../hooks/useSpeechToText';
 import { PlantWeightList } from './PlantWeightList';
 
 interface HarvestCenterColumnProps {
@@ -23,8 +24,10 @@ export const HarvestCenterColumn: React.FC<HarvestCenterColumnProps> = ({
     const [saving, setSaving] = useState(false);
     const [justSaved, setJustSaved] = useState(false);
     const [newestId, setNewestId] = useState<string | undefined>();
+    const [listening, setListening] = useState(false);
     const inputRef = useRef<HTMLInputElement>(null);
     const savedTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
+    const { startListening, stopListening } = useSpeechToText();
 
     const dryRooms = rooms.filter(r => r.room_type === 'dry' || r.room_type === 'general');
 
@@ -77,6 +80,26 @@ export const HarvestCenterColumn: React.FC<HarvestCenterColumnProps> = ({
         await apiService.deletePlantWeight(id);
         if (newestId === id) setNewestId(undefined);
         await onUpdate();
+    };
+
+    const handleSpeech = () => {
+        if (listening) {
+            stopListening();
+            setListening(false);
+        } else {
+            setListening(true);
+            startListening((text) => {
+                const num = parseFloat(text.replace(/[^0-9.]/g, ''));
+                if (!isNaN(num) && num > 0) {
+                    if (mode === 'plant') {
+                        setWeightInput(String(num));
+                    } else {
+                        setBulkInput(String(num));
+                    }
+                }
+                setListening(false);
+            });
+        }
     };
 
     const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -195,6 +218,14 @@ export const HarvestCenterColumn: React.FC<HarvestCenterColumnProps> = ({
                             <span className="hd-weight-unit">g</span>
                         </div>
                         <button
+                            type="button"
+                            className={`btn-icon-minimal ${listening ? 'listening' : ''}`}
+                            onClick={handleSpeech}
+                            title={listening ? 'Stop listening' : 'Speak weight'}
+                        >
+                            {listening ? <MicOff size={16} /> : <Mic size={16} />}
+                        </button>
+                        <button
                             className="hd-add-btn"
                             onClick={handleAddPlant}
                             disabled={!weightInput || Number(weightInput) <= 0 || saving}
@@ -228,6 +259,14 @@ export const HarvestCenterColumn: React.FC<HarvestCenterColumnProps> = ({
                             />
                             <span className="hd-weight-unit">g</span>
                         </div>
+                        <button
+                            type="button"
+                            className={`btn-icon-minimal ${listening ? 'listening' : ''}`}
+                            onClick={handleSpeech}
+                            title={listening ? 'Stop listening' : 'Speak weight'}
+                        >
+                            {listening ? <MicOff size={16} /> : <Mic size={16} />}
+                        </button>
                         <button
                             className="hd-add-btn"
                             onClick={handleBulkSubmit}
