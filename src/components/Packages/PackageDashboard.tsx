@@ -351,9 +351,7 @@ export const PackageDashboard: React.FC = () => {
                         <PackageCard
                             key={pkg.id}
                             pkg={pkg}
-                            onUpdate={handleUpdate}
-                            onDelete={handleDelete}
-                            onRefresh={refreshPackages}
+                            onClick={() => setSelectedPackage(pkg)}
                         />
                     ))}
                 </div>

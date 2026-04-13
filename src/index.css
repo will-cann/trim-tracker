@@ -4292,6 +4292,15 @@ select.field-input {
   border-bottom-color: var(--primary-color);
 }
 
+/* Package status left-border accents */
+.trim-card.status-border-hold {
+  border-left: 4px solid var(--warning-color);
+}
+
+.trim-card.status-border-finished {
+  border-left: 4px solid var(--color-dolphin);
+}
+
 /* Upcoming Batch Styles */
 .trim-card.upcoming {
   border-left: 4px solid var(--warning-color);
