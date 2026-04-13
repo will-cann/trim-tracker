@@ -45,13 +45,15 @@ export const handler: Handler = async (event) => {
             const result = await sql`
                 SELECT
                     t.id, t.tag_number, t.tag_type, t.status,
-                    t.assigned_to_plant_id, t.assigned_to_batch_id,
+                    t.assigned_to_plant_id, t.assigned_to_batch_id, t.assigned_to_package_id,
                     t.assigned_at, t.created_at,
                     p.label AS plant_label,
-                    pb.name AS batch_name
+                    pb.name AS batch_name,
+                    pkg.label AS package_label
                 FROM tags t
                 LEFT JOIN plants p ON t.assigned_to_plant_id = p.id
                 LEFT JOIN plant_batches pb ON t.assigned_to_batch_id = pb.id
+                LEFT JOIN packages pkg ON t.assigned_to_package_id = pkg.id
                 WHERE t.company_id = ${context.companyId}
                     AND (${status}::text IS NULL OR t.status = ${status})
                     AND (${tagType}::text IS NULL OR t.tag_type = ${tagType})
@@ -66,7 +68,8 @@ export const handler: Handler = async (event) => {
                 status: r.status,
                 assignedToPlantId: r.assigned_to_plant_id || undefined,
                 assignedToBatchId: r.assigned_to_batch_id || undefined,
-                assignedTo: r.plant_label || r.batch_name || undefined,
+                assignedToPackageId: r.assigned_to_package_id || undefined,
+                assignedTo: r.plant_label || r.batch_name || r.package_label || undefined,
                 assignedAt: r.assigned_at || undefined,
                 createdAt: r.created_at,
             }));
@@ -89,8 +92,8 @@ export const handler: Handler = async (event) => {
                     if (!Array.isArray(tagNumbers) || tagNumbers.length === 0) {
                         return { statusCode: 400, body: JSON.stringify({ error: 'tagNumbers array is required' }) };
                     }
-                    if (!['plant', 'batch'].includes(tagType)) {
-                        return { statusCode: 400, body: JSON.stringify({ error: 'tagType must be plant or batch' }) };
+                    if (!['plant', 'batch', 'package'].includes(tagType)) {
+                        return { statusCode: 400, body: JSON.stringify({ error: 'tagType must be plant, batch, or package' }) };
                     }
 
                     let imported = 0;
@@ -118,9 +121,9 @@ export const handler: Handler = async (event) => {
                 }
 
                 case 'assign': {
-                    const { tagId, plantId, batchId } = body;
-                    if (!tagId || (!plantId && !batchId)) {
-                        return { statusCode: 400, body: JSON.stringify({ error: 'tagId and either plantId or batchId required' }) };
+                    const { tagId, plantId, batchId, packageId } = body;
+                    if (!tagId || (!plantId && !batchId && !packageId)) {
+                        return { statusCode: 400, body: JSON.stringify({ error: 'tagId and one of plantId, batchId, or packageId required' }) };
                     }
 
                     // Verify tag belongs to company and is available
@@ -140,10 +143,16 @@ export const handler: Handler = async (event) => {
                             UPDATE tags SET status = 'assigned', assigned_to_plant_id = ${plantId}, assigned_at = NOW()
                             WHERE id = ${tagId}
                         `;
-                    } else {
+                    } else if (batchId) {
                         await sql`UPDATE plant_batches SET tag = ${tagNumber} WHERE id = ${batchId} AND company_id = ${context.companyId}`;
                         await sql`
                             UPDATE tags SET status = 'assigned', assigned_to_batch_id = ${batchId}, assigned_at = NOW()
+                            WHERE id = ${tagId}
+                        `;
+                    } else {
+                        await sql`UPDATE packages SET tag_id = ${tagId} WHERE id = ${packageId} AND company_id = ${context.companyId}`;
+                        await sql`
+                            UPDATE tags SET status = 'assigned', assigned_to_package_id = ${packageId}, assigned_at = NOW()
                             WHERE id = ${tagId}
                         `;
                     }
@@ -162,7 +171,7 @@ export const handler: Handler = async (event) => {
                     }
 
                     const tag = await sql`
-                        SELECT id, tag_number, assigned_to_plant_id, assigned_to_batch_id
+                        SELECT id, tag_number, assigned_to_plant_id, assigned_to_batch_id, assigned_to_package_id
                         FROM tags WHERE id = ${tagId} AND company_id = ${context.companyId}
                     `;
                     if (tag.rows.length === 0) {
@@ -176,9 +185,12 @@ export const handler: Handler = async (event) => {
                     if (row.assigned_to_batch_id) {
                         await sql`UPDATE plant_batches SET tag = NULL WHERE id = ${row.assigned_to_batch_id}`;
                     }
+                    if (row.assigned_to_package_id) {
+                        await sql`UPDATE packages SET tag_id = NULL WHERE id = ${row.assigned_to_package_id}`;
+                    }
 
                     await sql`
-                        UPDATE tags SET status = 'available', assigned_to_plant_id = NULL, assigned_to_batch_id = NULL, assigned_at = NULL
+                        UPDATE tags SET status = 'available', assigned_to_plant_id = NULL, assigned_to_batch_id = NULL, assigned_to_package_id = NULL, assigned_at = NULL
                         WHERE id = ${tagId}
                     `;
 
@@ -196,7 +208,7 @@ export const handler: Handler = async (event) => {
                     }
 
                     await sql`
-                        UPDATE tags SET status = 'voided', assigned_to_plant_id = NULL, assigned_to_batch_id = NULL
+                        UPDATE tags SET status = 'voided', assigned_to_plant_id = NULL, assigned_to_batch_id = NULL, assigned_to_package_id = NULL
                         WHERE id = ${tagId} AND company_id = ${context.companyId}
                     `;
 

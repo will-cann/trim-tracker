@@ -881,11 +881,11 @@ export const importTags = async (tagNumbers: string[], tagType: TagType = 'plant
     return await response.json();
 };
 
-export const assignTag = async (tagId: string, plantId?: string, batchId?: string): Promise<void> => {
+export const assignTag = async (tagId: string, plantId?: string, batchId?: string, packageId?: string): Promise<void> => {
     const response = await fetchWithAuth(`${API_BASE}/manage-tags`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'assign', tagId, plantId, batchId }),
+        body: JSON.stringify({ action: 'assign', tagId, plantId, batchId, packageId }),
     });
     if (!response.ok) throw new Error('Failed to assign tag');
 };

@@ -1,4 +1,4 @@
-import { Check, ArrowRight, Package, Plus, UserPlus, Sprout, Scale, ArrowRightLeft, Trash2, MapPin, User, Scissors, ClipboardList, Leaf, Thermometer, Tag, Home, Pencil } from 'lucide-react';
+import { Check, ArrowRight, Package, Plus, UserPlus, Sprout, Scale, ArrowRightLeft, Trash2, MapPin, User, Scissors, ClipboardList, Leaf, Thermometer, Tag, Home, Pencil, Flame, X } from 'lucide-react';
 import type { ActionResultItem } from '../types/definitions';
 
 interface ActionResultProps {
@@ -45,6 +45,9 @@ const RESULT_ICONS: Record<string, typeof Package> = {
     update_room: Pencil,
     delete_room: Trash2,
     flag_contamination: Thermometer,
+    start_extraction_run: Flame,
+    amend_extraction_run_inputs: Plus,
+    cancel_extraction_run: X,
 };
 
 const NAV_LABELS: Record<string, string> = {

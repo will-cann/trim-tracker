@@ -161,7 +161,7 @@ const HIDDEN_FIELDS = new Set([
     // Extraction — complex array payloads rendered via the summary line
     'inputs', 'addedInputs',
     // Extraction — backend bookkeeping
-    'templateMatched',
+    'templateMatched', 'inputMismatch',
 ]);
 
 /** Key fields shown inline per action type — everything else is behind expand */
@@ -208,7 +208,7 @@ const KEY_FIELDS: Record<string, string[]> = {
     delete_package: ['label'],
     // Extraction
     record_extraction: ['strain', 'inputPackageType', 'inputQuantity', 'outputPackageType', 'outputQuantity'],
-    start_extraction_run: ['templateName', 'runName', 'strain', 'inputMaterial', 'inputQuantityG', 'targetProduct', 'status'],
+    start_extraction_run: ['templateName', 'runName', 'strain', 'inputMaterial', 'inputQuantityG', 'targetProduct'],
 };
 
 /** Build a human-readable one-liner from action data */
@@ -444,6 +444,8 @@ const PACKAGE_TYPE_FIELDS = new Set([
  * (e.g., typing "Sour Deisel" instead of "Sour Diesel"). If a reference
  * is wrong, users should cancel and re-prompt the agent, not type a fix.
  */
+const DATE_TIME_FIELDS = new Set(['plannedStart']);
+
 const DISPLAY_ONLY_FIELDS = new Set([
     // Strain references
     'strain', 'strainName',
@@ -488,6 +490,94 @@ const OPTIONS_BY_ACTION: Record<string, Record<string, Array<{ value: string; la
     },
 };
 
+function DateTimePills({ value, onChange, disabled }: { value: any; onChange: (v: any) => void; disabled?: boolean }) {
+    const [showCustom, setShowCustom] = useState(false);
+
+    const toLocal = (d: Date) => {
+        const pad = (n: number) => String(n).padStart(2, '0');
+        return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+    };
+
+    const now = new Date();
+    const tomorrow7am = new Date(now);
+    tomorrow7am.setDate(tomorrow7am.getDate() + 1);
+    tomorrow7am.setHours(7, 0, 0, 0);
+
+    const monday7am = new Date(now);
+    monday7am.setDate(monday7am.getDate() + ((8 - monday7am.getDay()) % 7 || 7));
+    monday7am.setHours(7, 0, 0, 0);
+
+    const tomorrowVal = toLocal(tomorrow7am);
+    const mondayVal = toLocal(monday7am);
+    const showMonday = monday7am > tomorrow7am;
+
+    const isPreset = value === tomorrowVal || value === mondayVal;
+    const isCustom = value && !isPreset;
+
+    const formatPreview = (val: string) => {
+        if (!val) return '';
+        const d = new Date(val);
+        return d.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })
+            + ' at '
+            + d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+    };
+
+    return (
+        <div className="flex-1 space-y-1.5">
+            <div className="start-run-date-presets">
+                <button
+                    type="button"
+                    className={`start-run-date-preset ${!value && !showCustom ? 'start-run-date-preset--active' : ''}`}
+                    onClick={() => { onChange(null); setShowCustom(false); }}
+                    disabled={disabled}
+                >
+                    Now
+                </button>
+                <button
+                    type="button"
+                    className={`start-run-date-preset ${value === tomorrowVal ? 'start-run-date-preset--active' : ''}`}
+                    onClick={() => { onChange(tomorrowVal); setShowCustom(false); }}
+                    disabled={disabled}
+                >
+                    Tomorrow 7am
+                </button>
+                {showMonday && (
+                    <button
+                        type="button"
+                        className={`start-run-date-preset ${value === mondayVal ? 'start-run-date-preset--active' : ''}`}
+                        onClick={() => { onChange(mondayVal); setShowCustom(false); }}
+                        disabled={disabled}
+                    >
+                        Monday 7am
+                    </button>
+                )}
+                <button
+                    type="button"
+                    className={`start-run-date-preset ${isCustom || showCustom ? 'start-run-date-preset--active' : ''}`}
+                    onClick={() => { if (!isCustom) onChange(tomorrowVal); setShowCustom(true); }}
+                    disabled={disabled}
+                >
+                    Pick date
+                </button>
+            </div>
+            {(showCustom || isCustom) && value && (
+                <div className="start-run-date-custom">
+                    <input
+                        type="datetime-local"
+                        className="flex-1 text-xs px-2 py-1 border border-gray-200 rounded-md
+                                   focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:border-emerald-400
+                                   disabled:bg-gray-50 disabled:text-gray-400"
+                        value={value}
+                        onChange={e => onChange(e.target.value || null)}
+                        disabled={disabled}
+                    />
+                    <span className="text-xs text-gray-500">{formatPreview(value)}</span>
+                </div>
+            )}
+        </div>
+    );
+}
+
 function FieldRow({
     fieldKey,
     value,
@@ -512,6 +602,7 @@ function FieldRow({
         || FIELD_LABELS[fieldKey]
         || fieldKey;
     const isTypeField = PACKAGE_TYPE_FIELDS.has(fieldKey);
+    const isDateTimeField = DATE_TIME_FIELDS.has(fieldKey);
     const isDisplayOnly = DISPLAY_ONLY_FIELDS.has(fieldKey);
     // Shared humanizer for readonly text — "active" → "Active",
     // "in_progress" → "In Progress".
@@ -564,6 +655,8 @@ function FieldRow({
                         <option key={opt.value} value={opt.value}>{opt.label}</option>
                     ))}
                 </select>
+            ) : isDateTimeField ? (
+                <DateTimePills value={value} onChange={onChange} disabled={isExecuting} />
             ) : (
                 <input
                     type={typeof value === 'number' ? 'number' : 'text'}
@@ -828,7 +921,12 @@ function ActionItem({
     const Icon = config.icon;
     const summary = summarizeAction(action);
 
-    const allFields = Object.entries(action.data).filter(([key]) => !HIDDEN_FIELDS.has(key));
+    const allFields = Object.entries(action.data).filter(([key]) => {
+        if (HIDDEN_FIELDS.has(key)) return false;
+        // start_extraction_run: status + plannedStart are replaced by the DateTimePills row
+        if (action.type === 'start_extraction_run' && (key === 'status' || key === 'plannedStart')) return false;
+        return true;
+    });
     const keyFieldNames = new Set(KEY_FIELDS[action.type] || []);
     const keyFields = allFields.filter(([key]) => keyFieldNames.has(key));
     const secondaryFields = allFields.filter(([key]) => !keyFieldNames.has(key));
@@ -863,6 +961,20 @@ function ActionItem({
                 )}
             </div>
 
+            {/* SOP input mismatch warning */}
+            {action.type === 'start_extraction_run' && !isReadonly && (action.data.inputMismatch || action.data.templateMatched === false) && (
+                <div className="mx-3 mt-2 px-3 py-2 rounded-md border border-amber-200 bg-amber-50 flex items-start gap-2">
+                    <XCircle size={14} className="text-amber-500 mt-0.5 flex-shrink-0" />
+                    <span className="text-xs text-amber-700">
+                        {action.data.inputMismatch
+                            ? action.data.inputMismatch
+                            : action.data.templateId
+                                ? 'No matching SOP found for this input type.'
+                                : 'No SOP template matched — this run cannot be created.'}
+                    </span>
+                </div>
+            )}
+
             {/* Custom extraction view */}
             {action.type === 'record_extraction' ? (
                 <ExtractionExpandedView
@@ -887,6 +999,25 @@ function ActionItem({
                                     onChange={(newVal) => onEditAction?.(index, { [key]: newVal })}
                                 />
                             ))}
+                        </div>
+                    )}
+
+                    {/* Extraction run: Start When pills (replaces status + plannedStart) */}
+                    {action.type === 'start_extraction_run' && !isReadonly && (
+                        <div className="px-3 pb-2">
+                            <div className="flex items-start gap-2">
+                                <label className="text-xs text-gray-400 w-24 flex-shrink-0 text-right pt-1">Start when</label>
+                                <DateTimePills
+                                    value={action.data.plannedStart}
+                                    onChange={(val) => {
+                                        onEditAction?.(index, {
+                                            plannedStart: val,
+                                            status: val ? 'planned' : 'active',
+                                        });
+                                    }}
+                                    disabled={isExecuting}
+                                />
+                            </div>
                         </div>
                     )}
 

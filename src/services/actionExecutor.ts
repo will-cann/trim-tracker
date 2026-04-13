@@ -360,7 +360,18 @@ export async function executeAction(action: ProposedAction): Promise<ActionOutco
             const allTags = await apiService.getTags({ status: 'available' });
             const tag = allTags.find(t => t.tagNumber === action.data.tagNumber);
             if (!tag) return SKIPPED('tag not found');
-            if (!action.data.plantIdentifier) return SKIPPED('no plant identifier');
+
+            // Package target path
+            if (action.data.packageLabel) {
+                const pkgs = await apiService.getPackages();
+                const pkg = pkgs.find(p => p.label?.toLowerCase() === action.data.packageLabel.toLowerCase());
+                if (!pkg) return SKIPPED('package not found');
+                await apiService.assignTag(tag.id, undefined, undefined, pkg.id);
+                return OK('Tag assigned to package');
+            }
+
+            // Plant/batch target path
+            if (!action.data.plantIdentifier) return SKIPPED('no target identifier');
             const resolved = await resolvePlantIds(action.data.plantIdentifier, action.data.roomName);
             if (!resolved || resolved.plantIds.length === 0) return SKIPPED('no plants found');
             if (resolved.entityType === 'plants') {
@@ -433,6 +444,7 @@ export async function executeAction(action: ProposedAction): Promise<ActionOutco
         case 'start_extraction_run': {
             const d = action.data;
             if (!d.templateId) return SKIPPED(`template not found: "${d.templateName || 'unknown'}"`);
+            if (d.inputMismatch) return SKIPPED(d.inputMismatch);
             if (!d.runName) return SKIPPED('missing run name');
             await apiService.createExtractionRun({
                 templateId: d.templateId,

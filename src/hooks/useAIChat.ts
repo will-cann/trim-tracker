@@ -123,10 +123,16 @@ export const useAIChat = ({
     }, [messages, onSaveConversation]);
 
     const loadMessages = useCallback((msgs: ChatMessage[]) => {
-        // Clear stale pending status
-        const cleaned = msgs.map(m => m.status === 'pending' ? { ...m, status: 'cancelled' as const } : m);
-        setMessages(cleaned);
-        setPendingActions(null);
+        // Find the last message with pending actions (at most one can be pending)
+        const lastPending = [...msgs].reverse().find(m => m.status === 'pending' && m.actions?.length);
+        if (lastPending) {
+            // Restore pending actions so the card reappears after refresh
+            setMessages(msgs);
+            setPendingActions(lastPending.actions!);
+        } else {
+            setMessages(msgs);
+            setPendingActions(null);
+        }
     }, []);
 
     const buildContext = useCallback(() => ({
@@ -420,12 +426,39 @@ export const useAIChat = ({
                         return { type: action.type, label: 'Profile updated', summary: d.name || '', navigateTo: 'dashboard' as const };
                     case 'update_batch_weight':
                         return { type: action.type, label: 'Weight updated', summary: [d.weightType, d.value && `${d.value}g`].filter(Boolean).join(' → '), navigateTo: 'dashboard' as const };
+                    case 'start_extraction_run': {
+                        const inputsArr: Array<{ packageType?: string; quantity?: number; unit?: string }> = Array.isArray(d.inputs) ? d.inputs : [];
+                        let inputSummary = '';
+                        if (inputsArr.length > 0) {
+                            inputSummary = inputsArr
+                                .map(i => {
+                                    const typ = (i.packageType || '').replace(/_/g, ' ');
+                                    return i.quantity ? `${i.quantity}${i.unit || 'g'} ${typ}`.trim() : typ;
+                                })
+                                .filter(Boolean)
+                                .join(' + ');
+                        } else if (d.inputQuantityG) {
+                            inputSummary = `${d.inputQuantityG}g ${(d.inputMaterial || '').replace(/_/g, ' ')}`.trim();
+                        }
+                        const bits = [d.strain, d.templateName, inputSummary].filter(Boolean);
+                        const statusLabel = d.status === 'active' ? 'Started' : 'Scheduled';
+                        return { type: action.type, label: `Run ${statusLabel.toLowerCase()}`, summary: bits.join(' · '), navigateTo: 'extractions' as const };
+                    }
+                    case 'amend_extraction_run_inputs':
+                        return { type: action.type, label: 'Inputs amended', summary: d.runName || '', navigateTo: 'extractions' as const };
+                    case 'cancel_extraction_run':
+                        return { type: action.type, label: 'Run cancelled', summary: d.runName || '', navigateTo: 'extractions' as const };
                     default:
                         return { type: action.type, label: 'Action applied', summary: '' };
                 }
             });
 
-            addMessage('assistant', `${results.length} action${results.length !== 1 ? 's' : ''} applied.`, { results });
+            // Build a descriptive confirmation message instead of generic "N actions applied"
+            const summaryParts = results.map(r => r.summary ? `${r.label}: ${r.summary}` : r.label);
+            const confirmationMsg = summaryParts.length === 1
+                ? summaryParts[0]
+                : summaryParts.map(s => `- ${s}`).join('\n');
+            addMessage('assistant', confirmationMsg, { results });
         } catch (error) {
             const errMsg = error instanceof Error ? error.message : 'Unknown error';
             addMessage('assistant', `Some actions failed: **${errMsg}**\n\n` +

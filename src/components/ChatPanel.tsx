@@ -9,6 +9,7 @@ import {
 import { useDeepgram } from '../hooks/useDeepgram';
 import { useAIChat } from '../hooks/useAIChat';
 import { ActionPreview } from './ActionPreview';
+import { ActionResult } from './ActionResult';
 import { ExtractionRunCard, isCardReady } from './ExtractionRunCard';
 import type { ExtractionRunCardData } from './ExtractionRunCard';
 import { apiService } from '../services/apiService';
@@ -673,19 +674,34 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
                             )}
 
                             {messages.map((msg) => (
-                                <div
-                                    key={msg.id}
-                                    className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
-                                >
+                                <div key={msg.id} className="space-y-1.5">
                                     <div
-                                        className={`max-w-[85%] rounded-2xl px-3 py-2 text-sm ${
-                                            msg.role === 'user'
-                                                ? 'ai-msg-bubble-user'
-                                                : 'ai-msg-bubble-assistant'
-                                        }`}
+                                        className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
                                     >
-                                        <ReactMarkdown remarkPlugins={[remarkGfm]}>{msg.content}</ReactMarkdown>
+                                        <div
+                                            className={`max-w-[85%] rounded-2xl px-3 py-2 text-sm ${
+                                                msg.role === 'user'
+                                                    ? 'ai-msg-bubble-user'
+                                                    : 'ai-msg-bubble-assistant'
+                                            }`}
+                                        >
+                                            <ReactMarkdown remarkPlugins={[remarkGfm]}>{msg.content}</ReactMarkdown>
+                                        </div>
                                     </div>
+
+                                    {/* Confirmed/cancelled action cards (readonly) */}
+                                    {msg.actions && msg.actions.length > 0 && (msg.status === 'confirmed' || msg.status === 'cancelled') && (
+                                        <ActionPreview
+                                            actions={msg.actions}
+                                            readonly
+                                            status={msg.status}
+                                        />
+                                    )}
+
+                                    {/* Result cards */}
+                                    {msg.results && msg.results.length > 0 && (
+                                        <ActionResult results={msg.results} />
+                                    )}
                                 </div>
                             ))}
 

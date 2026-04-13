@@ -1292,13 +1292,14 @@ Present results as a clear waterfall: Stage 1 → Stage 2 → ... → Final Outp
     },
     {
         name: 'assign_tag',
-        description: 'Assign a specific tag to a plant or batch.',
+        description: 'Assign a specific METRC tag to a plant, batch, or package.',
         input_schema: {
             type: 'object' as const,
             properties: {
                 tagNumber: { type: 'string', description: 'The tag number to assign' },
-                plantIdentifier: { type: 'string', description: 'Plant label or strain to identify the target' },
-                roomName: { type: 'string', description: 'Room to narrow down the target plant' },
+                plantIdentifier: { type: 'string', description: 'Plant label or strain to identify the target (for plant/batch targets)' },
+                roomName: { type: 'string', description: 'Room to narrow down the target plant (for plant/batch targets)' },
+                packageLabel: { type: 'string', description: 'Package label to assign the tag to (for package targets, e.g. "PKG-BD-F001")' },
             },
             required: ['tagNumber'],
         },
@@ -2280,6 +2281,26 @@ IMPORTANT: If the user is correcting or updating a previous statement (e.g. "act
                 ) || null;
             }
 
+            // Check whether matched template actually accepts the resolved input types
+            const resolvedTypes = resolved.map(r => r.resolvedPackageType).filter(Boolean) as string[];
+            let inputMismatch: string | null = null;
+            if (matchedTmpl && Array.isArray(matchedTmpl.accepted_inputs) && matchedTmpl.accepted_inputs.length > 0 && resolvedTypes.length > 0) {
+                const rejected = resolvedTypes.filter(rt => !matchedTmpl!.accepted_inputs!.includes(rt));
+                if (rejected.length > 0) {
+                    // Try to find a template that does accept these inputs
+                    const betterTmpl = tmplRows.find(t =>
+                        t.id !== matchedTmpl!.id &&
+                        Array.isArray(t.accepted_inputs) &&
+                        resolvedTypes.every(rt => t.accepted_inputs!.includes(rt))
+                    );
+                    if (betterTmpl) {
+                        matchedTmpl = betterTmpl;
+                    } else {
+                        inputMismatch = `"${matchedTmpl.name}" does not accept ${rejected.map(r => r.replace(/_/g, ' ')).join(', ')}. Accepted: ${matchedTmpl.accepted_inputs.map(a => a.replace(/_/g, ' ')).join(', ')}.`;
+                    }
+                }
+            }
+
             const today = new Date();
             const dateStr = `${String(today.getMonth() + 1).padStart(2, '0')}${String(today.getDate()).padStart(2, '0')}${String(today.getFullYear()).slice(-2)}`;
             const tmplLabel = matchedTmpl?.name || runInput.templateIdentifier || 'Run';
@@ -2300,6 +2321,7 @@ IMPORTANT: If the user is correcting or updating a previous statement (e.g. "act
                 templateId: matchedTmpl?.id || null,
                 templateName: matchedTmpl?.name || runInput.templateIdentifier,
                 templateMatched: Boolean(matchedTmpl),
+                inputMismatch,
                 runName,
                 strain: runInput.strain || null,
                 inputMaterial: primary?.resolvedPackageType || null,

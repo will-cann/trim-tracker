@@ -20,12 +20,35 @@ export const handler: Handler = async (event) => {
         const initialStatus = status === 'active' || status === 'planned' ? status : 'planned';
         const startedAt = initialStatus === 'active' ? new Date().toISOString() : null;
 
-        // Get template steps to copy into the run
-        const stepsResult = await sql`
-            SELECT * FROM process_steps
-            WHERE template_id = ${templateId}
-            ORDER BY step_order ASC
-        `;
+        // Get template + steps
+        const [templateResult, stepsResult] = await Promise.all([
+            sql`SELECT accepted_inputs FROM process_templates WHERE id = ${templateId} AND company_id = ${context.companyId}`,
+            sql`SELECT * FROM process_steps WHERE template_id = ${templateId} ORDER BY step_order ASC`,
+        ]);
+
+        if (templateResult.rows.length === 0) {
+            return { statusCode: 404, body: JSON.stringify({ error: 'Template not found' }) };
+        }
+
+        const acceptedInputs: string[] = templateResult.rows[0].accepted_inputs || [];
+
+        // Validate source packages against the template's accepted_inputs
+        if (acceptedInputs.length > 0 && sourcePackageIds && Array.isArray(sourcePackageIds) && sourcePackageIds.length > 0) {
+            const { rows: pkgRows } = await sql`
+                SELECT id, package_type FROM packages
+                WHERE id = ANY(${sourcePackageIds}) AND company_id = ${context.companyId}
+            `;
+            const rejected = pkgRows.filter(p => !acceptedInputs.includes(p.package_type));
+            if (rejected.length > 0) {
+                const rejectedTypes = [...new Set(rejected.map(p => p.package_type))].join(', ');
+                return {
+                    statusCode: 400,
+                    body: JSON.stringify({
+                        error: `Template does not accept input type(s): ${rejectedTypes}. Accepted: ${acceptedInputs.join(', ')}`,
+                    }),
+                };
+            }
+        }
 
         // Auto-derive input material from template's first step if not explicitly provided
         const derivedInputMaterial = inputMaterial

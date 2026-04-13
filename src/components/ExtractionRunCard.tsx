@@ -47,20 +47,31 @@ const FIELDS: FieldDef[] = [
     { key: 'strain', label: 'Strain', required: true },
     { key: 'inputPackageType', label: 'Input Type', required: true, format: v => TYPE_LABELS[v] || v },
     { key: 'inputQuantity', label: 'Input Qty', required: true, format: v => `${Number(v).toLocaleString()}g` },
-    { key: 'outputPackageType', label: 'Output Type', required: true, format: v => TYPE_LABELS[v] || v },
-    { key: 'outputQuantity', label: 'Output Qty', required: true, format: v => `${Number(v).toLocaleString()}g` },
+    { key: 'outputPackageType', label: 'Output Type', required: false, format: v => TYPE_LABELS[v] || v },
+    { key: 'outputQuantity', label: 'Output Qty', required: false, format: v => `${Number(v).toLocaleString()}g` },
     { key: 'licenseNumber', label: 'License', required: false },
 ];
 
-export function isCardReady(card: ExtractionRunCardData): boolean {
+/** Inputs are known — enough to start the run. */
+export function canStart(card: ExtractionRunCardData): boolean {
     return !!(
         card.strain &&
         card.inputPackageType &&
-        card.inputQuantity && card.inputQuantity > 0 &&
+        card.inputQuantity && card.inputQuantity > 0
+    );
+}
+
+/** Outputs are also known — enough to finish the run. */
+export function canFinish(card: ExtractionRunCardData): boolean {
+    return !!(
+        canStart(card) &&
         card.outputPackageType &&
         card.outputQuantity && card.outputQuantity > 0
     );
 }
+
+/** @deprecated Use canStart / canFinish instead. */
+export const isCardReady = canStart;
 
 interface ExtractionRunCardProps {
     card: ExtractionRunCardData;
@@ -115,7 +126,7 @@ export const ExtractionRunCard: React.FC<ExtractionRunCardProps> = ({ card, onSu
     const InputIcon = card.inputPackageType ? (TYPE_ICONS[card.inputPackageType] || Package) : null;
     const OutputIcon = card.outputPackageType ? (TYPE_ICONS[card.outputPackageType] || Package) : null;
 
-    const isReady = isCardReady(card);
+    const isReady = canStart(card);
 
     // Header icon row: input→output arrow when both types are known,
     // fallback to a generic droplets icon while the card is still filling.

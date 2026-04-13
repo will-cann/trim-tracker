@@ -1155,7 +1155,7 @@ export const LandingPage: React.FC = () => {
                 Build once.<br />Run every time.
               </h2>
               <p className="text-lg text-gray-500 leading-relaxed">
-                Define standard operating procedures as step-by-step templates. The AI generates tasks on trigger — assigning crew, setting durations, auto-executing compliance steps. Your process, systematized.
+                Define standard operating procedures as step-by-step templates. The AI generates tasks on trigger — assigning crew, setting durations, tracking completion. Your process, systematized.
               </p>
             </Reveal>
             <Reveal className="lg:col-span-8" delay={150} direction="right">

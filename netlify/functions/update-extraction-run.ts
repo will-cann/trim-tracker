@@ -180,9 +180,12 @@ export const handler: Handler = async (event) => {
                         };
                     }
 
+                    const remaining = currentQty - toConsume;
                     await client.query(
                         `UPDATE packages
-                         SET quantity = quantity - $1, updated_at = NOW()
+                         SET quantity = quantity - $1,
+                             status = CASE WHEN quantity - $1 <= 0 THEN 'finished' ELSE status END,
+                             updated_at = NOW()
                          WHERE id = $2`,
                         [toConsume, src.package_id]
                     );

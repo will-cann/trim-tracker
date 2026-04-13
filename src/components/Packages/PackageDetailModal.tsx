@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
-import { Trash2, Pause, Play, CheckCircle, MapPin, Tag, FlaskConical, Save, X, Scale, Cloud } from 'lucide-react';
-import type { Package, AdjustmentReason, PackageAdjustment } from '../../types/definitions';
+import React, { useState, useEffect, useCallback } from 'react';
+import { Trash2, Pause, Play, CheckCircle, MapPin, Tag, FlaskConical, Save, X, Scale, Cloud, ChevronDown, Loader2 } from 'lucide-react';
+import type { Package, AdjustmentReason, PackageAdjustment, Tag as TagType } from '../../types/definitions';
 import { apiService } from '../../services/apiService';
 import { DeleteConfirmationModal } from '../DeleteConfirmationModal';
 import { Modal, TypeChip } from '../ui';
@@ -41,8 +41,49 @@ export const PackageDetailModal: React.FC<PackageDetailModalProps> = ({
 
     const [rooms, setRooms] = useState<Array<{ id: string; name: string }>>([]);
 
+    // Tag assignment state
+    const [availableTags, setAvailableTags] = useState<TagType[]>([]);
+    const [tagsLoaded, setTagsLoaded] = useState(false);
+    const [tagsLoading, setTagsLoading] = useState(false);
+    const [assigningTag, setAssigningTag] = useState(false);
+
     const isEditable = pkg.status === 'active' || pkg.status === 'on_hold';
     const canDelete = userRole === 'admin' || userRole === 'director';
+
+    const loadAvailableTags = useCallback(async () => {
+        if (tagsLoaded) return;
+        setTagsLoading(true);
+        try {
+            const tags = await apiService.getTags({ status: 'available' });
+            setAvailableTags(tags);
+            setTagsLoaded(true);
+        } catch { /* silent */ }
+        setTagsLoading(false);
+    }, [tagsLoaded]);
+
+    // Load tags on mount if package has no tag and is editable
+    useEffect(() => {
+        if (isEditable && !pkg.tagId) loadAvailableTags();
+    }, [isEditable, pkg.tagId, loadAvailableTags]);
+
+    const handleAssignTag = async (tagId: string) => {
+        setAssigningTag(true);
+        try {
+            await apiService.assignTag(tagId, undefined, undefined, pkg.id);
+            await onRefresh();
+        } catch { /* silent */ }
+        setAssigningTag(false);
+    };
+
+    const handleUnassignTag = async () => {
+        if (!pkg.tagId) return;
+        setAssigningTag(true);
+        try {
+            await apiService.unassignTag(pkg.tagId);
+            await onRefresh();
+        } catch { /* silent */ }
+        setAssigningTag(false);
+    };
 
     const enterEditMode = async () => {
         if (rooms.length === 0) {
@@ -235,12 +276,51 @@ export const PackageDetailModal: React.FC<PackageDetailModalProps> = ({
                             </span>
                         )}
                     </div>
-                    {pkg.tagNumber && (
-                        <div className="flex items-center gap-2">
-                            <Tag size={14} className="text-[var(--color-dolphin)]" />
-                            <span className="font-medium">Tag:</span> {pkg.tagNumber}
-                        </div>
-                    )}
+                    {/* Tag assignment */}
+                    <div className="flex items-center gap-2">
+                        <Tag size={14} className="text-[var(--color-dolphin)]" />
+                        <span className="font-medium">Tag:</span>
+                        {pkg.tagNumber ? (
+                            <>
+                                <span className="license-number">{pkg.tagNumber}</span>
+                                {isEditable && (
+                                    <button
+                                        className="text-xs text-[var(--color-dolphin)] hover:text-[var(--color-waste)]"
+                                        style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '0 4px', fontFamily: 'inherit' }}
+                                        onClick={handleUnassignTag}
+                                        disabled={assigningTag}
+                                        title="Remove tag"
+                                    >
+                                        {assigningTag ? <Loader2 size={12} className="animate-spin" /> : <X size={12} />}
+                                    </button>
+                                )}
+                            </>
+                        ) : isEditable ? (
+                            <div style={{ position: 'relative', flex: 1, maxWidth: 200 }}>
+                                <select
+                                    className="field-input text-sm"
+                                    style={{ paddingRight: 24, appearance: 'none', cursor: 'pointer' }}
+                                    value=""
+                                    onChange={e => { if (e.target.value) handleAssignTag(e.target.value); }}
+                                    onFocus={() => { if (!tagsLoaded) loadAvailableTags(); }}
+                                    disabled={assigningTag}
+                                >
+                                    <option value="">
+                                        {tagsLoading ? 'Loading...' : assigningTag ? 'Assigning...' : 'Assign tag...'}
+                                    </option>
+                                    {availableTags.map(t => (
+                                        <option key={t.id} value={t.id}>{t.tagNumber}</option>
+                                    ))}
+                                </select>
+                                <ChevronDown size={12} style={{
+                                    position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)',
+                                    color: 'var(--color-dolphin)', pointerEvents: 'none',
+                                }} />
+                            </div>
+                        ) : (
+                            <span style={{ color: 'var(--color-dolphin)' }}>None</span>
+                        )}
+                    </div>
                 </div>
 
                 {/* Quantity / Waste / Net */}
