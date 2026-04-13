@@ -1,54 +1,19 @@
 import React, { useState } from 'react';
 import { ChevronDown, Trash2, Pause, Play, CheckCircle, MapPin, Tag, FlaskConical, Pencil, X, Save, Cloud, Scale } from 'lucide-react';
-import type { Package, LabTestingState, AdjustmentReason, PackageAdjustment } from '../../types/definitions';
+import type { Package, AdjustmentReason, PackageAdjustment } from '../../types/definitions';
 import { apiService } from '../../services/apiService';
 import { DeleteConfirmationModal } from '../DeleteConfirmationModal';
 import { TypeChip } from '../ui';
+import { LAB_LABEL, LAB_CLASS, LAB_ICON, LAB_OPTIONS, ADJUSTMENT_REASONS, type EditFields } from './packageConstants';
 
 interface PackageCardProps {
     pkg: Package;
     onUpdate: (packageId: string, updates: Record<string, any>) => void;
     onDelete: (packageId: string) => void;
+    onRefresh: () => Promise<void>;
 }
 
-const LAB_LABEL: Record<string, string> = {
-    not_submitted: 'Not Submitted',
-    submitted: 'Submitted',
-    passed: 'Passed',
-    failed: 'Failed',
-};
-
-const LAB_CLASS: Record<string, string> = {
-    not_submitted: 'text-[var(--color-dolphin)]',
-    submitted: 'text-[#FA9E52]',
-    passed: 'text-[var(--color-flower)]',
-    failed: 'text-[var(--color-waste)]',
-};
-
-const LAB_OPTIONS: { value: LabTestingState; label: string }[] = [
-    { value: 'not_submitted', label: 'Not Submitted' },
-    { value: 'submitted', label: 'Submitted' },
-    { value: 'passed', label: 'Passed' },
-    { value: 'failed', label: 'Failed' },
-];
-
-const ADJUSTMENT_REASONS: { value: AdjustmentReason; label: string }[] = [
-    { value: 'Waste', label: 'Waste' },
-    { value: 'Moisture Loss', label: 'Moisture Loss' },
-    { value: 'Processing Loss', label: 'Processing Loss' },
-    { value: 'Theft', label: 'Theft' },
-    { value: 'Reconciliation', label: 'Reconciliation' },
-];
-
-interface EditFields {
-    wasteWeight: number;
-    location: string;
-    labTestingState: LabTestingState;
-    itemName: string;
-    notes: string;
-}
-
-export const PackageCard: React.FC<PackageCardProps> = ({ pkg, onUpdate, onDelete }) => {
+export const PackageCard: React.FC<PackageCardProps> = ({ pkg, onUpdate, onDelete, onRefresh }) => {
     const [isExpanded, setIsExpanded] = useState(false);
     const [showDeleteModal, setShowDeleteModal] = useState(false);
     const [isEditing, setIsEditing] = useState(false);
@@ -162,8 +127,8 @@ export const PackageCard: React.FC<PackageCardProps> = ({ pkg, onUpdate, onDelet
                 reason: adjustReason,
                 notes: adjustNotes || undefined,
             });
-            // Refresh package via parent
-            onUpdate(pkg.id, {});
+            // Refresh packages via parent
+            onRefresh();
             // Add to local history
             setAdjustments(prev => [result.adjustment as any, ...prev]);
             setShowAdjustForm(false);
@@ -236,8 +201,8 @@ export const PackageCard: React.FC<PackageCardProps> = ({ pkg, onUpdate, onDelet
                             )}
                             <div className="summary-item">
                                 <span className="label">Lab Testing</span>
-                                <span className={`value ${LAB_CLASS[pkg.labTestingState]}`}>
-                                    {LAB_LABEL[pkg.labTestingState]}
+                                <span className={`value ${LAB_CLASS[pkg.labTestingState]}`} style={{ display: 'inline-flex', alignItems: 'center' }}>
+                                    {React.createElement(LAB_ICON[pkg.labTestingState], { size: 18 })}
                                 </span>
                             </div>
                             {pkg.tagNumber && (
@@ -478,7 +443,7 @@ export const PackageCard: React.FC<PackageCardProps> = ({ pkg, onUpdate, onDelet
                                 </div>
                             ) : (
                                 <div className="flex items-center gap-2 text-sm text-[var(--text-secondary)]">
-                                    <FlaskConical size={14} className={LAB_CLASS[pkg.labTestingState]} />
+                                    {React.createElement(LAB_ICON[pkg.labTestingState], { size: 14, className: LAB_CLASS[pkg.labTestingState] })}
                                     <span className="font-medium">Lab Testing:</span>
                                     <span className={LAB_CLASS[pkg.labTestingState]}>
                                         {LAB_LABEL[pkg.labTestingState]}

@@ -44,7 +44,7 @@ export const handler: Handler = async (event) => {
                 `, [pkg.tag_id, context.companyId]);
             }
 
-            await client.query(`DELETE FROM packages WHERE id = $1`, [id]);
+            await client.query(`DELETE FROM packages WHERE id = $1 AND company_id = $2`, [id, context.companyId]);
 
             await client.query('COMMIT');
 

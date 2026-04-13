@@ -15,7 +15,7 @@ export const handler: Handler = async (event) => {
             return { statusCode: 401, body: JSON.stringify({ error: 'Unauthorized' }) };
         }
 
-        const denied = authorize(context, 'lead');
+        const denied = authorize(context, 'technician');
         if (denied) return denied;
 
         const { packageId, quantityDelta, reason, notes } = JSON.parse(event.body || '{}');
@@ -74,8 +74,8 @@ export const handler: Handler = async (event) => {
 
             // Update package quantity
             await client.query(
-                `UPDATE packages SET quantity = $1 WHERE id = $2`,
-                [quantityAfter, packageId]
+                `UPDATE packages SET quantity = $1 WHERE id = $2 AND company_id = $3`,
+                [quantityAfter, packageId, context.companyId]
             );
 
             // Insert adjustment record

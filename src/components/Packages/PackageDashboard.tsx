@@ -4,6 +4,8 @@ import type { Package as PackageType, PackageType as PkgType, CreatePackageDTO }
 import { apiService } from '../../services/apiService';
 import { PackageCard } from './PackageCard';
 import { CreatePackageModal } from './CreatePackageModal';
+import { PackageDetailModal } from './PackageDetailModal';
+import { useAuth } from '../../contexts/authContext';
 import { CardsSkeleton } from '../Skeleton';
 import { FilterToolbar, DataTable, ViewToggle, useViewMode, TypeChip, getTypeChipStyle, EmptyState, DashboardHeader, StatCard } from '../ui';
 import type { FilterDef, SortOption, Column } from '../ui';
@@ -79,9 +81,11 @@ const PACKAGE_COLUMNS: Column<PackageType>[] = [
 // ── Main Component ──────────────────────────────────────────────────────────
 
 export const PackageDashboard: React.FC = () => {
+    const { user } = useAuth();
     const [packages, setPackages] = useState<PackageType[]>([]);
     const [loading, setLoading] = useState(true);
     const [showCreateModal, setShowCreateModal] = useState(false);
+    const [selectedPackage, setSelectedPackage] = useState<PackageType | null>(null);
     const [searchQuery, setSearchQuery] = useState('');
     const [activeFilters, setActiveFilters] = useState<Record<string, string[]>>({ type: [], strain: [], status: [] });
     const [sortField, setSortField] = useState<string | null>(null);
@@ -93,7 +97,15 @@ export const PackageDashboard: React.FC = () => {
         const data = await apiService.getPackages();
         setPackages(data);
         setLoading(false);
+        return data;
     }, []);
+
+    const refreshPackages = useCallback(async () => {
+        const fresh = await loadPackages();
+        setSelectedPackage(prev =>
+            prev ? fresh.find((p: PackageType) => p.id === prev.id) ?? null : null
+        );
+    }, [loadPackages]);
 
     useEffect(() => {
         loadPackages();
@@ -195,17 +207,18 @@ export const PackageDashboard: React.FC = () => {
             await apiService.createPackage(data);
         }
         setShowCreateModal(false);
-        await loadPackages();
+        await refreshPackages();
     };
 
     const handleUpdate = async (packageId: string, updates: Record<string, any>) => {
         await apiService.updatePackage(packageId, updates);
-        await loadPackages();
+        await refreshPackages();
     };
 
     const handleDelete = async (packageId: string) => {
+        setSelectedPackage(null);
         await apiService.deletePackage(packageId);
-        await loadPackages();
+        await refreshPackages();
     };
 
     // Table sort handler
@@ -329,6 +342,7 @@ export const PackageDashboard: React.FC = () => {
                         sortKey={sortField === 'tag' ? 'label' : sortField === 'type' ? 'packageType' : sortField}
                         sortDir={sortDir}
                         onSort={handleTableSort}
+                        onRowClick={(pkg) => setSelectedPackage(pkg)}
                     />
                 </div>
             ) : (
@@ -339,6 +353,7 @@ export const PackageDashboard: React.FC = () => {
                             pkg={pkg}
                             onUpdate={handleUpdate}
                             onDelete={handleDelete}
+                            onRefresh={refreshPackages}
                         />
                     ))}
                 </div>
@@ -348,6 +363,17 @@ export const PackageDashboard: React.FC = () => {
                 <CreatePackageModal
                     onClose={() => setShowCreateModal(false)}
                     onSubmit={handleCreate}
+                />
+            )}
+
+            {selectedPackage && (
+                <PackageDetailModal
+                    pkg={selectedPackage}
+                    onUpdate={handleUpdate}
+                    onDelete={handleDelete}
+                    onRefresh={refreshPackages}
+                    onClose={() => setSelectedPackage(null)}
+                    userRole={user?.role}
                 />
             )}
         </div>
