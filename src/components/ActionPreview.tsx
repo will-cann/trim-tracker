@@ -245,6 +245,9 @@ const KEY_FIELDS: Record<string, string[]> = {
 /** Fields FieldRow should render as a multi-line textarea. Parallels DATE_TIME_FIELDS. */
 const TEXTAREA_FIELDS = new Set(['bodyText']);
 
+/** Fields whose value is `string[]` — rendered as editable chip list with add/remove. */
+const CHIP_ARRAY_FIELDS = new Set(['strainsGrown']);
+
 /** Build a human-readable one-liner from action data */
 function summarizeAction(action: ProposedAction): string {
     const d = action.data;
@@ -412,6 +415,15 @@ const SELECT_OPTIONS: Record<string, Array<{ value: string; label: string }>> = 
         { value: 'Frozen', label: 'Fresh Frozen' },
         { value: 'Both', label: 'Both' },
     ],
+    vendorType: [
+        { value: 'consumables', label: 'Consumables' },
+        { value: 'biomass', label: 'Biomass' },
+        { value: 'both', label: 'Both' },
+    ],
+    preferredChannel: [
+        { value: 'email', label: 'Email' },
+        { value: 'sms', label: 'SMS' },
+    ],
     newStatus: [
         { value: 'upcoming', label: 'Upcoming' },
         { value: 'active', label: 'Active' },
@@ -525,6 +537,58 @@ const OPTIONS_BY_ACTION: Record<string, Record<string, Array<{ value: string; la
         ],
     },
 };
+
+function ChipArrayEditor({ value, onChange, disabled }: { value: any; onChange: (v: string[]) => void; disabled?: boolean }) {
+    const items: string[] = Array.isArray(value) ? value : [];
+    const [draft, setDraft] = useState('');
+
+    const add = () => {
+        const trimmed = draft.trim();
+        if (!trimmed) return;
+        if (items.includes(trimmed)) { setDraft(''); return; }
+        onChange([...items, trimmed]);
+        setDraft('');
+    };
+    const remove = (s: string) => onChange(items.filter(i => i !== s));
+
+    return (
+        <div className="flex-1 flex flex-wrap items-center gap-1.5 px-2 py-1 border border-gray-200 rounded-md bg-white min-h-[32px]">
+            {items.map(s => (
+                <span
+                    key={s}
+                    className="inline-flex items-center gap-1 pl-2 pr-1 py-0.5 text-xs rounded-full"
+                    style={{ background: 'rgba(59, 181, 112, 0.12)', color: 'var(--color-flower, #3BB570)' }}
+                >
+                    {s}
+                    {!disabled && (
+                        <button
+                            type="button"
+                            onClick={() => remove(s)}
+                            className="rounded-full hover:bg-black/10 w-4 h-4 flex items-center justify-center"
+                            aria-label={`Remove ${s}`}
+                        >
+                            <X size={10} />
+                        </button>
+                    )}
+                </span>
+            ))}
+            {!disabled && (
+                <input
+                    type="text"
+                    value={draft}
+                    onChange={(e) => setDraft(e.target.value)}
+                    onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ',') { e.preventDefault(); add(); }
+                        if (e.key === 'Backspace' && !draft && items.length) { remove(items[items.length - 1]); }
+                    }}
+                    onBlur={add}
+                    placeholder={items.length ? '' : 'Add strain…'}
+                    className="flex-1 min-w-[80px] text-xs px-1 py-0.5 outline-none bg-transparent"
+                />
+            )}
+        </div>
+    );
+}
 
 function DateTimePills({ value, onChange, disabled }: { value: any; onChange: (v: any) => void; disabled?: boolean }) {
     const [showCustom, setShowCustom] = useState(false);
@@ -640,6 +704,7 @@ function FieldRow({
     const isTypeField = PACKAGE_TYPE_FIELDS.has(fieldKey);
     const isDateTimeField = DATE_TIME_FIELDS.has(fieldKey);
     const isTextareaField = TEXTAREA_FIELDS.has(fieldKey);
+    const isChipArrayField = CHIP_ARRAY_FIELDS.has(fieldKey);
     const isDisplayOnly = DISPLAY_ONLY_FIELDS.has(fieldKey);
     // Shared humanizer for readonly text — "active" → "Active",
     // "in_progress" → "In Progress".
@@ -675,6 +740,8 @@ function FieldRow({
                 <span className="flex-1 text-sm px-2 py-1" style={{ color: '#1A1A1A' }}>
                     {humanize(value)}
                 </span>
+            ) : isReadonly && isChipArrayField ? (
+                <ChipArrayEditor value={value} onChange={() => {}} disabled />
             ) : isReadonly ? (
                 <span className="flex-1 text-sm text-gray-700 px-2 py-1">
                     {humanize(value)}
@@ -692,6 +759,8 @@ function FieldRow({
                         <option key={opt.value} value={opt.value}>{opt.label}</option>
                     ))}
                 </select>
+            ) : isChipArrayField ? (
+                <ChipArrayEditor value={value} onChange={onChange} disabled={isExecuting} />
             ) : isDateTimeField ? (
                 <DateTimePills value={value} onChange={onChange} disabled={isExecuting} />
             ) : isTextareaField ? (
