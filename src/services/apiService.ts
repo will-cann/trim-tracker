@@ -1403,6 +1403,12 @@ export const getVendors = async (): Promise<any[]> => {
 export const createVendor = async (data: {
     name: string; contactName?: string; contactEmail?: string; contactPhone?: string;
     leadTimeDays?: number; orderCadenceDays?: number; notes?: string;
+    vendorType?: 'consumables' | 'biomass' | 'both';
+    strainsGrown?: string[];
+    qualityNotes?: string;
+    preferredUnits?: string;
+    licenseNumber?: string;
+    preferredChannel?: 'email' | 'sms';
 }): Promise<any> => {
     const response = await fetchWithAuth(`${API_BASE}/create-vendor`, {
         method: 'POST',

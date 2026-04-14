@@ -2,6 +2,9 @@ import { Handler } from '@netlify/functions';
 import { sql } from './utils/db';
 import { resolveContext } from './utils/auth';
 
+const VENDOR_TYPES = new Set(['consumables', 'biomass', 'both']);
+const CHANNELS = new Set(['email', 'sms']);
+
 export const handler: Handler = async (event) => {
     if (event.httpMethod !== 'PUT') {
         return { statusCode: 405, body: 'Method Not Allowed' };
@@ -15,6 +18,19 @@ export const handler: Handler = async (event) => {
             return { statusCode: 400, body: JSON.stringify({ error: 'vendorId is required' }) };
         }
 
+        // Validate enums only when provided; COALESCE preserves prior value when null.
+        const vendorType = body.vendorType !== undefined
+            ? (VENDOR_TYPES.has(body.vendorType) ? body.vendorType : null)
+            : null;
+        const preferredChannel = body.preferredChannel !== undefined
+            ? (CHANNELS.has(body.preferredChannel) ? body.preferredChannel : null)
+            : null;
+        const strainsGrown = body.strainsGrown === undefined
+            ? null
+            : (Array.isArray(body.strainsGrown)
+                ? body.strainsGrown.map((s: unknown) => String(s)).filter(Boolean)
+                : null);
+
         const { rows } = await sql`
             UPDATE vendors SET
                 name = COALESCE(${body.name || null}, name),
@@ -25,6 +41,13 @@ export const handler: Handler = async (event) => {
                 order_cadence_days = COALESCE(${body.orderCadenceDays || null}, order_cadence_days),
                 notes = COALESCE(${body.notes}, notes),
                 is_active = COALESCE(${body.isActive ?? null}, is_active),
+                vendor_type = COALESCE(${vendorType}, vendor_type),
+                strains_grown = COALESCE(${strainsGrown}, strains_grown),
+                last_contacted_at = COALESCE(${body.lastContactedAt || null}, last_contacted_at),
+                quality_notes = COALESCE(${body.qualityNotes}, quality_notes),
+                preferred_units = COALESCE(${body.preferredUnits}, preferred_units),
+                license_number = COALESCE(${body.licenseNumber}, license_number),
+                preferred_channel = COALESCE(${preferredChannel}, preferred_channel),
                 updated_at = NOW()
             WHERE id = ${body.vendorId} AND company_id = ${context.companyId}
             RETURNING *
@@ -48,6 +71,13 @@ export const handler: Handler = async (event) => {
                 orderCadenceDays: r.order_cadence_days,
                 notes: r.notes,
                 isActive: r.is_active,
+                vendorType: r.vendor_type,
+                strainsGrown: r.strains_grown,
+                lastContactedAt: r.last_contacted_at,
+                qualityNotes: r.quality_notes,
+                preferredUnits: r.preferred_units,
+                licenseNumber: r.license_number,
+                preferredChannel: r.preferred_channel,
                 createdAt: r.created_at,
                 updatedAt: r.updated_at,
             }),
