@@ -497,12 +497,26 @@ export interface StrainYieldOverride {
   updatedAt: string;
 }
 
+export interface SuggestedSupplier {
+  vendorId: string;
+  name: string;
+  contactEmail: string | null;
+  lastContactedAt: string | null;
+  isSpecificMatch: boolean;
+}
+
 export interface BiomassBucket {
   type: string;
   displayName: string;
   strain: string | null;
   quantity: number;
   unit: string;
+  /** Stock already on hand, in grams. Only set on `biomassRequired` rows. */
+  onHandGrams?: number;
+  /** max(0, quantityGrams - onHandGrams). Only set on `biomassRequired` rows. */
+  shortfallGrams?: number;
+  /** Vendor suggestions for the shortfall. Only set on `biomassRequired` rows. */
+  suggestedSuppliers?: SuggestedSupplier[];
 }
 
 export interface BiomassOnHandBucket {

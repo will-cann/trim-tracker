@@ -11932,6 +11932,105 @@ select.settings-inline-input {
   }
 }
 
+/* Enriched columns: on-hand / shortfall / reach-out-to (suppliers).
+   Lives below the existing progress row — each column uses lucide icon
+   + label + value in the brand palette. No Tailwind defaults. */
+.planning-biomass-columns {
+  display: grid;
+  grid-template-columns: auto auto 1fr;
+  gap: 1rem;
+  align-items: start;
+  padding-top: 0.5rem;
+  margin-top: 0.25rem;
+  border-top: 1px dashed #F1F1F1;
+}
+.planning-biomass-col {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.375rem;
+  font-size: 0.75rem;
+  color: #959595;
+  font-weight: 400;
+}
+.planning-biomass-col svg {
+  color: #C0C0C0;
+  flex-shrink: 0;
+}
+.planning-biomass-col-label {
+  font-weight: 300;
+  color: #959595;
+  letter-spacing: 0.01em;
+}
+.planning-biomass-col-value {
+  font-weight: 700;
+  color: #1A1A1A;
+  font-feature-settings: "tnum" 1;
+}
+.planning-biomass-col-empty {
+  font-style: italic;
+  color: #C0C0C0;
+  font-weight: 300;
+}
+
+/* On-hand coverage state: Chameleon if full, Lion if partial, Cardinal if empty. */
+.planning-biomass-col--onhand.is-full .planning-biomass-col-value { color: #3BB570; }
+.planning-biomass-col--onhand.is-full svg { color: #3BB570; }
+.planning-biomass-col--onhand.is-partial .planning-biomass-col-value { color: #FA9E52; }
+.planning-biomass-col--onhand.is-partial svg { color: #FA9E52; }
+.planning-biomass-col--onhand.is-empty .planning-biomass-col-value { color: #DF5B59; }
+.planning-biomass-col--onhand.is-empty svg { color: #DF5B59; }
+
+.planning-biomass-col--shortfall.is-short .planning-biomass-col-value { color: #DF5B59; }
+.planning-biomass-col--shortfall.is-short svg { color: #DF5B59; }
+
+.planning-biomass-col--suppliers {
+  min-width: 0;
+  flex-wrap: wrap;
+}
+.planning-supplier-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  min-width: 0;
+}
+.planning-supplier-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.1875rem 0.5rem;
+  font-family: inherit;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  color: #1A1A1A;
+  background: #F1F1F1;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+.planning-supplier-chip:hover {
+  background: #FFFFFF;
+  border-color: #C0C0C0;
+}
+.planning-supplier-chip.is-specific {
+  background: rgba(59, 181, 112, 0.12);
+  color: #1A1A1A;
+  border-color: rgba(59, 181, 112, 0.35);
+}
+.planning-supplier-chip.is-specific:hover {
+  background: rgba(59, 181, 112, 0.2);
+  border-color: #3BB570;
+}
+
+@media (max-width: 560px) {
+  .planning-biomass-columns {
+    grid-template-columns: 1fr;
+    gap: 0.5rem;
+  }
+}
+
 /* Strain group — outer container for each strain's waterfall */
 .planning-strain-groups {
   display: flex;

@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect, useRef } from 'react';
-import { ArrowRight, AlertTriangle, Loader2, Copy, Printer, RotateCcw, Check, CalendarPlus, Plus, X, ChevronDown, Save, FileText } from 'lucide-react';
+import { ArrowRight, AlertTriangle, Loader2, Copy, Printer, RotateCcw, Check, CalendarPlus, Plus, X, ChevronDown, Save, FileText, Package as PackageIcon, AlertCircle, Users } from 'lucide-react';
 import type {
     BackwardPlan,
     ProductType,
@@ -714,6 +714,25 @@ export const PlanningCalculator: React.FC<PlanningCalculatorProps> = ({ onStartR
                                     const needFmt = fmtWeight(b.quantity, b.unit);
                                     const haveFmt = fmtWeight(haveQty, b.unit);
                                     const shortFmt = fmtWeight(Math.max(0, b.quantity - haveQty), b.unit);
+
+                                    // On-hand tint: green if covered, lion/orange if partial, cardinal if zero.
+                                    const onHandGrams = b.onHandGrams ?? haveQty;
+                                    const needGrams = b.quantity; // biomassRequired.quantity is grams per backend
+                                    const onHandState: 'full' | 'partial' | 'empty' =
+                                        onHandGrams <= 0 ? 'empty'
+                                            : onHandGrams >= needGrams ? 'full'
+                                                : 'partial';
+
+                                    const suppliers = b.suggestedSuppliers || [];
+
+                                    const prefillEmail = (vendorName: string) => {
+                                        const material = (b.displayName || b.type || 'biomass').toLowerCase();
+                                        const strainPart = b.strain ? `${b.strain} ${material}` : material;
+                                        window.dispatchEvent(new CustomEvent('ai:prefill', {
+                                            detail: { text: `compose an email to ${vendorName} asking if they have ${strainPart} available` }
+                                        }));
+                                    };
+
                                     return (
                                         <li key={i} className={`planning-biomass-row ${short ? 'is-short' : 'is-covered'}`}>
                                             <div className="planning-biomass-row-top">
@@ -732,6 +751,41 @@ export const PlanningCalculator: React.FC<PlanningCalculatorProps> = ({ onStartR
                                                     {haveFmt.value} {haveFmt.unit} on hand{pkgCount > 0 ? ` · ${pkgCount} pkg` : ''}
                                                     {short && <span className="planning-biomass-short"> · {shortFmt.value} {shortFmt.unit} short</span>}
                                                 </span>
+                                            </div>
+                                            <div className="planning-biomass-columns">
+                                                <div className={`planning-biomass-col planning-biomass-col--onhand is-${onHandState}`}>
+                                                    <PackageIcon size={11} />
+                                                    <span className="planning-biomass-col-label">On hand</span>
+                                                    <span className="planning-biomass-col-value">{haveFmt.value} {haveFmt.unit}</span>
+                                                </div>
+                                                <div className={`planning-biomass-col planning-biomass-col--shortfall ${short ? 'is-short' : ''}`}>
+                                                    <AlertCircle size={11} />
+                                                    <span className="planning-biomass-col-label">Shortfall</span>
+                                                    <span className="planning-biomass-col-value">
+                                                        {short ? `${shortFmt.value} ${shortFmt.unit}` : '—'}
+                                                    </span>
+                                                </div>
+                                                <div className="planning-biomass-col planning-biomass-col--suppliers">
+                                                    <Users size={11} />
+                                                    <span className="planning-biomass-col-label">Reach out to</span>
+                                                    {suppliers.length === 0 ? (
+                                                        <span className="planning-biomass-col-empty">No suppliers on file</span>
+                                                    ) : (
+                                                        <div className="planning-supplier-chips">
+                                                            {suppliers.map(s => (
+                                                                <button
+                                                                    key={s.vendorId}
+                                                                    type="button"
+                                                                    className={`planning-supplier-chip ${s.isSpecificMatch ? 'is-specific' : ''}`}
+                                                                    onClick={() => prefillEmail(s.name)}
+                                                                    title={s.contactEmail || 'No contact email'}
+                                                                >
+                                                                    {s.name}
+                                                                </button>
+                                                            ))}
+                                                        </div>
+                                                    )}
+                                                </div>
                                             </div>
                                         </li>
                                     );
