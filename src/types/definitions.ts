@@ -253,6 +253,43 @@ export interface License {
 
 export type StretchTrait = 'low' | 'medium' | 'high';
 
+export type Phenotype = 'sativa' | 'indica' | 'hybrid';
+
+/**
+ * Canonical terpene taxonomy for the variety planner. Nine buckets chosen
+ * to roughly span what operators care about when balancing a mixed menu.
+ * Strains can carry up to 3 tags (enforced app-side by upsert-strain).
+ * Kept as string literal values that persist to Postgres as text[] — no
+ * enum CHECK so new buckets can be added without a schema change.
+ */
+export const TERPENE_TAGS = [
+  'gassy',
+  'citrus',
+  'floral',
+  'sweet_dessert',
+  'earthy_pine',
+  'creamy',
+  'fruit',
+  'spicy_herbal',
+  'candy',
+] as const;
+export type TerpeneTag = typeof TERPENE_TAGS[number];
+
+/** Display labels for terpene tag values. */
+export const TERPENE_TAG_LABELS: Record<TerpeneTag, string> = {
+  gassy: 'Gassy / Diesel',
+  citrus: 'Citrus',
+  floral: 'Floral',
+  sweet_dessert: 'Sweet / Dessert',
+  earthy_pine: 'Earthy / Pine',
+  creamy: 'Creamy',
+  fruit: 'Fruit',
+  spicy_herbal: 'Spicy / Herbal',
+  candy: 'Candy',
+};
+
+export const MAX_TERPENE_TAGS = 3;
+
 export interface Strain {
   id: string;
   name: string;
@@ -260,6 +297,12 @@ export interface Strain {
   defaultFloweringDays: number | null;
   stretchTrait: StretchTrait | null;
   notes: string | null;
+  // Variety-planner attributes (migration 063). All nullable — legacy
+  // strains work with no data and the planner degrades gracefully.
+  phenotype: Phenotype | null;
+  terpeneTags: TerpeneTag[] | null;
+  expectedYieldPct: number | null;
+  avgCostPerG: number | null;
   harvestCount: number;
   sessionCount: number;
   createdAt: string;
