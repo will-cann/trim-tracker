@@ -10,6 +10,7 @@ interface Props {
     loading: boolean;
     onRefresh: () => Promise<void>;
     onStartOrder: (vendorId: string) => void;
+    onOpenDetail?: (vendorId: string) => void;
 }
 
 const EMPTY: Partial<Vendor> = {
@@ -80,7 +81,7 @@ const EditableCell = ({
 
     return (
         <button
-            onClick={() => setEditing(true)}
+            onClick={(e) => { e.stopPropagation(); setEditing(true); }}
             style={{
                 background: 'none', border: 'none', cursor: 'text', textAlign: 'left',
                 padding: '4px 8px', margin: '-4px -8px', borderRadius: 4, width: 'calc(100% + 16px)',
@@ -102,7 +103,7 @@ const EditableCell = ({
 
 // ── VendorList ──────────────────────────────────────────────────────────────
 
-export const VendorList: React.FC<Props> = ({ vendors, loading, onRefresh, onStartOrder }) => {
+export const VendorList: React.FC<Props> = ({ vendors, loading, onRefresh, onStartOrder, onOpenDetail }) => {
     const [showForm, setShowForm] = useState(false);
     const [editing, setEditing] = useState<Partial<Vendor>>(EMPTY);
     const [saving, setSaving] = useState(false);
@@ -311,6 +312,14 @@ export const VendorList: React.FC<Props> = ({ vendors, loading, onRefresh, onSta
                 data={filtered}
                 loading={loading}
                 emptyMessage="Your vendor list builds automatically when you upload menus. You can also add vendors manually."
+                onRowClick={onOpenDetail
+                    ? (v) => {
+                        // Only biomass vendors open the supplier detail view.
+                        // Other types keep the existing inline-edit behavior.
+                        if (v.vendorType === 'biomass') onOpenDetail(v.id);
+                    }
+                    : undefined
+                }
             />
 
             {showForm && (

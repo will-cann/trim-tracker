@@ -1461,6 +1461,12 @@ export const sendSupplierEmail = async (data: {
     return await response.json();
 };
 
+// Sentinel so SupplierDetail can render "Messaging not enabled yet" cleanly when the
+// contact-threads endpoints return 404 (e.g., pre-deploy).
+export class ContactThreadsUnavailableError extends Error {
+    constructor() { super('contact-threads-unavailable'); }
+}
+
 export const getVendorProducts = async (vendorId?: string): Promise<any[]> => {
     const url = vendorId
         ? `${API_BASE}/get-vendor-products?vendorId=${vendorId}`
