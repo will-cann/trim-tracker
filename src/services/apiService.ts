@@ -1,4 +1,4 @@
-import type { TrimSession, CreateTrimSessionDTO, Trimmer, TrimmerProfile, ProposedAction, Harvest, CreateHarvestDTO, HarvestWasteType, HarvestAllocation, HarvestPlantWeight, HarvestBin, BinCureLog, CreateBinDTO, FloweringBatchGroup, Strain, License, SpeechMode, HumanTask, TeamRole, Tag, TagType, TagStats, TagSettings, Package, CreatePackageDTO, MetrcItem, PackageAdjustment, AdjustmentReason, ProductType, ProcessTemplate, StepSupplyRequirement, YieldAverage, BackwardPlan, PlanningSession, StrainYieldOverride, ReportSpec, SavedReport, TaskViewSpec, SavedTaskView, SupplyPool, SupplyItem, SupplyLedgerEntry, SupplyChangeType, SupplyPoolSlug } from '../types/definitions';
+import type { TrimSession, CreateTrimSessionDTO, Trimmer, TrimmerProfile, ProposedAction, Harvest, CreateHarvestDTO, HarvestWasteType, HarvestAllocation, HarvestPlantWeight, HarvestBin, BinCureLog, CreateBinDTO, FloweringBatchGroup, Strain, License, SpeechMode, HumanTask, TeamRole, Tag, TagType, TagStats, TagSettings, Package, CreatePackageDTO, MetrcItem, PackageAdjustment, AdjustmentReason, ProductType, ProcessTemplate, StepSupplyRequirement, YieldAverage, BackwardPlan, PlanningSession, StrainYieldOverride, ReportSpec, SavedReport, TaskViewSpec, SavedTaskView, SupplyPool, SupplyItem, SupplyLedgerEntry, SupplyChangeType, SupplyPoolSlug, ContactThread } from '../types/definitions';
 
 const API_BASE = '/.netlify/functions';
 
@@ -1453,6 +1453,25 @@ export const upsertVendorProduct = async (data: {
     return await response.json();
 };
 
+// ============================================================================
+// CONTACT THREADS
+// ============================================================================
+
+export const getContactThreads = async (vendorId?: string): Promise<ContactThread[]> => {
+    const url = vendorId
+        ? `${API_BASE}/get-contact-threads?vendorId=${vendorId}`
+        : `${API_BASE}/get-contact-threads`;
+    const response = await fetchWithAuth(url);
+    if (!response.ok) return [];
+    return await response.json();
+};
+
+export const getContactThread = async (id: string): Promise<ContactThread | null> => {
+    const response = await fetchWithAuth(`${API_BASE}/get-contact-thread?id=${id}`);
+    if (!response.ok) return null;
+    return await response.json();
+};
+
 export const getStores = async (): Promise<any[]> => {
     const response = await fetchWithAuth(`${API_BASE}/get-stores`);
     if (!response.ok) return [];
@@ -1962,6 +1981,8 @@ export const apiService = {
     deleteVendor,
     getVendorProducts,
     upsertVendorProduct,
+    getContactThreads,
+    getContactThread,
     getStores,
     saveStore,
     getOrders,
