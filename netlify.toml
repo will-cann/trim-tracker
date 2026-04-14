@@ -16,6 +16,10 @@
 [functions."ai-parse"]
   timeout = 120
 
+# Scheduled: supplier outreach cadence reminders (daily 14:00 UTC / 09:00 CT)
+[functions."cron-supplier-reminders"]
+  schedule = "0 14 * * *"
+
 [[redirects]]
   from = "/*"
   to = "/index.html"

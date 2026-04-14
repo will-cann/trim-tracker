@@ -4,6 +4,7 @@ import type { Vendor, VendorType } from '../../types/definitions';
 import { apiService } from '../../services/apiService';
 import { DataTable, Modal } from '../ui';
 import type { Column } from '../ui';
+import { SupplierOverdueBadge } from './SupplierOverdueBadge';
 
 interface Props {
     vendors: Vendor[];
@@ -202,7 +203,7 @@ export const VendorList: React.FC<Props> = ({ vendors, loading, onRefresh, onSta
         {
             key: 'name', label: 'Vendor', sortable: true,
             render: (v) => (
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                     <EditableCell
                         value={v.name}
                         placeholder="Vendor name"
@@ -222,6 +223,7 @@ export const VendorList: React.FC<Props> = ({ vendors, loading, onRefresh, onSta
                             <Leaf size={10} /> {v.vendorType === 'both' ? 'Both' : 'Biomass'}
                         </span>
                     )}
+                    <SupplierOverdueBadge vendor={v} />
                 </div>
             ),
         },

@@ -749,6 +749,9 @@ export interface Vendor {
   orderCount: number;
   createdAt: string;
   updatedAt: string;
+  // P4 CRM — supplier outreach cadence (Unit 9). Nullable until migration/cron populate.
+  outreachCadenceDays?: number | null;
+  nextReminderAt?: string | null;
 }
 
 export interface VendorProduct {
