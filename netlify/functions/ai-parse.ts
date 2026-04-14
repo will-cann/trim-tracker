@@ -358,6 +358,20 @@ Example draft:
 
 Only propose \`compose_supplier_email\` for vendors with vendor_type 'biomass' or 'both'. If the user names a vendor you can't find by that name, ask them to clarify — do not make up a vendorId.
 
+## Vendor / Supplier Management
+
+When the user introduces a new vendor, grower, or supplier — or tells you enough to identify one you should create — use \`create_vendor\`. When they update an existing vendor's contact info, strains grown, preferred channel, or cadence, use \`update_vendor\`. Examples of phrases that should trigger vendor actions:
+
+- "Add Mike Smith as a new grower, mike@example.com, grows Blue Dream and GSC" → \`create_vendor\` with vendorType='biomass', contactName, contactEmail, strainsGrown.
+- "Our press-bag supplier is Pure Pressure, 5-day lead time" → \`create_vendor\` with vendorType='consumables', name='Pure Pressure', leadTimeDays=5.
+- "Mike now also supplies Gelato" → \`update_vendor\` with vendorName='Mike Smith', strainsGrown=['Blue Dream', 'GSC', 'Gelato'] (include existing strains).
+- "Archive the Happy Leaf account, they stopped responding" → \`update_vendor\` with isActive=false (prefer this over \`delete_vendor\`).
+
+Guidance:
+- Default \`vendorType\` to 'consumables' unless the context clearly indicates a biomass/cultivator (e.g., "grower", "cultivator", "farm", "fresh frozen", a strain list).
+- For biomass suppliers, contact email is high-value — if the user mentions how to reach them, capture it so follow-up \`compose_supplier_email\` actions can address them.
+- Do not invent fields. If the user only gave a name, create the vendor with just \`name\` — other fields can be filled in later.
+
 ## Response Style
 - **Be action-first.** When the user asks you to do something, produce the actions immediately — don't ask for confirmation or list options. The user sees a preview and can edit or cancel.
 - **No reasoning preambles.** Do NOT narrate your thought process before producing the answer. Forbidden openers include: "Looking at this transcript/voice/request/query", "Let me check", "Let me look up", "I'll analyze this", "I'll look up", "I'll help you", "Based on the data/transcript/context", "Here's what I found", "I see that", "I understand that", "Let me first", "I'll first". Skip straight to the substance. The user never sees your reasoning — only the final answer — and preambles fill their limited screen space with noise.
@@ -1291,6 +1305,68 @@ Present results as a clear waterfall: Stage 1 → Stage 2 → ... → Final Outp
                 roomName: { type: 'string', description: 'Room name to delete' },
             },
             required: ['roomName'],
+        },
+    },
+    // ── Vendor / Supplier Management ──
+    {
+        name: 'create_vendor',
+        description: 'Create a new vendor or supplier. Use for consumables vendors (press bags, carts, etc.) and biomass suppliers (fresh-frozen growers). vendorType defaults to "consumables" when unclear.',
+        input_schema: {
+            type: 'object' as const,
+            properties: {
+                name: { type: 'string', description: 'Vendor or supplier name' },
+                vendorType: { type: 'string', enum: ['consumables', 'biomass', 'both'], description: 'Type of vendor. Use "biomass" for fresh-frozen growers and cultivators who supply input material; "consumables" for press bags, carts, packaging; "both" for rare hybrids. Default "consumables".' },
+                contactName: { type: 'string', description: 'Primary contact person' },
+                contactEmail: { type: 'string', description: 'Contact email (required for biomass suppliers so AI can send outreach emails)' },
+                contactPhone: { type: 'string', description: 'Contact phone' },
+                leadTimeDays: { type: 'number', description: 'Typical lead time in days between order and delivery' },
+                orderCadenceDays: { type: 'number', description: 'Typical re-order cadence in days' },
+                strainsGrown: { type: 'array', items: { type: 'string' }, description: 'For biomass suppliers: strains this grower typically has available' },
+                licenseNumber: { type: 'string', description: 'Their cannabis cultivation license number (biomass suppliers only)' },
+                qualityNotes: { type: 'string', description: 'Free-text notes about quality, reliability, preferred runs, etc.' },
+                preferredUnits: { type: 'string', description: 'Unit they price/sell in — "lb", "kg", "g", "oz"' },
+                preferredChannel: { type: 'string', enum: ['email', 'sms'], description: 'How they prefer to be contacted. Default "email".' },
+                outreachCadenceDays: { type: 'number', description: 'How often to remind the team to reach out (days) — used for the supplier reminder cron' },
+                notes: { type: 'string', description: 'General notes about this vendor' },
+            },
+            required: ['name'],
+        },
+    },
+    {
+        name: 'update_vendor',
+        description: 'Update an existing vendor. Identify by current vendor name; any field omitted is left unchanged.',
+        input_schema: {
+            type: 'object' as const,
+            properties: {
+                vendorName: { type: 'string', description: 'Current vendor name to identify. If the user names a vendor you cannot find, ask them to clarify — do not make up one.' },
+                name: { type: 'string', description: 'New vendor name (if renaming)' },
+                vendorType: { type: 'string', enum: ['consumables', 'biomass', 'both'] },
+                contactName: { type: 'string' },
+                contactEmail: { type: 'string' },
+                contactPhone: { type: 'string' },
+                leadTimeDays: { type: 'number' },
+                orderCadenceDays: { type: 'number' },
+                strainsGrown: { type: 'array', items: { type: 'string' }, description: 'Replaces the full list — include strains the vendor still grows plus any new ones.' },
+                licenseNumber: { type: 'string' },
+                qualityNotes: { type: 'string' },
+                preferredUnits: { type: 'string' },
+                preferredChannel: { type: 'string', enum: ['email', 'sms'] },
+                outreachCadenceDays: { type: 'number' },
+                notes: { type: 'string' },
+                isActive: { type: 'boolean', description: 'Set to false to archive the vendor' },
+            },
+            required: ['vendorName'],
+        },
+    },
+    {
+        name: 'delete_vendor',
+        description: 'Archive / soft-delete a vendor. Use sparingly — prefer setting isActive=false via update_vendor when the user just wants to stop seeing them.',
+        input_schema: {
+            type: 'object' as const,
+            properties: {
+                vendorName: { type: 'string', description: 'Vendor name to delete' },
+            },
+            required: ['vendorName'],
         },
     },
     // ── Tag Management ──
@@ -3637,6 +3713,56 @@ IMPORTANT: If the user is correcting or updating a previous statement (e.g. "act
                         actions.push({
                             type: 'delete_room',
                             data: { roomName: input.roomName },
+                        });
+                        break;
+                    case 'create_vendor':
+                        actions.push({
+                            type: 'create_vendor',
+                            data: {
+                                name: input.name,
+                                vendorType: input.vendorType || 'consumables',
+                                contactName: input.contactName,
+                                contactEmail: input.contactEmail,
+                                contactPhone: input.contactPhone,
+                                leadTimeDays: input.leadTimeDays,
+                                orderCadenceDays: input.orderCadenceDays,
+                                strainsGrown: input.strainsGrown,
+                                licenseNumber: input.licenseNumber,
+                                qualityNotes: input.qualityNotes,
+                                preferredUnits: input.preferredUnits,
+                                preferredChannel: input.preferredChannel,
+                                outreachCadenceDays: input.outreachCadenceDays,
+                                notes: input.notes,
+                            },
+                        });
+                        break;
+                    case 'update_vendor':
+                        actions.push({
+                            type: 'update_vendor',
+                            data: {
+                                vendorName: input.vendorName,
+                                name: input.name,
+                                vendorType: input.vendorType,
+                                contactName: input.contactName,
+                                contactEmail: input.contactEmail,
+                                contactPhone: input.contactPhone,
+                                leadTimeDays: input.leadTimeDays,
+                                orderCadenceDays: input.orderCadenceDays,
+                                strainsGrown: input.strainsGrown,
+                                licenseNumber: input.licenseNumber,
+                                qualityNotes: input.qualityNotes,
+                                preferredUnits: input.preferredUnits,
+                                preferredChannel: input.preferredChannel,
+                                outreachCadenceDays: input.outreachCadenceDays,
+                                notes: input.notes,
+                                isActive: input.isActive,
+                            },
+                        });
+                        break;
+                    case 'delete_vendor':
+                        actions.push({
+                            type: 'delete_vendor',
+                            data: { vendorName: input.vendorName },
                         });
                         break;
                     case 'import_tags':
