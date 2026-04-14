@@ -29,7 +29,8 @@ export const handler: Handler = async (event) => {
                 company_id, name, contact_name, contact_email, contact_phone,
                 lead_time_days, order_cadence_days, notes,
                 vendor_type, strains_grown, last_contacted_at, quality_notes,
-                preferred_units, license_number, preferred_channel
+                preferred_units, license_number, preferred_channel,
+                outreach_cadence_days
             )
             VALUES (
                 ${context.companyId}, ${body.name.trim()}, ${body.contactName || null},
@@ -37,7 +38,8 @@ export const handler: Handler = async (event) => {
                 ${body.leadTimeDays || 3}, ${body.orderCadenceDays || 7}, ${body.notes || null},
                 ${vendorType}, ${strainsGrown}, ${body.lastContactedAt || null},
                 ${body.qualityNotes || null}, ${body.preferredUnits || null},
-                ${body.licenseNumber || null}, ${preferredChannel}
+                ${body.licenseNumber || null}, ${preferredChannel},
+                ${body.outreachCadenceDays || null}
             )
             RETURNING *
         `;
@@ -63,6 +65,8 @@ export const handler: Handler = async (event) => {
                 preferredUnits: r.preferred_units,
                 licenseNumber: r.license_number,
                 preferredChannel: r.preferred_channel,
+                outreachCadenceDays: r.outreach_cadence_days,
+                nextReminderAt: r.next_reminder_at,
                 createdAt: r.created_at,
                 updatedAt: r.updated_at,
             }),

@@ -36,12 +36,14 @@ const EditableCell = ({
     placeholder,
     type = 'text',
     suffix,
+    title,
     onSave,
 }: {
     value: string | number | null | undefined;
     placeholder: string;
     type?: 'text' | 'number' | 'email';
     suffix?: string;
+    title?: string;
     onSave: (val: string) => void;
 }) => {
     const [editing, setEditing] = useState(false);
@@ -82,6 +84,7 @@ const EditableCell = ({
 
     return (
         <button
+            title={title}
             onClick={(e) => { e.stopPropagation(); setEditing(true); }}
             style={{
                 background: 'none', border: 'none', cursor: 'text', textAlign: 'left',
@@ -184,7 +187,7 @@ export const VendorList: React.FC<Props> = ({ vendors, loading, onRefresh, onSta
 
     const handleInlineUpdate = async (id: string, field: string, value: string) => {
         const update: Record<string, any> = {};
-        if (field === 'leadTimeDays' || field === 'orderCadenceDays') {
+        if (field === 'leadTimeDays' || field === 'orderCadenceDays' || field === 'outreachCadenceDays') {
             update[field] = value ? Number(value) : null;
         } else {
             update[field] = value || null;
@@ -257,16 +260,25 @@ export const VendorList: React.FC<Props> = ({ vendors, loading, onRefresh, onSta
                 />
             ),
         },
-        { key: 'orderCadenceDays', label: 'Cadence', width: 90, align: 'center',
-            render: (v) => (
-                <EditableCell
-                    value={v.orderCadenceDays}
-                    placeholder="--"
-                    type="number"
-                    suffix="d"
-                    onSave={val => handleInlineUpdate(v.id, 'orderCadenceDays', val)}
-                />
-            ),
+        { key: 'cadence', label: 'Cadence', width: 100, align: 'center',
+            render: (v) => {
+                // Biomass suppliers: show outreach cadence (days between check-in reminders).
+                // Consumables vendors: show order cadence (days between re-orders).
+                // "Both" shows outreach as the primary signal since re-order cadence varies by SKU.
+                const isOutreach = v.vendorType === 'biomass' || v.vendorType === 'both';
+                const field = isOutreach ? 'outreachCadenceDays' : 'orderCadenceDays';
+                const value = isOutreach ? v.outreachCadenceDays : v.orderCadenceDays;
+                return (
+                    <EditableCell
+                        value={value ?? null}
+                        placeholder="--"
+                        type="number"
+                        suffix="d"
+                        title={isOutreach ? 'Outreach cadence — days between reach-out reminders' : 'Order cadence — typical re-order interval in days'}
+                        onSave={val => handleInlineUpdate(v.id, field, val)}
+                    />
+                );
+            },
         },
         { key: 'productCount', label: 'Products', width: 80, align: 'center',
             render: (v) => <span style={{ color: 'var(--text-secondary)', fontSize: '0.8125rem' }}>{v.productCount}</span>,
@@ -383,10 +395,15 @@ export const VendorList: React.FC<Props> = ({ vendors, loading, onRefresh, onSta
                             <label className="field-label">Lead Time (days)</label>
                             <input className="field-input" type="number" min={0} value={editing.leadTimeDays ?? 3} onChange={e => setEditing(p => ({ ...p, leadTimeDays: +e.target.value }))} />
                         </div>
-                        <div className="field">
-                            <label className="field-label">Order Cadence (days)</label>
-                            <input className="field-input" type="number" min={1} value={editing.orderCadenceDays ?? 7} onChange={e => setEditing(p => ({ ...p, orderCadenceDays: +e.target.value }))} />
-                        </div>
+                        {/* Consumables vendors re-order on a schedule; biomass growers don't. Hide the
+                            field for pure biomass rows — the corresponding outreach cadence shows in
+                            the Biomass details fieldset below. "Both" types see both. */}
+                        {editing.vendorType !== 'biomass' && (
+                            <div className="field">
+                                <label className="field-label">Order Cadence (days)</label>
+                                <input className="field-input" type="number" min={1} value={editing.orderCadenceDays ?? 7} onChange={e => setEditing(p => ({ ...p, orderCadenceDays: +e.target.value }))} />
+                            </div>
+                        )}
                     </div>
                     <div className="field">
                         <label className="field-label">Notes</label>
@@ -485,6 +502,20 @@ export const VendorList: React.FC<Props> = ({ vendors, loading, onRefresh, onSta
                                     onChange={e => setEditing(p => ({ ...p, qualityNotes: e.target.value }))}
                                     placeholder="Moisture, terp profile, consistency issues..."
                                 />
+                            </div>
+                            <div className="field">
+                                <label className="field-label">Outreach Cadence (days)</label>
+                                <input
+                                    className="field-input"
+                                    type="number"
+                                    min={1}
+                                    placeholder="e.g. 30"
+                                    value={editing.outreachCadenceDays ?? ''}
+                                    onChange={e => setEditing(p => ({ ...p, outreachCadenceDays: e.target.value ? +e.target.value : null }))}
+                                />
+                                <small style={{ color: 'var(--text-secondary)', fontSize: '0.6875rem' }}>
+                                    How often to remind the team to reach out. Blank = no reminders.
+                                </small>
                             </div>
                         </fieldset>
                     )}

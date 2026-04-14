@@ -48,6 +48,7 @@ export const handler: Handler = async (event) => {
                 preferred_units = COALESCE(${body.preferredUnits}, preferred_units),
                 license_number = COALESCE(${body.licenseNumber}, license_number),
                 preferred_channel = COALESCE(${preferredChannel}, preferred_channel),
+                outreach_cadence_days = COALESCE(${body.outreachCadenceDays ?? null}, outreach_cadence_days),
                 updated_at = NOW()
             WHERE id = ${body.vendorId} AND company_id = ${context.companyId}
             RETURNING *
@@ -78,6 +79,8 @@ export const handler: Handler = async (event) => {
                 preferredUnits: r.preferred_units,
                 licenseNumber: r.license_number,
                 preferredChannel: r.preferred_channel,
+                outreachCadenceDays: r.outreach_cadence_days,
+                nextReminderAt: r.next_reminder_at,
                 createdAt: r.created_at,
                 updatedAt: r.updated_at,
             }),
