@@ -9,6 +9,7 @@ import { ProductCatalog } from './ProductCatalog';
 import { StoreList } from './StoreList';
 import { OrderList } from './OrderList';
 import { OrderBuilder } from './OrderBuilder';
+import { SupplierDetail } from './SupplierDetail';
 import { MenuUploadModal, processFiles, EMPTY_PARSE_STATE } from './MenuUploadModal';
 import type { ParseState } from './MenuUploadModal';
 import { SalesImportModal } from './SalesImportModal';
@@ -35,6 +36,7 @@ export const OrderingDashboard = () => {
     const skuMatchAbortRef = useRef(false);
     const [buildingOrderVendorId, setBuildingOrderVendorId] = useState<string | null>(null);
     const [editingOrderId, setEditingOrderId] = useState<string | null>(null);
+    const [supplierDetailVendorId, setSupplierDetailVendorId] = useState<string | null>(null);
 
     // Parse state lives here so it survives modal close
     const [parseState, setParseState] = useState<ParseState>(EMPTY_PARSE_STATE);
@@ -202,6 +204,16 @@ export const OrderingDashboard = () => {
         );
     }
 
+    // If a biomass supplier is selected, show its detail view
+    if (supplierDetailVendorId) {
+        return (
+            <SupplierDetail
+                vendorId={supplierDetailVendorId}
+                onBack={() => { setSupplierDetailVendorId(null); refreshVendors(); }}
+            />
+        );
+    }
+
     const TABS: { key: Tab; label: string; icon: typeof StoreIcon; count?: number }[] = [
         { key: 'products', label: 'Products', icon: Package, count: products.length },
         { key: 'vendors', label: 'Vendors', icon: Building2, count: vendors.length },
@@ -282,6 +294,7 @@ export const OrderingDashboard = () => {
                     loading={loading}
                     onRefresh={refreshVendors}
                     onStartOrder={handleStartOrder}
+                    onOpenDetail={(id) => setSupplierDetailVendorId(id)}
                 />
             )}
             {tab === 'products' && (
