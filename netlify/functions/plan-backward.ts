@@ -83,12 +83,23 @@ interface PlanStage {
     contributingTargets: number[];
 }
 
+interface SuggestedSupplier {
+    vendorId: string;
+    name: string;
+    contactEmail: string | null;
+    lastContactedAt: string | null;
+    isSpecificMatch: boolean;
+}
+
 interface BiomassBucket {
     type: string;
     displayName: string;
     strain: string | null;
     quantity: number;
     unit: string;
+    onHandGrams?: number;
+    shortfallGrams?: number;
+    suggestedSuppliers?: SuggestedSupplier[];
 }
 
 interface BiomassOnHandBucket {
@@ -516,14 +527,6 @@ export const handler: Handler = async (event) => {
         const biomassGap: BiomassBucket[] = [];
 
         for (const bucket of biomassNeeded.values()) {
-            biomassRequired.push({
-                type: bucket.type,
-                displayName: bucket.displayName,
-                strain: bucket.strain,
-                quantity: bucket.quantity,
-                unit: bucket.unit,
-            });
-
             const params: unknown[] = [companyId, bucket.type];
             let query = `SELECT id, label, strain, quantity, unit
                          FROM packages
@@ -552,6 +555,54 @@ export const handler: Handler = async (event) => {
                 packages,
             });
             const gap = Math.max(0, bucket.quantity - totalOnHand);
+
+            // Supplier suggestions for this bucket. Unit 1 is adding
+            // vendor_type/strains_grown/last_contacted_at in a sibling PR; until
+            // that lands, this query will raise "column does not exist". Swallow
+            // the error so the planner still works in the meantime.
+            let suggestedSuppliers: SuggestedSupplier[] = [];
+            try {
+                const vendorParams: unknown[] = [companyId];
+                let vendorQuery = `SELECT id, name, contact_email, last_contacted_at,
+                                          (strains_grown IS NOT NULL AND $2::text IS NOT NULL
+                                            AND $2::text = ANY(strains_grown)) AS specific_match
+                                   FROM vendors
+                                   WHERE company_id = $1
+                                     AND is_active = TRUE
+                                     AND vendor_type IN ('biomass', 'both')`;
+                vendorParams.push(bucket.strain);
+                if (bucket.strain) {
+                    vendorQuery += ` AND ($2::text = ANY(strains_grown) OR strains_grown IS NULL)`;
+                }
+                vendorQuery += ` ORDER BY specific_match DESC NULLS LAST, last_contacted_at DESC NULLS LAST, name ASC
+                                 LIMIT 5`;
+                const vendorRes = await pool.query(vendorQuery, vendorParams);
+                suggestedSuppliers = vendorRes.rows.map((v: Record<string, unknown>) => ({
+                    vendorId: v.id as string,
+                    name: v.name as string,
+                    contactEmail: (v.contact_email as string | null) ?? null,
+                    lastContactedAt: v.last_contacted_at
+                        ? new Date(v.last_contacted_at as string).toISOString()
+                        : null,
+                    isSpecificMatch: bucket.strain ? Boolean(v.specific_match) : false,
+                }));
+            } catch (err) {
+                // Columns not yet migrated. Fall back to empty list.
+                console.warn('[plan-backward] supplier suggestion query failed (likely pre-migration):',
+                    err instanceof Error ? err.message : err);
+            }
+
+            biomassRequired.push({
+                type: bucket.type,
+                displayName: bucket.displayName,
+                strain: bucket.strain,
+                quantity: bucket.quantity,
+                unit: bucket.unit,
+                onHandGrams: Math.round(totalOnHand * 100) / 100,
+                shortfallGrams: Math.ceil(gap * 100) / 100,
+                suggestedSuppliers,
+            });
+
             if (gap > 0) {
                 biomassGap.push({
                     type: bucket.type,
