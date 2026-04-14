@@ -1,5 +1,31 @@
 # Holland SME Call #2 — Extraction Workflow Feedback
 
+## P4 implementation status (Apr 2026)
+
+This slice adds (delivered across PRs #TBD):
+
+- Demand-planning inventory overlay — current on-hand inputs shown alongside
+  demand-backward requirements so the gap to source is explicit.
+- Biomass supplier type on vendors — distinguishes fresh-frozen / flower
+  suppliers from consumables vendors for outreach and ordering.
+- Email-based supplier CRM — outbound via `netlify/functions/send-supplier-email.ts`,
+  inbound via `netlify/functions/receive-email.ts` behind SendGrid Inbound Parse,
+  threads in `contact_threads`/`contact_messages`, AI `compose_supplier_email`
+  action with editable preview, Claude-parsed inbound bodies into `vendor_products`.
+- Outreach reminders — follow-up tasks generated when a supplier thread goes
+  stale without a reply.
+
+Explicitly out of scope for this slice:
+
+- METRC integration (creation, adjustments, lab results, sync).
+- SMS notifications or SMS-based CRM (schema-ready, not wired).
+- Inventory snapshots (`inventory_snapshots` table / cron).
+- Multi-run planning sessions (batched planning across simultaneous runs).
+- Working-hours / shift-aware scheduling for multi-day runs.
+
+---
+
+
 **Date:** April 9, 2026
 **Participants:** Will Parkhurst, Holland (extraction consultant)
 **Context:** Follow-up to the March 30 SME call. Holland operates across Cherry, Fusion, Hybrid, with Buffalo and Maryland facilities planned. Runs a wholesale rosin program sourcing external fresh frozen, managing remote lab techs, and handling METRC compliance through a third-party admin (Caitlyn).

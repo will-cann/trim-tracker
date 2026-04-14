@@ -84,6 +84,20 @@ PostgreSQL on Neon. Multi-tenant via `company_id` on all tables. 24+ migrations 
 - `definitions.ts` — All shared frontend types (entities, DTOs, enums, AI/chat types)
 - `plantMap.ts` — Plant map module types, health system, contamination constants, room entities
 
+### Email / CRM
+
+Supplier and contact email is handled via SendGrid. Outbound sends go through
+`netlify/functions/send-supplier-email.ts`, which stubs to a no-op log when
+`SENDGRID_API_KEY` is unset so local dev doesn't require SendGrid credentials.
+Inbound replies hit `netlify/functions/receive-email.ts`, exposed behind SendGrid
+Inbound Parse on `replies.neurocann.app` (`SENDGRID_INBOUND_DOMAIN`). Threads and
+messages persist server-side in the `contact_threads` and `contact_messages`
+tables, scoped by `company_id`. The AI composes drafts via the
+`compose_supplier_email` proposed action, which renders an editable preview before
+send. Inbound bodies are parsed by Claude into structured `vendor_products` rows
+(pricing, availability) for the ordering module. SMS columns exist on the contact
+schema but are not wired to a provider yet.
+
 ### AI System
 
 The `ai-parse` function sends conversation + context to Claude with a detailed system prompt covering all application domains. The AI returns structured `ProposedAction` objects. The system prompt lives inline in `netlify/functions/ai-parse.ts` and covers:
