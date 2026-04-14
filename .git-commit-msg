@@ -1,0 +1,13 @@
+feat(email): outbound send-supplier-email endpoint with stub mode
+
+Adds a Netlify function that sends supplier outreach emails via SendGrid
+and logs them to contact_threads/contact_messages. Reply-To uses a
+thread-<id>@replies.neurocann.app token so the inbound webhook can route
+replies back to the right thread without header inference.
+
+Supplier bodies are plain text with a minimal <p>/<br> HTML fallback,
+no neurocann branding or CTA button, so they read as if a human sent
+them. Stub mode (SENDGRID_API_KEY unset or 'stub') short-circuits the
+send and lets unit tests exercise the DB path without network.
+
+Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>

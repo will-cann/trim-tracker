@@ -1430,6 +1430,31 @@ export const deleteVendor = async (vendorId: string): Promise<void> => {
     if (!response.ok) throw new Error('Failed to delete vendor');
 };
 
+export const sendSupplierEmail = async (data: {
+    vendorId: string;
+    subject: string;
+    bodyText: string;
+    bodyHtml?: string;
+    threadId?: string;
+}): Promise<{
+    threadId: string;
+    messageId: string;
+    fromAddress: string;
+    replyToAddress: string;
+    messageIdHeader: string;
+}> => {
+    const response = await fetchWithAuth(`${API_BASE}/send-supplier-email`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+    });
+    if (!response.ok) {
+        const detail = await response.json().catch(() => ({}));
+        throw new Error(detail?.error || 'Failed to send supplier email');
+    }
+    return await response.json();
+};
+
 export const getVendorProducts = async (vendorId?: string): Promise<any[]> => {
     const url = vendorId
         ? `${API_BASE}/get-vendor-products?vendorId=${vendorId}`
@@ -1960,6 +1985,7 @@ export const apiService = {
     createVendor,
     updateVendor,
     deleteVendor,
+    sendSupplierEmail,
     getVendorProducts,
     upsertVendorProduct,
     getStores,
