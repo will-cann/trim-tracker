@@ -39,6 +39,8 @@ export const handler: Handler = async (event) => {
                 preferredUnits: r.preferred_units,
                 licenseNumber: r.license_number,
                 preferredChannel: r.preferred_channel,
+                outreachCadenceDays: r.outreach_cadence_days,
+                nextReminderAt: r.next_reminder_at,
                 productCount: Number(r.product_count),
                 orderCount: Number(r.order_count),
                 createdAt: r.created_at,
