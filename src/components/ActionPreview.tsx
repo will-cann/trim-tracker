@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Package, Plus, UserPlus, User, Loader2, Check, X, Sprout, Scale, ArrowRightLeft, Trash2, MapPin, CheckCircle2, XCircle, ChevronDown, Scissors, ClipboardList, Send, UserMinus, RefreshCw, Pencil, Leaf, MoveRight, TrendingUp, Skull, KeyRound, Tag, Upload, LayoutGrid, ArrowRight, Percent, Flame, Snowflake, Droplets, Mail } from 'lucide-react';
+import { Package, Plus, UserPlus, User, Loader2, Check, X, Sprout, Scale, ArrowRightLeft, Trash2, MapPin, CheckCircle2, XCircle, ChevronDown, Scissors, ClipboardList, Send, UserMinus, RefreshCw, Pencil, Leaf, MoveRight, TrendingUp, Skull, KeyRound, Tag, Upload, LayoutGrid, ArrowRight, Percent, Flame, Snowflake, Droplets, Mail, Truck } from 'lucide-react';
 import type { ProposedAction } from '../types/definitions';
 import { TypeChip } from './ui';
 
@@ -56,6 +56,10 @@ const ACTION_CONFIG: Record<string, { icon: typeof Package; label: string; color
     create_room: { icon: LayoutGrid, label: 'Create Room', color: 'text-emerald-600', bgColor: 'bg-emerald-50' },
     update_room: { icon: LayoutGrid, label: 'Update Room', color: 'text-blue-600', bgColor: 'bg-blue-50' },
     delete_room: { icon: Trash2, label: 'Delete Room', color: 'text-red-600', bgColor: 'bg-red-50' },
+    // Vendors / Suppliers
+    create_vendor: { icon: Truck, label: 'Add Vendor', color: 'text-emerald-600', bgColor: 'bg-emerald-50' },
+    update_vendor: { icon: Truck, label: 'Update Vendor', color: 'text-blue-600', bgColor: 'bg-blue-50' },
+    delete_vendor: { icon: Trash2, label: 'Archive Vendor', color: 'text-red-600', bgColor: 'bg-red-50' },
     // Packages
     create_package: { icon: Package, label: 'Create Package', color: 'text-emerald-600', bgColor: 'bg-emerald-50' },
     update_package: { icon: Package, label: 'Update Package', color: 'text-blue-600', bgColor: 'bg-blue-50' },
@@ -120,6 +124,20 @@ const FIELD_LABELS: Record<string, string> = {
     // License
     licenseId: 'License ID',
     strainId: 'Strain ID',
+    // Vendor / supplier fields
+    vendorName: 'Vendor',
+    vendorType: 'Type',
+    contactName: 'Contact',
+    contactEmail: 'Email',
+    contactPhone: 'Phone',
+    leadTimeDays: 'Lead time (days)',
+    orderCadenceDays: 'Order cadence (days)',
+    strainsGrown: 'Strains',
+    qualityNotes: 'Quality notes',
+    preferredUnits: 'Unit',
+    preferredChannel: 'Channel',
+    outreachCadenceDays: 'Outreach cadence (days)',
+    isActive: 'Active',
     tagNumber: 'Tag Number',
     tagNumbers: 'Tag Numbers',
     tagType: 'Tag Type',
@@ -149,7 +167,6 @@ const FIELD_LABELS: Record<string, string> = {
     runIdentifier: 'Run',
     notes: 'Notes',
     // Supplier email fields
-    vendorName: 'Vendor',
     subject: 'Subject',
     bodyText: 'Body',
     reason: 'Why',
@@ -219,6 +236,10 @@ const KEY_FIELDS: Record<string, string[]> = {
     // Supplier email — rendered via custom branch; key fields list is empty
     // because `ActionItem` has a dedicated render path for this action type.
     compose_supplier_email: [],
+    // Vendors / Suppliers
+    create_vendor: ['name', 'vendorType', 'contactEmail', 'strainsGrown'],
+    update_vendor: ['vendorName', 'vendorType', 'contactEmail', 'strainsGrown'],
+    delete_vendor: ['vendorName'],
 };
 
 /** Fields FieldRow should render as a multi-line textarea. Parallels DATE_TIME_FIELDS. */
