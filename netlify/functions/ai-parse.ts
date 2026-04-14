@@ -342,6 +342,22 @@ When the application state shows empty strains, licenses, or rooms, you are like
 - Chain setup actions naturally — if a user says "plan a harvest for Wedding Cake" but has no strains or licenses, create the strain AND license AND then the harvest in one action set.
 - NEVER say "go to Settings" or direct users to another page. Handle everything right here in conversation.
 
+## Supplier Outreach
+
+When the user asks to reach out to a biomass supplier / grower to request a menu, ask about availability of a specific strain, or follow up on prior communication, use \`compose_supplier_email\`.
+
+- Draft a short, professional B2B email. Think "quick message between two cannabis operators," not a marketing blast.
+- Include concrete asks: which strain(s), approximate quantity, timeline.
+- Open with a friendly greeting using the contact name if you know it, close with a simple sign-off.
+- Do NOT embellish with marketing language, emoji, or unnecessary formality.
+- The user will see and edit the draft before it sends.
+
+Example draft:
+  Subject: Fresh frozen availability — Blue Dream
+  Body: Hi Mike, hope you're doing well. We're planning a rosin run the week of April 22 and looking for ~50 lb fresh frozen Blue Dream. Do you have availability or know when your next drop is? Thanks, Will
+
+Only propose \`compose_supplier_email\` for vendors with vendor_type 'biomass' or 'both'. If the user names a vendor you can't find by that name, ask them to clarify — do not make up a vendorId.
+
 ## Response Style
 - **Be action-first.** When the user asks you to do something, produce the actions immediately — don't ask for confirmation or list options. The user sees a preview and can edit or cancel.
 - **No reasoning preambles.** Do NOT narrate your thought process before producing the answer. Forbidden openers include: "Looking at this transcript/voice/request/query", "Let me check", "Let me look up", "I'll analyze this", "I'll look up", "I'll help you", "Based on the data/transcript/context", "Here's what I found", "I see that", "I understand that", "Let me first", "I'll first". Skip straight to the substance. The user never sees your reasoning — only the final answer — and preambles fill their limited screen space with noise.
@@ -1647,6 +1663,39 @@ Default startImmediately=true (user said "start") which sets status=active. Use 
                 },
             },
             required: ['templateIdentifier'],
+        },
+    },
+    // ── Supplier outreach ──
+    // Drafts a B2B email to a biomass vendor. The AI composes subject + body;
+    // the user reviews and edits in the action preview before it sends.
+    {
+        name: 'compose_supplier_email',
+        description: `Draft a short, professional email to a biomass supplier / grower. Use when the user asks to reach out to a vendor to request a menu, ask about availability of a specific strain, or follow up on prior communication. Only propose this for vendors with vendor_type 'biomass' or 'both'. If the named vendor can't be resolved, ask the user to clarify instead of guessing a vendorId.`,
+        input_schema: {
+            type: 'object' as const,
+            properties: {
+                vendorId: {
+                    type: 'string',
+                    description: 'The vendor ID from the Vendors context. Required — never fabricate.',
+                },
+                vendorName: {
+                    type: 'string',
+                    description: 'Display name of the vendor for the preview card.',
+                },
+                subject: {
+                    type: 'string',
+                    description: 'Concise email subject line — e.g. "Fresh frozen availability — Blue Dream".',
+                },
+                bodyText: {
+                    type: 'string',
+                    description: 'Plain-text email body, 2-5 short sentences. Friendly greeting with contact name if known, concrete ask (strain, quantity, timeline), simple sign-off. No marketing language, no emoji.',
+                },
+                reason: {
+                    type: 'string',
+                    description: 'Short internal reason for the email — e.g. "sourcing fresh frozen for April rosin run". Shown as muted context in the preview.',
+                },
+            },
+            required: ['vendorId', 'vendorName', 'subject', 'bodyText', 'reason'],
         },
     },
 ];
@@ -3925,6 +3974,18 @@ IMPORTANT: If the user is correcting or updating a previous statement (e.g. "act
                                 });
                             }
                         }
+                        break;
+                    case 'compose_supplier_email':
+                        actions.push({
+                            type: 'compose_supplier_email',
+                            data: {
+                                vendorId: input.vendorId,
+                                vendorName: input.vendorName,
+                                subject: input.subject || '',
+                                bodyText: input.bodyText || '',
+                                reason: input.reason || '',
+                            },
+                        });
                         break;
                 }
 

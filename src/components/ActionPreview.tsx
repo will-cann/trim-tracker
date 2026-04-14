@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Package, Plus, UserPlus, User, Loader2, Check, X, Sprout, Scale, ArrowRightLeft, Trash2, MapPin, CheckCircle2, XCircle, ChevronDown, Scissors, ClipboardList, Send, UserMinus, RefreshCw, Pencil, Leaf, MoveRight, TrendingUp, Skull, KeyRound, Tag, Upload, LayoutGrid, ArrowRight, Percent, Flame, Snowflake, Droplets } from 'lucide-react';
+import { Package, Plus, UserPlus, User, Loader2, Check, X, Sprout, Scale, ArrowRightLeft, Trash2, MapPin, CheckCircle2, XCircle, ChevronDown, Scissors, ClipboardList, Send, UserMinus, RefreshCw, Pencil, Leaf, MoveRight, TrendingUp, Skull, KeyRound, Tag, Upload, LayoutGrid, ArrowRight, Percent, Flame, Snowflake, Droplets, Mail } from 'lucide-react';
 import type { ProposedAction } from '../types/definitions';
 import { TypeChip } from './ui';
 
@@ -66,6 +66,8 @@ const ACTION_CONFIG: Record<string, { icon: typeof Package; label: string; color
     start_extraction_run: { icon: Flame, label: 'Start Run', color: 'text-emerald-600', bgColor: 'bg-emerald-50' },
     amend_extraction_run_inputs: { icon: Plus, label: 'Add to Run', color: 'text-blue-600', bgColor: 'bg-blue-50' },
     cancel_extraction_run: { icon: X, label: 'Cancel Run', color: 'text-red-600', bgColor: 'bg-red-50' },
+    // Supplier outreach
+    compose_supplier_email: { icon: Mail, label: 'Supplier Email', color: 'text-blue-600', bgColor: 'bg-blue-50' },
 };
 
 const FIELD_LABELS: Record<string, string> = {
@@ -146,6 +148,11 @@ const FIELD_LABELS: Record<string, string> = {
     plannedStart: 'Scheduled for',
     runIdentifier: 'Run',
     notes: 'Notes',
+    // Supplier email fields
+    vendorName: 'Vendor',
+    subject: 'Subject',
+    bodyText: 'Body',
+    reason: 'Why',
 };
 
 const HIDDEN_FIELDS = new Set([
@@ -209,7 +216,13 @@ const KEY_FIELDS: Record<string, string[]> = {
     // Extraction
     record_extraction: ['strain', 'inputPackageType', 'inputQuantity', 'outputPackageType', 'outputQuantity'],
     start_extraction_run: ['templateName', 'runName', 'strain', 'inputMaterial', 'inputQuantityG', 'targetProduct'],
+    // Supplier email — rendered via custom branch; key fields list is empty
+    // because `ActionItem` has a dedicated render path for this action type.
+    compose_supplier_email: [],
 };
+
+/** Fields FieldRow should render as a multi-line textarea. Parallels DATE_TIME_FIELDS. */
+const TEXTAREA_FIELDS = new Set(['bodyText']);
 
 /** Build a human-readable one-liner from action data */
 function summarizeAction(action: ProposedAction): string {
@@ -312,6 +325,8 @@ function summarizeAction(action: ProposedAction): string {
         }
         case 'cancel_extraction_run':
             return d.runName || d.runId || '';
+        case 'compose_supplier_email':
+            return [d.vendorName, d.subject].filter(Boolean).join(' · ');
         case 'update_trimmer_profile':
             return [d.profileName, d.name && `→ ${d.name}`, d.role, d.status].filter(Boolean).join(' · ');
         case 'update_batch_weight':
@@ -603,6 +618,7 @@ function FieldRow({
         || fieldKey;
     const isTypeField = PACKAGE_TYPE_FIELDS.has(fieldKey);
     const isDateTimeField = DATE_TIME_FIELDS.has(fieldKey);
+    const isTextareaField = TEXTAREA_FIELDS.has(fieldKey);
     const isDisplayOnly = DISPLAY_ONLY_FIELDS.has(fieldKey);
     // Shared humanizer for readonly text — "active" → "Active",
     // "in_progress" → "In Progress".
@@ -657,6 +673,16 @@ function FieldRow({
                 </select>
             ) : isDateTimeField ? (
                 <DateTimePills value={value} onChange={onChange} disabled={isExecuting} />
+            ) : isTextareaField ? (
+                <textarea
+                    value={value ?? ''}
+                    onChange={(e) => onChange(e.target.value)}
+                    disabled={isExecuting}
+                    rows={7}
+                    className="flex-1 text-sm px-2 py-1.5 border border-gray-200 rounded-md
+                               focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:border-emerald-400
+                               disabled:bg-gray-50 disabled:text-gray-400 resize-y leading-relaxed"
+                />
             ) : (
                 <input
                     type={typeof value === 'number' ? 'number' : 'text'}
@@ -901,6 +927,94 @@ function ExtractionExpandedView({
     );
 }
 
+/**
+ * Custom preview for `compose_supplier_email` — generic FieldRow can't
+ * render the full layout (muted "why" line + editable subject/body +
+ * sign-off hint) without special-casing, so it gets its own view.
+ */
+function SupplierEmailView({
+    data,
+    isReadonly,
+    isExecuting,
+    onFieldChange,
+}: {
+    data: Record<string, any>;
+    isReadonly: boolean;
+    isExecuting?: boolean;
+    onFieldChange: (field: string, value: any) => void;
+}) {
+    return (
+        <div className="px-3 py-2.5 space-y-2">
+            {/* Vendor — read-only chip */}
+            <div className="flex items-center gap-2">
+                <label className="text-xs text-gray-400 w-24 flex-shrink-0 text-right">Vendor</label>
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-blue-50 text-blue-700">
+                    <Mail size={11} />
+                    {data.vendorName || 'Unknown vendor'}
+                </span>
+            </div>
+
+            {/* Reason — muted advisory copy, not editable */}
+            {data.reason && (
+                <div className="flex items-start gap-2">
+                    <label className="text-xs text-gray-400 w-24 flex-shrink-0 text-right pt-0.5">Why</label>
+                    <span className="flex-1 text-xs italic text-gray-500">{data.reason}</span>
+                </div>
+            )}
+
+            {/* Subject — editable single line */}
+            <div className="flex items-center gap-2">
+                <label htmlFor="supplier-email-subject" className="text-xs text-gray-400 w-24 flex-shrink-0 text-right">Subject</label>
+                {isReadonly ? (
+                    <span className="flex-1 text-sm px-2 py-1" style={{ color: '#1A1A1A' }}>
+                        {data.subject || '—'}
+                    </span>
+                ) : (
+                    <input
+                        id="supplier-email-subject"
+                        type="text"
+                        value={data.subject ?? ''}
+                        onChange={(e) => onFieldChange('subject', e.target.value)}
+                        disabled={isExecuting}
+                        className="flex-1 text-sm px-2 py-1 border border-gray-200 rounded-md
+                                   focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:border-emerald-400
+                                   disabled:bg-gray-50 disabled:text-gray-400"
+                    />
+                )}
+            </div>
+
+            {/* Body — editable multiline */}
+            <div className="flex items-start gap-2">
+                <label htmlFor="supplier-email-body" className="text-xs text-gray-400 w-24 flex-shrink-0 text-right pt-1">Body</label>
+                {isReadonly ? (
+                    <pre className="flex-1 text-sm px-2 py-1 whitespace-pre-wrap font-sans" style={{ color: '#1A1A1A' }}>
+                        {data.bodyText || '—'}
+                    </pre>
+                ) : (
+                    <textarea
+                        id="supplier-email-body"
+                        value={data.bodyText ?? ''}
+                        onChange={(e) => onFieldChange('bodyText', e.target.value)}
+                        disabled={isExecuting}
+                        rows={7}
+                        className="flex-1 text-sm px-2 py-1.5 border border-gray-200 rounded-md
+                                   font-sans leading-relaxed resize-y
+                                   focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:border-emerald-400
+                                   disabled:bg-gray-50 disabled:text-gray-400"
+                    />
+                )}
+            </div>
+
+            {!isReadonly && (
+                <div className="flex items-start gap-2">
+                    <span className="w-24 flex-shrink-0" />
+                    <span className="text-xs text-gray-400">Edit before sending — replies will come back into this thread.</span>
+                </div>
+            )}
+        </div>
+    );
+}
+
 function ActionItem({
     action,
     index,
@@ -978,6 +1092,13 @@ function ActionItem({
             {/* Custom extraction view */}
             {action.type === 'record_extraction' ? (
                 <ExtractionExpandedView
+                    data={action.data}
+                    isReadonly={isReadonly}
+                    isExecuting={isExecuting}
+                    onFieldChange={(field, value) => onEditAction?.(index, { [field]: value })}
+                />
+            ) : action.type === 'compose_supplier_email' ? (
+                <SupplierEmailView
                     data={action.data}
                     isReadonly={isReadonly}
                     isExecuting={isExecuting}

@@ -842,7 +842,24 @@ export type ProposedActionType =
   | 'create_store' | 'update_store'
   | 'create_order' | 'update_order'
   | 'add_vendor_product'
-  | 'create_bins' | 'update_bin' | 'log_bin_cure' | 'mark_bin_ready' | 'send_bin_to_trim';
+  | 'create_bins' | 'update_bin' | 'log_bin_cure' | 'mark_bin_ready' | 'send_bin_to_trim'
+  | 'compose_supplier_email';
+
+/**
+ * Data shape for the `compose_supplier_email` proposed action.
+ *
+ * Emitted when the AI drafts a B2B email to a biomass/flower vendor
+ * (e.g. "ask Mike if he has Blue Dream frozen"). The user sees the
+ * draft in the preview card with fully editable subject and body
+ * before it sends — `reason` is advisory-only (shown as muted copy).
+ */
+export interface ComposeSupplierEmailData {
+  vendorId: string;
+  vendorName: string;
+  subject: string;
+  bodyText: string;
+  reason: string;
+}
 
 export interface ProposedAction {
   type: ProposedActionType;
