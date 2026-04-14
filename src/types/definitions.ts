@@ -711,6 +711,9 @@ export interface CreatePackageDTO {
 // ORDERING / VENDOR TYPES
 // ============================================================================
 
+export type VendorType = 'consumables' | 'biomass' | 'both';
+export type VendorChannel = 'email' | 'sms';
+
 export interface Vendor {
   id: string;
   name: string;
@@ -721,6 +724,13 @@ export interface Vendor {
   orderCadenceDays: number;
   notes: string | null;
   isActive: boolean;
+  vendorType: VendorType;
+  strainsGrown: string[] | null;
+  lastContactedAt: string | null;
+  qualityNotes: string | null;
+  preferredUnits: string | null;
+  licenseNumber: string | null;
+  preferredChannel: VendorChannel;
   productCount: number;
   orderCount: number;
   createdAt: string;
