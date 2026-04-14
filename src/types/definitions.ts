@@ -1033,3 +1033,45 @@ export interface SupplyLedgerEntry {
   performedBy?: string;
   createdAt: string;
 }
+
+// ============================================================================
+// CONTACT THREADS (vendor communication — email now, SMS later)
+// ============================================================================
+
+export type ContactChannel = 'email' | 'sms';
+export type ContactDirection = 'outbound' | 'inbound';
+
+export interface ContactMessage {
+  id: string;
+  threadId: string;
+  companyId: string;
+  channel: ContactChannel;
+  direction: ContactDirection;
+  fromAddress: string;
+  toAddress: string;
+  subject?: string | null;
+  bodyText: string;
+  bodyHtml?: string | null;
+  rawHeaders?: Record<string, unknown> | null;
+  messageIdHeader?: string | null;
+  inReplyToHeader?: string | null;
+  providerEventId?: string | null;
+  sentAt?: string | null;
+  receivedAt?: string | null;
+  parsedAs?: Record<string, unknown> | null;
+  createdAt: string;
+}
+
+export interface ContactThread {
+  id: string;
+  companyId: string;
+  vendorId?: string | null;
+  channel: ContactChannel;
+  subject?: string | null;
+  status: string;
+  lastActivityAt: string;
+  createdAt: string;
+  messageCount?: number;
+  lastInboundAt?: string | null;
+  messages?: ContactMessage[];
+}
