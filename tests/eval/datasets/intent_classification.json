@@ -259,6 +259,18 @@
         "primary_workflow": "tasks",
         "notes": "'pulling' = harvesting, 'girls' = female plants. Hybrid task since it's scheduled for tomorrow."
       }
+    },
+    {
+      "id": "intent_supplier_email_01",
+      "tags": ["supplier", "email", "biomass"],
+      "input": "ask Mike if he has Blue Dream frozen",
+      "context_key": "default",
+      "context_override": {"screenContext": "Ordering", "vendors": [{"id": "vendor-mike", "name": "Mike Farms", "vendorType": "biomass", "contactName": "Mike"}]},
+      "expected": {
+        "action_types": ["compose_supplier_email"],
+        "primary_workflow": "ordering",
+        "notes": "Should resolve Mike → vendor-mike and draft a short note asking about fresh frozen Blue Dream availability."
+      }
     }
   ]
 }

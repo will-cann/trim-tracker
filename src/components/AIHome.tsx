@@ -361,6 +361,22 @@ export const AIHome: React.FC<AIHomeProps> = ({
         }
     }, [injectedVoiceText, onClearInjectedText]);
 
+    // `ai:prefill` is a window CustomEvent that other parts of the app
+    // (e.g. the Holland Sources dropdown, vendor rows) dispatch to drop
+    // a pre-composed prompt into the chat input. Kept intentionally small
+    // so the AI chat stays the single owner of the input field.
+    useEffect(() => {
+        const handler = (event: Event) => {
+            const detail = (event as CustomEvent<{ text?: string }>).detail;
+            if (detail?.text) {
+                setInputText(detail.text);
+                textareaRef.current?.focus();
+            }
+        };
+        window.addEventListener('ai:prefill', handler);
+        return () => window.removeEventListener('ai:prefill', handler);
+    }, []);
+
     // ── Handlers ──
     const handleSend = useCallback((text: string) => {
         if (!text.trim() || isLoading) return;

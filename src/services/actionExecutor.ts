@@ -578,6 +578,16 @@ export async function executeAction(action: ProposedAction): Promise<ActionOutco
             if (!action.data.orderId) return SKIPPED('no order ID');
             await apiService.saveOrder(action.data as any);
             return OK('Order updated');
+        case 'compose_supplier_email': {
+            if (!action.data.vendorId) return SKIPPED('no vendor ID');
+            if (!action.data.subject || !action.data.bodyText) return SKIPPED('missing subject or body');
+            await apiService.sendSupplierEmail({
+                vendorId: action.data.vendorId,
+                subject: action.data.subject,
+                bodyText: action.data.bodyText,
+            });
+            return OK(`Email sent to ${action.data.vendorName || 'supplier'}`);
+        }
         case 'create_human_task':
             // Human tasks are handled separately via useHumanTasks hook
             return SKIPPED('handled separately');
