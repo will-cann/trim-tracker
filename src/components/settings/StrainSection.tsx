@@ -1,7 +1,15 @@
-import React, { useState } from 'react';
-import { Plus, Trash2, Percent } from 'lucide-react';
+import React, { useEffect, useRef, useState } from 'react';
+import { Plus, Trash2, Percent, X } from 'lucide-react';
 import { CenteredSpinner } from '../Spinner';
-import type { Strain, StretchTrait, ProcessTemplate, ProductType } from '../../types/definitions';
+import type {
+    Strain,
+    StretchTrait,
+    ProcessTemplate,
+    ProductType,
+    Phenotype,
+    TerpeneTag,
+} from '../../types/definitions';
+import { TERPENE_TAGS, TERPENE_TAG_LABELS, MAX_TERPENE_TAGS } from '../../types/definitions';
 import { apiService } from '../../services/apiService';
 import { StrainYieldsModal } from './StrainYieldsModal';
 
@@ -13,9 +21,134 @@ const STRETCH_OPTIONS: { value: StretchTrait | ''; label: string }[] = [
     { value: 'high', label: 'High' },
 ];
 
+const PHENOTYPE_OPTIONS: { value: Phenotype | ''; label: string }[] = [
+    { value: '', label: '—' },
+    { value: 'sativa', label: 'Sativa' },
+    { value: 'indica', label: 'Indica' },
+    { value: 'hybrid', label: 'Hybrid' },
+];
+
+/**
+ * Popover picker for the up-to-3 terpene tags. Renders the current tags
+ * as removable chips; clicking the row opens a dropdown with checkboxes
+ * for the full 9-bucket taxonomy. Disabled buckets light up once the
+ * strain hits MAX_TERPENE_TAGS so operators can't silently exceed the cap.
+ */
+const TerpenePicker = ({
+    value,
+    onChange,
+}: {
+    value: TerpeneTag[] | null;
+    onChange: (next: TerpeneTag[] | null) => void;
+}) => {
+    const [open, setOpen] = useState(false);
+    const wrapRef = useRef<HTMLDivElement>(null);
+    const tags: TerpeneTag[] = value ?? [];
+    const atCap = tags.length >= MAX_TERPENE_TAGS;
+
+    useEffect(() => {
+        if (!open) return;
+        const handleClick = (e: MouseEvent) => {
+            if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) setOpen(false);
+        };
+        document.addEventListener('mousedown', handleClick);
+        return () => document.removeEventListener('mousedown', handleClick);
+    }, [open]);
+
+    const toggle = (tag: TerpeneTag) => {
+        if (tags.includes(tag)) {
+            const next = tags.filter(t => t !== tag);
+            onChange(next.length ? next : null);
+        } else if (!atCap) {
+            onChange([...tags, tag]);
+        }
+    };
+
+    return (
+        <div ref={wrapRef} style={{ position: 'relative', minWidth: 140 }}>
+            <button
+                type="button"
+                onClick={() => setOpen(o => !o)}
+                className="strain-days-input"
+                style={{ width: '100%', textAlign: 'left', display: 'flex', flexWrap: 'wrap', gap: 3, alignItems: 'center', minHeight: 26, padding: '2px 6px' }}
+                title={tags.length ? tags.map(t => TERPENE_TAG_LABELS[t]).join(', ') : 'Add terpene tags'}
+            >
+                {tags.length === 0 ? (
+                    <span style={{ color: 'var(--text-secondary)', fontSize: '0.75rem' }}>—</span>
+                ) : (
+                    tags.map(t => (
+                        <span
+                            key={t}
+                            onClick={(e) => { e.stopPropagation(); toggle(t); }}
+                            style={{
+                                display: 'inline-flex', alignItems: 'center', gap: 2,
+                                padding: '1px 6px', borderRadius: 999,
+                                background: 'rgba(59, 181, 112, 0.12)',
+                                color: 'var(--color-flower, #3BB570)',
+                                fontSize: '0.6875rem', fontWeight: 600,
+                            }}
+                        >
+                            {TERPENE_TAG_LABELS[t]}
+                            <X size={9} />
+                        </span>
+                    ))
+                )}
+            </button>
+            {open && (
+                <div style={{
+                    position: 'absolute', top: '100%', left: 0, marginTop: 4, zIndex: 20,
+                    background: '#fff', border: '1px solid var(--border-color)', borderRadius: 6,
+                    boxShadow: '0 6px 18px rgba(0,0,0,0.08)', padding: 4, minWidth: 180,
+                }}>
+                    {TERPENE_TAGS.map(tag => {
+                        const checked = tags.includes(tag);
+                        const disabled = !checked && atCap;
+                        return (
+                            <label
+                                key={tag}
+                                style={{
+                                    display: 'flex', alignItems: 'center', gap: 6,
+                                    padding: '4px 8px', borderRadius: 4, cursor: disabled ? 'not-allowed' : 'pointer',
+                                    opacity: disabled ? 0.45 : 1, fontSize: '0.8125rem',
+                                }}
+                                onMouseEnter={e => { if (!disabled) (e.currentTarget.style.background = 'var(--background-color)'); }}
+                                onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                            >
+                                <input
+                                    type="checkbox"
+                                    checked={checked}
+                                    disabled={disabled}
+                                    onChange={() => toggle(tag)}
+                                />
+                                {TERPENE_TAG_LABELS[tag]}
+                            </label>
+                        );
+                    })}
+                    {atCap && (
+                        <div style={{ padding: '6px 8px', fontSize: '0.6875rem', color: 'var(--text-secondary)' }}>
+                            Max {MAX_TERPENE_TAGS} tags. Remove one to add another.
+                        </div>
+                    )}
+                </div>
+            )}
+        </div>
+    );
+};
+
+type StrainUpdates = {
+    defaultVegDays?: number | null;
+    defaultFloweringDays?: number | null;
+    stretchTrait?: StretchTrait | null;
+    notes?: string | null;
+    phenotype?: Phenotype | null;
+    terpeneTags?: TerpeneTag[] | null;
+    expectedYieldPct?: number | null;
+    avgCostPerG?: number | null;
+};
+
 const StrainRow = ({ strain, onUpdate, onDelete, onOpenYields }: {
     strain: Strain;
-    onUpdate: (updates: { defaultVegDays?: number | null; defaultFloweringDays?: number | null; stretchTrait?: StretchTrait | null; notes?: string | null }) => Promise<void>;
+    onUpdate: (updates: StrainUpdates) => Promise<void>;
     onDelete: () => void;
     onOpenYields: () => void;
 }) => {
@@ -27,6 +160,25 @@ const StrainRow = ({ strain, onUpdate, onDelete, onOpenYields }: {
 
     const saveNotes = async (raw: string) => {
         await onUpdate({ notes: raw.trim() || null });
+    };
+
+    // Percent and currency inputs share the same "parse or clear" shape.
+    // Range is enforced by the backend; the UI just has to send a number
+    // or null. `yieldPct` is clamped 0-100 because the slider feels more
+    // direct than a text input and it's the only control the operator
+    // needs for this field.
+    const savePercent = async (raw: string) => {
+        if (!raw.trim()) return onUpdate({ expectedYieldPct: null });
+        const val = parseFloat(raw);
+        if (isNaN(val) || val < 0 || val > 100) return;
+        await onUpdate({ expectedYieldPct: val });
+    };
+
+    const saveCost = async (raw: string) => {
+        if (!raw.trim()) return onUpdate({ avgCostPerG: null });
+        const val = parseFloat(raw);
+        if (isNaN(val) || val < 0) return;
+        await onUpdate({ avgCostPerG: val });
     };
 
     const daysInput = (field: 'defaultVegDays' | 'defaultFloweringDays', value: number | null) => (
@@ -47,6 +199,23 @@ const StrainRow = ({ strain, onUpdate, onDelete, onOpenYields }: {
             <td className="strain-cell-name">
                 <span className="strain-name-text">{strain.name}</span>
             </td>
+            <td className="strain-cell-days">
+                <select
+                    defaultValue={strain.phenotype ?? ''}
+                    onChange={e => onUpdate({ phenotype: (e.target.value as Phenotype) || null })}
+                    className="strain-days-input"
+                >
+                    {PHENOTYPE_OPTIONS.map(o => (
+                        <option key={o.value} value={o.value}>{o.label}</option>
+                    ))}
+                </select>
+            </td>
+            <td className="strain-cell-notes">
+                <TerpenePicker
+                    value={strain.terpeneTags}
+                    onChange={tags => onUpdate({ terpeneTags: tags })}
+                />
+            </td>
             <td className="strain-cell-days">{daysInput('defaultVegDays', strain.defaultVegDays)}</td>
             <td className="strain-cell-days">{daysInput('defaultFloweringDays', strain.defaultFloweringDays)}</td>
             <td className="strain-cell-days">
@@ -59,6 +228,33 @@ const StrainRow = ({ strain, onUpdate, onDelete, onOpenYields }: {
                         <option key={o.value} value={o.value}>{o.label}</option>
                     ))}
                 </select>
+            </td>
+            <td className="strain-cell-days">
+                <input
+                    type="number"
+                    defaultValue={strain.expectedYieldPct ?? ''}
+                    placeholder="—"
+                    min={0}
+                    max={100}
+                    step={0.1}
+                    onBlur={e => savePercent(e.target.value)}
+                    onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
+                    className="strain-days-input"
+                    title="Expected yield % (output ÷ input). The variety planner uses this as a filter / weight."
+                />
+            </td>
+            <td className="strain-cell-days">
+                <input
+                    type="number"
+                    defaultValue={strain.avgCostPerG ?? ''}
+                    placeholder="—"
+                    min={0}
+                    step={0.01}
+                    onBlur={e => saveCost(e.target.value)}
+                    onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
+                    className="strain-days-input"
+                    title="Average input cost per gram ($). Used for cost filtering in the variety planner."
+                />
             </td>
             <td className="strain-cell-notes">
                 <input
@@ -173,9 +369,13 @@ export const StrainSection: React.FC<StrainSectionProps> = ({ strains, loading, 
                         <thead>
                             <tr>
                                 <th className="strain-th strain-th-name">Strain</th>
+                                <th className="strain-th strain-th-days">Pheno</th>
+                                <th className="strain-th strain-th-notes">Terpenes</th>
                                 <th className="strain-th strain-th-days">Veg</th>
                                 <th className="strain-th strain-th-days">Flower</th>
                                 <th className="strain-th strain-th-days">Stretch</th>
+                                <th className="strain-th strain-th-days" title="Expected yield %">Yield %</th>
+                                <th className="strain-th strain-th-days" title="Average input cost ($/g)">$/g</th>
                                 <th className="strain-th strain-th-notes">Notes</th>
                                 <th className="strain-th" style={{ width: 40 }}></th>
                             </tr>

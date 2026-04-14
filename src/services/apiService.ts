@@ -611,7 +611,19 @@ export const getStrains = async (): Promise<Strain[]> => {
     return await response.json();
 };
 
-export const upsertStrain = async (name: string, opts?: { defaultVegDays?: number | null; defaultFloweringDays?: number | null; stretchTrait?: string | null; notes?: string | null }): Promise<Strain> => {
+export const upsertStrain = async (
+    name: string,
+    opts?: {
+        defaultVegDays?: number | null;
+        defaultFloweringDays?: number | null;
+        stretchTrait?: string | null;
+        notes?: string | null;
+        phenotype?: 'sativa' | 'indica' | 'hybrid' | null;
+        terpeneTags?: string[] | null;
+        expectedYieldPct?: number | null;
+        avgCostPerG?: number | null;
+    },
+): Promise<Strain> => {
     const response = await fetchWithAuth(`${API_BASE}/upsert-strain`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
