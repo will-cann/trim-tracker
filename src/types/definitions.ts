@@ -495,11 +495,49 @@ export interface YieldAverage {
 
 // ── Demand-Backward Planning ────────────────────────────────────────────────
 
+/**
+ * Variety-blend target spec. When present on a PlanTargetInput, the total
+ * quantity is distributed across `strainCount` strains chosen from the
+ * company catalog to match the optional phenotype mix. The client-side
+ * variety solver expands a variety target into N single-strain targets
+ * BEFORE hitting plan-backward, so the backend engine stays unchanged.
+ *
+ * Balance is 'even' only for now — every chosen strain gets `quantity / N`.
+ * Weighted balance (e.g. double-weight the most-in-stock strain) is a
+ * follow-up.
+ *
+ * Future fields (documented now to pin semantics before δ.2/δ.3):
+ *   - terpeneFilterAny?: TerpeneTag[]   // ANY-match: strains containing at
+ *                                          least one of these tags pass
+ *   - yieldMinPct?: number              // drop strains with lower historical
+ *                                          expectedYieldPct
+ *   - costMaxPerG?: number              // δ.2 — once get-strain-pricing lands
+ */
+export interface VarietySpec {
+  strainCount: number;
+  /**
+   * Per-phenotype quotas. Sum may be <= strainCount; the remainder gets
+   * filled from any matching strain. If sum > strainCount, the surplus
+   * is truncated and a warning is emitted.
+   */
+  phenotypeMix?: {
+    sativa?: number;
+    indica?: number;
+    hybrid?: number;
+  };
+  balance: 'even';
+}
+
 export interface PlanTargetInput {
   outputType: string;
   quantity: number;
   unit?: string;
   strain?: string | null;
+  /**
+   * When set, `strain` is ignored and the target is expanded client-side
+   * into `variety.strainCount` single-strain targets before planning.
+   */
+  variety?: VarietySpec;
 }
 
 export interface ResolvedPlanTarget extends PlanTargetInput {
