@@ -39,7 +39,6 @@ export const handler: Handler = async (event) => {
             notes,
             phenotype,
             terpeneTags,
-            expectedYieldPct,
         } = body;
 
         if (!name?.trim()) {
@@ -78,26 +77,23 @@ export const handler: Handler = async (event) => {
             }
         }
 
-        const expectedYieldVal = expectedYieldPct === undefined
-            ? undefined
-            : (typeof expectedYieldPct === 'number' && expectedYieldPct >= 0 && expectedYieldPct <= 100
-                ? expectedYieldPct
-                : (expectedYieldPct === null ? null : undefined));
-
         // Upsert — insert if not exists, update fields if provided.
-        // Cost/g intentionally NOT on this table — see migration 064 and
-        // the upcoming get-strain-pricing aggregator that reads vendor_products.
+        // Cost/g and expected_yield_pct intentionally NOT on this table —
+        // both are context-dependent (per product form / per extraction
+        // route). Cost comes from vendor_products (migration 064);
+        // yield comes from strain_yield_overrides + extraction_logs
+        // (migration 065). The upcoming get-strain-pricing aggregator
+        // will surface them at query time.
         const result = await sql`
             INSERT INTO strains (
                 company_id, name,
                 default_flowering_days, default_veg_days, stretch_trait, notes,
-                phenotype, terpene_tags, expected_yield_pct
+                phenotype, terpene_tags
             )
             VALUES (
                 ${context.companyId}, ${trimmedName},
                 ${floweringDays}, ${vegDays}, ${stretchVal ?? null}, ${notesVal ?? null},
-                ${phenotypeVal ?? null}, ${terpeneTagsVal ?? null},
-                ${expectedYieldVal ?? null}
+                ${phenotypeVal ?? null}, ${terpeneTagsVal ?? null}
             )
             ON CONFLICT (company_id, LOWER(name)) DO UPDATE SET
                 default_flowering_days = COALESCE(${floweringDays}, strains.default_flowering_days),
@@ -106,10 +102,9 @@ export const handler: Handler = async (event) => {
                 notes = CASE WHEN ${notesVal !== undefined} THEN ${notesVal ?? null} ELSE strains.notes END,
                 phenotype = CASE WHEN ${phenotypeVal !== undefined} THEN ${phenotypeVal ?? null} ELSE strains.phenotype END,
                 terpene_tags = CASE WHEN ${terpeneTagsVal !== undefined} THEN ${terpeneTagsVal ?? null}::text[] ELSE strains.terpene_tags END,
-                expected_yield_pct = CASE WHEN ${expectedYieldVal !== undefined} THEN ${expectedYieldVal ?? null} ELSE strains.expected_yield_pct END,
                 updated_at = NOW()
             RETURNING id, name, default_flowering_days, default_veg_days, stretch_trait, notes,
-                      phenotype, terpene_tags, expected_yield_pct,
+                      phenotype, terpene_tags,
                       created_at, updated_at
         `;
 
@@ -127,7 +122,6 @@ export const handler: Handler = async (event) => {
                 notes: strain.notes || null,
                 phenotype: strain.phenotype || null,
                 terpeneTags: strain.terpene_tags || null,
-                expectedYieldPct: strain.expected_yield_pct !== null ? Number(strain.expected_yield_pct) : null,
                 createdAt: strain.created_at,
                 updatedAt: strain.updated_at,
             }),

@@ -11,7 +11,6 @@ const mkStrain = (id: string, name: string, phenotype: 'sativa' | 'indica' | 'hy
     notes: null,
     phenotype,
     terpeneTags: null,
-    expectedYieldPct: null,
     harvestCount: 0,
     sessionCount: 0,
     createdAt: new Date().toISOString(),

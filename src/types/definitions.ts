@@ -299,12 +299,12 @@ export interface Strain {
   notes: string | null;
   // Variety-planner attributes (migration 063). All nullable — legacy
   // strains work with no data and the planner degrades gracefully.
-  // Cost intentionally NOT on strains — it varies by product form
-  // (fresh frozen vs flower vs trim) and supplier, so it's aggregated
-  // from vendor_products at query time rather than stored here.
+  // Cost and yield intentionally NOT on strains — both are context-
+  // dependent (per product form / per extraction route). Cost comes
+  // from vendor_products; yield comes from strain_yield_overrides +
+  // extraction_logs, aggregated at query time.
   phenotype: Phenotype | null;
   terpeneTags: TerpeneTag[] | null;
-  expectedYieldPct: number | null;
   harvestCount: number;
   sessionCount: number;
   createdAt: string;
@@ -509,9 +509,14 @@ export interface YieldAverage {
  * Future fields (documented now to pin semantics before δ.2/δ.3):
  *   - terpeneFilterAny?: TerpeneTag[]   // ANY-match: strains containing at
  *                                          least one of these tags pass
- *   - yieldMinPct?: number              // drop strains with lower historical
- *                                          expectedYieldPct
- *   - costMaxPerG?: number              // δ.2 — once get-strain-pricing lands
+ *   - yieldMin?: { templateId, inputType, outputType, minPct } // yield is
+ *                                          context-dependent, so the filter
+ *                                          must be scoped to a specific
+ *                                          extraction route (reads from
+ *                                          strain_yield_overrides). Deferred
+ *                                          until δ.2 lands the aggregator.
+ *   - costMaxPerG?: { inputType, max }   // δ.2 — same shape; cost aggregated
+ *                                          from vendor_products.
  */
 export interface VarietySpec {
   strainCount: number;

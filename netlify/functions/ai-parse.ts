@@ -344,9 +344,11 @@ When the application state shows empty strains, licenses, or rooms, you are like
 
 ## Strain Variety Attributes
 
-Strains carry optional variety metadata used by the extraction planner's variety filters: \`phenotype\` (sativa/indica/hybrid), \`terpeneTags\` (up to 3 from the canonical 9-bucket taxonomy: gassy, citrus, floral, sweet_dessert, earthy_pine, creamy, fruit, spicy_herbal, candy), and \`expectedYieldPct\` (typical output / input as a percent). Also \`defaultVegDays\`, \`defaultFloweringDays\`, \`stretchTrait\` (low/medium/high), and \`notes\`.
+Strains carry optional variety metadata used by the extraction planner's variety filters: \`phenotype\` (sativa/indica/hybrid), \`terpeneTags\` (up to 3 from the canonical 9-bucket taxonomy: gassy, citrus, floral, sweet_dessert, earthy_pine, creamy, fruit, spicy_herbal, candy). Also \`defaultVegDays\`, \`defaultFloweringDays\`, \`stretchTrait\` (low/medium/high), and \`notes\`.
 
-- Use \`create_strain\` with variety fields when a user adds a strain with attributes in one breath: "Add Blue Dream, it's a hybrid, citrus and floral terps, runs about 22% yield" → one \`create_strain\` call with all four fields.
+Yield is NOT a strain field. A strain doesn't have "a yield" — yield only exists in the context of an extraction route (fresh frozen → bubble hash ≈ 8%, fresh frozen → live rosin ≈ 4%, dry trim → rosin ≈ 20%). Historical yields live in extraction_logs and per-SOP overrides; the planner aggregates them at query time. Don't ask the user for a yield % at the strain level, and don't put one on the strain row even if they volunteer one — route it to a specific SOP override instead.
+
+- Use \`create_strain\` with variety fields when a user adds a strain with attributes in one breath: "Add Blue Dream, it's a hybrid, citrus and floral terps" → one \`create_strain\` call.
 - Use \`update_strain\` to tweak attributes on an existing strain: "Mark Gelato as indica-leaning hybrid" → \`update_strain\` with \`phenotype: 'hybrid'\`.
 - Do NOT guess variety values. If the user says "add Wedding Cake" with no qualifiers, only set \`name\`. Variety fields stay null until the user states them.
 - Terpene tag values are strict enums — map free-form descriptions to the canonical bucket ("gassy/funky" → \`gassy\`, "citrusy" → \`citrus\`, "piney" or "earthy" → \`earthy_pine\`, "dessert/vanilla/cream" → \`sweet_dessert\` or \`creamy\`, "fruity/berry" → \`fruit\`, "spicy/peppery" → \`spicy_herbal\`, "candy/sugary" → \`candy\`, "floral" → \`floral\`). Never invent new bucket values.
@@ -1227,7 +1229,7 @@ Present results as a clear waterfall: Stage 1 → Stage 2 → ... → Final Outp
     // ── Strain Management ──
     {
         name: 'create_strain',
-        description: 'Create a new strain in the system. Variety fields (phenotype, terpeneTags, expectedYieldPct, defaultVegDays, defaultFloweringDays, stretchTrait, notes) are all optional — include whichever the user mentions ("add Blue Dream, sativa, terps are citrus and floral, yields about 22%"). Do NOT guess these — only set what the user states.',
+        description: 'Create a new strain in the system. Variety fields (phenotype, terpeneTags, defaultVegDays, defaultFloweringDays, stretchTrait, notes) are all optional — include whichever the user mentions ("add Blue Dream, sativa, terps are citrus and floral"). Do NOT guess these — only set what the user states. Yield is NOT a strain field; it belongs on SOP overrides per extraction route.',
         input_schema: {
             type: 'object' as const,
             properties: {
@@ -1238,7 +1240,6 @@ Present results as a clear waterfall: Stage 1 → Stage 2 → ... → Final Outp
                     items: { type: 'string', enum: ['gassy', 'citrus', 'floral', 'sweet_dessert', 'earthy_pine', 'creamy', 'fruit', 'spicy_herbal', 'candy'] },
                     description: 'Dominant terpene profile tags (up to 3). Canonical buckets only.',
                 },
-                expectedYieldPct: { type: 'number', description: 'Typical flower-to-output yield as a percentage (0-100)' },
                 defaultVegDays: { type: 'number', description: 'Default vegetative stage length in days' },
                 defaultFloweringDays: { type: 'number', description: 'Default flowering stage length in days' },
                 stretchTrait: { type: 'string', enum: ['low', 'medium', 'high'], description: 'Flowering stretch magnitude' },
@@ -1259,7 +1260,6 @@ Present results as a clear waterfall: Stage 1 → Stage 2 → ... → Final Outp
                     type: 'array',
                     items: { type: 'string', enum: ['gassy', 'citrus', 'floral', 'sweet_dessert', 'earthy_pine', 'creamy', 'fruit', 'spicy_herbal', 'candy'] },
                 },
-                expectedYieldPct: { type: 'number' },
                 defaultVegDays: { type: 'number' },
                 defaultFloweringDays: { type: 'number' },
                 stretchTrait: { type: 'string', enum: ['low', 'medium', 'high'] },
@@ -3697,7 +3697,6 @@ IMPORTANT: If the user is correcting or updating a previous statement (e.g. "act
                                 name: input.name,
                                 phenotype: input.phenotype,
                                 terpeneTags: input.terpeneTags,
-                                expectedYieldPct: input.expectedYieldPct,
                                 defaultVegDays: input.defaultVegDays,
                                 defaultFloweringDays: input.defaultFloweringDays,
                                 stretchTrait: input.stretchTrait,
@@ -3712,7 +3711,6 @@ IMPORTANT: If the user is correcting or updating a previous statement (e.g. "act
                                 strainName: input.strainName,
                                 phenotype: input.phenotype,
                                 terpeneTags: input.terpeneTags,
-                                expectedYieldPct: input.expectedYieldPct,
                                 defaultVegDays: input.defaultVegDays,
                                 defaultFloweringDays: input.defaultFloweringDays,
                                 stretchTrait: input.stretchTrait,
