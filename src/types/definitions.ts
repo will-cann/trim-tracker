@@ -299,10 +299,12 @@ export interface Strain {
   notes: string | null;
   // Variety-planner attributes (migration 063). All nullable — legacy
   // strains work with no data and the planner degrades gracefully.
+  // Cost intentionally NOT on strains — it varies by product form
+  // (fresh frozen vs flower vs trim) and supplier, so it's aggregated
+  // from vendor_products at query time rather than stored here.
   phenotype: Phenotype | null;
   terpeneTags: TerpeneTag[] | null;
   expectedYieldPct: number | null;
-  avgCostPerG: number | null;
   harvestCount: number;
   sessionCount: number;
   createdAt: string;

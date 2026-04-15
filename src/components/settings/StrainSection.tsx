@@ -143,7 +143,6 @@ type StrainUpdates = {
     phenotype?: Phenotype | null;
     terpeneTags?: TerpeneTag[] | null;
     expectedYieldPct?: number | null;
-    avgCostPerG?: number | null;
 };
 
 const StrainRow = ({ strain, onUpdate, onDelete, onOpenYields }: {
@@ -172,13 +171,6 @@ const StrainRow = ({ strain, onUpdate, onDelete, onOpenYields }: {
         const val = parseFloat(raw);
         if (isNaN(val) || val < 0 || val > 100) return;
         await onUpdate({ expectedYieldPct: val });
-    };
-
-    const saveCost = async (raw: string) => {
-        if (!raw.trim()) return onUpdate({ avgCostPerG: null });
-        const val = parseFloat(raw);
-        if (isNaN(val) || val < 0) return;
-        await onUpdate({ avgCostPerG: val });
     };
 
     const daysInput = (field: 'defaultVegDays' | 'defaultFloweringDays', value: number | null) => (
@@ -241,19 +233,6 @@ const StrainRow = ({ strain, onUpdate, onDelete, onOpenYields }: {
                     onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
                     className="strain-days-input"
                     title="Expected yield % (output ÷ input). The variety planner uses this as a filter / weight."
-                />
-            </td>
-            <td className="strain-cell-days">
-                <input
-                    type="number"
-                    defaultValue={strain.avgCostPerG ?? ''}
-                    placeholder="—"
-                    min={0}
-                    step={0.01}
-                    onBlur={e => saveCost(e.target.value)}
-                    onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
-                    className="strain-days-input"
-                    title="Average input cost per gram ($). Used for cost filtering in the variety planner."
                 />
             </td>
             <td className="strain-cell-notes">
@@ -375,7 +354,6 @@ export const StrainSection: React.FC<StrainSectionProps> = ({ strains, loading, 
                                 <th className="strain-th strain-th-days">Flower</th>
                                 <th className="strain-th strain-th-days">Stretch</th>
                                 <th className="strain-th strain-th-days" title="Expected yield %">Yield %</th>
-                                <th className="strain-th strain-th-days" title="Average input cost ($/g)">$/g</th>
                                 <th className="strain-th strain-th-notes">Notes</th>
                                 <th className="strain-th" style={{ width: 40 }}></th>
                             </tr>
