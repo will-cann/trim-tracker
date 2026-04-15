@@ -24,7 +24,6 @@ export const handler: Handler = async (event) => {
                 s.phenotype,
                 s.terpene_tags,
                 s.expected_yield_pct,
-                s.avg_cost_per_g,
                 s.created_at,
                 s.updated_at,
                 (
@@ -51,7 +50,6 @@ export const handler: Handler = async (event) => {
             phenotype: r.phenotype || null,
             terpeneTags: r.terpene_tags || null,
             expectedYieldPct: r.expected_yield_pct !== null ? Number(r.expected_yield_pct) : null,
-            avgCostPerG: r.avg_cost_per_g !== null ? Number(r.avg_cost_per_g) : null,
             harvestCount: r.harvest_count || 0,
             sessionCount: r.session_count || 0,
             createdAt: r.created_at,
