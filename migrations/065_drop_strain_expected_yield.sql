@@ -1,0 +1,22 @@
+-- Revert: drop strains.expected_yield_pct
+-- Created: 2026-04-15
+--
+-- Added in migration 063 as part of the variety-planner attributes. Same
+-- flaw as the avg_cost_per_g column dropped in migration 064: yield is
+-- context-dependent. A strain doesn't have a single yield — it has a
+-- yield per extraction route (fresh frozen → bubble hash ≈ 8%,
+-- fresh frozen → live rosin ≈ 4%, dry trim → rosin ≈ 20%, etc.).
+--
+-- The correct source already exists:
+--   - Extraction yields: strain_yield_overrides, keyed by
+--     strain × templateId × inputType × outputType (migration 056).
+--   - Historical averages come from extraction_logs via
+--     get-yield-averages.
+--   - Cultivation yield (per plant / sq ft) would live on harvests and
+--     be aggregated per strain over time — a separate future concern.
+--
+-- Dropping the column before the variety-planner cost/yield filter
+-- (δ.2) lands so it reads from strain_yield_overrides, not a stale
+-- denormalized row.
+
+ALTER TABLE strains DROP COLUMN IF EXISTS expected_yield_pct;

@@ -129,7 +129,6 @@ const FIELD_LABELS: Record<string, string> = {
     // Strain variety fields
     phenotype: 'Phenotype',
     terpeneTags: 'Terpenes',
-    expectedYieldPct: 'Yield %',
     defaultVegDays: 'Veg days',
     defaultFloweringDays: 'Flower days',
     stretchTrait: 'Stretch',
@@ -224,8 +223,8 @@ const KEY_FIELDS: Record<string, string[]> = {
     change_plant_phase: ['strain', 'targetPhase', 'targetRoomName'],
     destroy_plants: ['strain', 'roomName'],
     update_plant_health: ['strain', 'roomName'],
-    create_strain: ['name', 'phenotype', 'terpeneTags', 'expectedYieldPct'],
-    update_strain: ['strainName', 'phenotype', 'terpeneTags', 'expectedYieldPct'],
+    create_strain: ['name', 'phenotype', 'terpeneTags'],
+    update_strain: ['strainName', 'phenotype', 'terpeneTags'],
     delete_strain: ['strainName'],
     create_license: ['licenseNumber'],
     delete_license: ['licenseNumber'],

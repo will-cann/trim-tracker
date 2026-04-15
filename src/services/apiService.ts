@@ -620,7 +620,6 @@ export const upsertStrain = async (
         notes?: string | null;
         phenotype?: 'sativa' | 'indica' | 'hybrid' | null;
         terpeneTags?: string[] | null;
-        expectedYieldPct?: number | null;
     },
 ): Promise<Strain> => {
     const response = await fetchWithAuth(`${API_BASE}/upsert-strain`, {
