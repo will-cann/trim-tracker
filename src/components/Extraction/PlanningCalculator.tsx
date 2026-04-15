@@ -112,6 +112,7 @@ export const PlanningCalculator: React.FC<PlanningCalculatorProps> = ({ onStartR
     const [packages, setPackages] = useState<Package[]>([]);
     const [templates, setTemplates] = useState<ProcessTemplate[]>([]);
     const [loading, setLoading] = useState(true);
+    const [loadErrors, setLoadErrors] = useState<string[]>([]);
 
     // Session state
     const [session, setSession] = useState<PlanningSession | null>(null);
@@ -135,23 +136,30 @@ export const PlanningCalculator: React.FC<PlanningCalculatorProps> = ({ onStartR
     const [error, setError] = useState<string | null>(null);
     const [copied, setCopied] = useState(false);
 
-    // Initial load
-    useEffect(() => {
-        Promise.all([
+    // Initial load — use allSettled so one failing endpoint doesn't brick the
+    // whole Planning tab. Surface which endpoints failed via an inline banner
+    // so operators can still see partial state and know what's degraded.
+    const loadCatalog = () => {
+        setLoading(true);
+        setLoadErrors([]);
+        Promise.allSettled([
             apiService.getProductTypes(),
             apiService.getStrains(),
             apiService.getPackages({ status: 'active' }),
             apiService.getProcessTemplates('extraction'),
-            apiService.getPlanningSessions('draft').catch(() => [] as PlanningSession[]),
-        ]).then(([pt, st, pk, tmpl, sessions]) => {
-            setProductTypes(pt);
-            setStrains(st);
-            setPackages(pk);
-            setTemplates(tmpl);
-            setSavedSessions(sessions);
+            apiService.getPlanningSessions('draft'),
+        ]).then(([ptR, stR, pkR, tmplR, sessionsR]) => {
+            const failed: string[] = [];
+            if (ptR.status === 'fulfilled') setProductTypes(ptR.value); else { failed.push('product types'); console.error('getProductTypes failed', ptR.reason); }
+            if (stR.status === 'fulfilled') setStrains(stR.value); else { failed.push('strains'); console.error('getStrains failed', stR.reason); }
+            if (pkR.status === 'fulfilled') setPackages(pkR.value); else { failed.push('inventory'); console.error('getPackages failed', pkR.reason); }
+            if (tmplR.status === 'fulfilled') setTemplates(tmplR.value); else { failed.push('SOPs'); console.error('getProcessTemplates failed', tmplR.reason); }
+            if (sessionsR.status === 'fulfilled') setSavedSessions(sessionsR.value); else { failed.push('saved plans'); console.error('getPlanningSessions failed', sessionsR.reason); }
+            setLoadErrors(failed);
             setLoading(false);
         });
-    }, []);
+    };
+    useEffect(() => { loadCatalog(); }, []);
 
     // Close the session picker when the user clicks outside of it.
     const pickerRef = useRef<HTMLDivElement | null>(null);
@@ -494,6 +502,36 @@ export const PlanningCalculator: React.FC<PlanningCalculatorProps> = ({ onStartR
 
     return (
         <div className="planning-calculator">
+            {loadErrors.length > 0 && (
+                <div
+                    role="alert"
+                    style={{
+                        gridColumn: '1 / -1',
+                        display: 'flex', alignItems: 'center', gap: 8,
+                        padding: '8px 12px', marginBottom: 12,
+                        background: 'rgba(234, 179, 8, 0.08)',
+                        border: '1px solid rgba(234, 179, 8, 0.35)',
+                        borderRadius: 6, fontSize: '0.8125rem',
+                        color: 'var(--text-primary)',
+                    }}
+                >
+                    <AlertTriangle size={14} style={{ color: '#b45309', flexShrink: 0 }} />
+                    <span style={{ flex: 1 }}>
+                        Couldn't load {loadErrors.join(', ')}. Planning may be incomplete.
+                    </span>
+                    <button
+                        type="button"
+                        onClick={loadCatalog}
+                        style={{
+                            padding: '4px 10px', borderRadius: 4,
+                            border: '1px solid rgba(234, 179, 8, 0.45)',
+                            background: '#fff', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 600,
+                        }}
+                    >
+                        Retry
+                    </button>
+                </div>
+            )}
             {/* ── Form column ───────────────────────────────────────────── */}
             <div className="planning-form-column">
                 {/* Session header */}
