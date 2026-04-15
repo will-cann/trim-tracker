@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Package, Plus, UserPlus, User, Loader2, Check, X, Sprout, Scale, ArrowRightLeft, Trash2, MapPin, CheckCircle2, XCircle, ChevronDown, Scissors, ClipboardList, Send, UserMinus, RefreshCw, Pencil, Leaf, MoveRight, TrendingUp, Skull, KeyRound, Tag, Upload, LayoutGrid, ArrowRight, Percent, Flame, Snowflake, Droplets, Mail, Truck } from 'lucide-react';
 import type { ProposedAction } from '../types/definitions';
+import { TERPENE_TAG_LABELS } from '../types/definitions';
 import { TypeChip } from './ui';
 
 interface ActionPreviewProps {
@@ -44,6 +45,7 @@ const ACTION_CONFIG: Record<string, { icon: typeof Package; label: string; color
     update_plant_health: { icon: Sprout, label: 'Update Health', color: 'text-emerald-600', bgColor: 'bg-emerald-50' },
     // Strain & license
     create_strain: { icon: Leaf, label: 'Add Strain', color: 'text-emerald-600', bgColor: 'bg-emerald-50' },
+    update_strain: { icon: Leaf, label: 'Update Strain', color: 'text-blue-600', bgColor: 'bg-blue-50' },
     delete_strain: { icon: Trash2, label: 'Delete Strain', color: 'text-red-600', bgColor: 'bg-red-50' },
     create_license: { icon: KeyRound, label: 'Add License', color: 'text-blue-600', bgColor: 'bg-blue-50' },
     delete_license: { icon: Trash2, label: 'Delete License', color: 'text-red-600', bgColor: 'bg-red-50' },
@@ -124,6 +126,13 @@ const FIELD_LABELS: Record<string, string> = {
     // License
     licenseId: 'License ID',
     strainId: 'Strain ID',
+    // Strain variety fields
+    phenotype: 'Phenotype',
+    terpeneTags: 'Terpenes',
+    expectedYieldPct: 'Yield %',
+    defaultVegDays: 'Veg days',
+    defaultFloweringDays: 'Flower days',
+    stretchTrait: 'Stretch',
     // Vendor / supplier fields
     vendorName: 'Vendor',
     vendorType: 'Type',
@@ -215,7 +224,8 @@ const KEY_FIELDS: Record<string, string[]> = {
     change_plant_phase: ['strain', 'targetPhase', 'targetRoomName'],
     destroy_plants: ['strain', 'roomName'],
     update_plant_health: ['strain', 'roomName'],
-    create_strain: ['name'],
+    create_strain: ['name', 'phenotype', 'terpeneTags', 'expectedYieldPct'],
+    update_strain: ['strainName', 'phenotype', 'terpeneTags', 'expectedYieldPct'],
     delete_strain: ['strainName'],
     create_license: ['licenseNumber'],
     delete_license: ['licenseNumber'],
@@ -246,7 +256,7 @@ const KEY_FIELDS: Record<string, string[]> = {
 const TEXTAREA_FIELDS = new Set(['bodyText']);
 
 /** Fields whose value is `string[]` — rendered as editable chip list with add/remove. */
-const CHIP_ARRAY_FIELDS = new Set(['strainsGrown']);
+const CHIP_ARRAY_FIELDS = new Set(['strainsGrown', 'terpeneTags']);
 
 /** Build a human-readable one-liner from action data */
 function summarizeAction(action: ProposedAction): string {
@@ -424,6 +434,16 @@ const SELECT_OPTIONS: Record<string, Array<{ value: string; label: string }>> = 
         { value: 'email', label: 'Email' },
         { value: 'sms', label: 'SMS' },
     ],
+    phenotype: [
+        { value: 'sativa', label: 'Sativa' },
+        { value: 'indica', label: 'Indica' },
+        { value: 'hybrid', label: 'Hybrid' },
+    ],
+    stretchTrait: [
+        { value: 'low', label: 'Low' },
+        { value: 'medium', label: 'Medium' },
+        { value: 'high', label: 'High' },
+    ],
     newStatus: [
         { value: 'upcoming', label: 'Upcoming' },
         { value: 'active', label: 'Active' },
@@ -538,7 +558,7 @@ const OPTIONS_BY_ACTION: Record<string, Record<string, Array<{ value: string; la
     },
 };
 
-function ChipArrayEditor({ value, onChange, disabled }: { value: any; onChange: (v: string[]) => void; disabled?: boolean }) {
+function ChipArrayEditor({ value, onChange, disabled, labels, placeholder }: { value: any; onChange: (v: string[]) => void; disabled?: boolean; labels?: Record<string, string>; placeholder?: string }) {
     const items: string[] = Array.isArray(value) ? value : [];
     const [draft, setDraft] = useState('');
 
@@ -559,7 +579,7 @@ function ChipArrayEditor({ value, onChange, disabled }: { value: any; onChange: 
                     className="inline-flex items-center gap-1 pl-2 pr-1 py-0.5 text-xs rounded-full"
                     style={{ background: 'rgba(59, 181, 112, 0.12)', color: 'var(--color-flower, #3BB570)' }}
                 >
-                    {s}
+                    {labels?.[s] ?? s}
                     {!disabled && (
                         <button
                             type="button"
@@ -582,7 +602,7 @@ function ChipArrayEditor({ value, onChange, disabled }: { value: any; onChange: 
                         if (e.key === 'Backspace' && !draft && items.length) { remove(items[items.length - 1]); }
                     }}
                     onBlur={add}
-                    placeholder={items.length ? '' : 'Add strain…'}
+                    placeholder={items.length ? '' : (placeholder ?? 'Add strain…')}
                     className="flex-1 min-w-[80px] text-xs px-1 py-0.5 outline-none bg-transparent"
                 />
             )}
@@ -741,7 +761,12 @@ function FieldRow({
                     {humanize(value)}
                 </span>
             ) : isReadonly && isChipArrayField ? (
-                <ChipArrayEditor value={value} onChange={() => {}} disabled />
+                <ChipArrayEditor
+                    value={value}
+                    onChange={() => {}}
+                    disabled
+                    labels={fieldKey === 'terpeneTags' ? TERPENE_TAG_LABELS : undefined}
+                />
             ) : isReadonly ? (
                 <span className="flex-1 text-sm text-gray-700 px-2 py-1">
                     {humanize(value)}
@@ -760,7 +785,13 @@ function FieldRow({
                     ))}
                 </select>
             ) : isChipArrayField ? (
-                <ChipArrayEditor value={value} onChange={onChange} disabled={isExecuting} />
+                <ChipArrayEditor
+                    value={value}
+                    onChange={onChange}
+                    disabled={isExecuting}
+                    labels={fieldKey === 'terpeneTags' ? TERPENE_TAG_LABELS : undefined}
+                    placeholder={fieldKey === 'terpeneTags' ? 'Add terpene tag…' : undefined}
+                />
             ) : isDateTimeField ? (
                 <DateTimePills value={value} onChange={onChange} disabled={isExecuting} />
             ) : isTextareaField ? (

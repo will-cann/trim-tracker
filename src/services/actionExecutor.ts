@@ -326,9 +326,20 @@ export async function executeAction(action: ProposedAction): Promise<ActionOutco
             await apiService.binToTrim(action.data.binId);
             return OK('Bin sent to trim');
 
-        case 'create_strain':
-            await apiService.upsertStrain(action.data.name);
+        case 'create_strain': {
+            const { name, ...opts } = action.data;
+            if (!name) return SKIPPED('missing strain name');
+            await apiService.upsertStrain(name, opts);
             return OK('Strain created');
+        }
+        case 'update_strain': {
+            const { strainName, ...opts } = action.data;
+            if (!strainName) return SKIPPED('missing strain name');
+            // upsert is name-keyed server-side (ON CONFLICT on LOWER(name)),
+            // so the same endpoint updates an existing row in place.
+            await apiService.upsertStrain(strainName, opts);
+            return OK('Strain updated');
+        }
         case 'delete_strain': {
             let strainId = action.data.strainId;
             if (!strainId && action.data.strainName) {
