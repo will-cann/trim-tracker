@@ -342,6 +342,15 @@ When the application state shows empty strains, licenses, or rooms, you are like
 - Chain setup actions naturally — if a user says "plan a harvest for Wedding Cake" but has no strains or licenses, create the strain AND license AND then the harvest in one action set.
 - NEVER say "go to Settings" or direct users to another page. Handle everything right here in conversation.
 
+## Strain Variety Attributes
+
+Strains carry optional variety metadata used by the extraction planner's variety filters: \`phenotype\` (sativa/indica/hybrid), \`terpeneTags\` (up to 3 from the canonical 9-bucket taxonomy: gassy, citrus, floral, sweet_dessert, earthy_pine, creamy, fruit, spicy_herbal, candy), and \`expectedYieldPct\` (typical output / input as a percent). Also \`defaultVegDays\`, \`defaultFloweringDays\`, \`stretchTrait\` (low/medium/high), and \`notes\`.
+
+- Use \`create_strain\` with variety fields when a user adds a strain with attributes in one breath: "Add Blue Dream, it's a hybrid, citrus and floral terps, runs about 22% yield" → one \`create_strain\` call with all four fields.
+- Use \`update_strain\` to tweak attributes on an existing strain: "Mark Gelato as indica-leaning hybrid" → \`update_strain\` with \`phenotype: 'hybrid'\`.
+- Do NOT guess variety values. If the user says "add Wedding Cake" with no qualifiers, only set \`name\`. Variety fields stay null until the user states them.
+- Terpene tag values are strict enums — map free-form descriptions to the canonical bucket ("gassy/funky" → \`gassy\`, "citrusy" → \`citrus\`, "piney" or "earthy" → \`earthy_pine\`, "dessert/vanilla/cream" → \`sweet_dessert\` or \`creamy\`, "fruity/berry" → \`fruit\`, "spicy/peppery" → \`spicy_herbal\`, "candy/sugary" → \`candy\`, "floral" → \`floral\`). Never invent new bucket values.
+
 ## Supplier Outreach
 
 When the user asks to reach out to a biomass supplier / grower to request a menu, ask about availability of a specific strain, or follow up on prior communication, use \`compose_supplier_email\`.
@@ -1218,13 +1227,45 @@ Present results as a clear waterfall: Stage 1 → Stage 2 → ... → Final Outp
     // ── Strain Management ──
     {
         name: 'create_strain',
-        description: 'Create a new strain in the system.',
+        description: 'Create a new strain in the system. Variety fields (phenotype, terpeneTags, expectedYieldPct, defaultVegDays, defaultFloweringDays, stretchTrait, notes) are all optional — include whichever the user mentions ("add Blue Dream, sativa, terps are citrus and floral, yields about 22%"). Do NOT guess these — only set what the user states.',
         input_schema: {
             type: 'object' as const,
             properties: {
                 name: { type: 'string', description: 'Strain name' },
+                phenotype: { type: 'string', enum: ['sativa', 'indica', 'hybrid'], description: 'Phenotype classification' },
+                terpeneTags: {
+                    type: 'array',
+                    items: { type: 'string', enum: ['gassy', 'citrus', 'floral', 'sweet_dessert', 'earthy_pine', 'creamy', 'fruit', 'spicy_herbal', 'candy'] },
+                    description: 'Dominant terpene profile tags (up to 3). Canonical buckets only.',
+                },
+                expectedYieldPct: { type: 'number', description: 'Typical flower-to-output yield as a percentage (0-100)' },
+                defaultVegDays: { type: 'number', description: 'Default vegetative stage length in days' },
+                defaultFloweringDays: { type: 'number', description: 'Default flowering stage length in days' },
+                stretchTrait: { type: 'string', enum: ['low', 'medium', 'high'], description: 'Flowering stretch magnitude' },
+                notes: { type: 'string', description: 'Free-form notes' },
             },
             required: ['name'],
+        },
+    },
+    {
+        name: 'update_strain',
+        description: 'Update variety attributes on an existing strain (phenotype, terpene tags, expected yield %, veg/flowering days, stretch, notes). Match by strainName from the Available strains context. Only include fields the user explicitly mentions changing.',
+        input_schema: {
+            type: 'object' as const,
+            properties: {
+                strainName: { type: 'string', description: 'Name of the strain to update' },
+                phenotype: { type: 'string', enum: ['sativa', 'indica', 'hybrid'] },
+                terpeneTags: {
+                    type: 'array',
+                    items: { type: 'string', enum: ['gassy', 'citrus', 'floral', 'sweet_dessert', 'earthy_pine', 'creamy', 'fruit', 'spicy_herbal', 'candy'] },
+                },
+                expectedYieldPct: { type: 'number' },
+                defaultVegDays: { type: 'number' },
+                defaultFloweringDays: { type: 'number' },
+                stretchTrait: { type: 'string', enum: ['low', 'medium', 'high'] },
+                notes: { type: 'string' },
+            },
+            required: ['strainName'],
         },
     },
     {
@@ -3652,7 +3693,31 @@ IMPORTANT: If the user is correcting or updating a previous statement (e.g. "act
                     case 'create_strain':
                         actions.push({
                             type: 'create_strain',
-                            data: { name: input.name },
+                            data: {
+                                name: input.name,
+                                phenotype: input.phenotype,
+                                terpeneTags: input.terpeneTags,
+                                expectedYieldPct: input.expectedYieldPct,
+                                defaultVegDays: input.defaultVegDays,
+                                defaultFloweringDays: input.defaultFloweringDays,
+                                stretchTrait: input.stretchTrait,
+                                notes: input.notes,
+                            },
+                        });
+                        break;
+                    case 'update_strain':
+                        actions.push({
+                            type: 'update_strain',
+                            data: {
+                                strainName: input.strainName,
+                                phenotype: input.phenotype,
+                                terpeneTags: input.terpeneTags,
+                                expectedYieldPct: input.expectedYieldPct,
+                                defaultVegDays: input.defaultVegDays,
+                                defaultFloweringDays: input.defaultFloweringDays,
+                                stretchTrait: input.stretchTrait,
+                                notes: input.notes,
+                            },
                         });
                         break;
                     case 'delete_strain': {

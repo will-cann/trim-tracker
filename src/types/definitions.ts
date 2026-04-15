@@ -876,7 +876,7 @@ export type ProposedActionType =
   | 'submit_session' | 'remove_trimmer' | 'delete_trimmer_profile'
   | 'update_trimmer' | 'update_trimmer_profile' | 'update_batch_weight' | 'update_plant_health'
   | 'create_planting' | 'move_plants' | 'change_plant_phase' | 'destroy_plants'
-  | 'create_strain' | 'delete_strain' | 'create_license' | 'delete_license' | 'update_license'
+  | 'create_strain' | 'update_strain' | 'delete_strain' | 'create_license' | 'delete_license' | 'update_license'
   | 'import_tags' | 'assign_tag' | 'auto_assign_tags'
   | 'create_package' | 'update_package' | 'finish_package' | 'delete_package'
   | 'record_extraction' | 'start_extraction_run' | 'amend_extraction_run_inputs' | 'cancel_extraction_run'
