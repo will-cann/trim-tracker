@@ -901,7 +901,7 @@ export const LandingPage: React.FC = () => {
               Sign In
             </button>
             <a
-              href="mailto:will@neurocann.com?subject=NeuroCann%20Demo%20Request"
+              href="mailto:will@neurocann.app?subject=NeuroCann%20Demo%20Request"
               className="bg-gray-900 hover:bg-gray-800 text-white text-sm font-bold px-5 py-2 rounded-lg transition-colors"
             >
               Book Demo
@@ -943,7 +943,7 @@ export const LandingPage: React.FC = () => {
                 style={{ opacity: 0, animation: 'heroFadeIn 0.7s cubic-bezier(0.16,1,0.3,1) 0.55s forwards' }}
               >
                 <a
-                  href="mailto:will@neurocann.com?subject=NeuroCann%20Demo%20Request"
+                  href="mailto:will@neurocann.app?subject=NeuroCann%20Demo%20Request"
                   className="group relative bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-8 py-4 rounded-xl transition-all text-sm inline-block shadow-lg shadow-emerald-500/20 hover:shadow-emerald-500/30"
                 >
                   Book a Demo
@@ -1321,7 +1321,7 @@ export const LandingPage: React.FC = () => {
             </p>
             <div className="flex flex-wrap justify-center gap-4">
               <a
-                href="mailto:will@neurocann.com?subject=NeuroCann%20Demo%20Request"
+                href="mailto:will@neurocann.app?subject=NeuroCann%20Demo%20Request"
                 className="group bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-10 py-4 rounded-xl transition-all text-sm inline-block shadow-lg shadow-emerald-500/25 hover:shadow-emerald-500/40"
               >
                 Book a Demo

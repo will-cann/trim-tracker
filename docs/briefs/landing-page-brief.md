@@ -15,7 +15,7 @@ Rewrite `src/components/LandingPage.tsx` to accurately represent the full platfo
 - `useAuth()` provides `login()` for the Sign In button
 - The existing `ActionPreview` component import is available for the AI demo
 - Keep the `AIChatDemo` auto-playing conversation — it's the strongest element on the current page. Update its scenarios to cover more domains (extraction, ordering, ambient voice, tasks).
-- CTAs: "Book a Demo" (mailto:will@neurocann.com) and "Sign In" (triggers Auth0 login)
+- CTAs: "Book a Demo" (mailto:will@neurocann.app) and "Sign In" (triggers Auth0 login)
 - Must be fully responsive (mobile, tablet, desktop)
 - Scroll-reveal animations are good — keep the pattern
 
