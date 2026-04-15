@@ -2,26 +2,108 @@
 
 ## P4 implementation status (Apr 2026)
 
-This slice adds (delivered across PRs #TBD):
+### Landed
 
-- Demand-planning inventory overlay — current on-hand inputs shown alongside
+**Supplier CRM + email (original P4 batch, 10 units):**
+- Demand-planning inventory overlay — on-hand inputs shown alongside
   demand-backward requirements so the gap to source is explicit.
 - Biomass supplier type on vendors — distinguishes fresh-frozen / flower
   suppliers from consumables vendors for outreach and ordering.
 - Email-based supplier CRM — outbound via `netlify/functions/send-supplier-email.ts`,
-  inbound via `netlify/functions/receive-email.ts` behind SendGrid Inbound Parse,
-  threads in `contact_threads`/`contact_messages`, AI `compose_supplier_email`
-  action with editable preview, Claude-parsed inbound bodies into `vendor_products`.
-- Outreach reminders — follow-up tasks generated when a supplier thread goes
-  stale without a reply.
+  inbound via `netlify/functions/receive-email.ts` behind SendGrid Inbound Parse on
+  `replies.neurocann.app`, threads in `contact_threads`/`contact_messages`, AI
+  `compose_supplier_email` action with editable preview, Claude-parsed inbound
+  bodies into `vendor_products`.
+- Outreach reminders — follow-up `human_tasks` generated when a supplier thread
+  goes stale past its `outreach_cadence_days`.
+- Vendor CRUD AI tools — `create_vendor` / `update_vendor` / `delete_vendor`
+  with editable previews (chip-array editor for `strainsGrown`, dropdowns for
+  `vendorType` and `preferredChannel`).
+- Context-aware Cadence column — order cadence for consumables, outreach
+  cadence for biomass suppliers.
 
-Explicitly out of scope for this slice:
+**Variety planner (Track A + δ.1):**
+- Strain variety metadata — `phenotype` (sativa/indica/hybrid) and
+  `terpeneTags` (canonical 9-bucket taxonomy, up to 3 per strain: gassy,
+  citrus, floral, sweet_dessert, earthy_pine, creamy, fruit, spicy_herbal,
+  candy) on the strain row. Columns added in migration 063.
+- AI `create_strain` / `update_strain` tools accept the new variety fields
+  with strict enum mapping for free-form terpene descriptions.
+- Variety-blend targets in the demand planner — operators can say *"5000
+  rosin pens, 4 strains, 1 sativa, 1 indica, 2 hybrid"* via a new variety
+  option on the target form. The client-side solver
+  (`src/components/Extraction/varietySolver.ts`) expands a variety target
+  into N single-strain targets ranked by on-hand biomass, then hands them
+  to `plan-backward` unchanged. Partial fulfillment surfaces as a warning
+  ("Requested 2 hybrids, catalog has 1 — slot unfilled") instead of silent
+  skip. Variety spec persists in the existing `planning_sessions.targets`
+  JSONB column (no migration needed; re-expands against current catalog on
+  load).
+- Planning tab resilience — `Promise.allSettled` + inline retry banner so
+  a single failed endpoint doesn't brick the whole tab (motivated by the
+  mid-deploy outage where `get-strains` 500'd against the dropped
+  `avg_cost_per_g` column).
+
+**Design corrections:**
+- `strains.avg_cost_per_g` dropped (migration 064). Cost varies by product
+  form (fresh frozen vs dry flower vs trim vs shake) and supplier, so it
+  belongs in `vendor_products`, aggregated at query time.
+- `strains.expected_yield_pct` dropped (migration 065). Same flaw: yield
+  only exists in the context of an extraction route (FF→bubble hash ≈ 8%,
+  FF→live rosin ≈ 4%, dry trim→rosin ≈ 20%). Per-route yield lives in
+  `strain_yield_overrides` + `extraction_logs`; cultivation yield (per
+  plant / sq ft) is a future harvest-aggregation concern.
+
+### Next up when we resume
+
+**δ.2 — Cost + yield filter for the variety planner**
+- New `netlify/functions/get-strain-pricing.ts` aggregator: reads
+  `vendor_products` grouped by strain × input type, returns
+  `{ avgPricePerG, minPricePerG, maxPricePerG, lastPricePerG, vendorCount }`.
+- New yield aggregator reading `strain_yield_overrides` + `extraction_logs`
+  keyed by strain × templateId × inputType × outputType.
+- Extend `VarietySpec` with `costMaxPerG?: { inputType, max }` and
+  `yieldMin?: { templateId, inputType, outputType, minPct }` — scoped to
+  specific extraction routes, not strain-global.
+- Planner UI: cost-per-gram column on each variety row; yield badge
+  keyed to the target's SOP.
+
+**δ.3 — AI tool for variety targets**
+- New tool schema so the AI can emit variety-mode targets directly from
+  phrasings like *"plan 5000 rosin pens across 4 strains, one sativa,
+  one indica, two hybrid."*
+- Sequenced after δ.2 so the tool's shape lands once, with cost/yield
+  filters built in from day one.
+
+**Track B+C — Global strain catalog (lower priority)**
+- Seed ~30 common strains with canonical phenotype + terpene attributes.
+- Suggest-on-create fuzzy match: when an operator adds "Wedding Cake,"
+  offer to prefill variety attributes from the shared catalog.
+
+### Explicitly out of scope for this slice
 
 - METRC integration (creation, adjustments, lab results, sync).
 - SMS notifications or SMS-based CRM (schema-ready, not wired).
 - Inventory snapshots (`inventory_snapshots` table / cron).
 - Multi-run planning sessions (batched planning across simultaneous runs).
 - Working-hours / shift-aware scheduling for multi-day runs.
+- Weighted balance in variety targets (currently always 'even' —
+  `quantity / N` per chosen strain).
+
+### Testing state as of pause
+
+- PRs #23, #24, #25, #26, #27 merged to main.
+- Migration 065 applied to dev. **Prod migration pending** — must run
+  `node scripts/run-migration.mjs --prod migrations/065_drop_strain_expected_yield.sql`
+  after Netlify deploys main (same drop-column ordering as PR #22 / migration 064).
+- Variety planner end-to-end not yet validated in-app — next session
+  should start there: verify `"4 strains: 1 sativa, 1 indica, 2 hybrid"`
+  in the UI produces 4 per-strain plan rows with correct quantity split
+  and surfaces warnings for under-stocked phenotypes.
+- No regressions expected in single-strain / any-strain planning; solver
+  passes variety-less targets through unchanged (8 unit tests in
+  `varietySolver.test.ts` cover the expansion math + partial fulfillment
+  warnings).
 
 ---
 
