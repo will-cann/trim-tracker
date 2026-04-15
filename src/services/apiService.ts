@@ -1,4 +1,4 @@
-import type { TrimSession, CreateTrimSessionDTO, Trimmer, TrimmerProfile, ProposedAction, Harvest, CreateHarvestDTO, HarvestWasteType, HarvestAllocation, HarvestPlantWeight, HarvestBin, BinCureLog, CreateBinDTO, FloweringBatchGroup, Strain, License, SpeechMode, HumanTask, TeamRole, Tag, TagType, TagStats, TagSettings, Package, CreatePackageDTO, MetrcItem, PackageAdjustment, AdjustmentReason, ProductType, ProcessTemplate, StepSupplyRequirement, YieldAverage, BackwardPlan, PlanningSession, StrainYieldOverride, ReportSpec, SavedReport, TaskViewSpec, SavedTaskView, SupplyPool, SupplyItem, SupplyLedgerEntry, SupplyChangeType, SupplyPoolSlug, ContactThread } from '../types/definitions';
+import type { TrimSession, CreateTrimSessionDTO, Trimmer, TrimmerProfile, ProposedAction, Harvest, CreateHarvestDTO, HarvestWasteType, HarvestAllocation, HarvestPlantWeight, HarvestBin, BinCureLog, CreateBinDTO, FloweringBatchGroup, Strain, License, SpeechMode, HumanTask, TeamRole, Tag, TagType, TagStats, TagSettings, Package, CreatePackageDTO, MetrcItem, PackageAdjustment, AdjustmentReason, ProductType, ProcessTemplate, StepSupplyRequirement, YieldAverage, BackwardPlan, PlanningSession, PlanTargetInput, StrainYieldOverride, ReportSpec, SavedReport, TaskViewSpec, SavedTaskView, SupplyPool, SupplyItem, SupplyLedgerEntry, SupplyChangeType, SupplyPoolSlug, ContactThread } from '../types/definitions';
 
 const API_BASE = '/.netlify/functions';
 
@@ -1829,7 +1829,10 @@ export const getPlanningSession = async (id: string): Promise<PlanningSession> =
 export const savePlanningSession = async (payload: {
     id?: string;
     name: string;
-    targets: Array<{ outputType: string; quantity: number; unit?: string; strain?: string | null }>;
+    // `variety` passes through to the planning_sessions.targets JSONB column
+    // unchanged — the server doesn't inspect it. On load, the client-side
+    // solver re-expands the variety spec against the current strain catalog.
+    targets: PlanTargetInput[];
     plan?: BackwardPlan | null;
     status?: 'draft' | 'scheduled' | 'archived';
     notes?: string;

@@ -13,6 +13,8 @@ import type {
 } from '../../types/definitions';
 import { apiService } from '../../services/apiService';
 import type { StartRunPrefill } from './StartRunModal';
+import { expandVarietyTargets, formatVarietyLabel } from './varietySolver';
+import type { VarietySpec } from '../../types/definitions';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Small helpers
@@ -128,7 +130,16 @@ export const PlanningCalculator: React.FC<PlanningCalculatorProps> = ({ onStartR
     // Draft-target form state
     const [draftQty, setDraftQty] = useState('');
     const [draftOutputType, setDraftOutputType] = useState('');
+    // draftStrain holds either a specific strain name, '' (any strain), or
+    // the sentinel '__variety__' when the user opts into variety-blend mode.
     const [draftStrain, setDraftStrain] = useState('');
+    const [draftVarietyCount, setDraftVarietyCount] = useState('4');
+    const [draftVarietySativa, setDraftVarietySativa] = useState('0');
+    const [draftVarietyIndica, setDraftVarietyIndica] = useState('0');
+    const [draftVarietyHybrid, setDraftVarietyHybrid] = useState('0');
+    // Warnings surfaced by the client-side variety solver (partial fulfillment,
+    // catalog-too-small, etc.). Cleared on every replan.
+    const [varietyWarnings, setVarietyWarnings] = useState<string[]>([]);
 
     // Plan result state
     const [plan, setPlan] = useState<BackwardPlan | null>(null);
@@ -252,6 +263,20 @@ export const PlanningCalculator: React.FC<PlanningCalculatorProps> = ({ onStartR
         return { total, label: parts.join(', ') };
     };
 
+    // Flat on-hand-by-strain totals (summed across biomass types) — used by
+    // the variety solver to rank candidates within each phenotype bucket.
+    // The solver doesn't care about biomass form; `relevantBiomassForDraft`
+    // will narrow it during planning anyway.
+    const biomassTotalsByStrain = useMemo(() => {
+        const out = new Map<string, number>();
+        for (const [strain, byType] of biomassByStrain.entries()) {
+            let sum = 0;
+            for (const q of byType.values()) sum += q;
+            out.set(strain, sum);
+        }
+        return out;
+    }, [biomassByStrain]);
+
     const sortedStrains = useMemo(() => {
         const inStock: { strain: Strain; qty: number; label: string }[] = [];
         const outOfStock: Strain[] = [];
@@ -271,11 +296,24 @@ export const PlanningCalculator: React.FC<PlanningCalculatorProps> = ({ onStartR
 
     const addDraftTarget = () => {
         if (!canAddDraft) return;
+        const isVariety = draftStrain === '__variety__';
+        const variety: VarietySpec | undefined = isVariety
+            ? {
+                strainCount: Math.max(1, parseInt(draftVarietyCount) || 1),
+                phenotypeMix: {
+                    sativa: parseInt(draftVarietySativa) || 0,
+                    indica: parseInt(draftVarietyIndica) || 0,
+                    hybrid: parseInt(draftVarietyHybrid) || 0,
+                },
+                balance: 'even',
+            }
+            : undefined;
         const newTarget: PlanTargetInput = {
             outputType: draftOutputType,
             quantity: parseFloat(draftQty),
             unit: draftPt?.defaultUnit,
-            strain: draftStrain.trim() || null,
+            strain: isVariety ? null : (draftStrain.trim() || null),
+            variety,
         };
         setTargets(prev => [...prev, newTarget]);
         setDraftQty('');
@@ -305,9 +343,19 @@ export const PlanningCalculator: React.FC<PlanningCalculatorProps> = ({ onStartR
         setPlanning(true);
         setError(null);
         setPlan(null);
+        setVarietyWarnings([]);
         try {
+            // Expand variety-blend targets into concrete per-strain targets
+            // BEFORE calling plan-backward. The backend stays oblivious to
+            // variety mode — it just sees N single-strain requests.
+            const expansion = expandVarietyTargets(
+                targets,
+                strains,
+                biomassTotalsByStrain,
+            );
+            setVarietyWarnings(expansion.warnings);
             const result = await apiService.planBackward({
-                targets: targets.map(t => ({
+                targets: expansion.targets.map(t => ({
                     outputType: t.outputType,
                     quantity: t.quantity,
                     unit: t.unit,
@@ -345,6 +393,7 @@ export const PlanningCalculator: React.FC<PlanningCalculatorProps> = ({ onStartR
         setDraftQty('');
         setDraftOutputType('');
         setDraftStrain('');
+        setVarietyWarnings([]);
     };
 
     const handleLoadSession = async (id: string) => {
@@ -600,8 +649,10 @@ export const PlanningCalculator: React.FC<PlanningCalculatorProps> = ({ onStartR
                                             <span className="planning-basket-unit">{t.unit || pt?.defaultUnit || 'g'}</span>
                                         </span>
                                         <span className="planning-basket-product">{pt?.displayName || t.outputType}</span>
-                                        <span className={`planning-basket-strain ${t.strain ? '' : 'is-any'}`}>
-                                            {t.strain || 'any strain'}
+                                        <span className={`planning-basket-strain ${t.strain || t.variety ? '' : 'is-any'}`}>
+                                            {t.variety
+                                                ? formatVarietyLabel(t.variety)
+                                                : (t.strain || 'any strain')}
                                         </span>
                                         <button
                                             className="planning-basket-remove"
@@ -660,6 +711,7 @@ export const PlanningCalculator: React.FC<PlanningCalculatorProps> = ({ onStartR
                                 onChange={e => setDraftStrain(e.target.value)}
                             >
                                 <option value="">any strain</option>
+                                <option value="__variety__">✦ a variety blend…</option>
                                 {sortedStrains.inStock.length > 0 && (
                                     <optgroup label={draftOutputType ? 'Compatible stock' : 'In stock'}>
                                         {sortedStrains.inStock.map(({ strain: s, label }) => (
@@ -685,6 +737,54 @@ export const PlanningCalculator: React.FC<PlanningCalculatorProps> = ({ onStartR
                                 <Plus size={13} />
                             </button>
                         </div>
+                        {draftStrain === '__variety__' && (
+                            <div className="planning-draft-row planning-draft-variety" style={{ gap: 6, flexWrap: 'wrap' }}>
+                                <input
+                                    type="number"
+                                    min={1}
+                                    max={20}
+                                    className="planning-draft-qty"
+                                    style={{ width: 44 }}
+                                    value={draftVarietyCount}
+                                    onChange={e => setDraftVarietyCount(e.target.value)}
+                                    aria-label="Total strain count"
+                                />
+                                <span className="planning-draft-prefix">strains —</span>
+                                <input
+                                    type="number"
+                                    min={0}
+                                    max={20}
+                                    className="planning-draft-qty"
+                                    style={{ width: 36 }}
+                                    value={draftVarietySativa}
+                                    onChange={e => setDraftVarietySativa(e.target.value)}
+                                    aria-label="Sativa count"
+                                />
+                                <span className="planning-draft-prefix">sativa,</span>
+                                <input
+                                    type="number"
+                                    min={0}
+                                    max={20}
+                                    className="planning-draft-qty"
+                                    style={{ width: 36 }}
+                                    value={draftVarietyIndica}
+                                    onChange={e => setDraftVarietyIndica(e.target.value)}
+                                    aria-label="Indica count"
+                                />
+                                <span className="planning-draft-prefix">indica,</span>
+                                <input
+                                    type="number"
+                                    min={0}
+                                    max={20}
+                                    className="planning-draft-qty"
+                                    style={{ width: 36 }}
+                                    value={draftVarietyHybrid}
+                                    onChange={e => setDraftVarietyHybrid(e.target.value)}
+                                    aria-label="Hybrid count"
+                                />
+                                <span className="planning-draft-prefix">hybrid</span>
+                            </div>
+                        )}
                     </div>
                 </div>
 
@@ -725,8 +825,13 @@ export const PlanningCalculator: React.FC<PlanningCalculatorProps> = ({ onStartR
 
                 {plan && (
                     <div className="planning-result">
-                        {topWarnings.length > 0 && (
+                        {(topWarnings.length > 0 || varietyWarnings.length > 0) && (
                             <div className="planning-warnings">
+                                {varietyWarnings.map((w, i) => (
+                                    <div key={`v-${i}`} className="planning-warning-row">
+                                        <AlertTriangle size={12} /> {w}
+                                    </div>
+                                ))}
                                 {topWarnings.map((w, i) => (
                                     <div key={i} className="planning-warning-row">
                                         <AlertTriangle size={12} /> {w}
