@@ -460,6 +460,20 @@ export const LandingPage: React.FC = () => {
           <div className="landing-orb landing-orb-b" />
           <div className="landing-orb landing-orb-c" />
           <div className="landing-leaf-mesh" />
+          <svg className="landing-grow-sil" viewBox="0 0 800 400" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M40 360h720" stroke="currentColor" strokeWidth="2" opacity="0.15"/>
+            <g opacity="0.2" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+              <path d="M120 360V220M100 240c20-40 40-40 60 0M90 280c30-50 60-50 90 0"/>
+              <path d="M280 360V180M255 210c25-55 50-55 75 0M245 260c35-70 70-70 105 0"/>
+              <path d="M460 360V200M435 230c25-50 50-50 75 0M425 275c35-65 70-65 105 0"/>
+              <path d="M640 360V240M620 265c20-40 40-40 60 0M610 300c28-48 56-48 84 0"/>
+            </g>
+            <g opacity="0.12" fill="currentColor">
+              <rect x="180" y="80" width="8" height="40" rx="1"/>
+              <rect x="400" y="60" width="8" height="50" rx="1"/>
+              <rect x="560" y="90" width="8" height="35" rx="1"/>
+            </g>
+          </svg>
         </div>
 
         <div className="landing-hero-copy">
@@ -472,7 +486,7 @@ export const LandingPage: React.FC = () => {
             <em>facility.</em>
           </h1>
           <p className="landing-lede" style={{ animationDelay: '0.32s' }}>
-            Cultivation through compliance — one conversational interface. Voice-first. Hands-free. Built by operators.
+            Cultivation through compliance — one conversational interface. Voice-first. Hands-free. Built by operators who&apos;ve actually trimmed.
           </p>
           <div className="landing-cta-row" style={{ animationDelay: '0.45s' }}>
             <a
@@ -489,11 +503,21 @@ export const LandingPage: React.FC = () => {
         </div>
 
         <div className="landing-hero-visual" id="demo" style={{ animationDelay: '0.25s' }}>
-          <AIChatDemo
-            scenarioIndex={scenarioIndex}
-            onScenarioComplete={advanceScenario}
-            autoplay={autoplay}
-          />
+          <div className="landing-desktop">
+            <AIChatDemo
+              scenarioIndex={scenarioIndex}
+              onScenarioComplete={advanceScenario}
+              autoplay={autoplay}
+            />
+            <div className="landing-taskbar" aria-hidden>
+              <div className="landing-taskbar-apps">
+                {['Map', 'Harvest', 'Trim', 'Extract', 'Pack', 'Order'].map((app) => (
+                  <span key={app} className="landing-taskbar-app">{app}</span>
+                ))}
+              </div>
+              <span className="landing-taskbar-clock">Facility OS · live</span>
+            </div>
+          </div>
         </div>
       </header>
 
@@ -525,7 +549,7 @@ export const LandingPage: React.FC = () => {
             <span>without the spreadsheet circus.</span>
           </h2>
           <p className="landing-section-lede">
-            Eight operational modules. One AI that already knows your rooms, strains, and SOPs.
+            Six operational modules. One AI that already knows your rooms, strains, and SOPs.
           </p>
         </Reveal>
         <ul className="landing-module-list">
@@ -643,19 +667,19 @@ export const LandingPage: React.FC = () => {
 
       <style>{`
         .landing {
-          --ink: #0e1c14;
+          --ink: #0a1610;
           --ink-soft: #2a4034;
-          --moss: #1b3a28;
-          --leaf: #2f9e5f;
-          --glow: #3bb570;
-          --glow-soft: rgba(59, 181, 112, 0.18);
-          --amber: #d4a017;
-          --amber-soft: rgba(212, 160, 23, 0.14);
-          --paper: #eef5f0;
-          --paper-deep: #e2ebe5;
-          --mist: #d5e4da;
-          --white: #f8fbf9;
-          --line: rgba(14, 28, 20, 0.1);
+          --moss: #143325;
+          --leaf: #1f8f52;
+          --glow: #2ecc71;
+          --glow-soft: rgba(46, 204, 113, 0.22);
+          --amber: #e0b020;
+          --amber-soft: rgba(224, 176, 32, 0.16);
+          --paper: #e8f2eb;
+          --paper-deep: #d8e8de;
+          --mist: #c5d9cc;
+          --white: #f7fcf9;
+          --line: rgba(10, 22, 16, 0.14);
           --display: 'Syne', 'Figtree', sans-serif;
           --body: 'Figtree', 'Lato', sans-serif;
           min-height: 100vh;
@@ -742,7 +766,7 @@ export const LandingPage: React.FC = () => {
           font-size: 0.85rem;
           font-weight: 700;
           padding: 0.55rem 1rem;
-          border-radius: 0.55rem;
+          border-radius: 0.35rem;
           text-decoration: none;
           transition: background 0.2s;
         }
@@ -813,12 +837,22 @@ export const LandingPage: React.FC = () => {
         .landing-leaf-mesh {
           position: absolute;
           inset: 0;
-          opacity: 0.35;
+          opacity: 0.4;
           background-image:
-            radial-gradient(ellipse 80% 50% at 100% 0%, rgba(47, 158, 95, 0.12), transparent 55%),
-            radial-gradient(ellipse 60% 40% at 0% 100%, rgba(212, 160, 23, 0.08), transparent 50%),
-            url("data:image/svg+xml,%3Csvg width='72' height='72' viewBox='0 0 72 72' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' stroke='%231b3a28' stroke-opacity='0.07' stroke-width='1'%3E%3Cpath d='M36 8c6 10 6 20 0 30-6-10-6-20 0-30zM36 34c6 10 6 20 0 30-6-10-6-20 0-30zM18 28c10 4 18 10 22 20-12-2-22-8-22-20zM54 28c-10 4-18 10-22 20 12-2 22-8 22-20z'/%3E%3C/g%3E%3C/svg%3E");
+            radial-gradient(ellipse 80% 50% at 100% 0%, rgba(47, 158, 95, 0.16), transparent 55%),
+            radial-gradient(ellipse 60% 40% at 0% 100%, rgba(224, 176, 32, 0.1), transparent 50%),
+            url("data:image/svg+xml,%3Csvg width='72' height='72' viewBox='0 0 72 72' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' stroke='%23143325' stroke-opacity='0.09' stroke-width='1'%3E%3Cpath d='M36 8c6 10 6 20 0 30-6-10-6-20 0-30zM36 34c6 10 6 20 0 30-6-10-6-20 0-30zM18 28c10 4 18 10 22 20-12-2-22-8-22-20zM54 28c-10 4-18 10-22 20 12-2 22-8 22-20z'/%3E%3C/g%3E%3C/svg%3E");
           background-size: auto, auto, 72px 72px;
+        }
+        .landing-grow-sil {
+          position: absolute;
+          left: 0;
+          right: 0;
+          bottom: 0;
+          width: 100%;
+          max-height: 42%;
+          color: var(--moss);
+          pointer-events: none;
         }
         .landing-hero-copy,
         .landing-hero-visual {
@@ -884,49 +918,94 @@ export const LandingPage: React.FC = () => {
           font-weight: 700;
           font-size: 0.95rem;
           padding: 0.95rem 1.4rem;
-          border-radius: 0.7rem;
+          border-radius: 0.4rem;
           text-decoration: none;
-          box-shadow: 0 10px 28px rgba(59, 181, 112, 0.28);
-          transition: transform 0.2s, background 0.2s;
+          border: 2px solid var(--ink);
+          box-shadow: 3px 3px 0 var(--ink);
+          transition: transform 0.15s, box-shadow 0.15s;
         }
         .landing-btn-primary:hover {
-          background: #34c873;
-          transform: translateY(-1px);
+          transform: translate(-1px, -1px);
+          box-shadow: 4px 4px 0 var(--ink);
         }
         .landing-btn-secondary,
         .landing-btn-ghost {
           display: inline-flex;
           align-items: center;
-          background: transparent;
+          background: var(--white);
           color: var(--ink);
           font-weight: 700;
           font-size: 0.95rem;
           padding: 0.9rem 1.3rem;
-          border-radius: 0.7rem;
+          border-radius: 0.4rem;
           text-decoration: none;
-          border: 1.5px solid rgba(14, 28, 20, 0.18);
+          border: 2px solid var(--ink);
           cursor: pointer;
           font-family: inherit;
-          transition: border-color 0.2s, color 0.2s;
+          transition: transform 0.15s, background 0.15s;
         }
         .landing-btn-secondary:hover,
         .landing-btn-ghost:hover {
-          border-color: var(--ink);
+          background: var(--paper-deep);
+          transform: translate(-1px, -1px);
         }
 
         /* Demo window */
         .landing-hero-visual {
           width: 100%;
         }
+        .landing-desktop {
+          display: flex;
+          flex-direction: column;
+          gap: 0;
+          border: 2px solid var(--ink);
+          border-radius: 0.65rem;
+          overflow: hidden;
+          box-shadow: 6px 6px 0 rgba(10, 22, 16, 0.18);
+          animation: landingFloat 7s ease-in-out infinite;
+          background: linear-gradient(160deg, #cfe3d6 0%, #b5d0c0 100%);
+        }
         .landing-demo {
           background: var(--white);
-          border: 1px solid rgba(14, 28, 20, 0.12);
-          border-radius: 1rem;
+          border: none;
+          border-radius: 0;
           overflow: hidden;
-          box-shadow:
-            0 1px 0 rgba(255, 255, 255, 0.7) inset,
-            0 24px 60px rgba(14, 28, 20, 0.12);
-          animation: landingFloat 7s ease-in-out infinite;
+          box-shadow: none;
+          animation: none;
+          margin: 0.65rem 0.65rem 0;
+          border: 1.5px solid rgba(10, 22, 16, 0.2);
+        }
+        .landing-taskbar {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 0.75rem;
+          padding: 0.45rem 0.75rem;
+          background: rgba(10, 22, 16, 0.88);
+          color: var(--white);
+          margin-top: 0.55rem;
+        }
+        .landing-taskbar-apps {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 0.3rem;
+          min-width: 0;
+        }
+        .landing-taskbar-app {
+          font-size: 0.65rem;
+          font-weight: 700;
+          letter-spacing: 0.02em;
+          padding: 0.25rem 0.45rem;
+          background: rgba(248, 251, 249, 0.1);
+          border: 1px solid rgba(248, 251, 249, 0.18);
+          border-radius: 0.2rem;
+        }
+        .landing-taskbar-clock {
+          font-size: 0.68rem;
+          font-weight: 600;
+          color: var(--glow);
+          white-space: nowrap;
+          font-variant-numeric: tabular-nums;
         }
         .landing-demo-chrome {
           display: flex;
@@ -1095,14 +1174,14 @@ export const LandingPage: React.FC = () => {
         .landing-try-row::-webkit-scrollbar { display: none; }
         .landing-try-chip {
           flex: 0 0 auto;
-          border: 1px solid var(--line);
+          border: 1.5px dashed rgba(10, 22, 16, 0.28);
           background: transparent;
           color: var(--ink-soft);
           font-family: inherit;
           font-size: 0.85rem;
           font-weight: 600;
           padding: 0.65rem 0.95rem;
-          border-radius: 0.55rem;
+          border-radius: 0.3rem;
           cursor: pointer;
           transition: background 0.2s, border-color 0.2s, color 0.2s;
           max-width: 22rem;
@@ -1111,11 +1190,13 @@ export const LandingPage: React.FC = () => {
           text-overflow: ellipsis;
         }
         .landing-try-chip:hover {
-          border-color: rgba(47, 158, 95, 0.45);
+          border-style: solid;
+          border-color: var(--ink);
           color: var(--ink);
         }
         .landing-try-chip.is-active {
           background: var(--ink);
+          border-style: solid;
           border-color: var(--ink);
           color: var(--white);
         }
@@ -1394,8 +1475,8 @@ export const LandingPage: React.FC = () => {
         }
 
         @media (prefers-reduced-motion: reduce) {
+          .landing-desktop,
           .landing-orb,
-          .landing-demo,
           .landing-pulse,
           .landing-brand-hero::after,
           .landing-wave i,
