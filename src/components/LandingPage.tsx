@@ -202,6 +202,8 @@ const AIChatDemo: React.FC<{
   const [actionStatus, setActionStatus] = useState<'confirmed' | undefined>(undefined);
   const containerRef = useRef<HTMLDivElement>(null);
   const runId = useRef(0);
+  const onCompleteRef = useRef(onScenarioComplete);
+  onCompleteRef.current = onScenarioComplete;
 
   const scenario = DEMO_SCENARIOS[scenarioIndex];
 
@@ -222,7 +224,7 @@ const AIChatDemo: React.FC<{
 
     if (stepIndex >= steps.length) {
       const timeout = setTimeout(() => {
-        if (runId.current === thisRun) onScenarioComplete();
+        if (runId.current === thisRun) onCompleteRef.current();
       }, 400);
       return () => clearTimeout(timeout);
     }
@@ -232,6 +234,7 @@ const AIChatDemo: React.FC<{
     if (step.type === 'user' || step.type === 'ai') {
       setIsTyping(true);
       let charIndex = 0;
+      let advanceTimeout: ReturnType<typeof setTimeout> | undefined;
       const speed = step.type === 'user' ? 28 : 16;
       const typeInterval = setInterval(() => {
         if (runId.current !== thisRun) {
@@ -246,12 +249,15 @@ const AIChatDemo: React.FC<{
           setIsTyping(false);
           setMessages((prev) => [...prev, { role: step.type as 'user' | 'ai', text: step.text }]);
           setTypingText('');
-          setTimeout(() => {
+          advanceTimeout = setTimeout(() => {
             if (runId.current === thisRun) setStepIndex((s) => s + 1);
           }, 350);
         }
       }, speed);
-      return () => clearInterval(typeInterval);
+      return () => {
+        clearInterval(typeInterval);
+        if (advanceTimeout) clearTimeout(advanceTimeout);
+      };
     }
 
     if (step.type === 'actions') {
@@ -266,10 +272,10 @@ const AIChatDemo: React.FC<{
 
     if (step.type === 'confirmed') {
       setActionStatus('confirmed');
-      setTimeout(() => {
+      const timeout = setTimeout(() => {
         if (runId.current === thisRun) setStepIndex((s) => s + 1);
       }, 80);
-      return;
+      return () => clearTimeout(timeout);
     }
 
     if (step.type === 'pause') {
@@ -278,7 +284,7 @@ const AIChatDemo: React.FC<{
       }, step.ms);
       return () => clearTimeout(timeout);
     }
-  }, [stepIndex, scenario, autoplay, onScenarioComplete]);
+  }, [stepIndex, scenario, autoplay]);
 
   useEffect(() => {
     if (containerRef.current) {
@@ -410,7 +416,14 @@ export const LandingPage: React.FC = () => {
   const [autoplay, setAutoplay] = useState(true);
 
   useEffect(() => {
-    const onScroll = () => setScrollY(window.scrollY);
+    let solid = false;
+    const onScroll = () => {
+      const next = window.scrollY > 24;
+      if (next !== solid) {
+        solid = next;
+        setScrollY(next ? 25 : 0);
+      }
+    };
     window.addEventListener('scroll', onScroll, { passive: true });
     return () => window.removeEventListener('scroll', onScroll);
   }, []);
@@ -422,7 +435,7 @@ export const LandingPage: React.FC = () => {
     setScenarioIndex(index);
   };
 
-  const advanceScenario = () => {
+  const onScenarioComplete = () => {
     setScenarioIndex((s) => (s + 1) % DEMO_SCENARIOS.length);
   };
 
@@ -506,7 +519,7 @@ export const LandingPage: React.FC = () => {
           <div className="landing-desktop">
             <AIChatDemo
               scenarioIndex={scenarioIndex}
-              onScenarioComplete={advanceScenario}
+              onScenarioComplete={onScenarioComplete}
               autoplay={autoplay}
             />
             <div className="landing-taskbar" aria-hidden>
