@@ -1,8 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../contexts/authContext';
+import { ActionPreview } from './ActionPreview';
 import type { ProposedAction } from '../types/definitions';
+import logo from '../assets/logo.png';
 
-/* ─── Scroll-reveal ─── */
+/* ─── Reveal ─── */
 function useReveal<T extends HTMLElement>(threshold = 0.12) {
   const ref = useRef<T>(null);
   const [visible, setVisible] = useState(false);
@@ -24,11 +26,11 @@ function useReveal<T extends HTMLElement>(threshold = 0.12) {
   return { ref, visible };
 }
 
-const Reveal: React.FC<{
-  children: React.ReactNode;
-  className?: string;
-  delay?: number;
-}> = ({ children, className = '', delay = 0 }) => {
+const Reveal: React.FC<{ children: React.ReactNode; className?: string; delay?: number }> = ({
+  children,
+  className = '',
+  delay = 0,
+}) => {
   const { ref, visible } = useReveal<HTMLDivElement>();
   return (
     <div
@@ -36,8 +38,8 @@ const Reveal: React.FC<{
       className={className}
       style={{
         opacity: visible ? 1 : 0,
-        transform: visible ? 'none' : 'translateY(16px)',
-        transition: `opacity 0.55s cubic-bezier(0.16,1,0.3,1) ${delay}ms, transform 0.55s cubic-bezier(0.16,1,0.3,1) ${delay}ms`,
+        transform: visible ? 'none' : 'translateY(18px)',
+        transition: `opacity 0.6s cubic-bezier(0.16,1,0.3,1) ${delay}ms, transform 0.6s cubic-bezier(0.16,1,0.3,1) ${delay}ms`,
       }}
     >
       {children}
@@ -48,23 +50,21 @@ const Reveal: React.FC<{
 type DemoStep =
   | { type: 'user'; text: string }
   | { type: 'ai'; text: string }
-  | { type: 'actions'; actions: ProposedAction[]; lines: string[] }
+  | { type: 'actions'; actions: ProposedAction[] }
   | { type: 'confirmed' }
   | { type: 'pause'; ms: number };
 
 const DEMO_SCENARIOS: { label: string; prompt: string; steps: DemoStep[] }[] = [
   {
-    label: 'move',
-    prompt: 'move og-kush veg-2 → flower-1',
+    label: 'Move plants',
+    prompt: 'Move the OG Kush from veg 2 to flower 1',
     steps: [
       { type: 'user', text: 'Move the OG Kush from veg 2 to flower 1' },
-      { type: 'ai', text: 'resolving batch… 24 plants · phase → flower' },
+      { type: 'ai', text: "I'll move all 24 plants and update their phase." },
       {
         type: 'actions',
-        actions: [{ type: 'move_plants', data: { strain: 'OG Kush', fromRoom: 'Veg Room 2', toRoom: 'Flower Room 1', plantCount: 24 } }],
-        lines: [
-          'move_plants   strain=OG Kush',
-          '              from=veg-2  to=flower-1  n=24',
+        actions: [
+          { type: 'move_plants', data: { strain: 'OG Kush', fromRoom: 'Veg Room 2', toRoom: 'Flower Room 1', plantCount: 24 } },
         ],
       },
       { type: 'pause', ms: 1800 },
@@ -73,21 +73,17 @@ const DEMO_SCENARIOS: { label: string; prompt: string; steps: DemoStep[] }[] = [
     ],
   },
   {
-    label: 'weigh',
-    prompt: 'weigh plant-7 512g + flag pm',
+    label: 'Weigh',
+    prompt: 'Plant 7 is 512 grams, has some PM',
     steps: [
       { type: 'user', text: 'Plant 7 is 512 grams, has some PM' },
-      { type: 'ai', text: 'logging weight · flagging powdery_mildew (minor)' },
+      { type: 'ai', text: 'Logging the weight and flagging contamination.' },
       {
         type: 'actions',
         actions: [
           { type: 'record_plant_weight', data: { plantNumber: 7, weight: 512, harvestName: 'Wedding Cake #2' } },
           { type: 'flag_contamination', data: { plantNumber: 7, contaminationType: 'powdery_mildew', severity: 'minor' } },
         ],
-        lines: [
-          'record_plant_weight   plant=#7  weight=512g',
-          'flag_contamination    type=pm  severity=minor',
-        ],
       },
       { type: 'pause', ms: 1800 },
       { type: 'confirmed' },
@@ -95,11 +91,11 @@ const DEMO_SCENARIOS: { label: string; prompt: string; steps: DemoStep[] }[] = [
     ],
   },
   {
-    label: 'extract',
-    prompt: 'start rosin · 2kg wedding-cake hash',
+    label: 'Extract',
+    prompt: 'Start a rosin press with 2kg Wedding Cake hash',
     steps: [
       { type: 'user', text: 'Start a rosin press run with 2kg of Wedding Cake bubble hash' },
-      { type: 'ai', text: 'spinning run R-018 from bubble_hash inventory' },
+      { type: 'ai', text: 'Spinning up the run from your bubble hash inventory.' },
       {
         type: 'actions',
         actions: [
@@ -113,10 +109,6 @@ const DEMO_SCENARIOS: { label: string; prompt: string; steps: DemoStep[] }[] = [
             },
           },
         ],
-        lines: [
-          'start_extraction_run  template=hash→rosin',
-          '                      input=2000g bubble_hash',
-        ],
       },
       { type: 'pause', ms: 1800 },
       { type: 'confirmed' },
@@ -124,11 +116,11 @@ const DEMO_SCENARIOS: { label: string; prompt: string; steps: DemoStep[] }[] = [
     ],
   },
   {
-    label: 'order',
-    prompt: 'po pacific-roots · 10cs rockwool',
+    label: 'Order',
+    prompt: 'PO for Pacific Roots — 10 cases rockwool',
     steps: [
       { type: 'user', text: 'Create a PO for Pacific Roots — 10 cases of rockwool, 5 cases of nutrients' },
-      { type: 'ai', text: 'drafting PO-2026-041 · status=draft' },
+      { type: 'ai', text: 'Drafting the purchase order.' },
       {
         type: 'actions',
         actions: [
@@ -141,32 +133,6 @@ const DEMO_SCENARIOS: { label: string; prompt: string; steps: DemoStep[] }[] = [
             },
           },
         ],
-        lines: [
-          'create_order   vendor=pacific-roots',
-          '               lines=rockwool×10  nutrients×5',
-        ],
-      },
-      { type: 'pause', ms: 1800 },
-      { type: 'confirmed' },
-      { type: 'pause', ms: 2000 },
-    ],
-  },
-  {
-    label: 'package',
-    prompt: 'pkg gelato 1lb · tag METRC-001234',
-    steps: [
-      { type: 'user', text: 'Create a 1lb flower package from the Gelato harvest, tag it METRC-001234' },
-      { type: 'ai', text: 'creating package · assigning tag' },
-      {
-        type: 'actions',
-        actions: [
-          { type: 'create_package', data: { strain: 'Gelato', packageType: 'flower', weight: 453.6, harvestName: 'Gelato Harvest #2' } },
-          { type: 'assign_tag', data: { tagId: '1A40-METRC-001234', target: 'package' } },
-        ],
-        lines: [
-          'create_package   strain=Gelato  type=flower  wt=1lb',
-          'assign_tag       id=1A40-METRC-001234',
-        ],
       },
       { type: 'pause', ms: 1800 },
       { type: 'confirmed' },
@@ -175,29 +141,28 @@ const DEMO_SCENARIOS: { label: string; prompt: string; steps: DemoStep[] }[] = [
   },
 ];
 
-const FACILITY_TREE = [
-  { path: 'rooms/', detail: 'flower-1  flower-2  veg-a  dry-1' },
-  { path: 'harvests/', detail: 'wedding-cake#2  active · 12/36 weighed' },
-  { path: 'trim/', detail: 'gdp#4  session · 6 trimmers' },
-  { path: 'extract/', detail: 'R-018  hash→rosin · step 3/5' },
-  { path: 'packages/', detail: '186 active · 16 lab-pending' },
-  { path: 'orders/', detail: 'PO-041  pacific-roots · sent' },
+const NAV_ITEMS = [
+  { id: 'ai', label: 'Home', active: true },
+  { id: 'map', label: 'Plant map' },
+  { id: 'harvest', label: 'Harvests' },
+  { id: 'trim', label: 'Trim' },
+  { id: 'extract', label: 'Extraction' },
+  { id: 'pkg', label: 'Packages' },
+  { id: 'order', label: 'Ordering' },
 ];
 
-const MainframeDemo: React.FC<{
+const ProductChat: React.FC<{
   scenarioIndex: number;
   onScenarioComplete: () => void;
-  autoplay: boolean;
-}> = ({ scenarioIndex, onScenarioComplete, autoplay }) => {
+}> = ({ scenarioIndex, onScenarioComplete }) => {
   const [stepIndex, setStepIndex] = useState(0);
   const [typingText, setTypingText] = useState('');
   const [isTyping, setIsTyping] = useState(false);
-  const [lines, setLines] = useState<Array<{ kind: 'in' | 'out' | 'ok' | 'sys'; text: string }>>([]);
-  const [pendingLines, setPendingLines] = useState<string[] | null>(null);
-  const [confirmed, setConfirmed] = useState(false);
+  const [messages, setMessages] = useState<Array<{ role: 'user' | 'ai'; text: string }>>([]);
+  const [pendingActions, setPendingActions] = useState<ProposedAction[] | null>(null);
+  const [actionStatus, setActionStatus] = useState<'confirmed' | undefined>(undefined);
   const bodyRef = useRef<HTMLDivElement>(null);
   const runId = useRef(0);
-  const pendingRef = useRef<string[] | null>(null);
   const onCompleteRef = useRef(onScenarioComplete);
   onCompleteRef.current = onScenarioComplete;
 
@@ -206,948 +171,794 @@ const MainframeDemo: React.FC<{
   useEffect(() => {
     runId.current += 1;
     setStepIndex(0);
-    setLines([]);
-    setPendingLines(null);
-    pendingRef.current = null;
-    setConfirmed(false);
+    setMessages([]);
+    setPendingActions(null);
+    setActionStatus(undefined);
     setTypingText('');
     setIsTyping(false);
   }, [scenarioIndex]);
 
   useEffect(() => {
-    if (!autoplay) return;
     const thisRun = runId.current;
     const steps = scenario.steps;
 
     if (stepIndex >= steps.length) {
-      const timeout = setTimeout(() => {
+      const t = setTimeout(() => {
         if (runId.current === thisRun) onCompleteRef.current();
       }, 400);
-      return () => clearTimeout(timeout);
+      return () => clearTimeout(t);
     }
 
     const step = steps[stepIndex];
 
     if (step.type === 'user' || step.type === 'ai') {
       setIsTyping(true);
-      let charIndex = 0;
-      let advanceTimeout: ReturnType<typeof setTimeout> | undefined;
-      const speed = step.type === 'user' ? 22 : 12;
-      const typeInterval = setInterval(() => {
+      let i = 0;
+      let advance: ReturnType<typeof setTimeout> | undefined;
+      const speed = step.type === 'user' ? 24 : 14;
+      const iv = setInterval(() => {
         if (runId.current !== thisRun) {
-          clearInterval(typeInterval);
+          clearInterval(iv);
           return;
         }
-        if (charIndex <= step.text.length) {
-          setTypingText(step.text.slice(0, charIndex));
-          charIndex++;
+        if (i <= step.text.length) {
+          setTypingText(step.text.slice(0, i));
+          i++;
         } else {
-          clearInterval(typeInterval);
+          clearInterval(iv);
           setIsTyping(false);
-          setLines((prev) => [
-            ...prev,
-            { kind: step.type === 'user' ? 'in' : 'out', text: step.text },
-          ]);
+          setMessages((prev) => [...prev, { role: step.type as 'user' | 'ai', text: step.text }]);
           setTypingText('');
-          advanceTimeout = setTimeout(() => {
+          advance = setTimeout(() => {
             if (runId.current === thisRun) setStepIndex((s) => s + 1);
-          }, 280);
+          }, 300);
         }
       }, speed);
       return () => {
-        clearInterval(typeInterval);
-        if (advanceTimeout) clearTimeout(advanceTimeout);
+        clearInterval(iv);
+        if (advance) clearTimeout(advance);
       };
     }
 
     if (step.type === 'actions') {
-      const timeout = setTimeout(() => {
+      const t = setTimeout(() => {
         if (runId.current !== thisRun) return;
-        pendingRef.current = step.lines;
-        setPendingLines(step.lines);
-        setConfirmed(false);
+        setPendingActions(step.actions);
+        setActionStatus(undefined);
         setStepIndex((s) => s + 1);
       }, 220);
-      return () => clearTimeout(timeout);
+      return () => clearTimeout(t);
     }
 
     if (step.type === 'confirmed') {
-      setConfirmed(true);
-      const timeout = setTimeout(() => {
-        if (runId.current !== thisRun) return;
-        const pending = pendingRef.current;
-        if (pending) {
-          setLines((prev) => [
-            ...prev,
-            ...pending.map((t) => ({ kind: 'ok' as const, text: t })),
-          ]);
-        }
-        pendingRef.current = null;
-        setPendingLines(null);
-        setStepIndex((s) => s + 1);
-      }, 90);
-      return () => clearTimeout(timeout);
+      setActionStatus('confirmed');
+      const t = setTimeout(() => {
+        if (runId.current === thisRun) setStepIndex((s) => s + 1);
+      }, 80);
+      return () => clearTimeout(t);
     }
 
     if (step.type === 'pause') {
-      const timeout = setTimeout(() => {
+      const t = setTimeout(() => {
         if (runId.current === thisRun) setStepIndex((s) => s + 1);
       }, step.ms);
-      return () => clearTimeout(timeout);
+      return () => clearTimeout(t);
     }
-  }, [stepIndex, scenario, autoplay]);
+  }, [stepIndex, scenario]);
 
   useEffect(() => {
-    if (bodyRef.current) {
-      bodyRef.current.scrollTop = bodyRef.current.scrollHeight;
-    }
-  }, [lines, typingText, pendingLines, confirmed]);
+    if (bodyRef.current) bodyRef.current.scrollTop = bodyRef.current.scrollHeight;
+  }, [messages, typingText, pendingActions, actionStatus]);
 
-  const currentStep = stepIndex < scenario.steps.length ? scenario.steps[stepIndex] : null;
-  const typingKind =
-    currentStep && (currentStep.type === 'user' || currentStep.type === 'ai')
-      ? currentStep.type
-      : null;
+  const current = stepIndex < scenario.steps.length ? scenario.steps[stepIndex] : null;
+  const typingRole =
+    current && (current.type === 'user' || current.type === 'ai') ? current.type : null;
 
   return (
-    <div className="mf-term">
-      <div className="mf-term-bar">
-        <span className="mf-term-dots" aria-hidden>
-          <i /><i /><i />
-        </span>
-        <span className="mf-term-title">neurocann@facility — ssh session</span>
-        <span className="mf-term-live">
-          <i className="mf-blink-dot" />
-          LIVE
-        </span>
-      </div>
-      <div ref={bodyRef} className="mf-term-body">
-        <div className="mf-sys"># connected · license=CA-A12 · rooms=4 · ambient=on</div>
-        {lines.map((line, i) => (
-          <div key={i} className={`mf-line is-${line.kind}`}>
-            {line.kind === 'in' && <span className="mf-prompt">›</span>}
-            {line.kind === 'out' && <span className="mf-prompt is-out">↳</span>}
-            {line.kind === 'ok' && <span className="mf-prompt is-ok">✓</span>}
-            <span>{line.text}</span>
+    <div className="fig-chat">
+      <div ref={bodyRef} className="fig-chat-body">
+        {messages.length === 0 && !typingText && (
+          <div className="fig-chat-empty">
+            <img src={logo} alt="" className="fig-chat-empty-logo" />
+            <p>Ask anything about the facility</p>
+          </div>
+        )}
+        {messages.map((m, i) => (
+          <div key={i} className={`fig-msg ${m.role === 'user' ? 'is-user' : 'is-ai'}`}>
+            {m.text}
           </div>
         ))}
-        {typingKind && (
-          <div className={`mf-line is-${typingKind === 'user' ? 'in' : 'out'}`}>
-            <span className={`mf-prompt ${typingKind === 'ai' ? 'is-out' : ''}`}>
-              {typingKind === 'user' ? '›' : '↳'}
-            </span>
-            <span>
-              {typingText}
-              {isTyping && <span className="mf-caret" />}
-            </span>
+        {typingRole && typingText && (
+          <div className={`fig-msg ${typingRole === 'user' ? 'is-user' : 'is-ai'}`}>
+            {typingText}
+            {isTyping && <span className="fig-caret" />}
           </div>
         )}
-        {pendingLines && (
-          <div className={`mf-pending ${confirmed ? 'is-done' : ''}`}>
-            <div className="mf-pending-head">
-              {confirmed ? 'applied' : 'propose'} · {pendingLines.length} action
-              {pendingLines.length === 1 ? '' : 's'}
-            </div>
-            {pendingLines.map((t) => (
-              <div key={t} className="mf-pending-line">
-                <span>{confirmed ? '✓' : '·'}</span> {t}
-              </div>
-            ))}
-            {!confirmed && <div className="mf-pending-hint">awaiting confirm_</div>}
+        {pendingActions && (
+          <div className="fig-actions">
+            <ActionPreview
+              actions={pendingActions}
+              readonly={actionStatus === 'confirmed'}
+              status={actionStatus}
+              {...(!actionStatus && { onConfirm: () => {}, onCancel: () => {} })}
+            />
           </div>
         )}
-        {!typingKind && !pendingLines && (
-          <div className="mf-line is-in">
-            <span className="mf-prompt">›</span>
-            <span className="mf-caret" />
-          </div>
-        )}
+      </div>
+      <div className="fig-composer">
+        <span className="fig-composer-placeholder">Talk or type a command…</span>
+        <button type="button" className="fig-mic" aria-label="Voice" tabIndex={-1}>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M12 18.75a6 6 0 006-6v-1.5m-6 7.5a6 6 0 01-6-6v-1.5m6 7.5v3.75m-3.75 0h7.5M12 15.75a3 3 0 01-3-3V4.5a3 3 0 116 0v8.25a3 3 0 01-3 3z" />
+          </svg>
+        </button>
       </div>
     </div>
   );
 };
 
+/** Full product shell — the Figma-style hero visual */
+const ProductShell: React.FC<{
+  scenarioIndex: number;
+  onScenarioComplete: () => void;
+}> = ({ scenarioIndex, onScenarioComplete }) => (
+  <div className="fig-shell" id="product">
+    <aside className="fig-sidebar" aria-hidden>
+      <div className="fig-sidebar-brand">
+        <img src={logo} alt="" />
+        <span>neurocann</span>
+      </div>
+      <nav className="fig-sidebar-nav">
+        {NAV_ITEMS.map((item) => (
+          <div key={item.id} className={`fig-nav-item ${item.active ? 'is-active' : ''}`}>
+            {item.label}
+          </div>
+        ))}
+      </nav>
+      <div className="fig-sidebar-foot">
+        <div className="fig-avatar">W</div>
+        <span>Will · Admin</span>
+      </div>
+    </aside>
+    <main className="fig-main">
+      <header className="fig-main-bar">
+        <span className="fig-main-title">Home</span>
+        <span className="fig-pill">
+          <i /> Ambient on
+        </span>
+      </header>
+      <ProductChat scenarioIndex={scenarioIndex} onScenarioComplete={onScenarioComplete} />
+    </main>
+  </div>
+);
+
+const FEATURES = [
+  {
+    title: 'Speak. Confirm. Done.',
+    body: 'Natural language becomes structured actions — plant moves, weights, packages, POs — with a preview before anything writes.',
+  },
+  {
+    title: 'Every module. One home.',
+    body: 'Cultivation, harvest, trim, extraction, packaging, ordering. The same conversation covers the floor.',
+  },
+  {
+    title: 'Ambient when your hands are full.',
+    body: 'Background listening queues actions while you work. Review when you’re ready — not when a screen demands it.',
+  },
+];
+
 export const LandingPage: React.FC = () => {
   const { login } = useAuth();
-  const [scrollY, setScrollY] = useState(0);
+  const [solid, setSolid] = useState(false);
   const [scenarioIndex, setScenarioIndex] = useState(0);
-  const [autoplay] = useState(true);
 
   useEffect(() => {
-    let solid = false;
+    let on = false;
     const onScroll = () => {
-      const next = window.scrollY > 16;
-      if (next !== solid) {
-        solid = next;
-        setScrollY(next ? 17 : 0);
+      const next = window.scrollY > 12;
+      if (next !== on) {
+        on = next;
+        setSolid(next);
       }
     };
     window.addEventListener('scroll', onScroll, { passive: true });
     return () => window.removeEventListener('scroll', onScroll);
   }, []);
 
-  const navSolid = scrollY > 16;
-
-  const onScenarioComplete = () => {
-    setScenarioIndex((s) => (s + 1) % DEMO_SCENARIOS.length);
-  };
+  const advance = () => setScenarioIndex((s) => (s + 1) % DEMO_SCENARIOS.length);
 
   return (
-    <div className="mf">
-      <nav className={`mf-nav ${navSolid ? 'is-solid' : ''}`}>
-        <div className="mf-nav-inner">
+    <div className="fig">
+      <nav className={`fig-top ${solid ? 'is-solid' : ''}`}>
+        <div className="fig-top-inner">
           <a
             href="#"
-            className="mf-brand"
+            className="fig-logo"
             onClick={(e) => {
               e.preventDefault();
               window.scrollTo({ top: 0, behavior: 'smooth' });
             }}
           >
-            <span className="mf-brand-mark">◈</span>
+            <img src={logo} alt="" />
             neurocann
           </a>
-          <div className="mf-nav-right">
-            <a href="#access" className="mf-nav-link">access</a>
-            <a href="#fs" className="mf-nav-link">filesystem</a>
-            <button type="button" className="mf-nav-ghost" onClick={() => login()}>
-              sign in
+          <div className="fig-top-actions">
+            <a href="#product" className="fig-link">
+              Product
+            </a>
+            <button type="button" className="fig-link-btn" onClick={() => login()}>
+              Sign in
             </button>
             <a
               href="mailto:will@neurocann.app?subject=NeuroCann%20Demo%20Request"
-              className="mf-nav-cta"
+              className="fig-cta"
             >
-              get access →
+              Book demo
             </a>
           </div>
         </div>
       </nav>
 
-      {/* Hero: brand + mainframe + terminal plane */}
-      <header className="mf-hero">
-        <div className="mf-scan" aria-hidden />
-        <div className="mf-hero-copy">
-          <p className="mf-wordmark">neurocann</p>
-          <h1>
-            Mainframe access
-            <br />
-            to your <em>grow.</em>
-          </h1>
-          <p className="mf-lede">
-            AI-native ops console. Speak once — every room, harvest, tag, and PO updates. Total control from one session.
+      {/* Hero: brand + copy, then full-bleed product UI */}
+      <header className="fig-hero">
+        <div className="fig-hero-copy">
+          <p className="fig-brand">neurocann</p>
+          <h1>Facility operations, in one conversation.</h1>
+          <p className="fig-lede">
+            The ops console for cultivation through compliance. Voice-first. Confirm before it writes.
           </p>
-          <div className="mf-cta">
+          <div className="fig-hero-cta">
             <a
               href="mailto:will@neurocann.app?subject=NeuroCann%20Demo%20Request"
-              className="mf-btn-primary"
+              className="fig-cta fig-cta-lg"
             >
-              request access
+              Book a demo
             </a>
-            <a href="#demo" className="mf-btn-ghost">
-              ./watch_demo
+            <a href="#product" className="fig-ghost">
+              See the product
             </a>
           </div>
         </div>
 
-        <div className="mf-hero-term" id="demo">
-          <MainframeDemo
-            scenarioIndex={scenarioIndex}
-            onScenarioComplete={onScenarioComplete}
-            autoplay={autoplay}
-          />
+        <div className="fig-hero-ui">
+          <ProductShell scenarioIndex={scenarioIndex} onScenarioComplete={advance} />
+        </div>
+
+        <div className="fig-prompts" aria-label="Try a prompt">
+          {DEMO_SCENARIOS.map((s, i) => (
+            <button
+              key={s.label}
+              type="button"
+              className={`fig-prompt ${i === scenarioIndex ? 'is-active' : ''}`}
+              onClick={() => setScenarioIndex(i)}
+            >
+              {s.prompt}
+            </button>
+          ))}
         </div>
       </header>
 
-      {/* Runnable commands */}
-      <section className="mf-cmds" aria-label="Try a command">
-        <div className="mf-cmds-inner">
-          <span className="mf-label">$ history — click to replay</span>
-          <div className="mf-cmd-row">
-            {DEMO_SCENARIOS.map((s, i) => (
-              <button
-                key={s.label}
-                type="button"
-                className={`mf-cmd ${i === scenarioIndex ? 'is-active' : ''}`}
-                onClick={() => setScenarioIndex(i)}
-              >
-                <span className="mf-cmd-hash">{s.label}</span>
-                {s.prompt}
-              </button>
-            ))}
-          </div>
-        </div>
+      <section className="fig-features">
+        {FEATURES.map((f, i) => (
+          <Reveal key={f.title} delay={i * 80}>
+            <article>
+              <h2>{f.title}</h2>
+              <p>{f.body}</p>
+            </article>
+          </Reveal>
+        ))}
       </section>
 
-      {/* Filesystem / modules */}
-      <section id="fs" className="mf-fs">
+      <section className="fig-close">
         <Reveal>
-          <p className="mf-label">~/facility</p>
-          <h2>
-            One mount point.
-            <br />
-            <span>Entire operation.</span>
-          </h2>
-          <p className="mf-section-lede">
-            Cultivation, harvest, trim, extraction, packages, ordering — same session, same permissions, same audit trail.
-          </p>
-        </Reveal>
-        <ul className="mf-tree">
-          {FACILITY_TREE.map((node, i) => (
-            <Reveal key={node.path} delay={i * 50}>
-              <li>
-                <code className="mf-path">{node.path}</code>
-                <span className="mf-path-detail">{node.detail}</span>
-              </li>
-            </Reveal>
-          ))}
-        </ul>
-      </section>
-
-      {/* Pipeline */}
-      <section id="access" className="mf-pipe">
-        <Reveal>
-          <p className="mf-label">pipeline</p>
-          <h2>
-            speak | review | exec
-          </h2>
-        </Reveal>
-        <ol className="mf-pipe-steps">
-          {[
-            { sh: 'stdin', title: 'Speak or type', body: 'Natural language in. No forms. No menu archaeology.' },
-            { sh: 'diff', title: 'Review the propose', body: 'Every write is a proposed action. You see the patch before it lands.' },
-            { sh: 'commit', title: 'Confirm once', body: 'One keystroke. Plant map, harvest logs, packages, compliance — all sync.' },
-          ].map((step, i) => (
-            <Reveal key={step.sh} delay={i * 80}>
-              <li>
-                <code>{step.sh}</code>
-                <h3>{step.title}</h3>
-                <p>{step.body}</p>
-              </li>
-            </Reveal>
-          ))}
-        </ol>
-      </section>
-
-      {/* Ambient as daemon */}
-      <section className="mf-daemon">
-        <Reveal>
-          <p className="mf-label">daemon · ambient</p>
-          <h2>
-            always listening
-            <br />
-            <span>never blocking</span>
-          </h2>
-          <p className="mf-section-lede">
-            Background process on the floor. Weights, flags, tasks queue while you work. Review when you want — not when the UI wants.
-          </p>
-        </Reveal>
-        <Reveal delay={100}>
-          <pre className="mf-log" aria-hidden>
-{`[02:14]  recv  "plant seven five twelve, little pm"
-[02:14]  queue record_plant_weight plant=#7 512g
-[02:14]  queue flag_contamination  pm minor
-[02:17]  recv  "plant eight four seventy eight clean"
-[02:17]  queue record_plant_weight plant=#8 478g
-[02:34]  recv  "order forty cases rockwool pacific"
-[02:34]  queue create_order …  status=needs_review`}
-          </pre>
-        </Reveal>
-      </section>
-
-      {/* Close */}
-      <section className="mf-close">
-        <Reveal>
-          <p className="mf-label">root@neurocann</p>
-          <h2>
-            You already think
-            <br />
-            in commands.
-            <br />
-            <em>So does your facility.</em>
-          </h2>
-          <p className="mf-section-lede">
-            Built by operators who lived in rooms, harvests, and trim tables. The console we wished we had at 2am.
-          </p>
-          <div className="mf-cta">
+          <h2>Built for the floor. Quiet enough for the office.</h2>
+          <p>Book fifteen minutes. We’ll walk your next harvest through NeuroCann.</p>
+          <div className="fig-hero-cta is-center">
             <a
               href="mailto:will@neurocann.app?subject=NeuroCann%20Demo%20Request"
-              className="mf-btn-primary"
+              className="fig-cta fig-cta-lg"
             >
-              request access
+              Book a demo
             </a>
-            <button type="button" className="mf-btn-ghost" onClick={() => login()}>
-              sign in
+            <button type="button" className="fig-ghost" onClick={() => login()}>
+              Sign in
             </button>
           </div>
         </Reveal>
       </section>
 
-      <footer className="mf-foot">
-        <span>neurocann · facility os</span>
-        <span>© {new Date().getFullYear()}</span>
+      <footer className="fig-foot">
+        <span className="fig-logo is-muted">
+          <img src={logo} alt="" />
+          neurocann
+        </span>
+        <span>© {new Date().getFullYear()} NeuroCann</span>
       </footer>
 
       <style>{`
-        .mf {
-          --bg: #070a08;
-          --bg-elev: #0d1310;
-          --bg-panel: #0a100d;
-          --line: rgba(90, 255, 160, 0.14);
-          --line-strong: rgba(90, 255, 160, 0.28);
-          --ink: #e8f5ec;
-          --muted: #7a9a86;
-          --dim: #4d6a58;
-          --green: #5dff9f;
-          --green-dim: #2a8f55;
-          --amber: #e6c35c;
-          --mono: 'IBM Plex Mono', ui-monospace, Menlo, monospace;
-          --display: 'Syne', 'IBM Plex Mono', sans-serif;
+        .fig {
+          --panther: #1a1a1a;
+          --rhino: #959595;
+          --dolphin: #c0c0c0;
+          --koala: #f1f1f1;
+          --white: #ffffff;
+          --chameleon: #3bb570;
+          --chameleon-ink: #1f7a48;
+          --canvas: #f7f7f5;
+          --line: rgba(26, 26, 26, 0.08);
+          --font: 'Lato', system-ui, sans-serif;
           min-height: 100vh;
-          background: var(--bg);
-          color: var(--ink);
-          font-family: var(--mono);
-          font-size: 15px;
-          line-height: 1.5;
+          background: var(--canvas);
+          color: var(--panther);
+          font-family: var(--font);
           overflow-x: hidden;
         }
 
-        .mf h1, .mf h2, .mf .mf-wordmark {
-          font-family: var(--display);
-          font-weight: 800;
-          letter-spacing: -0.04em;
-        }
-
-        /* scanline atmosphere */
-        .mf-scan {
-          pointer-events: none;
-          position: absolute;
-          inset: 0;
-          background:
-            radial-gradient(ellipse 80% 50% at 70% 20%, rgba(93, 255, 159, 0.07), transparent 55%),
-            radial-gradient(ellipse 50% 40% at 10% 80%, rgba(230, 195, 92, 0.04), transparent 50%),
-            repeating-linear-gradient(
-              0deg,
-              transparent,
-              transparent 2px,
-              rgba(0, 0, 0, 0.12) 2px,
-              rgba(0, 0, 0, 0.12) 4px
-            );
-          z-index: 0;
-          opacity: 0.85;
-        }
-
-        /* Nav */
-        .mf-nav {
+        /* Top nav — Figma-thin */
+        .fig-top {
           position: fixed;
           inset: 0 0 auto 0;
-          z-index: 40;
+          z-index: 50;
+          transition: background 0.2s, border-color 0.2s, box-shadow 0.2s;
           border-bottom: 1px solid transparent;
-          transition: background 0.25s, border-color 0.25s;
         }
-        .mf-nav.is-solid {
-          background: rgba(7, 10, 8, 0.92);
-          backdrop-filter: blur(10px);
+        .fig-top.is-solid {
+          background: rgba(247, 247, 245, 0.92);
+          backdrop-filter: blur(12px);
           border-bottom-color: var(--line);
         }
-        .mf-nav-inner {
-          max-width: 1120px;
+        .fig-top-inner {
+          max-width: 1200px;
           margin: 0 auto;
-          padding: 0 1.25rem;
-          height: 3.25rem;
+          padding: 0 1.5rem;
+          height: 3.5rem;
           display: flex;
           align-items: center;
           justify-content: space-between;
         }
-        .mf-brand {
+        .fig-logo {
           display: flex;
           align-items: center;
-          gap: 0.45rem;
-          color: var(--ink);
+          gap: 0.5rem;
           text-decoration: none;
-          font-weight: 600;
-          font-size: 0.9rem;
+          color: var(--panther);
+          font-weight: 900;
+          font-size: 0.95rem;
           letter-spacing: -0.02em;
         }
-        .mf-brand-mark {
-          color: var(--green);
+        .fig-logo img {
+          width: 1.35rem;
+          height: 1.35rem;
+          object-fit: contain;
+        }
+        .fig-logo.is-muted {
+          color: var(--rhino);
           font-size: 0.85rem;
         }
-        .mf-nav-right {
+        .fig-top-actions {
           display: flex;
           align-items: center;
           gap: 1rem;
         }
-        .mf-nav-link {
+        .fig-link,
+        .fig-link-btn {
           display: none;
-          color: var(--muted);
-          text-decoration: none;
-          font-size: 0.78rem;
-        }
-        .mf-nav-link:hover { color: var(--green); }
-        @media (min-width: 640px) {
-          .mf-nav-link { display: inline; }
-        }
-        .mf-nav-ghost {
           background: none;
           border: none;
-          color: var(--ink);
           font: inherit;
-          font-size: 0.78rem;
+          font-size: 0.875rem;
+          font-weight: 700;
+          color: var(--rhino);
+          text-decoration: none;
           cursor: pointer;
           padding: 0;
         }
-        .mf-nav-ghost:hover { color: var(--green); }
-        .mf-nav-cta {
-          color: var(--bg);
-          background: var(--green);
-          text-decoration: none;
-          font-size: 0.75rem;
-          font-weight: 600;
-          padding: 0.4rem 0.7rem;
-          border: 1px solid var(--green);
+        .fig-link:hover,
+        .fig-link-btn:hover { color: var(--panther); }
+        @media (min-width: 640px) {
+          .fig-link, .fig-link-btn { display: inline; }
         }
-        .mf-nav-cta:hover { filter: brightness(1.08); }
+        .fig-cta {
+          background: var(--panther);
+          color: var(--white);
+          text-decoration: none;
+          font-size: 0.8125rem;
+          font-weight: 700;
+          padding: 0.5rem 0.9rem;
+          border-radius: 0.5rem;
+          transition: background 0.15s;
+        }
+        .fig-cta:hover { background: #000; }
+        .fig-cta-lg {
+          padding: 0.85rem 1.25rem;
+          font-size: 0.9rem;
+          background: var(--chameleon);
+          color: #062012;
+        }
+        .fig-cta-lg:hover { background: #34c873; }
 
         /* Hero */
-        .mf-hero {
-          position: relative;
-          min-height: 100svh;
-          display: grid;
-          gap: 2rem;
-          padding: 5rem 1.25rem 2rem;
-          align-items: end;
+        .fig-hero {
+          padding: 5.5rem 1.5rem 3rem;
+          max-width: 1200px;
+          margin: 0 auto;
         }
-        @media (min-width: 960px) {
-          .mf-hero {
-            grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.15fr);
-            align-items: center;
-            max-width: 1160px;
-            margin: 0 auto;
-            padding: 5.5rem 1.5rem 2.5rem;
-            gap: 2.75rem;
-          }
-        }
-        .mf-hero-copy,
-        .mf-hero-term {
-          position: relative;
-          z-index: 1;
+        .fig-hero-copy {
+          max-width: 36rem;
+          margin: 0 auto 2.5rem;
+          text-align: center;
           opacity: 0;
-          animation: mfRise 0.7s cubic-bezier(0.16, 1, 0.3, 1) 0.08s forwards;
+          animation: figIn 0.7s cubic-bezier(0.16,1,0.3,1) 0.05s forwards;
         }
-        .mf-hero-term { animation-delay: 0.2s; }
-
-        .mf-wordmark {
+        .fig-brand {
+          margin: 0 0 0.75rem;
+          font-size: clamp(2.5rem, 7vw, 4rem);
+          font-weight: 900;
+          letter-spacing: -0.045em;
+          line-height: 1;
+          color: var(--panther);
+        }
+        .fig-hero h1 {
           margin: 0 0 0.85rem;
-          font-size: clamp(2.6rem, 8vw, 4.75rem);
-          line-height: 0.88;
-          color: var(--ink);
+          font-size: clamp(1.35rem, 3.2vw, 1.85rem);
+          font-weight: 700;
+          letter-spacing: -0.03em;
+          line-height: 1.25;
+          color: var(--panther);
         }
-        .mf-wordmark::after {
-          content: '_';
-          color: var(--green);
-          animation: mfBlink 1.05s step-end infinite;
-        }
-        .mf-hero h1 {
-          margin: 0 0 1rem;
-          font-size: clamp(1.65rem, 4.2vw, 2.55rem);
-          line-height: 1.08;
-          color: var(--ink);
-        }
-        .mf-hero h1 em {
-          font-style: normal;
-          color: var(--green);
-        }
-        .mf-lede {
-          margin: 0 0 1.5rem;
+        .fig-lede {
+          margin: 0 auto 1.5rem;
           max-width: 28rem;
-          color: var(--muted);
-          font-size: 0.92rem;
-          line-height: 1.55;
+          font-size: 1.05rem;
+          line-height: 1.5;
+          color: var(--rhino);
           font-weight: 400;
         }
-        .mf-cta {
+        .fig-hero-cta {
           display: flex;
           flex-wrap: wrap;
           gap: 0.65rem;
+          justify-content: center;
         }
-        .mf-btn-primary {
+        .fig-hero-cta.is-center { justify-content: center; }
+        .fig-ghost {
           display: inline-flex;
           align-items: center;
-          background: var(--green);
-          color: #041208;
-          text-decoration: none;
-          font-weight: 700;
-          font-size: 0.82rem;
-          padding: 0.75rem 1.05rem;
-          border: 1px solid var(--green);
-          transition: filter 0.15s, transform 0.15s;
-        }
-        .mf-btn-primary:hover {
-          filter: brightness(1.1);
-          transform: translateY(-1px);
-        }
-        .mf-btn-ghost {
-          display: inline-flex;
-          align-items: center;
-          background: transparent;
-          color: var(--green);
+          background: var(--white);
+          color: var(--panther);
           text-decoration: none;
           font: inherit;
-          font-size: 0.82rem;
-          font-weight: 500;
-          padding: 0.75rem 1.05rem;
-          border: 1px solid var(--line-strong);
+          font-size: 0.9rem;
+          font-weight: 700;
+          padding: 0.8rem 1.2rem;
+          border-radius: 0.5rem;
+          border: 1px solid var(--dolphin);
           cursor: pointer;
-          transition: border-color 0.15s, color 0.15s;
+          transition: border-color 0.15s;
         }
-        .mf-btn-ghost:hover {
-          border-color: var(--green);
-          color: var(--ink);
-        }
+        .fig-ghost:hover { border-color: var(--panther); }
 
-        /* Terminal */
-        .mf-term {
-          background: var(--bg-panel);
-          border: 1px solid var(--line-strong);
+        /* Product UI plane — dominant */
+        .fig-hero-ui {
+          opacity: 0;
+          animation: figIn 0.8s cubic-bezier(0.16,1,0.3,1) 0.15s forwards;
+        }
+        .fig-shell {
+          display: grid;
+          grid-template-columns: 12.5rem 1fr;
+          background: var(--white);
+          border: 1px solid var(--line);
+          border-radius: 0.75rem;
+          overflow: hidden;
+          min-height: min(62vh, 520px);
+          box-shadow:
+            0 1px 2px rgba(26, 26, 26, 0.04),
+            0 24px 48px rgba(26, 26, 26, 0.08);
+        }
+        @media (max-width: 720px) {
+          .fig-shell { grid-template-columns: 1fr; }
+          .fig-sidebar { display: none; }
+        }
+        .fig-sidebar {
+          background: var(--koala);
+          border-right: 1px solid var(--line);
           display: flex;
           flex-direction: column;
-          min-height: 340px;
-          box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.4), 0 24px 80px rgba(0, 0, 0, 0.45);
+          padding: 1rem 0.75rem;
         }
-        .mf-term-bar {
+        .fig-sidebar-brand {
           display: flex;
           align-items: center;
-          gap: 0.75rem;
-          padding: 0.55rem 0.75rem;
-          border-bottom: 1px solid var(--line);
-          background: var(--bg-elev);
-          font-size: 0.7rem;
-          color: var(--dim);
+          gap: 0.45rem;
+          padding: 0.35rem 0.5rem 1.1rem;
+          font-weight: 900;
+          font-size: 0.85rem;
+          letter-spacing: -0.02em;
         }
-        .mf-term-dots {
-          display: flex;
-          gap: 0.3rem;
+        .fig-sidebar-brand img {
+          width: 1.15rem;
+          height: 1.15rem;
         }
-        .mf-term-dots i {
-          width: 0.45rem;
-          height: 0.45rem;
-          border-radius: 50%;
-          background: var(--dim);
-          display: block;
-        }
-        .mf-term-dots i:nth-child(1) { background: #c45c5c; }
-        .mf-term-dots i:nth-child(2) { background: #c4a35c; }
-        .mf-term-dots i:nth-child(3) { background: #5cc48a; }
-        .mf-term-title {
+        .fig-sidebar-nav {
           flex: 1;
-          min-width: 0;
-          overflow: hidden;
-          text-overflow: ellipsis;
-          white-space: nowrap;
-          color: var(--muted);
-        }
-        .mf-term-live {
           display: flex;
+          flex-direction: column;
+          gap: 0.15rem;
+        }
+        .fig-nav-item {
+          padding: 0.45rem 0.6rem;
+          font-size: 0.8rem;
+          font-weight: 700;
+          color: var(--rhino);
+          border-radius: 0.4rem;
+        }
+        .fig-nav-item.is-active {
+          background: var(--white);
+          color: var(--panther);
+          box-shadow: 0 1px 2px rgba(26, 26, 26, 0.06);
+        }
+        .fig-sidebar-foot {
+          display: flex;
+          align-items: center;
+          gap: 0.5rem;
+          padding: 0.75rem 0.5rem 0.25rem;
+          font-size: 0.72rem;
+          font-weight: 700;
+          color: var(--rhino);
+          border-top: 1px solid var(--line);
+          margin-top: 0.75rem;
+        }
+        .fig-avatar {
+          width: 1.5rem;
+          height: 1.5rem;
+          border-radius: 50%;
+          background: var(--chameleon);
+          color: #062012;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 0.65rem;
+          font-weight: 900;
+        }
+        .fig-main {
+          display: flex;
+          flex-direction: column;
+          min-width: 0;
+          background: var(--white);
+        }
+        .fig-main-bar {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          padding: 0.85rem 1.25rem;
+          border-bottom: 1px solid var(--line);
+        }
+        .fig-main-title {
+          font-weight: 900;
+          font-size: 0.95rem;
+          letter-spacing: -0.02em;
+        }
+        .fig-pill {
+          display: inline-flex;
           align-items: center;
           gap: 0.35rem;
-          color: var(--green);
-          font-weight: 600;
-          letter-spacing: 0.06em;
-          font-size: 0.65rem;
+          font-size: 0.7rem;
+          font-weight: 700;
+          color: var(--chameleon-ink);
+          background: rgba(59, 181, 112, 0.12);
+          padding: 0.3rem 0.55rem;
+          border-radius: 0.35rem;
         }
-        .mf-blink-dot {
+        .fig-pill i {
           width: 0.4rem;
           height: 0.4rem;
           border-radius: 50%;
-          background: var(--green);
+          background: var(--chameleon);
           display: block;
-          animation: mfPulse 1.6s ease-out infinite;
-        }
-        .mf-term-body {
-          padding: 1rem 1rem 1.15rem;
-          flex: 1;
-          overflow-y: auto;
-          max-height: 380px;
-          font-size: 0.82rem;
-          line-height: 1.55;
-        }
-        .mf-sys {
-          color: var(--dim);
-          margin-bottom: 0.85rem;
-          font-size: 0.72rem;
-        }
-        .mf-line {
-          display: flex;
-          gap: 0.55rem;
-          margin-bottom: 0.35rem;
-          word-break: break-word;
-        }
-        .mf-prompt {
-          color: var(--green);
-          flex-shrink: 0;
-          font-weight: 600;
-        }
-        .mf-prompt.is-out { color: var(--amber); }
-        .mf-prompt.is-ok { color: var(--green); }
-        .mf-line.is-in { color: var(--ink); }
-        .mf-line.is-out { color: var(--muted); }
-        .mf-line.is-ok { color: var(--green-dim); }
-        .mf-caret {
-          display: inline-block;
-          width: 0.55em;
-          height: 1em;
-          background: var(--green);
-          margin-left: 1px;
-          vertical-align: -0.12em;
-          animation: mfBlink 1.05s step-end infinite;
-        }
-        .mf-pending {
-          margin: 0.65rem 0;
-          padding: 0.65rem 0.75rem;
-          border: 1px dashed var(--line-strong);
-          background: rgba(93, 255, 159, 0.04);
-        }
-        .mf-pending.is-done {
-          border-style: solid;
-          border-color: var(--green-dim);
-        }
-        .mf-pending-head {
-          color: var(--amber);
-          font-size: 0.7rem;
-          font-weight: 600;
-          letter-spacing: 0.04em;
-          text-transform: uppercase;
-          margin-bottom: 0.4rem;
-        }
-        .mf-pending.is-done .mf-pending-head { color: var(--green); }
-        .mf-pending-line {
-          color: var(--muted);
-          font-size: 0.78rem;
-          white-space: pre-wrap;
-        }
-        .mf-pending-line span { color: var(--green); }
-        .mf-pending-hint {
-          margin-top: 0.45rem;
-          color: var(--dim);
-          font-size: 0.7rem;
+          animation: figPulse 2s ease-out infinite;
         }
 
-        /* Commands */
-        .mf-cmds {
-          padding: 0 1.25rem 3rem;
-          position: relative;
-          z-index: 2;
-        }
-        .mf-cmds-inner {
-          max-width: 1120px;
-          margin: 0 auto;
-        }
-        .mf-label {
-          display: block;
-          font-size: 0.7rem;
-          color: var(--dim);
-          letter-spacing: 0.08em;
-          text-transform: lowercase;
-          margin: 0 0 0.75rem;
-        }
-        .mf-cmd-row {
+        .fig-chat {
+          flex: 1;
           display: flex;
-          gap: 0.45rem;
+          flex-direction: column;
+          min-height: 0;
+        }
+        .fig-chat-body {
+          flex: 1;
+          overflow-y: auto;
+          padding: 1.25rem;
+          display: flex;
+          flex-direction: column;
+          gap: 0.65rem;
+          max-height: 380px;
+        }
+        .fig-chat-empty {
+          margin: auto;
+          text-align: center;
+          color: var(--rhino);
+          font-size: 0.9rem;
+          font-weight: 400;
+        }
+        .fig-chat-empty-logo {
+          width: 2rem;
+          height: 2rem;
+          opacity: 0.35;
+          margin: 0 auto 0.75rem;
+          display: block;
+        }
+        .fig-msg {
+          max-width: 85%;
+          padding: 0.7rem 0.95rem;
+          font-size: 0.875rem;
+          line-height: 1.45;
+          border-radius: 1rem;
+          font-weight: 400;
+        }
+        .fig-msg.is-user {
+          align-self: flex-end;
+          background: var(--panther);
+          color: var(--white);
+          border-bottom-right-radius: 0.25rem;
+        }
+        .fig-msg.is-ai {
+          align-self: flex-start;
+          background: var(--koala);
+          color: var(--panther);
+          border-bottom-left-radius: 0.25rem;
+        }
+        .fig-caret {
+          display: inline-block;
+          width: 2px;
+          height: 0.95em;
+          background: currentColor;
+          margin-left: 2px;
+          vertical-align: -0.1em;
+          animation: figBlink 1s step-end infinite;
+        }
+        .fig-actions { padding-top: 0.25rem; }
+        .fig-composer {
+          margin: 0 1rem 1rem;
+          display: flex;
+          align-items: center;
+          gap: 0.65rem;
+          padding: 0.85rem 1rem;
+          background: var(--koala);
+          border-radius: 0.75rem;
+        }
+        .fig-composer-placeholder {
+          flex: 1;
+          font-size: 0.875rem;
+          color: var(--dolphin);
+          font-weight: 400;
+        }
+        .fig-mic {
+          background: none;
+          border: none;
+          color: var(--chameleon);
+          padding: 0;
+          display: flex;
+          cursor: default;
+        }
+
+        .fig-prompts {
+          display: flex;
+          gap: 0.5rem;
           overflow-x: auto;
-          padding-bottom: 0.25rem;
+          padding: 1.25rem 0 0;
           scrollbar-width: none;
         }
-        .mf-cmd-row::-webkit-scrollbar { display: none; }
-        .mf-cmd {
+        .fig-prompts::-webkit-scrollbar { display: none; }
+        .fig-prompt {
           flex: 0 0 auto;
-          background: transparent;
+          background: var(--white);
           border: 1px solid var(--line);
-          color: var(--muted);
+          color: var(--rhino);
           font: inherit;
-          font-size: 0.75rem;
-          padding: 0.55rem 0.7rem;
+          font-size: 0.8rem;
+          font-weight: 700;
+          padding: 0.55rem 0.85rem;
+          border-radius: 0.45rem;
           cursor: pointer;
-          text-align: left;
-          max-width: 20rem;
+          max-width: 18rem;
           white-space: nowrap;
           overflow: hidden;
           text-overflow: ellipsis;
-          transition: border-color 0.15s, color 0.15s, background 0.15s;
+          transition: border-color 0.15s, color 0.15s;
         }
-        .mf-cmd-hash {
-          color: var(--dim);
-          margin-right: 0.45rem;
+        .fig-prompt:hover {
+          border-color: var(--dolphin);
+          color: var(--panther);
         }
-        .mf-cmd:hover {
-          border-color: var(--line-strong);
-          color: var(--ink);
-        }
-        .mf-cmd.is-active {
-          border-color: var(--green);
-          color: var(--green);
-          background: rgba(93, 255, 159, 0.06);
+        .fig-prompt.is-active {
+          border-color: var(--chameleon);
+          color: var(--chameleon-ink);
+          background: rgba(59, 181, 112, 0.08);
         }
 
-        /* Filesystem */
-        .mf-fs,
-        .mf-pipe,
-        .mf-daemon,
-        .mf-close {
-          max-width: 1120px;
+        /* Features — one job each, no cards */
+        .fig-features {
+          max-width: 1200px;
           margin: 0 auto;
-          padding: 4.5rem 1.25rem;
-        }
-        .mf h2 {
-          margin: 0 0 0.85rem;
-          font-size: clamp(1.75rem, 4vw, 2.6rem);
-          line-height: 1.05;
-        }
-        .mf h2 span { color: var(--muted); }
-        .mf h2 em {
-          font-style: normal;
-          color: var(--green);
-        }
-        .mf-section-lede {
-          margin: 0 0 2rem;
-          max-width: 32rem;
-          color: var(--muted);
-          font-size: 0.9rem;
-          line-height: 1.55;
-        }
-        .mf-tree {
-          list-style: none;
-          margin: 0;
-          padding: 0;
-          border-top: 1px solid var(--line);
-        }
-        .mf-tree li {
+          padding: 4.5rem 1.5rem;
           display: grid;
-          gap: 0.25rem;
-          padding: 1rem 0;
-          border-bottom: 1px solid var(--line);
-        }
-        @media (min-width: 700px) {
-          .mf-tree li {
-            grid-template-columns: 9rem 1fr;
-            gap: 1.25rem;
-            align-items: baseline;
-          }
-        }
-        .mf-path {
-          color: var(--green);
-          font-size: 0.9rem;
-          font-weight: 600;
-        }
-        .mf-path-detail {
-          color: var(--muted);
-          font-size: 0.85rem;
-        }
-
-        /* Pipeline */
-        .mf-pipe {
+          gap: 2.5rem;
           border-top: 1px solid var(--line);
-        }
-        .mf-pipe-steps {
-          list-style: none;
-          margin: 2rem 0 0;
-          padding: 0;
-          display: grid;
-          gap: 1.75rem;
         }
         @media (min-width: 800px) {
-          .mf-pipe-steps {
+          .fig-features {
             grid-template-columns: repeat(3, 1fr);
-            gap: 1.5rem;
+            gap: 2rem;
           }
         }
-        .mf-pipe-steps li {
-          border-top: 1px solid var(--green);
-          padding-top: 1rem;
+        .fig-features h2 {
+          margin: 0 0 0.5rem;
+          font-size: 1.15rem;
+          font-weight: 900;
+          letter-spacing: -0.025em;
         }
-        .mf-pipe-steps code {
-          display: block;
-          color: var(--dim);
-          font-size: 0.75rem;
-          margin-bottom: 0.65rem;
-        }
-        .mf-pipe-steps h3 {
-          margin: 0 0 0.45rem;
-          font-family: var(--mono);
-          font-size: 1rem;
-          font-weight: 600;
-          letter-spacing: -0.02em;
-        }
-        .mf-pipe-steps p {
+        .fig-features p {
           margin: 0;
-          color: var(--muted);
-          font-size: 0.85rem;
+          color: var(--rhino);
+          font-size: 0.95rem;
+          line-height: 1.5;
+          font-weight: 400;
+        }
+
+        .fig-close {
+          max-width: 36rem;
+          margin: 0 auto;
+          padding: 3rem 1.5rem 5rem;
+          text-align: center;
+        }
+        .fig-close h2 {
+          margin: 0 0 0.65rem;
+          font-size: clamp(1.5rem, 3.5vw, 2rem);
+          font-weight: 900;
+          letter-spacing: -0.035em;
+          line-height: 1.2;
+        }
+        .fig-close p {
+          margin: 0 0 1.5rem;
+          color: var(--rhino);
+          font-size: 1.05rem;
           line-height: 1.5;
         }
 
-        /* Daemon */
-        .mf-daemon {
-          background: var(--bg-elev);
+        .fig-foot {
           border-top: 1px solid var(--line);
-          border-bottom: 1px solid var(--line);
-          max-width: none;
-          padding-left: max(1.25rem, calc((100% - 1120px) / 2 + 1.25rem));
-          padding-right: max(1.25rem, calc((100% - 1120px) / 2 + 1.25rem));
-        }
-        .mf-log {
-          margin: 0;
-          padding: 1.1rem 1.15rem;
-          background: var(--bg);
-          border: 1px solid var(--line);
-          color: var(--green-dim);
-          font-size: 0.75rem;
-          line-height: 1.65;
-          overflow-x: auto;
-          max-width: 40rem;
-        }
-
-        /* Close */
-        .mf-close {
-          text-align: left;
-          padding-bottom: 5rem;
-        }
-        .mf-close .mf-section-lede { margin-bottom: 1.5rem; }
-
-        .mf-foot {
-          border-top: 1px solid var(--line);
-          padding: 1.25rem;
-          max-width: 1120px;
+          max-width: 1200px;
           margin: 0 auto;
+          padding: 1.5rem;
           display: flex;
           justify-content: space-between;
+          align-items: center;
           gap: 1rem;
-          color: var(--dim);
-          font-size: 0.72rem;
+          color: var(--rhino);
+          font-size: 0.8rem;
+          font-weight: 400;
         }
 
-        @keyframes mfRise {
-          from { opacity: 0; transform: translateY(14px); }
+        @keyframes figIn {
+          from { opacity: 0; transform: translateY(12px); }
           to { opacity: 1; transform: translateY(0); }
         }
-        @keyframes mfBlink {
+        @keyframes figBlink {
           50% { opacity: 0; }
         }
-        @keyframes mfPulse {
-          0% { box-shadow: 0 0 0 0 rgba(93, 255, 159, 0.45); }
-          70% { box-shadow: 0 0 0 8px rgba(93, 255, 159, 0); }
-          100% { box-shadow: 0 0 0 0 rgba(93, 255, 159, 0); }
+        @keyframes figPulse {
+          0% { box-shadow: 0 0 0 0 rgba(59, 181, 112, 0.4); }
+          70% { box-shadow: 0 0 0 6px rgba(59, 181, 112, 0); }
+          100% { box-shadow: 0 0 0 0 rgba(59, 181, 112, 0); }
         }
 
         @media (prefers-reduced-motion: reduce) {
-          .mf-scan,
-          .mf-caret,
-          .mf-wordmark::after,
-          .mf-blink-dot {
+          .fig-hero-copy,
+          .fig-hero-ui,
+          .fig-pill i,
+          .fig-caret {
             animation: none !important;
-          }
-          .mf-hero-copy,
-          .mf-hero-term {
             opacity: 1 !important;
-            animation: none !important;
             transform: none !important;
           }
         }
