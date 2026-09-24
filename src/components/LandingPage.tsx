@@ -650,7 +650,8 @@ export const LandingPage: React.FC = () => {
           border: 1px solid var(--line);
           border-radius: 0.75rem;
           overflow: hidden;
-          min-height: min(62vh, 520px);
+          height: min(62vh, 520px);
+          min-height: 420px;
           box-shadow:
             0 1px 2px rgba(26, 26, 26, 0.04),
             0 24px 48px rgba(26, 26, 26, 0.08);
