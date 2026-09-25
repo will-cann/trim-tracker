@@ -957,19 +957,19 @@ export const LandingPage: React.FC = () => {
         </div>
       </main>
 
-      {/* Records vs does — CareLink's killer line, adapted */}
+      {/* Fragmented status vs closed measurement loop */}
       <section className="fig-do" aria-labelledby="fig-do-heading">
         <Reveal>
           <h2 id="fig-do-heading">
-            Your current stack only records the work.
+            Status lives in eight places.
             <br />
-            NeuroCann helps <em>do the work.</em>
+            Revenue per plant lives in the <em>loop.</em>
           </h2>
           <p className="fig-do-lede">
-            Most facilities juggle disconnected tools on top of METRC. NeuroCann consolidates the stack — then assigns the work, tracks completion, and updates compliance inside it.
+            METRC portals, spreadsheets, and clipboards scatter where plants are and what got weighed. NeuroCann closes the loop — assign floor work, capture what grows, extracts, and sells, and flag health early — so the next cycle is planned for dollars per plant, not guesswork.
           </p>
         </Reveal>
-        <div className="fig-compare" role="group" aria-label="Tool consolidation">
+        <div className="fig-compare" role="group" aria-label="Fragmented status versus closed measurement loop">
           <div className="fig-compare-many">
             <p className="fig-compare-label">Today</p>
             <ul>
@@ -983,8 +983,8 @@ export const LandingPage: React.FC = () => {
           </div>
           <div className="fig-compare-one">
             <p className="fig-compare-label">With NeuroCann</p>
-            <p className="fig-compare-platform">1 orchestration layer</p>
-            <p className="fig-compare-note">People · process · technology</p>
+            <p className="fig-compare-platform">One closed loop</p>
+            <p className="fig-compare-note">Measure · plan · protect</p>
           </div>
         </div>
       </section>
@@ -1865,7 +1865,7 @@ export const LandingPage: React.FC = () => {
           background: rgba(47, 158, 95, 0.1);
         }
 
-        /* Records vs does + consolidation */
+        /* Fragmented status → closed loop */
         .fig-do {
           max-width: 1200px;
           margin: 0 auto;
