@@ -778,15 +778,20 @@ const ModuleList: React.FC = () => {
   );
 };
 
-const FRAGMENTS = [
-  'METRC portal',
-  'Spreadsheets',
-  'Whiteboards',
-  'Group texts',
-  'Clipboards',
-  'SOPs in Drive',
-  'Email threads',
-  'Shift notes',
+/** Meeting → floor → evidence → next-cycle plan (not N-tools consolidation). */
+const COMPOUND = [
+  {
+    title: 'Meeting names the work',
+    body: 'Standup becomes assigned floor tasks — not notes that die in a thread.',
+  },
+  {
+    title: 'Floor does the physical work',
+    body: 'Operators complete the move, weigh-in, or scout. Software records; gloves stay on.',
+  },
+  {
+    title: 'Evidence plans the next cycle',
+    body: 'Weights, rooms, extracts, and health flags decide what you plant, process, and protect next — dollars per plant, not gut feel.',
+  },
 ];
 
 const OUTCOMES = [
@@ -815,7 +820,7 @@ const ORCHESTRA = [
   },
   {
     title: 'Technology',
-    body: 'One conversational layer across rooms, harvests, packages, and METRC-shaped state — so tools stop living in separate tabs.',
+    body: 'Voice and chat across rooms, harvests, and packages — so what the floor finished shows up in the next cycle’s plan.',
   },
 ];
 
@@ -837,7 +842,7 @@ const LOOP = [
 const START = [
   {
     title: 'Start with visibility',
-    body: 'Connect METRC for the digital state of the facility — rooms, plants, packages — in one place.',
+    body: 'Connect METRC so rooms, plants, and packages match the digital state of the facility.',
   },
   {
     title: 'Orchestrate one workflow',
@@ -848,8 +853,6 @@ const START = [
     body: 'Use the data you capture to plan the next cycle for dollars per plant — then grow orchestration across departments.',
   },
 ];
-
-const INTEGRATIONS = ['METRC', 'Accounting', 'Sensors', 'Labs', 'SSO'];
 
 export const LandingPage: React.FC = () => {
   const { login } = useAuth();
@@ -919,8 +922,9 @@ export const LandingPage: React.FC = () => {
           <p className="fig-brand">neurocann</p>
           <p className="fig-trust">Built by operators, for operators</p>
           <h1>
-            End-to-end software that maximizes{' '}
-            <em>dollars per plant.</em>
+            Maximize <em>dollars per plant.</em>
+            <br />
+            Protect every harvest.
           </h1>
           <p className="fig-lede">
             Measure what grows, extracts, and sells — plan the next cycle. Spot health issues early before they take out a harvest.
@@ -957,36 +961,31 @@ export const LandingPage: React.FC = () => {
         </div>
       </main>
 
-      {/* Fragmented status vs closed measurement loop */}
+      {/* Floor reality → next-cycle $ and protected harvests */}
       <section className="fig-do" aria-labelledby="fig-do-heading">
         <Reveal>
           <h2 id="fig-do-heading">
-            Status lives in eight places.
+            What the floor knows should change
             <br />
-            Revenue per plant lives in the <em>loop.</em>
+            what you <em>plant next.</em>
           </h2>
           <p className="fig-do-lede">
-            METRC portals, spreadsheets, and clipboards scatter where plants are and what got weighed. NeuroCann closes the loop — assign floor work, capture what grows, extracts, and sells, and flag health early — so the next cycle is planned for dollars per plant, not guesswork.
+            Meetings assign work. Operators do the physical job. NeuroCann captures weights, rooms, extracts, and health flags so the next cycle maximizes dollars per plant — and risk surfaces before a room kills a harvest.
           </p>
         </Reveal>
-        <div className="fig-compare" role="group" aria-label="Fragmented status versus closed measurement loop">
-          <div className="fig-compare-many">
-            <p className="fig-compare-label">Today</p>
-            <ul>
-              {FRAGMENTS.map((f) => (
-                <li key={f}>{f}</li>
-              ))}
-            </ul>
-          </div>
-          <div className="fig-compare-arrow" aria-hidden="true">
-            →
-          </div>
-          <div className="fig-compare-one">
-            <p className="fig-compare-label">With NeuroCann</p>
-            <p className="fig-compare-platform">One closed loop</p>
-            <p className="fig-compare-note">Measure · plan · protect</p>
-          </div>
-        </div>
+        <ol className="fig-compound" aria-label="How floor work compounds into planning">
+          {COMPOUND.map((step, i) => (
+            <Reveal key={step.title} delay={i * 70}>
+              <li>
+                <span className="fig-compound-n" aria-hidden="true">
+                  {String(i + 1).padStart(2, '0')}
+                </span>
+                <h3>{step.title}</h3>
+                <p>{step.body}</p>
+              </li>
+            </Reveal>
+          ))}
+        </ol>
       </section>
 
       <section className="fig-band" aria-labelledby="fig-outcome-heading">
@@ -1084,12 +1083,12 @@ export const LandingPage: React.FC = () => {
       <section id="modules" className="fig-band fig-band-alt" aria-labelledby="fig-modules-heading">
         <Reveal>
           <h2 id="fig-modules-heading">
-            Every module. One conversational layer.
+            Modules that run the facility —
             <br />
-            <span>Learn more — or request a sandbox.</span>
+            <span>from voice on the floor.</span>
           </h2>
           <p className="fig-section-lede">
-            Seed-to-sale coverage in one conversational layer. Open any module for the problem it solves, the value, and what’s shipped today — then request a sandbox to try it.
+            Seed-to-sale coverage you can speak into. Open any module for the problem it solves, the value, and what’s shipped today — then request a sandbox to try it.
           </p>
         </Reveal>
         <ModuleList />
@@ -1106,27 +1105,17 @@ export const LandingPage: React.FC = () => {
       <section className="fig-hub" aria-labelledby="fig-hub-heading">
         <Reveal>
           <h2 id="fig-hub-heading">
-            The layer above your systems —
+            METRC stays the reporting path.
             <br />
-            <span>not another silo.</span>
+            <span>NeuroCann stays where operators work.</span>
           </h2>
+          <p className="fig-hub-note">
+            Sync the digital state of the facility, then expand into accounting, sensors, labs, and SSO as you need them.{' '}
+            <a href="mailto:will@neurocann.app?subject=NeuroCann%20Integration%20Request">
+              Request an integration →
+            </a>
+          </p>
         </Reveal>
-        <div className="fig-hub-row" role="list">
-          {INTEGRATIONS.map((name) => (
-            <span key={name} className="fig-hub-chip" role="listitem">
-              {name}
-            </span>
-          ))}
-          <span className="fig-hub-core" role="listitem">
-            neurocann
-          </span>
-        </div>
-        <p className="fig-hub-note">
-          METRC first. Accounting, sensors, labs, and SSO as you expand.{' '}
-          <a href="mailto:will@neurocann.app?subject=NeuroCann%20Integration%20Request">
-            Request an integration →
-          </a>
-        </p>
       </section>
 
       <section className="fig-band fig-band-alt" aria-labelledby="fig-experts-heading">
@@ -1865,7 +1854,7 @@ export const LandingPage: React.FC = () => {
           background: rgba(47, 158, 95, 0.1);
         }
 
-        /* Fragmented status → closed loop */
+        /* Floor → next-cycle compounding */
         .fig-do {
           max-width: 1200px;
           margin: 0 auto;
@@ -1888,79 +1877,48 @@ export const LandingPage: React.FC = () => {
           font-size: 1.05rem;
           line-height: 1.55;
         }
-        .fig-compare {
-          display: grid;
-          gap: 1.5rem;
-          align-items: stretch;
-          text-align: left;
-          max-width: 52rem;
-          margin: 0 auto;
-        }
-        @media (min-width: 720px) {
-          .fig-compare {
-            grid-template-columns: 1fr auto 1fr;
-            gap: 1.75rem;
-            align-items: center;
-          }
-        }
-        .fig-compare-label {
-          margin: 0 0 0.85rem;
-          font-size: 0.72rem;
-          font-weight: 900;
-          letter-spacing: 0.08em;
-          text-transform: uppercase;
-          color: var(--dolphin);
-        }
-        .fig-compare-many ul {
+        .fig-compound {
           list-style: none;
-          margin: 0;
+          margin: 0 auto;
           padding: 0;
           display: grid;
-          grid-template-columns: 1fr 1fr;
-          gap: 0.45rem 1rem;
+          gap: 1.75rem;
+          text-align: left;
+          max-width: 56rem;
         }
-        .fig-compare-many li {
-          font-size: 0.95rem;
-          font-weight: 700;
-          color: var(--rhino);
-          padding: 0.35rem 0;
-          border-bottom: 1px solid var(--line);
-        }
-        .fig-compare-arrow {
-          display: none;
-          font-size: 1.75rem;
-          font-weight: 900;
-          color: var(--chameleon);
-          text-align: center;
-        }
-        @media (min-width: 720px) {
-          .fig-compare-arrow { display: block; }
-        }
-        .fig-compare-one {
-          padding-top: 0.25rem;
-        }
-        @media (min-width: 720px) {
-          .fig-compare-one {
-            border-left: 2px solid var(--chameleon);
-            padding-left: 1.35rem;
+        @media (min-width: 800px) {
+          .fig-compound {
+            grid-template-columns: repeat(3, 1fr);
+            gap: 2rem;
           }
         }
-        .fig-compare-platform {
-          margin: 0 0 0.45rem;
-          font-size: clamp(1.35rem, 2.5vw, 1.75rem);
-          font-weight: 900;
-          letter-spacing: -0.03em;
-          color: var(--panther);
-          line-height: 1.2;
+        .fig-compound li {
+          margin: 0;
+          padding: 0;
         }
-        .fig-compare-note {
+        .fig-compound-n {
+          display: block;
+          margin-bottom: 0.55rem;
+          font-size: 0.75rem;
+          font-weight: 900;
+          letter-spacing: 0.1em;
+          color: var(--chameleon);
+        }
+        .fig-compound h3 {
+          margin: 0 0 0.45rem;
+          font-size: 1.1rem;
+          font-weight: 900;
+          letter-spacing: -0.02em;
+          color: var(--panther);
+        }
+        .fig-compound p {
           margin: 0;
           color: var(--rhino);
           font-size: 0.95rem;
-          font-weight: 700;
+          line-height: 1.5;
         }
 
-        /* Integration hub */
+        /* Integration note */
         .fig-hub {
           max-width: 1200px;
           margin: 0 auto;
@@ -1969,7 +1927,7 @@ export const LandingPage: React.FC = () => {
           text-align: center;
         }
         .fig-hub h2 {
-          margin: 0 auto 2rem;
+          margin: 0 auto 1.25rem;
           max-width: 22em;
           font-size: clamp(1.65rem, 3.8vw, 2.35rem);
           font-weight: 900;
@@ -1980,36 +1938,9 @@ export const LandingPage: React.FC = () => {
           color: var(--rhino);
           font-weight: 700;
         }
-        .fig-hub-row {
-          display: flex;
-          flex-wrap: wrap;
-          justify-content: center;
-          align-items: center;
-          gap: 0.65rem 0.85rem;
-          margin: 0 auto 1.25rem;
-          max-width: 40rem;
-        }
-        .fig-hub-chip {
-          font-size: 0.85rem;
-          font-weight: 700;
-          color: var(--rhino);
-          padding: 0.55rem 0.85rem;
-          border: 1.5px solid var(--line);
-          border-radius: 0.45rem;
-          background: var(--white);
-        }
-        .fig-hub-core {
-          font-size: 0.95rem;
-          font-weight: 900;
-          letter-spacing: -0.02em;
-          color: var(--chameleon-ink);
-          background: var(--chameleon);
-          padding: 0.6rem 1rem;
-          border-radius: 0.45rem;
-        }
         .fig-hub-note {
           margin: 0 auto;
-          max-width: 28rem;
+          max-width: 32rem;
           color: var(--rhino);
           font-size: 0.95rem;
           line-height: 1.5;
