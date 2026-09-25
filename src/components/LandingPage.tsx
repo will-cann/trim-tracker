@@ -461,11 +461,11 @@ export const LandingPage: React.FC = () => {
           <p className="fig-brand">neurocann</p>
           <p className="fig-trust">Built by operators, for operators</p>
           <h1>
-            End-to-end software for running a{' '}
-            <em>facility that scales.</em>
+            End-to-end software that creates{' '}
+            <em>agility in operations.</em>
           </h1>
           <p className="fig-lede">
-            Conversational AI so managers run people, process, and technology from one place — meetings become assigned work, and floor completion updates compliance.
+            Square footage is fixed. Throughput isn’t — conversational AI so managers run people, process, and technology from one place, and the floor closes the loop to compliance.
           </p>
           <div className="fig-hero-cta">
             <a
