@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../contexts/authContext';
 import { ActionPreview } from './ActionPreview';
+import { TypeChip } from './ui';
 import type { ProposedAction } from '../types/definitions';
 import logo from '../assets/logo.png';
 
@@ -63,9 +64,26 @@ type DemoStep =
   | { type: 'ai'; text: string }
   | { type: 'actions'; actions: ProposedAction[] }
   | { type: 'confirmed' }
-  | { type: 'pause'; ms: number };
+  | { type: 'pause'; ms: number }
+  | { type: 'listening'; ms: number }
+  | { type: 'assembling'; actions: ProposedAction[]; staggerMs?: number };
 
-const DEMO_SCENARIOS: { label: string; prompt: string; steps: DemoStep[] }[] = [
+const STANDUP_TASKS: ProposedAction[] = [
+  {
+    type: 'create_human_task',
+    data: { title: 'Check dry room RH', assignee: 'Jordan', priority: 'high', category: 'environmental' },
+  },
+  {
+    type: 'create_human_task',
+    data: { title: 'Restock rockwool', assignee: 'Sam', priority: 'medium', category: 'inventory' },
+  },
+  {
+    type: 'create_human_task',
+    data: { title: 'Pull pending lab results', assignee: 'Alisha', priority: 'medium', category: 'compliance' },
+  },
+];
+
+const DEMO_SCENARIOS: { label: string; prompt: string; mode?: 'chat' | 'standup'; steps: DemoStep[] }[] = [
   {
     label: 'Assign floor work',
     prompt: 'Assign Maya to move OG Kush from veg 2 to flower 1',
@@ -93,22 +111,17 @@ const DEMO_SCENARIOS: { label: string; prompt: string; steps: DemoStep[] }[] = [
     ],
   },
   {
-    label: 'Meeting → tasks',
-    prompt: 'From standup: check dry room RH, restock rockwool, pull lab results',
+    label: 'From standup',
+    prompt: 'From standup',
+    mode: 'standup',
     steps: [
-      { type: 'user', text: 'From standup — assign Jordan dry room RH check, Sam restock rockwool, Alisha pull pending lab results' },
-      { type: 'ai', text: 'Turning the meeting into three assigned actions.' },
-      {
-        type: 'actions',
-        actions: [
-          { type: 'create_human_task', data: { title: 'Check dry room RH', assignee: 'Jordan', priority: 'high', category: 'environmental' } },
-          { type: 'create_human_task', data: { title: 'Restock rockwool', assignee: 'Sam', priority: 'medium', category: 'supplies' } },
-          { type: 'create_human_task', data: { title: 'Pull pending lab results', assignee: 'Alisha', priority: 'medium', category: 'compliance' } },
-        ],
-      },
+      { type: 'listening', ms: 2600 },
+      { type: 'assembling', actions: STANDUP_TASKS, staggerMs: 650 },
+      { type: 'pause', ms: 500 },
+      { type: 'actions', actions: STANDUP_TASKS },
       { type: 'pause', ms: 1800 },
       { type: 'confirmed' },
-      { type: 'pause', ms: 2000 },
+      { type: 'pause', ms: 2200 },
     ],
   },
   {
@@ -160,12 +173,17 @@ const ProductChat: React.FC<{
   const [messages, setMessages] = useState<Array<{ role: 'user' | 'ai'; text: string }>>([]);
   const [pendingActions, setPendingActions] = useState<ProposedAction[] | null>(null);
   const [actionStatus, setActionStatus] = useState<'confirmed' | undefined>(undefined);
+  const [listening, setListening] = useState(false);
+  const [assembling, setAssembling] = useState<ProposedAction[] | null>(null);
+  const [assembleCount, setAssembleCount] = useState(0);
+  const [stageLabel, setStageLabel] = useState<string | null>(null);
   const bodyRef = useRef<HTMLDivElement>(null);
   const runId = useRef(0);
   const onCompleteRef = useRef(onScenarioComplete);
   onCompleteRef.current = onScenarioComplete;
 
   const scenario = DEMO_SCENARIOS[scenarioIndex];
+  const isStandup = scenario.mode === 'standup';
 
   useEffect(() => {
     runId.current += 1;
@@ -175,6 +193,10 @@ const ProductChat: React.FC<{
     setActionStatus(undefined);
     setTypingText('');
     setIsTyping(false);
+    setListening(false);
+    setAssembling(null);
+    setAssembleCount(0);
+    setStageLabel(null);
   }, [scenarioIndex]);
 
   useEffect(() => {
@@ -190,7 +212,51 @@ const ProductChat: React.FC<{
 
     const step = steps[stepIndex];
 
+    if (step.type === 'listening') {
+      setListening(true);
+      setAssembling(null);
+      setAssembleCount(0);
+      setPendingActions(null);
+      setActionStatus(undefined);
+      setMessages([]);
+      setStageLabel('Microphone listening');
+      const t = setTimeout(() => {
+        if (runId.current !== thisRun) return;
+        setListening(false);
+        setStepIndex((s) => s + 1);
+      }, step.ms);
+      return () => clearTimeout(t);
+    }
+
+    if (step.type === 'assembling') {
+      setListening(false);
+      setAssembling(step.actions);
+      setAssembleCount(0);
+      setPendingActions(null);
+      setStageLabel('Action items assembling');
+      const stagger = step.staggerMs ?? 600;
+      let n = 0;
+      const iv = setInterval(() => {
+        if (runId.current !== thisRun) {
+          clearInterval(iv);
+          return;
+        }
+        n += 1;
+        setAssembleCount(n);
+        if (n >= step.actions.length) {
+          clearInterval(iv);
+          setTimeout(() => {
+            if (runId.current === thisRun) setStepIndex((s) => s + 1);
+          }, 350);
+        }
+      }, stagger);
+      return () => clearInterval(iv);
+    }
+
     if (step.type === 'user' || step.type === 'ai') {
+      setListening(false);
+      setAssembling(null);
+      setStageLabel(null);
       setIsTyping(true);
       let i = 0;
       let advance: ReturnType<typeof setTimeout> | undefined;
@@ -220,6 +286,9 @@ const ProductChat: React.FC<{
     }
 
     if (step.type === 'actions') {
+      setListening(false);
+      setAssembling(null);
+      setStageLabel(isStandup ? 'Action items assigned' : null);
       const t = setTimeout(() => {
         if (runId.current !== thisRun) return;
         setPendingActions(step.actions);
@@ -231,6 +300,7 @@ const ProductChat: React.FC<{
 
     if (step.type === 'confirmed') {
       setActionStatus('confirmed');
+      if (isStandup) setStageLabel('Action items assigned');
       const t = setTimeout(() => {
         if (runId.current === thisRun) setStepIndex((s) => s + 1);
       }, 80);
@@ -243,11 +313,11 @@ const ProductChat: React.FC<{
       }, step.ms);
       return () => clearTimeout(t);
     }
-  }, [stepIndex, scenario]);
+  }, [stepIndex, scenario, isStandup]);
 
   useEffect(() => {
     if (bodyRef.current) bodyRef.current.scrollTop = bodyRef.current.scrollHeight;
-  }, [messages, typingText, pendingActions, actionStatus]);
+  }, [messages, typingText, pendingActions, actionStatus, assembleCount, listening]);
 
   const current = stepIndex < scenario.steps.length ? scenario.steps[stepIndex] : null;
   const typingRole =
@@ -256,7 +326,53 @@ const ProductChat: React.FC<{
   return (
     <div className="fig-chat">
       <div ref={bodyRef} className="fig-chat-body" aria-live="polite" aria-relevant="additions">
-        {messages.length === 0 && !typingText && (
+        {listening && (
+          <div className="fig-listen" role="status">
+            <div className="fig-listen-mic" aria-hidden="true">
+              <span className="fig-listen-ring" />
+              <span className="fig-listen-ring is-delay" />
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 18.75a6 6 0 006-6v-1.5m-6 7.5a6 6 0 01-6-6v-1.5m6 7.5v3.75m-3.75 0h7.5M12 15.75a3 3 0 01-3-3V4.5a3 3 0 116 0v8.25a3 3 0 01-3 3z" />
+              </svg>
+            </div>
+            <p className="fig-listen-title">Listening to standup…</p>
+            <p className="fig-listen-sub">Ambient capture — no typing required</p>
+            <div className="fig-wave" aria-hidden="true">
+              {Array.from({ length: 9 }).map((_, i) => (
+                <i key={i} style={{ animationDelay: `${i * 0.08}s` }} />
+              ))}
+            </div>
+          </div>
+        )}
+
+        {assembling && (
+          <div className="fig-assemble" role="status">
+            <p className="fig-assemble-label">Assembling action items…</p>
+            <ul className="fig-assemble-list">
+              {assembling.slice(0, assembleCount).map((action, i) => {
+                const d = action.data as Record<string, string>;
+                return (
+                  <li key={i} className="fig-assemble-card">
+                    <span className="fig-assemble-title">{d.title}</span>
+                    <span className="fig-assemble-chips">
+                      <span className="fig-chip is-person">{d.assignee}</span>
+                      <TypeChip palette="taskPriority" value={d.priority} />
+                      <TypeChip palette="taskCategory" value={d.category} />
+                    </span>
+                  </li>
+                );
+              })}
+              {assembleCount < assembling.length && (
+                <li className="fig-assemble-card is-skeleton" aria-hidden="true">
+                  <span className="fig-skel" />
+                  <span className="fig-skel is-short" />
+                </li>
+              )}
+            </ul>
+          </div>
+        )}
+
+        {!listening && !assembling && messages.length === 0 && !typingText && !pendingActions && (
           <div className="fig-chat-empty">
             <img src={logo} alt="" className="fig-chat-empty-logo" />
             <p>Ask anything about the facility</p>
@@ -280,6 +396,11 @@ const ProductChat: React.FC<{
         )}
         {pendingActions && (
           <div className="fig-actions">
+            {stageLabel && isStandup && (
+              <p className="fig-assemble-label" style={{ marginBottom: '0.65rem' }}>
+                {stageLabel}
+              </p>
+            )}
             <ActionPreview
               actions={pendingActions}
               readonly={actionStatus === 'confirmed'}
@@ -289,13 +410,26 @@ const ProductChat: React.FC<{
           </div>
         )}
       </div>
-      <div className="fig-composer" aria-hidden="true">
-        <span className="fig-composer-placeholder">Talk or type a command…</span>
-        <span className="fig-mic" aria-hidden="true">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M12 18.75a6 6 0 006-6v-1.5m-6 7.5a6 6 0 01-6-6v-1.5m6 7.5v3.75m-3.75 0h7.5M12 15.75a3 3 0 01-3-3V4.5a3 3 0 116 0v8.25a3 3 0 01-3 3z" />
-          </svg>
-        </span>
+      <div className={`fig-composer ${listening ? 'is-listening' : ''}`} aria-hidden="true">
+        {listening ? (
+          <>
+            <span className="fig-composer-placeholder is-live">Listening…</span>
+            <span className="fig-mic is-live" aria-hidden="true">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 18.75a6 6 0 006-6v-1.5m-6 7.5a6 6 0 01-6-6v-1.5m6 7.5v3.75m-3.75 0h7.5M12 15.75a3 3 0 01-3-3V4.5a3 3 0 116 0v8.25a3 3 0 01-3 3z" />
+              </svg>
+            </span>
+          </>
+        ) : (
+          <>
+            <span className="fig-composer-placeholder">Talk or type a command…</span>
+            <span className="fig-mic" aria-hidden="true">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 18.75a6 6 0 006-6v-1.5m-6 7.5a6 6 0 01-6-6v-1.5m6 7.5v3.75m-3.75 0h7.5M12 15.75a3 3 0 01-3-3V4.5a3 3 0 116 0v8.25a3 3 0 01-3 3z" />
+              </svg>
+            </span>
+          </>
+        )}
       </div>
     </div>
   );
@@ -341,6 +475,76 @@ const ProductShell: React.FC<{
   </div>
 );
 
+const BLOG_POSTS = [
+  {
+    slug: 'dollars-per-plant',
+    title: 'Square footage is fixed. Dollars per plant aren’t.',
+    excerpt:
+      'How measuring what grows, extracts, and sells turns operational data into the next planting decision — and protects harvest revenue.',
+    date: '2026-09-18',
+  },
+  {
+    slug: 'standup-to-assigned',
+    title: 'From standup to assigned work — without the clipboard chase.',
+    excerpt:
+      'Meetings become action items when ambient capture listens, assembles structured tasks, and assigns them before anyone opens a spreadsheet.',
+    date: '2026-09-10',
+  },
+  {
+    slug: 'early-health-flags',
+    title: 'Catch plant health before it takes out a harvest.',
+    excerpt:
+      'Why contaminant catalogs and early flags matter more than another dashboard — and how floor voice keeps the record honest.',
+    date: '2026-09-02',
+  },
+];
+
+const MailingListForm: React.FC = () => {
+  const [email, setEmail] = useState('');
+  const [status, setStatus] = useState<'idle' | 'ok' | 'error'>('idle');
+
+  const onSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const trimmed = email.trim();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) {
+      setStatus('error');
+      return;
+    }
+    const href = `mailto:will@neurocann.app?subject=${encodeURIComponent('NeuroCann mailing list')}&body=${encodeURIComponent(`Please add me to the NeuroCann mailing list.\n\nEmail: ${trimmed}`)}`;
+    window.location.href = href;
+    setStatus('ok');
+    setEmail('');
+  };
+
+  return (
+    <form className="fig-mail" onSubmit={onSubmit} noValidate>
+      <label htmlFor="fig-mail-email" className="fig-sr-only">
+        Email address
+      </label>
+      <input
+        id="fig-mail-email"
+        type="email"
+        name="email"
+        autoComplete="email"
+        placeholder="you@facility.com"
+        value={email}
+        onChange={(e) => {
+          setEmail(e.target.value);
+          if (status !== 'idle') setStatus('idle');
+        }}
+        aria-invalid={status === 'error'}
+        aria-describedby={status !== 'idle' ? 'fig-mail-status' : undefined}
+      />
+      <button type="submit" className="fig-cta">
+        Join the list
+      </button>
+      <p id="fig-mail-status" className="fig-mail-status" role="status">
+        {status === 'ok' && 'Thanks — finish sending the email to confirm.'}
+        {status === 'error' && 'Enter a valid email address.'}
+      </p>
+    </form>
+  );
+};
 const DEMO_MAIL = 'mailto:will@neurocann.app?subject=NeuroCann%20Demo%20Request';
 const sandboxMail = (moduleName?: string) => {
   const subject = moduleName
@@ -618,7 +822,7 @@ const ORCHESTRA = [
 const LOOP = [
   {
     title: 'Say it once',
-    body: 'From standup or the floor: “Maya moves OG Kush to flower 1.” NeuroCann proposes the task and the system follow-through.',
+    body: 'From standup or the floor — speak the work. NeuroCann proposes the task and the system follow-through.',
   },
   {
     title: 'Team does the physical work',
@@ -689,6 +893,9 @@ export const LandingPage: React.FC = () => {
           <div className="fig-top-actions">
             <a href="#modules" className="fig-link">
               Modules
+            </a>
+            <a href="#blog" className="fig-link">
+              Blog
             </a>
             <a href="#how" className="fig-link">
               How it works
@@ -933,6 +1140,62 @@ export const LandingPage: React.FC = () => {
             Cannabis operations experts sit on the product team. If your facility runs a workflow software has ignored, we shape NeuroCann around it.
           </p>
         </Reveal>
+      </section>
+
+      <section id="blog" className="fig-band" aria-labelledby="fig-blog-heading">
+        <Reveal>
+          <h2 id="fig-blog-heading">
+            From the floor.
+            <br />
+            <span>Notes on ops, yield, and risk.</span>
+          </h2>
+          <p className="fig-section-lede">
+            Short reads for managers who care about dollars per plant — not another generic SaaS newsletter.
+          </p>
+        </Reveal>
+        <ul className="fig-blog">
+          {BLOG_POSTS.map((post, i) => (
+            <Reveal key={post.slug} delay={i * 60}>
+              <li>
+                <article>
+                  <time dateTime={post.date}>
+                    {new Date(post.date + 'T12:00:00').toLocaleDateString('en-US', {
+                      month: 'short',
+                      day: 'numeric',
+                      year: 'numeric',
+                    })}
+                  </time>
+                  <h3>
+                    <a href={`mailto:will@neurocann.app?subject=${encodeURIComponent(`Blog: ${post.title}`)}`}>
+                      {post.title}
+                    </a>
+                  </h3>
+                  <p>{post.excerpt}</p>
+                  <a
+                    className="fig-text-btn"
+                    href={`mailto:will@neurocann.app?subject=${encodeURIComponent(`Blog: ${post.title}`)}`}
+                  >
+                    Request the full piece →
+                  </a>
+                </article>
+              </li>
+            </Reveal>
+          ))}
+        </ul>
+      </section>
+
+      <section id="list" className="fig-band fig-band-alt" aria-labelledby="fig-list-heading">
+        <Reveal>
+          <h2 id="fig-list-heading">
+            Get facility ops notes.
+            <br />
+            <span>No spam. Unsubscribe anytime.</span>
+          </h2>
+          <p className="fig-section-lede">
+            New posts, product drops, and demo invites — for people running rooms, harvests, and extraction floors.
+          </p>
+        </Reveal>
+        <MailingListForm />
       </section>
 
       <section className="fig-close" aria-labelledby="fig-close-heading">
@@ -1421,6 +1684,151 @@ export const LandingPage: React.FC = () => {
           align-items: center;
           justify-content: center;
         }
+        .fig-mic.is-live {
+          color: var(--chameleon-ink);
+          background: var(--chameleon);
+          border-radius: 0.45rem;
+        }
+        .fig-composer.is-listening {
+          background: rgba(47, 158, 95, 0.12);
+        }
+        .fig-composer-placeholder.is-live {
+          color: #1a5c38;
+          font-weight: 700;
+        }
+
+        /* Standup visual story */
+        .fig-listen {
+          margin: auto;
+          text-align: center;
+          padding: 1.5rem 1rem;
+          max-width: 18rem;
+        }
+        .fig-listen-mic {
+          position: relative;
+          width: 3.5rem;
+          height: 3.5rem;
+          margin: 0 auto 1rem;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          color: var(--chameleon-ink);
+          background: var(--chameleon);
+          border-radius: 50%;
+        }
+        .fig-listen-ring {
+          position: absolute;
+          inset: -6px;
+          border: 2px solid rgba(47, 158, 95, 0.45);
+          border-radius: 50%;
+          animation: figRing 1.6s ease-out infinite;
+        }
+        .fig-listen-ring.is-delay { animation-delay: 0.55s; }
+        .fig-listen-title {
+          margin: 0 0 0.25rem;
+          font-weight: 900;
+          font-size: 0.95rem;
+          letter-spacing: -0.02em;
+        }
+        .fig-listen-sub {
+          margin: 0 0 1rem;
+          color: var(--rhino);
+          font-size: 0.8rem;
+        }
+        .fig-wave {
+          display: flex;
+          align-items: flex-end;
+          justify-content: center;
+          gap: 3px;
+          height: 1.5rem;
+        }
+        .fig-wave i {
+          display: block;
+          width: 3px;
+          height: 40%;
+          background: var(--chameleon);
+          border-radius: 1px;
+          animation: figWave 0.9s ease-in-out infinite;
+        }
+        .fig-assemble {
+          display: flex;
+          flex-direction: column;
+          gap: 0.75rem;
+        }
+        .fig-assemble-label {
+          margin: 0;
+          font-size: 0.72rem;
+          font-weight: 900;
+          letter-spacing: 0.06em;
+          text-transform: uppercase;
+          color: var(--chameleon);
+        }
+        .fig-assemble-list {
+          list-style: none;
+          margin: 0;
+          padding: 0;
+          display: flex;
+          flex-direction: column;
+          gap: 0.55rem;
+        }
+        .fig-assemble-card {
+          display: flex;
+          flex-direction: column;
+          gap: 0.45rem;
+          padding: 0.75rem 0.85rem;
+          background: var(--koala);
+          border-radius: 0.65rem;
+          animation: figIn 0.4s cubic-bezier(0.16,1,0.3,1);
+        }
+        .fig-assemble-card.is-skeleton {
+          min-height: 3.25rem;
+          justify-content: center;
+          opacity: 0.7;
+        }
+        .fig-assemble-title {
+          font-size: 0.875rem;
+          font-weight: 700;
+          letter-spacing: -0.01em;
+        }
+        .fig-assemble-chips {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 0.35rem;
+          align-items: center;
+        }
+        .fig-chip {
+          display: inline-flex;
+          align-items: center;
+          padding: 0.15rem 0.5rem;
+          border-radius: 0.35rem;
+          font-size: 0.6875rem;
+          font-weight: 700;
+          background: var(--white);
+          color: var(--rhino);
+        }
+        .fig-chip.is-person {
+          color: var(--panther);
+          background: var(--white);
+        }
+        .fig-skel {
+          display: block;
+          height: 0.55rem;
+          width: 70%;
+          background: rgba(26, 26, 26, 0.08);
+          border-radius: 0.25rem;
+          margin-bottom: 0.35rem;
+          animation: figPulse 1.2s ease-out infinite;
+        }
+        .fig-skel.is-short { width: 40%; margin-bottom: 0; }
+
+        @keyframes figRing {
+          0% { transform: scale(0.9); opacity: 0.7; }
+          100% { transform: scale(1.35); opacity: 0; }
+        }
+        @keyframes figWave {
+          0%, 100% { height: 30%; }
+          50% { height: 100%; }
+        }
 
         .fig-prompts {
           display: flex;
@@ -1875,6 +2283,81 @@ export const LandingPage: React.FC = () => {
           line-height: 1.5;
         }
 
+        .fig-blog {
+          list-style: none;
+          margin: 0;
+          padding: 0;
+          border-top: 1px solid var(--line);
+        }
+        .fig-blog li {
+          padding: 1.5rem 0;
+          border-bottom: 1px solid var(--line);
+        }
+        .fig-blog time {
+          display: block;
+          margin-bottom: 0.45rem;
+          font-size: 0.75rem;
+          font-weight: 700;
+          letter-spacing: 0.04em;
+          text-transform: uppercase;
+          color: var(--dolphin);
+        }
+        .fig-blog h3 {
+          margin: 0 0 0.45rem;
+          font-size: clamp(1.15rem, 2.4vw, 1.4rem);
+          font-weight: 900;
+          letter-spacing: -0.025em;
+          line-height: 1.25;
+          max-width: 36rem;
+        }
+        .fig-blog h3 a {
+          color: var(--panther);
+          text-decoration: none;
+        }
+        .fig-blog h3 a:hover { color: var(--chameleon); }
+        .fig-blog p {
+          margin: 0 0 0.65rem;
+          max-width: 38rem;
+          color: var(--rhino);
+          font-size: 1rem;
+          line-height: 1.55;
+        }
+
+        .fig-mail {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 0.65rem;
+          align-items: center;
+          max-width: 32rem;
+        }
+        .fig-mail input {
+          flex: 1 1 14rem;
+          min-height: 44px;
+          padding: 0.7rem 0.9rem;
+          border: 1.5px solid var(--dolphin);
+          border-radius: 0.5rem;
+          font: inherit;
+          font-size: 0.95rem;
+          background: var(--white);
+          color: var(--panther);
+        }
+        .fig-mail input:focus {
+          outline: 3px solid var(--focus);
+          outline-offset: 2px;
+          border-color: var(--panther);
+        }
+        .fig-mail input[aria-invalid='true'] {
+          border-color: #b42318;
+        }
+        .fig-mail-status {
+          flex: 1 1 100%;
+          margin: 0;
+          min-height: 1.25rem;
+          font-size: 0.875rem;
+          font-weight: 700;
+          color: var(--rhino);
+        }
+
         .fig-foot {
           border-top: 1px solid var(--line);
           max-width: 1200px;
@@ -1906,7 +2389,11 @@ export const LandingPage: React.FC = () => {
           .fig-hero-copy,
           .fig-hero-ui,
           .fig-pill i,
-          .fig-caret {
+          .fig-caret,
+          .fig-listen-ring,
+          .fig-wave i,
+          .fig-assemble-card,
+          .fig-skel {
             animation: none !important;
             opacity: 1 !important;
             transform: none !important;
