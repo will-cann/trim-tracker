@@ -341,6 +341,239 @@ const ProductShell: React.FC<{
   </div>
 );
 
+const DEMO_MAIL = 'mailto:will@neurocann.app?subject=NeuroCann%20Demo%20Request';
+const sandboxMail = (moduleName?: string) => {
+  const subject = moduleName
+    ? `NeuroCann Sandbox Access — ${moduleName}`
+    : 'NeuroCann Sandbox Access Request';
+  const body = moduleName
+    ? `Hi — I'd like sandbox access to try ${moduleName}.`
+    : "Hi — I'd like sandbox access to try NeuroCann.";
+  return `mailto:will@neurocann.app?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+};
+
+type ModuleDoc = {
+  id: string;
+  name: string;
+  pitch: string;
+  problem: string;
+  value: string;
+  capabilities: string[];
+};
+
+/** Copy sourced from docs/sales-marketing (claim only what ships). */
+const MODULES: ModuleDoc[] = [
+  {
+    id: 'cultivation',
+    name: 'Cultivation & Plant Map',
+    pitch: 'See every room and strain group on one map — move plants, flip phases, and flag issues without leaving the floor.',
+    problem: 'Operators lose track of what’s where, what’s due to flip or harvest, and which rooms are struggling.',
+    value: 'One live facility view with strain-group health and a real contaminant catalog — not a decorative green ring.',
+    capabilities: [
+      'Room grid by phase with plant counts, strain mix, and health borders',
+      'Bulk move, flip, health report, destroy, schedule harvest',
+      'Contaminant catalog with health impact scoring',
+    ],
+  },
+  {
+    id: 'harvest',
+    name: 'Harvest Pipeline',
+    pitch: 'Plan the cut, weigh on harvest day, allocate flower vs frozen, hang, bin, and hand off to trim — one pipeline.',
+    problem: 'Harvest day loses wet weights, waste, and contamination notes across clipboards and after-the-fact paperwork.',
+    value: 'A six-stage pipeline plus a dedicated weighing cockpit. Flower and fresh frozen split in the same harvest.',
+    capabilities: [
+      'Planning → cutting → submitted → hanging → bucking → completed',
+      'Harvest Day cockpit with per-plant or bulk wet weight',
+      'Bins with cure logs and moisture for the handoff to trim',
+    ],
+  },
+  {
+    id: 'trim',
+    name: 'Trim Sessions',
+    pitch: 'One live session — multiple batches, assigned trimmers, flower/shake/waste weighed as you go, unfinished work rolls over.',
+    problem: 'Trim floors lose accountability for who trimmed what and what unfinished work carries to the next shift.',
+    value: 'Session + multi-batch + per-trimmer weight accounting on one screen, with rollover that keeps overnight work.',
+    capabilities: [
+      'Multi-batch entries with trimmer assignment',
+      'Flower / shake / trim / waste weighed live',
+      'Session submit with unfinished work rolling over',
+    ],
+  },
+  {
+    id: 'extraction',
+    name: 'Extraction',
+    pitch: 'Template the process, start from inventory, check in weights on steps, finish into packages — plan washes backward from finished goods.',
+    problem: 'Multi-step SOPs run on paper yield sheets with no live link from biomass inventory to finished concentrate.',
+    value: 'SOP-templated multi-step runs with inventory-linked inputs and outputs, plus backward planning from cart targets.',
+    capabilities: [
+      'Process templates with step weight/timestamp check-ins',
+      'Start runs from source packages; finish into concentrate packages',
+      'Planning calculator: target products → biomass and supply gaps',
+    ],
+  },
+  {
+    id: 'packaging',
+    name: 'Packaging & Compliance',
+    pitch: 'Finished inventory with lab states, audited adjusts, and plant/package tags — compliance trail built as you work.',
+    problem: 'Finished goods live in spreadsheets or a disconnected compliance UI. Adjustments lack an audit trail.',
+    value: 'Packages sit in the same AI/voice loop as harvest and trim. Tag pool ready for sync when the API lands.',
+    capabilities: [
+      'Flower, trim, shake, fresh frozen, hash, rosin, carts',
+      'Lab testing states and audited quantity adjustments',
+      'Plant / batch / package tag pool with assignment rules',
+    ],
+  },
+  {
+    id: 'ordering',
+    name: 'Ordering & Procurement',
+    pitch: 'Multi-store POs from vendor menus and POS sales velocity, plus AI-drafted biomass supplier email threads.',
+    problem: 'Buying is guesswork — sales live in one system, vendor catalogs in another, outreach in inboxes.',
+    value: 'Vendor product catalogs, velocity-informed POs, and supplier email drafts that land as tracked threads.',
+    capabilities: [
+      'Vendor menus and multi-store purchase order matrix',
+      'POS sales CSV velocity for ordering decisions',
+      'AI-drafted supplier outreach with inbound reply parse',
+    ],
+  },
+  {
+    id: 'sops',
+    name: 'SOPs',
+    pitch: 'Encode grow and extract as reusable templates — cultivation calendars and extraction process libraries with presets.',
+    problem: 'Tribal knowledge lives in binders and Slack. New techs reinvent the process every cycle.',
+    value: 'Cultivation calendars and extraction process libraries that the floor and AI both use.',
+    capabilities: [
+      'Cultivation schedule templates',
+      'Extraction process library with 18+ presets',
+      'Steps with durations, equipment, and supply requirements',
+    ],
+  },
+  {
+    id: 'reports',
+    name: 'Reports & Analytics',
+    pitch: 'Weekly trim labor productivity and cost-per-pound from the same sessions the floor just submitted.',
+    problem: 'Managers export trim sessions to Excel to answer grams per hour and labor cost per pound.',
+    value: 'Trim performance metrics live in the same app that captures the weights.',
+    capabilities: [
+      'Trim labor hours, avg g/hour, flower and trim lbs',
+      'Trimmer stats and performance charts',
+      'Wage slider → estimated labor $/lb',
+    ],
+  },
+  {
+    id: 'ai',
+    name: 'AI & Voice',
+    pitch: 'Talk to the facility — chat or mic — and confirm structured actions before they hit the database.',
+    problem: 'Facility software forces tablet taps between every weight, move, and status change.',
+    value: 'One conversational interface across modules. Propose → preview → confirm. Nothing mutates until you say yes.',
+    capabilities: [
+      'AI Home chat with Action Preview before execute',
+      'Action-mode voice (Deepgram) into the same loop',
+      'Screen-context aware prompts across the facility',
+    ],
+  },
+  {
+    id: 'tasks',
+    name: 'Tasks',
+    pitch: 'Capture work that still needs a human, with assignees, due dates, and hybrid physical-then-digital completion.',
+    problem: 'Scouting, cleaning, and follow-ups fall through Slack and sticky notes.',
+    value: 'AI can create tasks mid-conversation. Completing physical work can fire a digital follow-up.',
+    capabilities: [
+      'Priorities, categories, assignees, due dates',
+      'Cards / table / calendar views',
+      'Hybrid onCompleteAction for physical-then-digital workflows',
+    ],
+  },
+  {
+    id: 'supplies',
+    name: 'Supplies',
+    pitch: 'Par-level inventory for non-cannabis consumables across extraction, cultivation, and facility pools.',
+    problem: 'Cannabis inventory gets tracked; consumables don’t — stockouts stop a wash or a planting.',
+    value: 'Pools with QOH, par, reorder qty, and a ledger for receive / consume / adjust / waste.',
+    capabilities: [
+      'Extraction / cultivation / facility pools',
+      'Low and out badges',
+      'Tied to SOP and extraction planning gaps',
+    ],
+  },
+  {
+    id: 'team',
+    name: 'Team & Roles',
+    pitch: 'Invite the crew, assign roles and departments, and gate modules by who should see them.',
+    problem: 'Software either shows everyone everything or builds brittle custom permissions.',
+    value: 'Simple role ladder plus department scoping. Sidebar hides what you shouldn’t touch.',
+    capabilities: [
+      'Admin / director / department manager / technician',
+      'Department-scoped module visibility',
+      'Auth0 invites and trimmer roster dual-use',
+    ],
+  },
+];
+
+const ModuleList: React.FC = () => {
+  const [openId, setOpenId] = useState<string | null>(null);
+
+  return (
+    <ul className="fig-modules">
+      {MODULES.map((mod) => {
+        const open = openId === mod.id;
+        const panelId = `module-panel-${mod.id}`;
+        return (
+          <li key={mod.id} className={`fig-module ${open ? 'is-open' : ''}`}>
+            <div className="fig-module-row">
+              <div className="fig-module-copy">
+                <h3>{mod.name}</h3>
+                <p>{mod.pitch}</p>
+              </div>
+              <div className="fig-module-actions">
+                <button
+                  type="button"
+                  className="fig-text-btn"
+                  aria-expanded={open}
+                  aria-controls={panelId}
+                  onClick={() => setOpenId(open ? null : mod.id)}
+                >
+                  {open ? 'Close' : 'Learn more'}
+                </button>
+                <a href={sandboxMail(mod.name)} className="fig-text-btn is-accent">
+                  Request sandbox
+                </a>
+              </div>
+            </div>
+            {open && (
+              <div id={panelId} className="fig-module-panel" role="region" aria-label={`${mod.name} details`}>
+                <div className="fig-module-grid">
+                  <div>
+                    <p className="fig-module-kicker">Problem</p>
+                    <p>{mod.problem}</p>
+                  </div>
+                  <div>
+                    <p className="fig-module-kicker">Value</p>
+                    <p>{mod.value}</p>
+                  </div>
+                </div>
+                <p className="fig-module-kicker">Shipped today</p>
+                <ul className="fig-module-caps">
+                  {mod.capabilities.map((c) => (
+                    <li key={c}>{c}</li>
+                  ))}
+                </ul>
+                <div className="fig-module-panel-cta">
+                  <a href={sandboxMail(mod.name)} className="fig-cta">
+                    Request sandbox access
+                  </a>
+                  <a href={DEMO_MAIL} className="fig-ghost">
+                    Book a demo
+                  </a>
+                </div>
+              </div>
+            )}
+          </li>
+        );
+      })}
+    </ul>
+  );
+};
+
 const FRAGMENTS = [
   'METRC portal',
   'Spreadsheets',
@@ -454,16 +687,19 @@ export const LandingPage: React.FC = () => {
             <span>neurocann</span>
           </a>
           <div className="fig-top-actions">
+            <a href="#modules" className="fig-link">
+              Modules
+            </a>
             <a href="#how" className="fig-link">
               How it works
             </a>
             <button type="button" className="fig-link-btn" onClick={() => login()}>
               Sign in
             </button>
-            <a
-              href="mailto:will@neurocann.app?subject=NeuroCann%20Demo%20Request"
-              className="fig-cta"
-            >
+            <a href={sandboxMail()} className="fig-ghost-nav">
+              Request sandbox
+            </a>
+            <a href={DEMO_MAIL} className="fig-cta">
               Book demo
             </a>
           </div>
@@ -483,14 +719,14 @@ export const LandingPage: React.FC = () => {
             Measure what grows, extracts, and sells — plan the next cycle. Spot health issues early before they take out a harvest.
           </p>
           <div className="fig-hero-cta">
-            <a
-              href="mailto:will@neurocann.app?subject=NeuroCann%20Demo%20Request"
-              className="fig-cta fig-cta-lg"
-            >
+            <a href={DEMO_MAIL} className="fig-cta fig-cta-lg">
               Book a demo
             </a>
-            <a href="#product" className="fig-ghost">
-              See the product
+            <a href={sandboxMail()} className="fig-ghost">
+              Request sandbox access
+            </a>
+            <a href="#modules" className="fig-ghost">
+              Explore modules
             </a>
           </div>
         </div>
@@ -638,7 +874,28 @@ export const LandingPage: React.FC = () => {
         </ul>
       </section>
 
-      {/* Integration hub — CareLink pattern */}
+      <section id="modules" className="fig-band fig-band-alt" aria-labelledby="fig-modules-heading">
+        <Reveal>
+          <h2 id="fig-modules-heading">
+            Every module. One conversational layer.
+            <br />
+            <span>Learn more — or request a sandbox.</span>
+          </h2>
+          <p className="fig-section-lede">
+            Seed-to-sale coverage in one conversational layer. Open any module for the problem it solves, the value, and what’s shipped today — then request a sandbox to try it.
+          </p>
+        </Reveal>
+        <ModuleList />
+        <div className="fig-modules-foot">
+          <a href={sandboxMail()} className="fig-cta fig-cta-lg">
+            Request sandbox access
+          </a>
+          <a href={DEMO_MAIL} className="fig-ghost">
+            Book a working demo
+          </a>
+        </div>
+      </section>
+
       <section className="fig-hub" aria-labelledby="fig-hub-heading">
         <Reveal>
           <h2 id="fig-hub-heading">
@@ -689,10 +946,10 @@ export const LandingPage: React.FC = () => {
             Book a working session. We’ll map one workflow, show METRC-backed visibility, and leave you with a path to measure, plan, and protect harvests.
           </p>
           <div className="fig-hero-cta is-center">
-            <a
-              href="mailto:will@neurocann.app?subject=NeuroCann%20Demo%20Request"
-              className="fig-cta fig-cta-lg"
-            >
+            <a href={sandboxMail()} className="fig-cta fig-cta-lg">
+              Request sandbox access
+            </a>
+            <a href={DEMO_MAIL} className="fig-ghost">
               Book a demo
             </a>
             <button type="button" className="fig-ghost" onClick={() => login()}>
@@ -855,6 +1112,25 @@ export const LandingPage: React.FC = () => {
           color: var(--chameleon-ink);
         }
         .fig-cta-lg:hover { filter: brightness(1.06); background: var(--chameleon); }
+        .fig-ghost-nav {
+          display: none;
+          align-items: center;
+          justify-content: center;
+          background: var(--white);
+          color: var(--panther);
+          text-decoration: none;
+          font-size: 0.8125rem;
+          font-weight: 700;
+          padding: 0.55rem 0.85rem;
+          border-radius: 0.5rem;
+          border: 1.5px solid var(--dolphin);
+          min-height: 44px;
+          transition: border-color 0.15s;
+        }
+        .fig-ghost-nav:hover { border-color: var(--panther); }
+        @media (min-width: 900px) {
+          .fig-ghost-nav { display: inline-flex; }
+        }
 
         /* Hero */
         .fig-hero {
@@ -1337,6 +1613,129 @@ export const LandingPage: React.FC = () => {
           text-underline-offset: 2px;
         }
         .fig-hub-note a:hover { color: var(--chameleon); }
+
+        /* Module index — learn more expanders */
+        .fig-modules {
+          list-style: none;
+          margin: 0;
+          padding: 0;
+          border-top: 1px solid var(--line);
+        }
+        .fig-module {
+          border-bottom: 1px solid var(--line);
+        }
+        .fig-module-row {
+          display: grid;
+          gap: 1rem;
+          padding: 1.35rem 0;
+        }
+        @media (min-width: 800px) {
+          .fig-module-row {
+            grid-template-columns: 1fr auto;
+            align-items: start;
+            gap: 1.5rem;
+          }
+        }
+        .fig-module-copy h3 {
+          margin: 0 0 0.35rem;
+          font-size: 1.1rem;
+          font-weight: 900;
+          letter-spacing: -0.02em;
+        }
+        .fig-module-copy p {
+          margin: 0;
+          color: var(--rhino);
+          font-size: 0.95rem;
+          line-height: 1.5;
+          max-width: 40rem;
+        }
+        .fig-module-actions {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 0.5rem 1rem;
+          align-items: center;
+        }
+        .fig-text-btn {
+          background: none;
+          border: none;
+          font: inherit;
+          font-size: 0.875rem;
+          font-weight: 700;
+          color: var(--panther);
+          text-decoration: underline;
+          text-underline-offset: 3px;
+          cursor: pointer;
+          padding: 0.5rem 0;
+          min-height: 44px;
+        }
+        .fig-text-btn.is-accent { color: #1a5c38; }
+        .fig-text-btn:hover { color: var(--chameleon); }
+        a.fig-text-btn {
+          display: inline-flex;
+          align-items: center;
+        }
+        .fig-module-panel {
+          padding: 0 0 1.5rem;
+          animation: figIn 0.35s cubic-bezier(0.16,1,0.3,1);
+        }
+        .fig-module-grid {
+          display: grid;
+          gap: 1.25rem;
+          margin-bottom: 1.25rem;
+        }
+        @media (min-width: 720px) {
+          .fig-module-grid { grid-template-columns: 1fr 1fr; gap: 1.75rem; }
+        }
+        .fig-module-kicker {
+          margin: 0 0 0.35rem;
+          font-size: 0.7rem;
+          font-weight: 900;
+          letter-spacing: 0.08em;
+          text-transform: uppercase;
+          color: var(--dolphin);
+        }
+        .fig-module-grid p:not(.fig-module-kicker),
+        .fig-module-panel > p:not(.fig-module-kicker) {
+          margin: 0;
+          color: var(--rhino);
+          font-size: 0.95rem;
+          line-height: 1.5;
+        }
+        .fig-module-caps {
+          list-style: none;
+          margin: 0 0 1.25rem;
+          padding: 0;
+        }
+        .fig-module-caps li {
+          position: relative;
+          padding: 0.4rem 0 0.4rem 1rem;
+          color: var(--panther);
+          font-size: 0.95rem;
+          font-weight: 700;
+          line-height: 1.4;
+          border-bottom: 1px solid var(--line);
+        }
+        .fig-module-caps li::before {
+          content: '';
+          position: absolute;
+          left: 0;
+          top: 0.85rem;
+          width: 0.35rem;
+          height: 0.35rem;
+          background: var(--chameleon);
+          border-radius: 1px;
+        }
+        .fig-module-panel-cta {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 0.65rem;
+        }
+        .fig-modules-foot {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 0.75rem;
+          margin-top: 2rem;
+        }
 
         /* Narrative bands */
         .fig-band {
