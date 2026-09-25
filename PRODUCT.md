@@ -55,4 +55,4 @@ Source: project `.impeccable.md` (confirmed incumbent brand record).
 
 ## Accessibility & Inclusion
 
-No product-specific accessibility standard recorded beyond sensible web defaults (keyboard, contrast). Open decision if a formal WCAG target is required.
+Target **WCAG 2.2 AA** for public surfaces (landing and auth entry). Product SPA should meet the same bar for interactive controls, focus order, and contrast as modules are touched. Keyboard access and visible focus are required; decorative product mocks may use `aria-hidden` when a live interactive equivalent is provided.

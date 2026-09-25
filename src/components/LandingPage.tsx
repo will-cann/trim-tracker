@@ -32,14 +32,25 @@ const Reveal: React.FC<{ children: React.ReactNode; className?: string; delay?: 
   delay = 0,
 }) => {
   const { ref, visible } = useReveal<HTMLDivElement>();
+  const [reduceMotion, setReduceMotion] = useState(false);
+  useEffect(() => {
+    const mq = window.matchMedia('(prefers-reduced-motion: reduce)');
+    setReduceMotion(mq.matches);
+    const onChange = () => setReduceMotion(mq.matches);
+    mq.addEventListener('change', onChange);
+    return () => mq.removeEventListener('change', onChange);
+  }, []);
+  const show = reduceMotion || visible;
   return (
     <div
       ref={ref}
       className={className}
       style={{
-        opacity: visible ? 1 : 0,
-        transform: visible ? 'none' : 'translateY(18px)',
-        transition: `opacity 0.6s cubic-bezier(0.16,1,0.3,1) ${delay}ms, transform 0.6s cubic-bezier(0.16,1,0.3,1) ${delay}ms`,
+        opacity: show ? 1 : 0,
+        transform: show ? 'none' : 'translateY(18px)',
+        transition: reduceMotion
+          ? 'none'
+          : `opacity 0.6s cubic-bezier(0.16,1,0.3,1) ${delay}ms, transform 0.6s cubic-bezier(0.16,1,0.3,1) ${delay}ms`,
       }}
     >
       {children}
@@ -256,7 +267,7 @@ const ProductChat: React.FC<{
 
   return (
     <div className="fig-chat">
-      <div ref={bodyRef} className="fig-chat-body">
+      <div ref={bodyRef} className="fig-chat-body" aria-live="polite" aria-relevant="additions">
         {messages.length === 0 && !typingText && (
           <div className="fig-chat-empty">
             <img src={logo} alt="" className="fig-chat-empty-logo" />
@@ -265,11 +276,16 @@ const ProductChat: React.FC<{
         )}
         {messages.map((m, i) => (
           <div key={i} className={`fig-msg ${m.role === 'user' ? 'is-user' : 'is-ai'}`}>
+            {m.role === 'user' ? (
+              <span className="fig-sr-only">You said: </span>
+            ) : (
+              <span className="fig-sr-only">NeuroCann: </span>
+            )}
             {m.text}
           </div>
         ))}
         {typingRole && typingText && (
-          <div className={`fig-msg ${typingRole === 'user' ? 'is-user' : 'is-ai'}`}>
+          <div className={`fig-msg ${typingRole === 'user' ? 'is-user' : 'is-ai'}`} aria-hidden="true">
             {typingText}
             {isTyping && <span className="fig-caret" />}
           </div>
@@ -285,13 +301,13 @@ const ProductChat: React.FC<{
           </div>
         )}
       </div>
-      <div className="fig-composer">
+      <div className="fig-composer" aria-hidden="true">
         <span className="fig-composer-placeholder">Talk or type a command…</span>
-        <button type="button" className="fig-mic" aria-label="Voice" tabIndex={-1}>
+        <span className="fig-mic" aria-hidden="true">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <path strokeLinecap="round" strokeLinejoin="round" d="M12 18.75a6 6 0 006-6v-1.5m-6 7.5a6 6 0 01-6-6v-1.5m6 7.5v3.75m-3.75 0h7.5M12 15.75a3 3 0 01-3-3V4.5a3 3 0 116 0v8.25a3 3 0 01-3 3z" />
           </svg>
-        </button>
+        </span>
       </div>
     </div>
   );
@@ -302,8 +318,13 @@ const ProductShell: React.FC<{
   scenarioIndex: number;
   onScenarioComplete: () => void;
 }> = ({ scenarioIndex, onScenarioComplete }) => (
-  <div className="fig-shell" id="product">
-    <aside className="fig-sidebar" aria-hidden>
+  <div
+    className="fig-shell"
+    id="product"
+    role="region"
+    aria-label="Interactive product preview"
+  >
+    <aside className="fig-sidebar" aria-hidden="true">
       <div className="fig-sidebar-brand">
         <img src={logo} alt="" />
         <span>neurocann</span>
@@ -320,15 +341,15 @@ const ProductShell: React.FC<{
         <span>Will · Admin</span>
       </div>
     </aside>
-    <main className="fig-main">
-      <header className="fig-main-bar">
+    <div className="fig-main">
+      <div className="fig-main-bar">
         <span className="fig-main-title">Home</span>
         <span className="fig-pill">
-          <i /> Ambient on
+          <i aria-hidden="true" /> Ambient on
         </span>
-      </header>
+      </div>
       <ProductChat scenarioIndex={scenarioIndex} onScenarioComplete={onScenarioComplete} />
-    </main>
+    </div>
   </div>
 );
 
@@ -369,10 +390,14 @@ export const LandingPage: React.FC = () => {
 
   return (
     <div className="fig">
-      <nav className={`fig-top ${solid ? 'is-solid' : ''}`}>
+      <a href="#main" className="fig-skip">
+        Skip to content
+      </a>
+
+      <nav className={`fig-top ${solid ? 'is-solid' : ''}`} aria-label="Primary">
         <div className="fig-top-inner">
           <a
-            href="#"
+            href="#main"
             className="fig-logo"
             onClick={(e) => {
               e.preventDefault();
@@ -380,7 +405,7 @@ export const LandingPage: React.FC = () => {
             }}
           >
             <img src={logo} alt="" />
-            neurocann
+            <span>neurocann</span>
           </a>
           <div className="fig-top-actions">
             <a href="#product" className="fig-link">
@@ -400,9 +425,11 @@ export const LandingPage: React.FC = () => {
       </nav>
 
       {/* Hero: brand + copy, then full-bleed product UI */}
-      <header className="fig-hero">
+      <main id="main" className="fig-hero">
         <div className="fig-hero-copy">
-          <p className="fig-brand">neurocann</p>
+          <p className="fig-brand" aria-hidden="true">
+            neurocann
+          </p>
           <h1>Facility operations, in one conversation.</h1>
           <p className="fig-lede">
             The ops console for cultivation through compliance. Voice-first. Confirm before it writes.
@@ -424,34 +451,38 @@ export const LandingPage: React.FC = () => {
           <ProductShell scenarioIndex={scenarioIndex} onScenarioComplete={advance} />
         </div>
 
-        <div className="fig-prompts" aria-label="Try a prompt">
+        <div className="fig-prompts" role="group" aria-label="Try a demo prompt">
           {DEMO_SCENARIOS.map((s, i) => (
             <button
               key={s.label}
               type="button"
               className={`fig-prompt ${i === scenarioIndex ? 'is-active' : ''}`}
+              aria-pressed={i === scenarioIndex}
               onClick={() => setScenarioIndex(i)}
             >
               {s.prompt}
             </button>
           ))}
         </div>
-      </header>
+      </main>
 
-      <section className="fig-features">
+      <section className="fig-features" aria-labelledby="fig-features-heading">
+        <h2 id="fig-features-heading" className="fig-sr-only">
+          Why NeuroCann
+        </h2>
         {FEATURES.map((f, i) => (
           <Reveal key={f.title} delay={i * 80}>
             <article>
-              <h2>{f.title}</h2>
+              <h3>{f.title}</h3>
               <p>{f.body}</p>
             </article>
           </Reveal>
         ))}
       </section>
 
-      <section className="fig-close">
+      <section className="fig-close" aria-labelledby="fig-close-heading">
         <Reveal>
-          <h2>Built for the floor. Quiet enough for the office.</h2>
+          <h2 id="fig-close-heading">Built for the floor. Quiet enough for the office.</h2>
           <p>Book fifteen minutes. We’ll walk your next harvest through NeuroCann.</p>
           <div className="fig-hero-cta is-center">
             <a
@@ -478,20 +509,57 @@ export const LandingPage: React.FC = () => {
       <style>{`
         .fig {
           --panther: #1a1a1a;
-          --rhino: #959595;
-          --dolphin: #c0c0c0;
+          --rhino: #5c5c5c;
+          --dolphin: #8a8a8a;
           --koala: #f1f1f1;
           --white: #ffffff;
-          --chameleon: #3bb570;
-          --chameleon-ink: #1f7a48;
+          --chameleon: #2f9e5f;
+          --chameleon-ink: #062012;
           --canvas: #f7f7f5;
-          --line: rgba(26, 26, 26, 0.08);
+          --line: rgba(26, 26, 26, 0.12);
+          --focus: #1c9eff;
           --font: 'Lato', system-ui, sans-serif;
           min-height: 100vh;
           background: var(--canvas);
           color: var(--panther);
           font-family: var(--font);
           overflow-x: hidden;
+        }
+
+        .fig-sr-only {
+          position: absolute;
+          width: 1px;
+          height: 1px;
+          padding: 0;
+          margin: -1px;
+          overflow: hidden;
+          clip: rect(0, 0, 0, 0);
+          white-space: nowrap;
+          border: 0;
+        }
+
+        .fig-skip {
+          position: absolute;
+          left: 1rem;
+          top: -100px;
+          z-index: 100;
+          background: var(--panther);
+          color: var(--white);
+          padding: 0.65rem 1rem;
+          border-radius: 0.4rem;
+          font-weight: 700;
+          font-size: 0.875rem;
+          text-decoration: none;
+        }
+        .fig-skip:focus {
+          top: 1rem;
+          outline: 3px solid var(--focus);
+          outline-offset: 2px;
+        }
+
+        .fig :is(a, button):focus-visible {
+          outline: 3px solid var(--focus);
+          outline-offset: 2px;
         }
 
         /* Top nav — Figma-thin */
@@ -503,7 +571,7 @@ export const LandingPage: React.FC = () => {
           border-bottom: 1px solid transparent;
         }
         .fig-top.is-solid {
-          background: rgba(247, 247, 245, 0.92);
+          background: rgba(247, 247, 245, 0.96);
           backdrop-filter: blur(12px);
           border-bottom-color: var(--line);
         }
@@ -525,6 +593,7 @@ export const LandingPage: React.FC = () => {
           font-weight: 900;
           font-size: 0.95rem;
           letter-spacing: -0.02em;
+          min-height: 44px;
         }
         .fig-logo img {
           width: 1.35rem;
@@ -534,11 +603,12 @@ export const LandingPage: React.FC = () => {
         .fig-logo.is-muted {
           color: var(--rhino);
           font-size: 0.85rem;
+          min-height: auto;
         }
         .fig-top-actions {
           display: flex;
           align-items: center;
-          gap: 1rem;
+          gap: 0.75rem;
         }
         .fig-link,
         .fig-link-btn {
@@ -551,21 +621,26 @@ export const LandingPage: React.FC = () => {
           color: var(--rhino);
           text-decoration: none;
           cursor: pointer;
-          padding: 0;
+          padding: 0.5rem 0.35rem;
+          min-height: 44px;
         }
         .fig-link:hover,
         .fig-link-btn:hover { color: var(--panther); }
         @media (min-width: 640px) {
-          .fig-link, .fig-link-btn { display: inline; }
+          .fig-link, .fig-link-btn { display: inline-flex; align-items: center; }
         }
         .fig-cta {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
           background: var(--panther);
           color: var(--white);
           text-decoration: none;
           font-size: 0.8125rem;
           font-weight: 700;
-          padding: 0.5rem 0.9rem;
+          padding: 0.55rem 0.95rem;
           border-radius: 0.5rem;
+          min-height: 44px;
           transition: background 0.15s;
         }
         .fig-cta:hover { background: #000; }
@@ -573,15 +648,16 @@ export const LandingPage: React.FC = () => {
           padding: 0.85rem 1.25rem;
           font-size: 0.9rem;
           background: var(--chameleon);
-          color: #062012;
+          color: var(--chameleon-ink);
         }
-        .fig-cta-lg:hover { background: #34c873; }
+        .fig-cta-lg:hover { filter: brightness(1.06); background: var(--chameleon); }
 
         /* Hero */
         .fig-hero {
           padding: 5.5rem 1.5rem 3rem;
           max-width: 1200px;
           margin: 0 auto;
+          display: block;
         }
         .fig-hero-copy {
           max-width: 36rem;
@@ -624,6 +700,7 @@ export const LandingPage: React.FC = () => {
         .fig-ghost {
           display: inline-flex;
           align-items: center;
+          justify-content: center;
           background: var(--white);
           color: var(--panther);
           text-decoration: none;
@@ -632,8 +709,9 @@ export const LandingPage: React.FC = () => {
           font-weight: 700;
           padding: 0.8rem 1.2rem;
           border-radius: 0.5rem;
-          border: 1px solid var(--dolphin);
+          border: 1.5px solid var(--dolphin);
           cursor: pointer;
+          min-height: 44px;
           transition: border-color 0.15s;
         }
         .fig-ghost:hover { border-color: var(--panther); }
@@ -714,7 +792,7 @@ export const LandingPage: React.FC = () => {
           height: 1.5rem;
           border-radius: 50%;
           background: var(--chameleon);
-          color: #062012;
+          color: var(--chameleon-ink);
           display: flex;
           align-items: center;
           justify-content: center;
@@ -726,6 +804,7 @@ export const LandingPage: React.FC = () => {
           flex-direction: column;
           min-width: 0;
           background: var(--white);
+          min-height: 0;
         }
         .fig-main-bar {
           display: flex;
@@ -745,8 +824,8 @@ export const LandingPage: React.FC = () => {
           gap: 0.35rem;
           font-size: 0.7rem;
           font-weight: 700;
-          color: var(--chameleon-ink);
-          background: rgba(59, 181, 112, 0.12);
+          color: #1a5c38;
+          background: rgba(47, 158, 95, 0.16);
           padding: 0.3rem 0.55rem;
           border-radius: 0.35rem;
         }
@@ -772,7 +851,7 @@ export const LandingPage: React.FC = () => {
           display: flex;
           flex-direction: column;
           gap: 0.65rem;
-          max-height: 380px;
+          min-height: 0;
         }
         .fig-chat-empty {
           margin: auto;
@@ -784,7 +863,7 @@ export const LandingPage: React.FC = () => {
         .fig-chat-empty-logo {
           width: 2rem;
           height: 2rem;
-          opacity: 0.35;
+          opacity: 0.45;
           margin: 0 auto 0.75rem;
           display: block;
         }
@@ -830,16 +909,20 @@ export const LandingPage: React.FC = () => {
         .fig-composer-placeholder {
           flex: 1;
           font-size: 0.875rem;
-          color: var(--dolphin);
+          color: var(--rhino);
           font-weight: 400;
         }
         .fig-mic {
           background: none;
           border: none;
           color: var(--chameleon);
-          padding: 0;
+          padding: 0.35rem;
           display: flex;
           cursor: default;
+          min-width: 44px;
+          min-height: 44px;
+          align-items: center;
+          justify-content: center;
         }
 
         .fig-prompts {
@@ -847,25 +930,25 @@ export const LandingPage: React.FC = () => {
           gap: 0.5rem;
           overflow-x: auto;
           padding: 1.25rem 0 0;
-          scrollbar-width: none;
+          scrollbar-width: thin;
         }
-        .fig-prompts::-webkit-scrollbar { display: none; }
         .fig-prompt {
           flex: 0 0 auto;
           background: var(--white);
-          border: 1px solid var(--line);
+          border: 1.5px solid var(--line);
           color: var(--rhino);
           font: inherit;
           font-size: 0.8rem;
           font-weight: 700;
-          padding: 0.55rem 0.85rem;
+          padding: 0.7rem 0.9rem;
           border-radius: 0.45rem;
           cursor: pointer;
           max-width: 18rem;
           white-space: nowrap;
           overflow: hidden;
           text-overflow: ellipsis;
-          transition: border-color 0.15s, color 0.15s;
+          min-height: 44px;
+          transition: border-color 0.15s, color 0.15s, background 0.15s;
         }
         .fig-prompt:hover {
           border-color: var(--dolphin);
@@ -873,8 +956,8 @@ export const LandingPage: React.FC = () => {
         }
         .fig-prompt.is-active {
           border-color: var(--chameleon);
-          color: var(--chameleon-ink);
-          background: rgba(59, 181, 112, 0.08);
+          color: #1a5c38;
+          background: rgba(47, 158, 95, 0.1);
         }
 
         /* Features — one job each, no cards */
@@ -892,7 +975,7 @@ export const LandingPage: React.FC = () => {
             gap: 2rem;
           }
         }
-        .fig-features h2 {
+        .fig-features h3 {
           margin: 0 0 0.5rem;
           font-size: 1.15rem;
           font-weight: 900;
@@ -948,9 +1031,9 @@ export const LandingPage: React.FC = () => {
           50% { opacity: 0; }
         }
         @keyframes figPulse {
-          0% { box-shadow: 0 0 0 0 rgba(59, 181, 112, 0.4); }
-          70% { box-shadow: 0 0 0 6px rgba(59, 181, 112, 0); }
-          100% { box-shadow: 0 0 0 0 rgba(59, 181, 112, 0); }
+          0% { box-shadow: 0 0 0 0 rgba(47, 158, 95, 0.4); }
+          70% { box-shadow: 0 0 0 6px rgba(47, 158, 95, 0); }
+          100% { box-shadow: 0 0 0 0 rgba(47, 158, 95, 0); }
         }
 
         @media (prefers-reduced-motion: reduce) {
