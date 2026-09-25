@@ -67,15 +67,24 @@ type DemoStep =
 
 const DEMO_SCENARIOS: { label: string; prompt: string; steps: DemoStep[] }[] = [
   {
-    label: 'Move plants',
-    prompt: 'Move the OG Kush from veg 2 to flower 1',
+    label: 'Assign floor work',
+    prompt: 'Assign Maya to move OG Kush from veg 2 to flower 1',
     steps: [
-      { type: 'user', text: 'Move the OG Kush from veg 2 to flower 1' },
-      { type: 'ai', text: "I'll move all 24 plants and update their phase." },
+      { type: 'user', text: 'Assign Maya to move the OG Kush from veg 2 to flower 1' },
+      { type: 'ai', text: 'Creating a floor task. When Maya marks it done, I’ll update the plant map and compliance trail.' },
       {
         type: 'actions',
         actions: [
-          { type: 'move_plants', data: { strain: 'OG Kush', fromRoom: 'Veg Room 2', toRoom: 'Flower Room 1', plantCount: 24 } },
+          {
+            type: 'create_human_task',
+            data: {
+              title: 'Move OG Kush · veg 2 → flower 1',
+              assignee: 'Maya',
+              priority: 'high',
+              category: 'cultivation',
+              onCompleteAction: { type: 'move_plants', data: { strain: 'OG Kush', fromRoom: 'Veg Room 2', toRoom: 'Flower Room 1', plantCount: 24 } },
+            },
+          },
         ],
       },
       { type: 'pause', ms: 1800 },
@@ -84,11 +93,30 @@ const DEMO_SCENARIOS: { label: string; prompt: string; steps: DemoStep[] }[] = [
     ],
   },
   {
-    label: 'Weigh',
+    label: 'Meeting → tasks',
+    prompt: 'From standup: check dry room RH, restock rockwool, pull lab results',
+    steps: [
+      { type: 'user', text: 'From standup — assign Jordan dry room RH check, Sam restock rockwool, Alisha pull pending lab results' },
+      { type: 'ai', text: 'Turning the meeting into three assigned actions.' },
+      {
+        type: 'actions',
+        actions: [
+          { type: 'create_human_task', data: { title: 'Check dry room RH', assignee: 'Jordan', priority: 'high', category: 'environmental' } },
+          { type: 'create_human_task', data: { title: 'Restock rockwool', assignee: 'Sam', priority: 'medium', category: 'supplies' } },
+          { type: 'create_human_task', data: { title: 'Pull pending lab results', assignee: 'Alisha', priority: 'medium', category: 'compliance' } },
+        ],
+      },
+      { type: 'pause', ms: 1800 },
+      { type: 'confirmed' },
+      { type: 'pause', ms: 2000 },
+    ],
+  },
+  {
+    label: 'Weigh on floor',
     prompt: 'Plant 7 is 512 grams, has some PM',
     steps: [
       { type: 'user', text: 'Plant 7 is 512 grams, has some PM' },
-      { type: 'ai', text: 'Logging the weight and flagging contamination.' },
+      { type: 'ai', text: 'Logging weight and flagging contamination for the harvest record.' },
       {
         type: 'actions',
         actions: [
@@ -102,52 +130,12 @@ const DEMO_SCENARIOS: { label: string; prompt: string; steps: DemoStep[] }[] = [
     ],
   },
   {
-    label: 'Extract',
-    prompt: 'Start a rosin press with 2kg Wedding Cake hash',
+    label: 'Visibility',
+    prompt: 'What’s the state of flower rooms and open packages?',
     steps: [
-      { type: 'user', text: 'Start a rosin press run with 2kg of Wedding Cake bubble hash' },
-      { type: 'ai', text: 'Spinning up the run from your bubble hash inventory.' },
-      {
-        type: 'actions',
-        actions: [
-          {
-            type: 'start_extraction_run',
-            data: {
-              strain: 'Wedding Cake',
-              templateName: 'Hash to Rosin',
-              inputs: [{ packageType: 'bubble_hash', quantity: 2000, unit: 'g' }],
-              targetProduct: 'live_rosin',
-            },
-          },
-        ],
-      },
-      { type: 'pause', ms: 1800 },
-      { type: 'confirmed' },
-      { type: 'pause', ms: 2000 },
-    ],
-  },
-  {
-    label: 'Order',
-    prompt: 'PO for Pacific Roots — 10 cases rockwool',
-    steps: [
-      { type: 'user', text: 'Create a PO for Pacific Roots — 10 cases of rockwool, 5 cases of nutrients' },
-      { type: 'ai', text: 'Drafting the purchase order.' },
-      {
-        type: 'actions',
-        actions: [
-          {
-            type: 'create_order',
-            data: {
-              vendor: 'Pacific Roots Supply',
-              items: '10 cs Rockwool Cubes, 5 cs Bloom Nutrients',
-              status: 'draft',
-            },
-          },
-        ],
-      },
-      { type: 'pause', ms: 1800 },
-      { type: 'confirmed' },
-      { type: 'pause', ms: 2000 },
+      { type: 'user', text: 'What’s the state of flower rooms and open packages?' },
+      { type: 'ai', text: 'Flower 1 · Wedding Cake · 48 plants · healthy. Flower 2 · OG Kush · 36 · watch list. 186 active packages · 16 lab pending.' },
+      { type: 'pause', ms: 2800 },
     ],
   },
 ];
@@ -353,18 +341,48 @@ const ProductShell: React.FC<{
   </div>
 );
 
-const FEATURES = [
+const ORCHESTRA = [
   {
-    title: 'Speak. Confirm. Done.',
-    body: 'Natural language becomes structured actions — plant moves, weights, packages, POs — with a preview before anything writes.',
+    title: 'People',
+    body: 'Meetings and walkthroughs become assigned work. The team sees what matters today — not a shared inbox of vague notes.',
   },
   {
-    title: 'Every module. One home.',
-    body: 'Cultivation, harvest, trim, extraction, packaging, ordering. The same conversation covers the floor.',
+    title: 'Process',
+    body: 'SOPs and hybrid tasks connect physical floor work to digital outcomes. Mark the move done; the plant map and compliance trail update.',
   },
   {
-    title: 'Ambient when your hands are full.',
-    body: 'Background listening queues actions while you work. Review when you’re ready — not when a screen demands it.',
+    title: 'Technology',
+    body: 'One conversational layer across rooms, harvests, packages, and METRC-shaped state — so tools stop living in separate tabs.',
+  },
+];
+
+const LOOP = [
+  {
+    title: 'Say it once',
+    body: 'From standup or the floor: “Maya moves OG Kush to flower 1.” NeuroCann proposes the task and the system follow-through.',
+  },
+  {
+    title: 'Team does the physical work',
+    body: 'Assigned operators complete the action in the real world — gloves on, no form hunting mid-move.',
+  },
+  {
+    title: 'Compliance writes itself',
+    body: 'On complete, the system updates facility records and the METRC reporting path. Ops managers get visibility without chasing screenshots.',
+  },
+];
+
+const START = [
+  {
+    title: 'Start with visibility',
+    body: 'Connect METRC / facility digital state. See rooms, plants, and packages in one place — instant clarity on what’s actually live.',
+  },
+  {
+    title: 'Orchestrate one workflow',
+    body: 'Pick the pain that burns this week: harvest day, trim, moves, labs. Conversational AI assigns and closes the loop.',
+  },
+  {
+    title: 'Expand department by department',
+    body: 'Cultivation, processing, packaging, procurement. Same orchestration layer — no rip-and-replace of how your team already works.',
   },
 ];
 
@@ -408,8 +426,8 @@ export const LandingPage: React.FC = () => {
             <span>neurocann</span>
           </a>
           <div className="fig-top-actions">
-            <a href="#product" className="fig-link">
-              Product
+            <a href="#how" className="fig-link">
+              How it works
             </a>
             <button type="button" className="fig-link-btn" onClick={() => login()}>
               Sign in
@@ -424,15 +442,15 @@ export const LandingPage: React.FC = () => {
         </div>
       </nav>
 
-      {/* Hero: brand + copy, then full-bleed product UI */}
+      {/* Hero: brand + orchestration VP + product UI */}
       <main id="main" className="fig-hero">
         <div className="fig-hero-copy">
           <p className="fig-brand" aria-hidden="true">
             neurocann
           </p>
-          <h1>Facility operations, in one conversation.</h1>
+          <h1>The operations orchestration layer.</h1>
           <p className="fig-lede">
-            The ops console for cultivation through compliance. Voice-first. Confirm before it writes.
+            Empower ops managers to run people, processes, and technology through conversational AI — so meetings become assigned work, floor completion updates compliance, and the facility’s digital state is always visible.
           </p>
           <div className="fig-hero-cta">
             <a
@@ -441,8 +459,8 @@ export const LandingPage: React.FC = () => {
             >
               Book a demo
             </a>
-            <a href="#product" className="fig-ghost">
-              See the product
+            <a href="#how" className="fig-ghost">
+              See how it works
             </a>
           </div>
         </div>
@@ -466,24 +484,94 @@ export const LandingPage: React.FC = () => {
         </div>
       </main>
 
-      <section className="fig-features" aria-labelledby="fig-features-heading">
-        <h2 id="fig-features-heading" className="fig-sr-only">
-          Why NeuroCann
-        </h2>
-        {FEATURES.map((f, i) => (
-          <Reveal key={f.title} delay={i * 80}>
-            <article>
-              <h3>{f.title}</h3>
-              <p>{f.body}</p>
-            </article>
-          </Reveal>
-        ))}
+      <section className="fig-band" aria-labelledby="fig-orch-heading">
+        <Reveal>
+          <h2 id="fig-orch-heading">
+            People. Process. Technology.
+            <br />
+            <span>One conversation holds them together.</span>
+          </h2>
+        </Reveal>
+        <ul className="fig-split">
+          {ORCHESTRA.map((item, i) => (
+            <Reveal key={item.title} delay={i * 70}>
+              <li>
+                <h3>{item.title}</h3>
+                <p>{item.body}</p>
+              </li>
+            </Reveal>
+          ))}
+        </ul>
+      </section>
+
+      <section id="how" className="fig-band fig-band-alt" aria-labelledby="fig-loop-heading">
+        <Reveal>
+          <h2 id="fig-loop-heading">
+            From the meeting to METRC —
+            <br />
+            <span>without the clipboard chase.</span>
+          </h2>
+          <p className="fig-section-lede">
+            Say the work once. Assign it. When the team marks the physical action complete, NeuroCann updates the system of record and the compliance path.
+          </p>
+        </Reveal>
+        <ol className="fig-loop">
+          {LOOP.map((step, i) => (
+            <Reveal key={step.title} delay={i * 80}>
+              <li>
+                <span className="fig-loop-n" aria-hidden="true">
+                  {String(i + 1).padStart(2, '0')}
+                </span>
+                <h3>{step.title}</h3>
+                <p>{step.body}</p>
+              </li>
+            </Reveal>
+          ))}
+        </ol>
+      </section>
+
+      <section className="fig-band" aria-labelledby="fig-start-heading">
+        <Reveal>
+          <h2 id="fig-start-heading">
+            Start with one workflow.
+            <br />
+            <span>Expand across the facility.</span>
+          </h2>
+          <p className="fig-section-lede">
+            Most teams don’t rip out everything on day one. Begin with METRC sync for instant visibility into the digital state of the facility — then grow orchestration into the departments that need it next.
+          </p>
+        </Reveal>
+        <ul className="fig-start">
+          {START.map((item, i) => (
+            <Reveal key={item.title} delay={i * 70}>
+              <li>
+                <h3>{item.title}</h3>
+                <p>{item.body}</p>
+              </li>
+            </Reveal>
+          ))}
+        </ul>
+      </section>
+
+      <section className="fig-band fig-band-alt" aria-labelledby="fig-experts-heading">
+        <Reveal>
+          <h2 id="fig-experts-heading">
+            Built with operators.
+            <br />
+            <span>Ready to build what your team needs.</span>
+          </h2>
+          <p className="fig-section-lede">
+            Cannabis operations experts sit on the product team. Harvest day, trim floors, extraction, packaging, procurement — if your facility runs a workflow that software has ignored, we can shape NeuroCann around it.
+          </p>
+        </Reveal>
       </section>
 
       <section className="fig-close" aria-labelledby="fig-close-heading">
         <Reveal>
-          <h2 id="fig-close-heading">Built for the floor. Quiet enough for the office.</h2>
-          <p>Book fifteen minutes. We’ll walk your next harvest through NeuroCann.</p>
+          <h2 id="fig-close-heading">See your facility’s digital state — then orchestrate from there.</h2>
+          <p>
+            Book a working session. We’ll map one workflow, show METRC-backed visibility, and leave you with a path to expand.
+          </p>
           <div className="fig-hero-cta is-center">
             <a
               href="mailto:will@neurocann.app?subject=NeuroCann%20Demo%20Request"
@@ -960,39 +1048,128 @@ export const LandingPage: React.FC = () => {
           background: rgba(47, 158, 95, 0.1);
         }
 
-        /* Features — one job each, no cards */
-        .fig-features {
+        /* Narrative bands */
+        .fig-band {
           max-width: 1200px;
           margin: 0 auto;
           padding: 4.5rem 1.5rem;
+          border-top: 1px solid var(--line);
+        }
+        .fig-band-alt {
+          background: var(--white);
+          max-width: none;
+          padding-left: max(1.5rem, calc((100% - 1200px) / 2 + 1.5rem));
+          padding-right: max(1.5rem, calc((100% - 1200px) / 2 + 1.5rem));
+        }
+        .fig-band h2 {
+          margin: 0 0 0.75rem;
+          font-size: clamp(1.65rem, 3.8vw, 2.35rem);
+          font-weight: 900;
+          letter-spacing: -0.035em;
+          line-height: 1.15;
+          max-width: 28rem;
+        }
+        .fig-band h2 span {
+          color: var(--rhino);
+          font-weight: 700;
+        }
+        .fig-section-lede {
+          margin: 0 0 2.25rem;
+          max-width: 36rem;
+          color: var(--rhino);
+          font-size: 1.05rem;
+          line-height: 1.55;
+        }
+        .fig-split {
+          list-style: none;
+          margin: 2rem 0 0;
+          padding: 0;
           display: grid;
-          gap: 2.5rem;
+          gap: 2rem;
           border-top: 1px solid var(--line);
         }
         @media (min-width: 800px) {
-          .fig-features {
+          .fig-split {
+            grid-template-columns: repeat(3, 1fr);
+            gap: 2.25rem;
+          }
+        }
+        .fig-split li {
+          padding-top: 1.25rem;
+          border-top: 2px solid var(--chameleon);
+        }
+        @media (min-width: 800px) {
+          .fig-split li {
+            border-top: none;
+            padding-top: 0;
+            border-left: 2px solid var(--chameleon);
+            padding-left: 1.15rem;
+          }
+        }
+        .fig-split h3,
+        .fig-loop h3,
+        .fig-start h3 {
+          margin: 0 0 0.45rem;
+          font-size: 1.1rem;
+          font-weight: 900;
+          letter-spacing: -0.02em;
+        }
+        .fig-split p,
+        .fig-loop p,
+        .fig-start p {
+          margin: 0;
+          color: var(--rhino);
+          font-size: 0.95rem;
+          line-height: 1.55;
+        }
+
+        .fig-loop {
+          list-style: none;
+          margin: 0;
+          padding: 0;
+          display: grid;
+          gap: 2rem;
+        }
+        @media (min-width: 800px) {
+          .fig-loop {
             grid-template-columns: repeat(3, 1fr);
             gap: 2rem;
           }
         }
-        .fig-features h3 {
-          margin: 0 0 0.5rem;
-          font-size: 1.15rem;
+        .fig-loop-n {
+          display: block;
+          font-size: 0.75rem;
           font-weight: 900;
-          letter-spacing: -0.025em;
+          letter-spacing: 0.06em;
+          color: var(--chameleon);
+          margin-bottom: 0.55rem;
+          font-variant-numeric: tabular-nums;
         }
-        .fig-features p {
+
+        .fig-start {
+          list-style: none;
           margin: 0;
-          color: var(--rhino);
-          font-size: 0.95rem;
-          line-height: 1.5;
-          font-weight: 400;
+          padding: 0;
+          border-top: 1px solid var(--line);
+        }
+        .fig-start li {
+          display: grid;
+          gap: 0.35rem;
+          padding: 1.35rem 0;
+          border-bottom: 1px solid var(--line);
+        }
+        @media (min-width: 720px) {
+          .fig-start li {
+            grid-template-columns: 14rem 1fr;
+            gap: 1.5rem;
+            align-items: baseline;
+          }
         }
 
         .fig-close {
-          max-width: 36rem;
+          max-width: 38rem;
           margin: 0 auto;
-          padding: 3rem 1.5rem 5rem;
+          padding: 4rem 1.5rem 5rem;
           text-align: center;
         }
         .fig-close h2 {

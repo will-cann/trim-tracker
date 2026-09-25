@@ -8,23 +8,29 @@ web
 
 ## Users
 
-Primary users are operations professionals in cannabis cultivation and processing: trim managers, cultivation managers, and lab managers (extraction + manufacturing). Owners may access reports or run as owner/operators. They are busy, hands-on people managing crews, weights, and timelines in real time; tech comfort is moderate to high. They need to move fast during active sessions (harvest day, trim floor, extraction runs).
+Primary buyers and users are **operations managers** who orchestrate people, processes, and systems across cultivation and processing. Day-to-day operators (trim leads, cultivation techs, lab techs) execute assigned floor work. Owners may review visibility and outcomes. Tech comfort is moderate to high; the manager’s job is coordination under time pressure, not data entry.
 
 ## Product Purpose
 
-NeuroCann (product; formerly trim-tracking roots) is an AI-powered facility operations platform. It manages cultivation, plant maps, harvest pipelines, trim sessions, extraction, packaging, compliance/tags, ordering, supplies, SOPs, tasks, and reporting through a single conversational / voice-first interface. Success means operators complete floor work with fewer screen taps, fewer missed logs, and a continuous compliance trail — confidence, control, and calm speed.
+NeuroCann is the **operations orchestration layer** for cannabis facilities. Conversational AI turns managerial intent — from standups, walkthroughs, and voice on the floor — into assigned work for people, structured process steps, and system updates. When the team marks physical work complete, NeuroCann handles the digital trail and compliance reporting path (including METRC). Success is instant operational visibility and fewer missed handoffs between people, process, and technology.
 
 ## Positioning
 
-Facility operations spoken: natural language and ambient voice propose structured actions across the full seed-to-sale stack; the user confirms before anything writes. Neighboring compliance or ERP tools do not truthfully claim a single conversational control plane that spans rooms → harvest → trim → extraction → packages → POs with action preview.
+Not another spreadsheet, MES form, or METRC UI. NeuroCann sits above tools as the conversation that assigns work, tracks completion, and syncs the facility’s digital state. **Land with one workflow** (often METRC sync / facility visibility), then expand department by department. Built by cannabis operations experts who can shape the system to how a team actually runs.
+
+A neighboring compliance portal or ERP cannot truthfully claim: meeting → assigned actions → floor completion → automated compliance updates, in one conversational control plane.
 
 ## Operating Context
 
-Used on the floor and in the office: gloved harvest weighing, trim sessions, extraction check-ins, packaging/tagging, vendor POs, and ambient listening while work continues. Auth via Auth0 (dev bypass available). Multi-tenant by `company_id`. Deployed on Netlify; data on Neon PostgreSQL.
+Managers run morning meetings and floor walks; techs execute plant moves, harvests, trim, extraction, and packaging with gloves on. Ambient and action voice capture intent in the room. Hybrid tasks pair a physical “done” with an on-complete digital action. Multi-tenant by `company_id`. Auth0 (dev bypass available). Netlify + Neon PostgreSQL.
 
 ## Capabilities and Constraints
 
-Confirmed modules include: AI chat with proposed actions, ambient voice capture, plant map / rooms, harvests + harvest day, trim sessions, extraction runs, packages + METRC-style tags, ordering / supplier email, supplies, SOPs, tasks, team/roles, reports. Voice via Deepgram; AI via Anthropic Claude server-side. SMS columns exist but are not wired. METRC API sync, AI sub-agents, multi-facility view, and push notifications are roadmap — not shipped claims.
+**Shipped:** AI chat with proposed actions; ambient voice; human tasks with assignees and hybrid `onCompleteAction`; plant map / rooms; harvests + harvest day; trim; extraction; packages + METRC-style tags / item catalog; ordering & supplier email; supplies; SOPs; team/roles; reports.
+
+**Go-to-market wedge:** Start with METRC / digital facility-state visibility, then expand into orchestration workflows (tasks, cultivation, harvest, etc.). Full METRC API sync is the priority integration path — ship claims carefully until live sync is confirmed in production.
+
+**Roadmap / do not over-claim:** AI sub-agents, multi-facility view, push notifications, SMS (columns exist, unwired).
 
 ## Brand Commitments
 
