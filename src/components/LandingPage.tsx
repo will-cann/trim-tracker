@@ -341,6 +341,17 @@ const ProductShell: React.FC<{
   </div>
 );
 
+const FRAGMENTS = [
+  'METRC portal',
+  'Spreadsheets',
+  'Whiteboards',
+  'Group texts',
+  'Clipboards',
+  'SOPs in Drive',
+  'Email threads',
+  'Shift notes',
+];
+
 const ORCHESTRA = [
   {
     title: 'People',
@@ -348,7 +359,7 @@ const ORCHESTRA = [
   },
   {
     title: 'Process',
-    body: 'SOPs and hybrid tasks connect physical floor work to digital outcomes. Mark the move done; the plant map and compliance trail update.',
+    body: 'Hybrid tasks connect physical floor work to digital outcomes. Mark the move done; the plant map and compliance trail update.',
   },
   {
     title: 'Technology',
@@ -367,24 +378,26 @@ const LOOP = [
   },
   {
     title: 'Compliance writes itself',
-    body: 'On complete, the system updates facility records and the METRC reporting path. Ops managers get visibility without chasing screenshots.',
+    body: 'On complete, the system updates facility records and the METRC reporting path. You get visibility without chasing screenshots.',
   },
 ];
 
 const START = [
   {
     title: 'Start with visibility',
-    body: 'Connect METRC / facility digital state. See rooms, plants, and packages in one place — instant clarity on what’s actually live.',
+    body: 'Connect METRC for the digital state of the facility — rooms, plants, packages — in one place.',
   },
   {
     title: 'Orchestrate one workflow',
-    body: 'Pick the pain that burns this week: harvest day, trim, moves, labs. Conversational AI assigns and closes the loop.',
+    body: 'Pick the pain that burns this week: harvest day, moves, labs, trim. Conversational AI assigns and closes the loop.',
   },
   {
-    title: 'Expand department by department',
+    title: 'Expand across departments',
     body: 'Cultivation, processing, packaging, procurement. Same orchestration layer — no rip-and-replace of how your team already works.',
   },
 ];
+
+const INTEGRATIONS = ['METRC', 'Accounting', 'Sensors', 'Labs', 'SSO'];
 
 export const LandingPage: React.FC = () => {
   const { login } = useAuth();
@@ -442,15 +455,17 @@ export const LandingPage: React.FC = () => {
         </div>
       </nav>
 
-      {/* Hero: brand + orchestration VP + product UI */}
+      {/* Hero — CareLink-style clarity, NeuroCann brand + live product */}
       <main id="main" className="fig-hero">
         <div className="fig-hero-copy">
-          <p className="fig-brand" aria-hidden="true">
-            neurocann
-          </p>
-          <h1>The operations orchestration layer.</h1>
+          <p className="fig-brand">neurocann</p>
+          <p className="fig-trust">Built by operators, for operators</p>
+          <h1>
+            End-to-end software for running a{' '}
+            <em>facility that scales.</em>
+          </h1>
           <p className="fig-lede">
-            Empower ops managers to run people, processes, and technology through conversational AI — so meetings become assigned work, floor completion updates compliance, and the facility’s digital state is always visible.
+            Conversational AI so managers run people, process, and technology from one place — meetings become assigned work, and floor completion updates compliance.
           </p>
           <div className="fig-hero-cta">
             <a
@@ -459,8 +474,8 @@ export const LandingPage: React.FC = () => {
             >
               Book a demo
             </a>
-            <a href="#how" className="fig-ghost">
-              See how it works
+            <a href="#product" className="fig-ghost">
+              See the product
             </a>
           </div>
         </div>
@@ -483,6 +498,38 @@ export const LandingPage: React.FC = () => {
           ))}
         </div>
       </main>
+
+      {/* Records vs does — CareLink's killer line, adapted */}
+      <section className="fig-do" aria-labelledby="fig-do-heading">
+        <Reveal>
+          <h2 id="fig-do-heading">
+            Your current stack only records the work.
+            <br />
+            NeuroCann helps <em>do the work.</em>
+          </h2>
+          <p className="fig-do-lede">
+            Most facilities juggle disconnected tools on top of METRC. NeuroCann consolidates the stack — then assigns the work, tracks completion, and updates compliance inside it.
+          </p>
+        </Reveal>
+        <div className="fig-compare" role="group" aria-label="Tool consolidation">
+          <div className="fig-compare-many">
+            <p className="fig-compare-label">Today</p>
+            <ul>
+              {FRAGMENTS.map((f) => (
+                <li key={f}>{f}</li>
+              ))}
+            </ul>
+          </div>
+          <div className="fig-compare-arrow" aria-hidden="true">
+            →
+          </div>
+          <div className="fig-compare-one">
+            <p className="fig-compare-label">With NeuroCann</p>
+            <p className="fig-compare-platform">1 orchestration layer</p>
+            <p className="fig-compare-note">People · process · technology</p>
+          </div>
+        </div>
+      </section>
 
       <section className="fig-band" aria-labelledby="fig-orch-heading">
         <Reveal>
@@ -538,7 +585,7 @@ export const LandingPage: React.FC = () => {
             <span>Expand across the facility.</span>
           </h2>
           <p className="fig-section-lede">
-            Most teams don’t rip out everything on day one. Begin with METRC sync for instant visibility into the digital state of the facility — then grow orchestration into the departments that need it next.
+            Begin with METRC sync for instant visibility into the digital state of the facility — then grow orchestration into the departments that need it next.
           </p>
         </Reveal>
         <ul className="fig-start">
@@ -553,6 +600,33 @@ export const LandingPage: React.FC = () => {
         </ul>
       </section>
 
+      {/* Integration hub — CareLink pattern */}
+      <section className="fig-hub" aria-labelledby="fig-hub-heading">
+        <Reveal>
+          <h2 id="fig-hub-heading">
+            The layer above your systems —
+            <br />
+            <span>not another silo.</span>
+          </h2>
+        </Reveal>
+        <div className="fig-hub-row" role="list">
+          {INTEGRATIONS.map((name) => (
+            <span key={name} className="fig-hub-chip" role="listitem">
+              {name}
+            </span>
+          ))}
+          <span className="fig-hub-core" role="listitem">
+            neurocann
+          </span>
+        </div>
+        <p className="fig-hub-note">
+          METRC first. Accounting, sensors, labs, and SSO as you expand.{' '}
+          <a href="mailto:will@neurocann.app?subject=NeuroCann%20Integration%20Request">
+            Request an integration →
+          </a>
+        </p>
+      </section>
+
       <section className="fig-band fig-band-alt" aria-labelledby="fig-experts-heading">
         <Reveal>
           <h2 id="fig-experts-heading">
@@ -561,14 +635,18 @@ export const LandingPage: React.FC = () => {
             <span>Ready to build what your team needs.</span>
           </h2>
           <p className="fig-section-lede">
-            Cannabis operations experts sit on the product team. Harvest day, trim floors, extraction, packaging, procurement — if your facility runs a workflow that software has ignored, we can shape NeuroCann around it.
+            Cannabis operations experts sit on the product team. If your facility runs a workflow software has ignored, we shape NeuroCann around it.
           </p>
         </Reveal>
       </section>
 
       <section className="fig-close" aria-labelledby="fig-close-heading">
         <Reveal>
-          <h2 id="fig-close-heading">See your facility’s digital state — then orchestrate from there.</h2>
+          <h2 id="fig-close-heading">
+            See your facility’s digital state —
+            <br />
+            then orchestrate from there.
+          </h2>
           <p>
             Book a working session. We’ll map one workflow, show METRC-backed visibility, and leave you with a path to expand.
           </p>
@@ -748,31 +826,48 @@ export const LandingPage: React.FC = () => {
           display: block;
         }
         .fig-hero-copy {
-          max-width: 36rem;
+          max-width: 40rem;
           margin: 0 auto 2.5rem;
           text-align: center;
           opacity: 0;
           animation: figIn 0.7s cubic-bezier(0.16,1,0.3,1) 0.05s forwards;
         }
         .fig-brand {
-          margin: 0 0 0.75rem;
+          margin: 0 0 0.55rem;
           font-size: clamp(2.5rem, 7vw, 4rem);
           font-weight: 900;
           letter-spacing: -0.045em;
           line-height: 1;
           color: var(--panther);
         }
+        .fig-trust {
+          margin: 0 0 1rem;
+          font-size: 0.8rem;
+          font-weight: 700;
+          letter-spacing: 0.04em;
+          text-transform: uppercase;
+          color: var(--rhino);
+        }
         .fig-hero h1 {
           margin: 0 0 0.85rem;
-          font-size: clamp(1.35rem, 3.2vw, 1.85rem);
+          font-size: clamp(1.45rem, 3.4vw, 2rem);
           font-weight: 700;
           letter-spacing: -0.03em;
           line-height: 1.25;
           color: var(--panther);
+          max-width: 22em;
+          margin-left: auto;
+          margin-right: auto;
+        }
+        .fig-hero h1 em,
+        .fig-do h2 em {
+          font-style: normal;
+          color: var(--chameleon);
+          font-weight: 900;
         }
         .fig-lede {
           margin: 0 auto 1.5rem;
-          max-width: 28rem;
+          max-width: 32rem;
           font-size: 1.05rem;
           line-height: 1.5;
           color: var(--rhino);
@@ -1047,6 +1142,163 @@ export const LandingPage: React.FC = () => {
           color: #1a5c38;
           background: rgba(47, 158, 95, 0.1);
         }
+
+        /* Records vs does + consolidation */
+        .fig-do {
+          max-width: 1200px;
+          margin: 0 auto;
+          padding: 4.5rem 1.5rem 2rem;
+          border-top: 1px solid var(--line);
+          text-align: center;
+        }
+        .fig-do h2 {
+          margin: 0 auto 1rem;
+          max-width: 22em;
+          font-size: clamp(1.65rem, 3.8vw, 2.45rem);
+          font-weight: 900;
+          letter-spacing: -0.035em;
+          line-height: 1.2;
+        }
+        .fig-do-lede {
+          margin: 0 auto 2.5rem;
+          max-width: 36rem;
+          color: var(--rhino);
+          font-size: 1.05rem;
+          line-height: 1.55;
+        }
+        .fig-compare {
+          display: grid;
+          gap: 1.5rem;
+          align-items: stretch;
+          text-align: left;
+          max-width: 52rem;
+          margin: 0 auto;
+        }
+        @media (min-width: 720px) {
+          .fig-compare {
+            grid-template-columns: 1fr auto 1fr;
+            gap: 1.75rem;
+            align-items: center;
+          }
+        }
+        .fig-compare-label {
+          margin: 0 0 0.85rem;
+          font-size: 0.72rem;
+          font-weight: 900;
+          letter-spacing: 0.08em;
+          text-transform: uppercase;
+          color: var(--dolphin);
+        }
+        .fig-compare-many ul {
+          list-style: none;
+          margin: 0;
+          padding: 0;
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 0.45rem 1rem;
+        }
+        .fig-compare-many li {
+          font-size: 0.95rem;
+          font-weight: 700;
+          color: var(--rhino);
+          padding: 0.35rem 0;
+          border-bottom: 1px solid var(--line);
+        }
+        .fig-compare-arrow {
+          display: none;
+          font-size: 1.75rem;
+          font-weight: 900;
+          color: var(--chameleon);
+          text-align: center;
+        }
+        @media (min-width: 720px) {
+          .fig-compare-arrow { display: block; }
+        }
+        .fig-compare-one {
+          padding-top: 0.25rem;
+        }
+        @media (min-width: 720px) {
+          .fig-compare-one {
+            border-left: 2px solid var(--chameleon);
+            padding-left: 1.35rem;
+          }
+        }
+        .fig-compare-platform {
+          margin: 0 0 0.45rem;
+          font-size: clamp(1.35rem, 2.5vw, 1.75rem);
+          font-weight: 900;
+          letter-spacing: -0.03em;
+          color: var(--panther);
+          line-height: 1.2;
+        }
+        .fig-compare-note {
+          margin: 0;
+          color: var(--rhino);
+          font-size: 0.95rem;
+          font-weight: 700;
+        }
+
+        /* Integration hub */
+        .fig-hub {
+          max-width: 1200px;
+          margin: 0 auto;
+          padding: 4.5rem 1.5rem;
+          border-top: 1px solid var(--line);
+          text-align: center;
+        }
+        .fig-hub h2 {
+          margin: 0 auto 2rem;
+          max-width: 22em;
+          font-size: clamp(1.65rem, 3.8vw, 2.35rem);
+          font-weight: 900;
+          letter-spacing: -0.035em;
+          line-height: 1.15;
+        }
+        .fig-hub h2 span {
+          color: var(--rhino);
+          font-weight: 700;
+        }
+        .fig-hub-row {
+          display: flex;
+          flex-wrap: wrap;
+          justify-content: center;
+          align-items: center;
+          gap: 0.65rem 0.85rem;
+          margin: 0 auto 1.25rem;
+          max-width: 40rem;
+        }
+        .fig-hub-chip {
+          font-size: 0.85rem;
+          font-weight: 700;
+          color: var(--rhino);
+          padding: 0.55rem 0.85rem;
+          border: 1.5px solid var(--line);
+          border-radius: 0.45rem;
+          background: var(--white);
+        }
+        .fig-hub-core {
+          font-size: 0.95rem;
+          font-weight: 900;
+          letter-spacing: -0.02em;
+          color: var(--chameleon-ink);
+          background: var(--chameleon);
+          padding: 0.6rem 1rem;
+          border-radius: 0.45rem;
+        }
+        .fig-hub-note {
+          margin: 0 auto;
+          max-width: 28rem;
+          color: var(--rhino);
+          font-size: 0.95rem;
+          line-height: 1.5;
+        }
+        .fig-hub-note a {
+          color: var(--panther);
+          font-weight: 700;
+          text-decoration: underline;
+          text-underline-offset: 2px;
+        }
+        .fig-hub-note a:hover { color: var(--chameleon); }
 
         /* Narrative bands */
         .fig-band {
