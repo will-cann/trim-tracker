@@ -12,7 +12,7 @@ Primary buyers and users are **operations managers** who orchestrate people, pro
 
 ## Product Purpose
 
-NeuroCann is the **operations orchestration layer** for cannabis facilities — built so managers can maximize **dollars per plant** and **mitigate harvest risk**. Conversational AI turns managerial intent into assigned work across people, process, and technology. Teams capture what grows well, what extracts well, and what sells well so the next cycle can be planned; plant health flags surface early so issues don’t take out a harvest. When physical work is marked complete, NeuroCann updates the digital trail and compliance path (including METRC). Square footage is fixed; output quality and risk aren’t.
+NeuroCann is the **operations orchestration layer** for cannabis facilities — built so managers can maximize **dollars per plant** and **mitigate harvest risk**. Conversational AI turns managerial intent into assigned work across people, process, and technology. Teams track what grows well, what runs well, and what sells well so the next cycle can be planned; plant health flags surface early so issues don’t take out a harvest. When physical work is marked complete, NeuroCann updates the digital trail and compliance path (including METRC). Square footage is fixed; output quality and risk aren’t.
 
 ## Positioning
 

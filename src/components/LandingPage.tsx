@@ -480,7 +480,7 @@ const BLOG_POSTS = [
     slug: 'dollars-per-plant',
     title: 'Square footage is fixed. Dollars per plant aren’t.',
     excerpt:
-      'How measuring what grows, extracts, and sells turns operational data into the next planting decision — and protects harvest revenue.',
+      'How tracking what grows well, what runs well, and what sells well turns operational data into the next planting decision — and protects harvest revenue.',
     date: '2026-09-18',
   },
   {
@@ -790,22 +790,22 @@ const COMPOUND = [
   },
   {
     title: 'Evidence plans the next cycle',
-    body: 'Weights, rooms, extracts, and health flags decide what you plant, process, and protect next — dollars per plant, not gut feel.',
+    body: 'What grew well, what ran well, and what sold well — plus early health flags — decide what you plant, process, and protect next. Dollars per plant, not gut feel.',
   },
 ];
 
 const OUTCOMES = [
   {
     title: 'What grows well',
-    body: 'Capture weights, rooms, and cycles so you know which genetics and environments actually pull their weight.',
+    body: 'Capture weights, rooms, and cycles so you know which genetics and environments actually pull their weight — and flag plant health early before a room takes out a harvest.',
   },
   {
-    title: 'What extracts & sells',
-    body: 'Connect cultivation through processing and packages — so planning follows demand, not guesswork.',
+    title: 'What runs well',
+    body: 'Connect cultivation through processing and extraction — so washes, yields, and floor ops show which runs actually convert biomass into finished goods.',
   },
   {
-    title: 'What puts harvests at risk',
-    body: 'Flag plant health early — PM, pests, stress — before a room takes out a whole cycle’s revenue.',
+    title: 'What sells well',
+    body: 'Follow packages and demand so the next planting follows what moves — not guesswork about the market.',
   },
 ];
 
@@ -927,7 +927,7 @@ export const LandingPage: React.FC = () => {
             Protect every harvest.
           </h1>
           <p className="fig-lede">
-            Measure what grows, extracts, and sells — plan the next cycle. Spot health issues early before they take out a harvest.
+            Track what grows well, what runs well, and what sells well — plan the next cycle. Spot health issues early before they take out a harvest.
           </p>
           <div className="fig-hero-cta">
             <a href={DEMO_MAIL} className="fig-cta fig-cta-lg">
@@ -970,7 +970,7 @@ export const LandingPage: React.FC = () => {
             what you <em>plant next.</em>
           </h2>
           <p className="fig-do-lede">
-            Meetings assign work. Operators do the physical job. NeuroCann captures weights, rooms, extracts, and health flags so the next cycle maximizes dollars per plant — and risk surfaces before a room kills a harvest.
+            Meetings assign work. Operators do the physical job. NeuroCann tracks what grows well, what runs well, and what sells well — so the next cycle maximizes dollars per plant, and health risk surfaces before a room kills a harvest.
           </p>
         </Reveal>
         <ol className="fig-compound" aria-label="How floor work compounds into planning">
@@ -996,7 +996,7 @@ export const LandingPage: React.FC = () => {
             <span>Output and risk aren’t.</span>
           </h2>
           <p className="fig-section-lede">
-            Agility in operations so you can measure, plan, and protect every cycle — putting grow, extract, and sell decisions together to maximize revenue per plant.
+            Agility in operations so you can track what grows well, what runs well, and what sells well — then protect every cycle and maximize revenue per plant.
           </p>
         </Reveal>
         <ul className="fig-split">
