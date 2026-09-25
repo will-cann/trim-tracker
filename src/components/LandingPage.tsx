@@ -1,4 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import { useAuth } from '../contexts/authContext';
 import { ActionPreview } from './ActionPreview';
 import { TypeChip } from './ui';
@@ -144,14 +146,36 @@ const DEMO_SCENARIOS: { label: string; prompt: string; mode?: 'chat' | 'standup'
   },
   {
     label: 'Visibility',
-    prompt: 'What’s the state of flower rooms and open packages?',
+    prompt: 'What’s open in flower rooms and package inventory?',
     steps: [
-      { type: 'user', text: 'What’s the state of flower rooms and open packages?' },
-      { type: 'ai', text: 'Flower 1 · Wedding Cake · 48 plants · healthy. Flower 2 · OG Kush · 36 · watch list. 186 active packages · 16 lab pending.' },
-      { type: 'pause', ms: 5200 },
+      { type: 'user', text: 'What’s open in flower rooms and package inventory?' },
+      {
+        type: 'ai',
+        text: `Here’s the live facility snapshot:
+
+| Room | Strain | Plants | Health |
+|------|--------|-------:|--------|
+| Flower 1 | Wedding Cake | 48 | Healthy |
+| Flower 2 | OG Kush | 36 | Watch list |
+
+| Package | Type | Qty (g) | Lab |
+|---------|------|--------:|-----|
+| PKG-WC-F014 | Flower | 892.0 | Passed |
+| PKG-OG-FF03 | Fresh frozen | 1,240.5 | Submitted |
+| PKG-WC-R002 | Rosin | 186.2 | Not sent |
+| PKG-BD-T011 | Trim | 420.0 | Passed |
+
+**186** active packages · **16** lab pending.`,
+      },
+      { type: 'pause', ms: 7000 },
     ],
   },
 ];
+
+/** Markdown with tables/lists — reveal whole message (don’t type pipe characters). */
+function isStructuredReply(text: string) {
+  return /\|.+\|/.test(text) || /^#{1,3}\s/m.test(text);
+}
 
 const NAV_ITEMS = [
   { id: 'ai', label: 'Home', active: true },
@@ -257,6 +281,22 @@ const ProductChat: React.FC<{
       setListening(false);
       setAssembling(null);
       setStageLabel(null);
+
+      // Structured AI replies (tables, etc.) — reveal as a whole like the app,
+      // not character-by-character (pipe typing breaks markdown).
+      if (step.type === 'ai' && isStructuredReply(step.text)) {
+        setIsTyping(false);
+        setTypingText('');
+        const t = setTimeout(() => {
+          if (runId.current !== thisRun) return;
+          setMessages((prev) => [...prev, { role: 'ai', text: step.text }]);
+          setTimeout(() => {
+            if (runId.current === thisRun) setStepIndex((s) => s + 1);
+          }, 600);
+        }, 450);
+        return () => clearTimeout(t);
+      }
+
       setIsTyping(true);
       let i = 0;
       let advance: ReturnType<typeof setTimeout> | undefined;
@@ -379,13 +419,25 @@ const ProductChat: React.FC<{
           </div>
         )}
         {messages.map((m, i) => (
-          <div key={i} className={`fig-msg ${m.role === 'user' ? 'is-user' : 'is-ai'}`}>
+          <div
+            key={i}
+            className={`fig-msg ${m.role === 'user' ? 'is-user' : 'is-ai'}${
+              m.role === 'ai' && isStructuredReply(m.text) ? ' is-structured' : ''
+            }`}
+          >
             {m.role === 'user' ? (
-              <span className="fig-sr-only">You said: </span>
+              <>
+                <span className="fig-sr-only">You said: </span>
+                {m.text}
+              </>
             ) : (
-              <span className="fig-sr-only">NeuroCann: </span>
+              <>
+                <span className="fig-sr-only">NeuroCann: </span>
+                <div className="ai-msg-bubble-assistant fig-md">
+                  <ReactMarkdown remarkPlugins={[remarkGfm]}>{m.text}</ReactMarkdown>
+                </div>
+              </>
             )}
-            {m.text}
           </div>
         ))}
         {typingRole && typingText && (
@@ -1477,8 +1529,8 @@ export const LandingPage: React.FC = () => {
           border: 1px solid var(--line);
           border-radius: 0.75rem;
           overflow: hidden;
-          height: min(62vh, 520px);
-          min-height: 420px;
+          height: min(68vh, 580px);
+          min-height: 460px;
           box-shadow:
             0 1px 2px rgba(26, 26, 26, 0.04),
             0 24px 48px rgba(26, 26, 26, 0.08);
@@ -1635,6 +1687,38 @@ export const LandingPage: React.FC = () => {
           background: var(--koala);
           color: var(--panther);
           border-bottom-left-radius: 0.25rem;
+          max-width: min(95%, 28rem);
+        }
+        .fig-msg.is-ai.is-structured {
+          max-width: 100%;
+          width: 100%;
+          padding: 0.85rem 1rem;
+        }
+        .fig-msg.is-ai .fig-md,
+        .fig-msg.is-ai .ai-msg-bubble-assistant {
+          background: transparent;
+          padding: 0;
+          margin: 0;
+          max-width: none;
+          border-radius: 0;
+          color: inherit;
+          font-size: inherit;
+          line-height: inherit;
+        }
+        .fig-msg.is-ai .fig-md p {
+          margin: 0 0 0.55rem;
+        }
+        .fig-msg.is-ai .fig-md p:last-child {
+          margin-bottom: 0;
+        }
+        .fig-msg.is-ai .fig-md strong {
+          font-weight: 900;
+        }
+        .fig-msg.is-ai .fig-md table {
+          display: block;
+          width: 100%;
+          overflow-x: auto;
+          -webkit-overflow-scrolling: touch;
         }
         .fig-caret {
           display: inline-block;
