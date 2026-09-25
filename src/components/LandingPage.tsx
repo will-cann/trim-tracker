@@ -105,9 +105,9 @@ const DEMO_SCENARIOS: { label: string; prompt: string; mode?: 'chat' | 'standup'
           },
         ],
       },
-      { type: 'pause', ms: 1800 },
+      { type: 'pause', ms: 3600 },
       { type: 'confirmed' },
-      { type: 'pause', ms: 2000 },
+      { type: 'pause', ms: 4000 },
     ],
   },
   {
@@ -115,13 +115,13 @@ const DEMO_SCENARIOS: { label: string; prompt: string; mode?: 'chat' | 'standup'
     prompt: 'From standup',
     mode: 'standup',
     steps: [
-      { type: 'listening', ms: 2600 },
-      { type: 'assembling', actions: STANDUP_TASKS, staggerMs: 650 },
-      { type: 'pause', ms: 500 },
+      { type: 'listening', ms: 5000 },
+      { type: 'assembling', actions: STANDUP_TASKS, staggerMs: 1300 },
+      { type: 'pause', ms: 1000 },
       { type: 'actions', actions: STANDUP_TASKS },
-      { type: 'pause', ms: 1800 },
+      { type: 'pause', ms: 3600 },
       { type: 'confirmed' },
-      { type: 'pause', ms: 2200 },
+      { type: 'pause', ms: 4200 },
     ],
   },
   {
@@ -137,9 +137,9 @@ const DEMO_SCENARIOS: { label: string; prompt: string; mode?: 'chat' | 'standup'
           { type: 'flag_contamination', data: { plantNumber: 7, contaminationType: 'powdery_mildew', severity: 'minor' } },
         ],
       },
-      { type: 'pause', ms: 1800 },
+      { type: 'pause', ms: 3600 },
       { type: 'confirmed' },
-      { type: 'pause', ms: 2000 },
+      { type: 'pause', ms: 4000 },
     ],
   },
   {
@@ -148,7 +148,7 @@ const DEMO_SCENARIOS: { label: string; prompt: string; mode?: 'chat' | 'standup'
     steps: [
       { type: 'user', text: 'What’s the state of flower rooms and open packages?' },
       { type: 'ai', text: 'Flower 1 · Wedding Cake · 48 plants · healthy. Flower 2 · OG Kush · 36 · watch list. 186 active packages · 16 lab pending.' },
-      { type: 'pause', ms: 2800 },
+      { type: 'pause', ms: 5200 },
     ],
   },
 ];
@@ -206,7 +206,7 @@ const ProductChat: React.FC<{
     if (stepIndex >= steps.length) {
       const t = setTimeout(() => {
         if (runId.current === thisRun) onCompleteRef.current();
-      }, 400);
+      }, 800);
       return () => clearTimeout(t);
     }
 
@@ -234,7 +234,7 @@ const ProductChat: React.FC<{
       setAssembleCount(0);
       setPendingActions(null);
       setStageLabel('Action items assembling');
-      const stagger = step.staggerMs ?? 600;
+      const stagger = step.staggerMs ?? 1200;
       let n = 0;
       const iv = setInterval(() => {
         if (runId.current !== thisRun) {
@@ -247,7 +247,7 @@ const ProductChat: React.FC<{
           clearInterval(iv);
           setTimeout(() => {
             if (runId.current === thisRun) setStepIndex((s) => s + 1);
-          }, 350);
+          }, 700);
         }
       }, stagger);
       return () => clearInterval(iv);
@@ -260,7 +260,7 @@ const ProductChat: React.FC<{
       setIsTyping(true);
       let i = 0;
       let advance: ReturnType<typeof setTimeout> | undefined;
-      const speed = step.type === 'user' ? 24 : 14;
+      const speed = step.type === 'user' ? 48 : 28;
       const iv = setInterval(() => {
         if (runId.current !== thisRun) {
           clearInterval(iv);
@@ -276,7 +276,7 @@ const ProductChat: React.FC<{
           setTypingText('');
           advance = setTimeout(() => {
             if (runId.current === thisRun) setStepIndex((s) => s + 1);
-          }, 300);
+          }, 600);
         }
       }, speed);
       return () => {
@@ -294,7 +294,7 @@ const ProductChat: React.FC<{
         setPendingActions(step.actions);
         setActionStatus(undefined);
         setStepIndex((s) => s + 1);
-      }, 220);
+      }, 450);
       return () => clearTimeout(t);
     }
 
@@ -303,7 +303,7 @@ const ProductChat: React.FC<{
       if (isStandup) setStageLabel('Action items assigned');
       const t = setTimeout(() => {
         if (runId.current === thisRun) setStepIndex((s) => s + 1);
-      }, 80);
+      }, 160);
       return () => clearTimeout(t);
     }
 
