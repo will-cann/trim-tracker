@@ -12,13 +12,13 @@ Primary buyers and users are **operations managers** who orchestrate people, pro
 
 ## Product Purpose
 
-NeuroCann is the **operations orchestration layer** for cannabis facilities. Conversational AI turns managerial intent — from standups, walkthroughs, and voice on the floor — into assigned work for people, structured process steps, and system updates. When the team marks physical work complete, NeuroCann handles the digital trail and compliance reporting path (including METRC). Success is instant operational visibility and fewer missed handoffs between people, process, and technology.
+NeuroCann is the **operations orchestration layer** for cannabis facilities — built so managers can maximize **dollars per plant** and **mitigate harvest risk**. Conversational AI turns managerial intent into assigned work across people, process, and technology. Teams capture what grows well, what extracts well, and what sells well so the next cycle can be planned; plant health flags surface early so issues don’t take out a harvest. When physical work is marked complete, NeuroCann updates the digital trail and compliance path (including METRC). Square footage is fixed; output quality and risk aren’t.
 
 ## Positioning
 
-Not another spreadsheet, MES form, or METRC UI. NeuroCann sits above tools as the conversation that assigns work, tracks completion, and syncs the facility’s digital state. **Land with one workflow** (often METRC sync / facility visibility), then expand department by department. Built by cannabis operations experts who can shape the system to how a team actually runs.
+Not another spreadsheet, MES form, or METRC UI. NeuroCann sits above tools as the conversation that assigns work, tracks completion, and syncs the facility’s digital state — creating **agility in operations** so measurement and planning actually happen. **Land with one workflow** (often METRC sync / facility visibility), then expand until grow → extract → sell data compounds into better planting decisions and earlier risk response. Built by cannabis operations experts who can shape the system to how a team actually runs.
 
-A neighboring compliance portal or ERP cannot truthfully claim: meeting → assigned actions → floor completion → automated compliance updates, in one conversational control plane.
+A neighboring compliance portal or ERP cannot truthfully claim: meeting → assigned actions → floor completion → automated compliance updates, in one conversational control plane — plus the measurement loop that turns that work into revenue and risk decisions.
 
 ## Operating Context
 

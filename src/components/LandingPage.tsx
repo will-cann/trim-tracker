@@ -352,6 +352,21 @@ const FRAGMENTS = [
   'Shift notes',
 ];
 
+const OUTCOMES = [
+  {
+    title: 'What grows well',
+    body: 'Capture weights, rooms, and cycles so you know which genetics and environments actually pull their weight.',
+  },
+  {
+    title: 'What extracts & sells',
+    body: 'Connect cultivation through processing and packages — so planning follows demand, not guesswork.',
+  },
+  {
+    title: 'What puts harvests at risk',
+    body: 'Flag plant health early — PM, pests, stress — before a room takes out a whole cycle’s revenue.',
+  },
+];
+
 const ORCHESTRA = [
   {
     title: 'People',
@@ -389,11 +404,11 @@ const START = [
   },
   {
     title: 'Orchestrate one workflow',
-    body: 'Pick the pain that burns this week: harvest day, moves, labs, trim. Conversational AI assigns and closes the loop.',
+    body: 'Pick the pain that burns this week: harvest day, moves, labs, health flags. Conversational AI assigns and closes the loop.',
   },
   {
-    title: 'Expand across departments',
-    body: 'Cultivation, processing, packaging, procurement. Same orchestration layer — no rip-and-replace of how your team already works.',
+    title: 'Measure, plan, expand',
+    body: 'Use the data you capture to plan the next cycle for dollars per plant — then grow orchestration across departments.',
   },
 ];
 
@@ -455,17 +470,17 @@ export const LandingPage: React.FC = () => {
         </div>
       </nav>
 
-      {/* Hero — CareLink-style clarity, NeuroCann brand + live product */}
+      {/* Hero — end goal: $ / plant + risk, enabled by ops agility */}
       <main id="main" className="fig-hero">
         <div className="fig-hero-copy">
           <p className="fig-brand">neurocann</p>
           <p className="fig-trust">Built by operators, for operators</p>
           <h1>
-            End-to-end software that creates{' '}
-            <em>agility in operations.</em>
+            End-to-end software that maximizes{' '}
+            <em>dollars per plant.</em>
           </h1>
           <p className="fig-lede">
-            Square footage is fixed. Throughput isn’t — conversational AI so managers run people, process, and technology from one place, and the floor closes the loop to compliance.
+            Measure what grows, extracts, and sells — plan the next cycle. Spot health issues early before they take out a harvest.
           </p>
           <div className="fig-hero-cta">
             <a
@@ -531,7 +546,30 @@ export const LandingPage: React.FC = () => {
         </div>
       </section>
 
-      <section className="fig-band" aria-labelledby="fig-orch-heading">
+      <section className="fig-band" aria-labelledby="fig-outcome-heading">
+        <Reveal>
+          <h2 id="fig-outcome-heading">
+            Square footage is fixed.
+            <br />
+            <span>Output and risk aren’t.</span>
+          </h2>
+          <p className="fig-section-lede">
+            Agility in operations so you can measure, plan, and protect every cycle — putting grow, extract, and sell decisions together to maximize revenue per plant.
+          </p>
+        </Reveal>
+        <ul className="fig-split">
+          {OUTCOMES.map((item, i) => (
+            <Reveal key={item.title} delay={i * 70}>
+              <li>
+                <h3>{item.title}</h3>
+                <p>{item.body}</p>
+              </li>
+            </Reveal>
+          ))}
+        </ul>
+      </section>
+
+      <section className="fig-band fig-band-alt" aria-labelledby="fig-orch-heading">
         <Reveal>
           <h2 id="fig-orch-heading">
             People. Process. Technology.
@@ -551,7 +589,7 @@ export const LandingPage: React.FC = () => {
         </ul>
       </section>
 
-      <section id="how" className="fig-band fig-band-alt" aria-labelledby="fig-loop-heading">
+      <section id="how" className="fig-band" aria-labelledby="fig-loop-heading">
         <Reveal>
           <h2 id="fig-loop-heading">
             From the meeting to METRC —
@@ -577,15 +615,15 @@ export const LandingPage: React.FC = () => {
         </ol>
       </section>
 
-      <section className="fig-band" aria-labelledby="fig-start-heading">
+      <section className="fig-band fig-band-alt" aria-labelledby="fig-start-heading">
         <Reveal>
           <h2 id="fig-start-heading">
             Start with one workflow.
             <br />
-            <span>Expand across the facility.</span>
+            <span>Expand into measurement and planning.</span>
           </h2>
           <p className="fig-section-lede">
-            Begin with METRC sync for instant visibility into the digital state of the facility — then grow orchestration into the departments that need it next.
+            Begin with METRC sync for instant visibility — then grow orchestration until the facility’s data can drive the next planting and protect the next harvest.
           </p>
         </Reveal>
         <ul className="fig-start">
@@ -643,12 +681,12 @@ export const LandingPage: React.FC = () => {
       <section className="fig-close" aria-labelledby="fig-close-heading">
         <Reveal>
           <h2 id="fig-close-heading">
-            See your facility’s digital state —
+            See the facility clearly —
             <br />
-            then orchestrate from there.
+            then maximize every plant.
           </h2>
           <p>
-            Book a working session. We’ll map one workflow, show METRC-backed visibility, and leave you with a path to expand.
+            Book a working session. We’ll map one workflow, show METRC-backed visibility, and leave you with a path to measure, plan, and protect harvests.
           </p>
           <div className="fig-hero-cta is-center">
             <a
