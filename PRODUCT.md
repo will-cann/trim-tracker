@@ -16,7 +16,7 @@ NeuroCann is the **operations orchestration layer** for cannabis facilities — 
 
 ## Positioning
 
-Not another spreadsheet, MES form, or METRC UI. NeuroCann sits above tools as the conversation that assigns work, tracks completion, and syncs the facility’s digital state — creating **agility in operations** so measurement and planning actually happen. **Land with one workflow** (often METRC sync / facility visibility), then expand until grow → extract → sell data compounds into better planting decisions and earlier risk response. Built by cannabis operations experts who can shape the system to how a team actually runs.
+Not another spreadsheet, MES form, or METRC UI. NeuroCann sits above tools as the conversation that assigns work, tracks completion, and syncs the facility’s digital state — creating **agility in operations** so measurement and planning actually happen. **Land with one workflow** (often METRC sync / facility visibility), then expand until grows / runs / sells data compounds into better planting decisions and earlier risk response. Built by cannabis operations experts who can shape the system to how a team actually runs.
 
 A neighboring compliance portal or ERP cannot truthfully claim: meeting → assigned actions → floor completion → automated compliance updates, in one conversational control plane — plus the measurement loop that turns that work into revenue and risk decisions.
 
