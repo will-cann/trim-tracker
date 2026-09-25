@@ -837,8 +837,8 @@ const COMPOUND = [
     body: 'Standup becomes assigned floor tasks — not notes that die in a thread.',
   },
   {
-    title: 'Floor does the physical work',
-    body: 'Operators complete the move, weigh-in, or scout. Software records; gloves stay on.',
+    title: 'Your team handles the dirty work',
+    body: 'NeuroCann handles the paperwork — moves, weigh-ins, and scouts stay on the floor; the record updates when they’re done.',
   },
   {
     title: 'Evidence plans the next cycle',
@@ -882,8 +882,8 @@ const LOOP = [
     body: 'From standup or the floor — speak the work. NeuroCann proposes the task and the system follow-through.',
   },
   {
-    title: 'Team does the physical work',
-    body: 'Assigned operators complete the action in the real world — gloves on, no form hunting mid-move.',
+    title: 'Your team handles the dirty work',
+    body: 'NeuroCann handles the paperwork — gloves stay on, no form hunting mid-move.',
   },
   {
     title: 'Compliance writes itself',
