@@ -20,6 +20,12 @@
 [functions."cron-supplier-reminders"]
   schedule = "0 14 * * *"
 
+# Standalone mobile picker (no auth) — must precede the SPA catch-all
+[[redirects]]
+  from = "/manifest"
+  to = "/manifest.html"
+  status = 200
+
 [[redirects]]
   from = "/*"
   to = "/index.html"
