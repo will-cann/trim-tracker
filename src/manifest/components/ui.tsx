@@ -1,13 +1,16 @@
-import type { ButtonHTMLAttributes, ComponentProps, ReactNode } from 'react'
+import { useContext, type ButtonHTMLAttributes, type ComponentProps, type ReactNode } from 'react'
 import { ChevronLeft } from 'lucide-react'
+import { LayoutContext, type LayoutVariant } from './layoutContext'
+
+const WIDTH: Record<LayoutVariant, string> = { phone: 'max-w-md', wide: 'max-w-2xl', embedded: 'max-w-none' }
 
 type Variant = 'primary' | 'secondary' | 'ghost' | 'danger'
 
 const VARIANT: Record<Variant, string> = {
-  primary: 'bg-emerald-500 text-white active:bg-emerald-600 disabled:bg-gray-300',
-  secondary: 'bg-white text-gray-900 border border-gray-200 active:bg-gray-100 disabled:text-gray-400',
-  ghost: 'bg-transparent text-emerald-600 active:bg-emerald-50 disabled:text-gray-400',
-  danger: 'bg-red-50 text-red-600 border border-red-200 active:bg-red-100',
+  primary: 'bg-emerald-500 text-white hover:bg-emerald-600 active:bg-emerald-600 disabled:bg-gray-300 disabled:hover:bg-gray-300',
+  secondary: 'bg-white text-gray-900 border border-gray-200 hover:bg-gray-50 active:bg-gray-100 disabled:text-gray-400',
+  ghost: 'bg-transparent text-emerald-600 hover:bg-emerald-50 active:bg-emerald-50 disabled:text-gray-400',
+  danger: 'bg-red-50 text-red-600 border border-red-200 hover:bg-red-100 active:bg-red-100',
 }
 
 export function Button({
@@ -72,9 +75,10 @@ export function TopBar({
   onBack?: () => void
   right?: ReactNode
 }) {
+  const variant = useContext(LayoutContext)
   return (
     <header className="sticky top-0 z-20 bg-white/95 backdrop-blur border-b border-gray-200 pt-[env(safe-area-inset-top)]">
-      <div className="mx-auto max-w-md flex items-center gap-2 px-3 h-14">
+      <div className={`mx-auto ${WIDTH[variant]} flex items-center gap-2 px-3 h-14`}>
         {onBack ? (
           <button
             type="button"
@@ -98,12 +102,16 @@ export function TopBar({
 }
 
 export function Screen({ children, footer }: { children: ReactNode; footer?: ReactNode }) {
+  const variant = useContext(LayoutContext)
+  const embedded = variant === 'embedded'
   return (
-    <div className="min-h-dvh flex flex-col bg-gray-100">
-      <main className="mx-auto w-full max-w-md flex-1 px-3 py-3 pb-28 space-y-3">{children}</main>
+    <div className={`${embedded ? 'h-full' : 'min-h-dvh'} flex flex-col bg-gray-100`}>
+      <main className={`mx-auto w-full ${WIDTH[variant]} flex-1 px-3 py-3 ${embedded ? 'pb-3' : 'pb-28'} space-y-3`}>{children}</main>
       {footer && (
-        <div className="fixed inset-x-0 bottom-0 z-20 bg-white/95 backdrop-blur border-t border-gray-200 pb-[env(safe-area-inset-bottom)]">
-          <div className="mx-auto max-w-md px-3 py-3 flex gap-2">{footer}</div>
+        <div
+          className={`${embedded ? 'sticky' : 'fixed inset-x-0'} bottom-0 z-20 bg-white/95 backdrop-blur border-t border-gray-200 pb-[env(safe-area-inset-bottom)]`}
+        >
+          <div className={`mx-auto ${WIDTH[variant]} px-3 py-3 flex gap-2`}>{footer}</div>
         </div>
       )}
     </div>

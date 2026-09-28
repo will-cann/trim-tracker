@@ -4,6 +4,10 @@ const ORDER_KEY = 'manifest-picker:order:v1'
 const TRANSPORTER_KEY = 'manifest-picker:transporter:v1'
 const LICENSES_KEY = 'manifest-picker:licenses:v1'
 const EMAIL_KEY = 'manifest-picker:email:v1'
+const LAYOUT_KEY = 'manifest-picker:layout:v1'
+
+/** auto = pick by screen width; phone/laptop force a layout. */
+export type LayoutPreference = 'auto' | 'phone' | 'laptop'
 
 export interface EmailSettings {
   /** Default recipient for exported transfer files. */
@@ -59,3 +63,9 @@ export const saveLicenses = (l: LicenseDefaults) => write(LICENSES_KEY, l)
 export const EMPTY_EMAIL: EmailSettings = { to: '', accessCode: '' }
 export const loadEmail = () => read<EmailSettings>(EMAIL_KEY) ?? EMPTY_EMAIL
 export const saveEmail = (e: EmailSettings) => write(EMAIL_KEY, e)
+
+export const loadLayoutPreference = (): LayoutPreference => {
+  const v = read<LayoutPreference>(LAYOUT_KEY)
+  return v === 'phone' || v === 'laptop' ? v : 'auto'
+}
+export const saveLayoutPreference = (p: LayoutPreference) => write(LAYOUT_KEY, p)

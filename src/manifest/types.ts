@@ -23,7 +23,8 @@ export interface PickLine {
   recordedTags: string[]
 }
 
-export type ScanSource = 'camera' | 'manual' | 'recorded'
+/** camera = phone camera, manual = typed, usb = keyboard-wedge scanner on a laptop, recorded = imported from Apex */
+export type ScanSource = 'camera' | 'manual' | 'usb' | 'recorded'
 
 export interface Scan {
   tag: string

@@ -62,9 +62,26 @@ export function tagIndex(state: OrderState): Map<string, string[]> {
   return idx
 }
 
+export type ScanFailReason = 'invalid' | 'duplicate-here' | 'duplicate-elsewhere' | 'is-lot-tag'
+
 export type AddScanResult =
   | { ok: true; state: OrderState; warning?: string }
-  | { ok: false; reason: 'invalid' | 'duplicate-here' | 'duplicate-elsewhere' | 'is-lot-tag'; detail?: string }
+  | { ok: false; reason: ScanFailReason; detail?: string }
+
+export function scanFailureMessage(reason: ScanFailReason | 'no-open-line', detail?: string): string {
+  switch (reason) {
+    case 'invalid':
+      return 'Not a Metrc tag. Tags are 24 characters starting with 1A.'
+    case 'duplicate-here':
+      return 'Already scanned on this line.'
+    case 'duplicate-elsewhere':
+      return `Already scanned on another line${detail ? `: ${detail}` : ''}.`
+    case 'is-lot-tag':
+      return "That's the lot tag, not a case. Scan the case label."
+    case 'no-open-line':
+      return 'Every line is complete. Pick a line to add more, or review & export.'
+  }
+}
 
 export function addScan(state: OrderState, lineId: string, raw: string, source: ScanSource): AddScanResult {
   const tag = normalizeTag(raw)

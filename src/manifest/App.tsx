@@ -4,23 +4,29 @@ import { PickListScreen } from './components/PickListScreen'
 import { ScanSheet } from './components/ScanSheet'
 import { ReviewScreen } from './components/ReviewScreen'
 import { SettingsScreen } from './components/SettingsScreen'
+import { DesktopLayout } from './components/desktop/DesktopLayout'
+import { useLayoutMode } from './lib/layout'
 import {
   addScan,
   createOrderState,
   importRecordedTags,
   lineStatus,
   removeScan,
+  scanFailureMessage,
 } from './lib/order'
 import {
   loadEmail,
+  loadLayoutPreference,
   loadLicenses,
   loadOrder,
   loadTransporter,
   saveEmail,
+  saveLayoutPreference,
   saveLicenses,
   saveOrder,
   saveTransporter,
   type EmailSettings,
+  type LayoutPreference,
   type LicenseDefaults,
 } from './lib/storage'
 import type { DestinationHeader, OrderState, PickLine, ScanSource, TransporterProfile } from './types'
@@ -37,13 +43,18 @@ export default function App() {
   const [transporter, setTransporter] = useState<TransporterProfile>(() => loadTransporter())
   const [licenses, setLicenses] = useState<LicenseDefaults>(() => loadLicenses())
   const [email, setEmail] = useState<EmailSettings>(() => loadEmail())
+  const [layoutPref, setLayoutPref] = useState<LayoutPreference>(() => loadLayoutPreference())
   const [view, setView] = useState<View>(() => (loadOrder() ? { kind: 'pick' } : { kind: 'load' }))
+  const layout = useLayoutMode(layoutPref)
 
   useEffect(() => saveOrder(order), [order])
   useEffect(() => saveTransporter(transporter), [transporter])
   useEffect(() => saveLicenses(licenses), [licenses])
   useEffect(() => saveEmail(email), [email])
+  useEffect(() => saveLayoutPreference(layoutPref), [layoutPref])
   const onEmail = (e: Partial<EmailSettings>) => setEmail((p) => ({ ...p, ...e }))
+  const onTransporter = (t: Partial<TransporterProfile>) => setTransporter((p) => ({ ...p, ...t }))
+  const onLicenses = (l: Partial<LicenseDefaults>) => setLicenses((p) => ({ ...p, ...l }))
 
   const update = useCallback((fn: (s: OrderState) => OrderState) => {
     setOrder((s) => (s ? fn(s) : s))
@@ -60,16 +71,38 @@ export default function App() {
     setView({ kind: 'load' })
   }
 
+  if (layout === 'laptop') {
+    return (
+      <DesktopLayout
+        order={order}
+        transporter={transporter}
+        licenses={licenses}
+        email={email}
+        layoutPref={layoutPref}
+        onLayoutPref={setLayoutPref}
+        setOrder={setOrder}
+        update={update}
+        onTransporter={onTransporter}
+        onLicenses={onLicenses}
+        onEmail={onEmail}
+        onLoaded={onLoaded}
+        onReset={reset}
+      />
+    )
+  }
+
   if (view.kind === 'settings') {
     return (
       <SettingsScreen
         transporter={transporter}
         licenses={licenses}
         email={email}
+        layoutPref={layoutPref}
         hasOrder={!!order}
-        onTransporter={(t) => setTransporter((p) => ({ ...p, ...t }))}
-        onLicenses={(l) => setLicenses((p) => ({ ...p, ...l }))}
+        onTransporter={onTransporter}
+        onLicenses={onLicenses}
         onEmail={onEmail}
+        onLayoutPref={setLayoutPref}
         onReset={reset}
         onBack={() => setView(order ? view.from : { kind: 'load' })}
       />
@@ -92,15 +125,7 @@ export default function App() {
         line={line}
         onScan={(raw: string, source: ScanSource) => {
           const r = addScan(order, line.id, raw, source)
-          if (!r.ok) {
-            const msg = {
-              invalid: 'Not a Metrc tag. Tags are 24 characters starting with 1A.',
-              'duplicate-here': 'Already scanned on this line.',
-              'duplicate-elsewhere': `Already scanned on another line${r.detail ? `: ${r.detail}` : ''}.`,
-              'is-lot-tag': "That's the lot tag, not a case. Scan the case label.",
-            }[r.reason]
-            return { ok: false, message: msg, tone: 'red' as const }
-          }
+          if (!r.ok) return { ok: false, message: scanFailureMessage(r.reason, r.detail), tone: 'red' as const }
           setOrder(r.state)
           const n = r.state.scans[line.id].length
           return r.warning
