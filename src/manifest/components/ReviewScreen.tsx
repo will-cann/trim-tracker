@@ -31,7 +31,14 @@ export function ReviewScreen({ order, transporter, licenses, onHeader, onLicense
   const [status, setStatus] = useState<Record<string, string>>({})
 
   const productTypes = Object.keys(order.licenseByProductType)
-  const transporterMissing = !transporter.transporterLicense || !transporter.driverName || !transporter.licensePlate
+  const missingTransporterFields = [
+    [transporter.transporterLicense, 'transporter license'],
+    [transporter.driverName, 'driver name'],
+    [transporter.licensePlate, 'license plate'],
+  ]
+    .filter(([value]) => !value)
+    .map(([, label]) => label)
+  const transporterMissing = missingTransporterFields.length > 0
   const missingWeight = rows.filter((r) => r.grossWeightG === null).length
   const missingPrice = rows.filter((r) => r.wholesalePrice === null).length
   const isWholesale = order.header.transferType === 'Unaffiliated Transfer'
@@ -126,7 +133,9 @@ export function ReviewScreen({ order, transporter, licenses, onHeader, onLicense
           </button>
         </div>
         {transporterMissing ? (
-          <Notice tone="amber">Driver and vehicle not set. Tap Edit to fill them in once; they're saved on this device.</Notice>
+          <Notice tone="amber">
+            Missing {missingTransporterFields.join(', ')}. Tap Edit to fill them in once; they're saved on this device.
+          </Notice>
         ) : (
           <p className="text-sm text-gray-700">
             {transporter.transporterLicense} · {transporter.driverName} · {transporter.vehicleMake} {transporter.vehicleModel} {transporter.licensePlate}
