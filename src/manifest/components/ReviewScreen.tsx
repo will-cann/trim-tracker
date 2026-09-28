@@ -1,25 +1,30 @@
 import { useMemo, useState } from 'react'
-import { AlertTriangle, Share2, Copy, Check, ChevronDown, ChevronUp, Truck } from 'lucide-react'
+import { AlertTriangle, Share2, Copy, Check, ChevronDown, ChevronUp, Truck, Mail, Loader2 } from 'lucide-react'
 import { Button, Card, Field, Input, Notice, Pill, Screen, Select, TopBar } from './ui'
 import { buildPackageRows, summarize, TRANSFER_TYPES } from '../lib/order'
 import { buildT3Files, formatMoney } from '../lib/t3csv'
 import { copyText, saveTextFile } from '../lib/download'
+import { EMAIL_RE, sendManifestEmail } from '../lib/email'
 import { shortTag } from '../lib/metrc'
-import type { LicenseDefaults } from '../lib/storage'
+import type { EmailSettings, LicenseDefaults } from '../lib/storage'
 import type { DestinationHeader, OrderState, TransporterProfile } from '../types'
 
 interface Props {
   order: OrderState
   transporter: TransporterProfile
   licenses: LicenseDefaults
+  email: EmailSettings
   onHeader: (h: Partial<DestinationHeader>) => void
   onLicenseForType: (productType: string, license: string) => void
   onLineTotal: (lineId: string, value: string) => void
+  onEmail: (e: Partial<EmailSettings>) => void
   onEditTransporter: () => void
   onBack: () => void
 }
 
-export function ReviewScreen({ order, transporter, licenses, onHeader, onLicenseForType, onLineTotal, onEditTransporter, onBack }: Props) {
+type SendState = { kind: 'idle' } | { kind: 'sending' } | { kind: 'sent'; to: string } | { kind: 'error'; message: string }
+
+export function ReviewScreen({ order, transporter, licenses, email, onHeader, onLicenseForType, onLineTotal, onEmail, onEditTransporter, onBack }: Props) {
   const summary = summarize(order)
   const rows = useMemo(() => buildPackageRows(order), [order])
   const first = order.lines[0]
@@ -46,6 +51,31 @@ export function ReviewScreen({ order, transporter, licenses, onHeader, onLicense
   const flag = (key: string, text: string) => {
     setStatus((s) => ({ ...s, [key]: text }))
     setTimeout(() => setStatus((s) => ({ ...s, [key]: '' })), 2000)
+  }
+
+  const [send, setSend] = useState<SendState>({ kind: 'idle' })
+  const emailValid = EMAIL_RE.test(email.to.trim())
+  const orderLabel = first?.orderNumber ?? 'order'
+
+  const sendEmail = async () => {
+    if (!emailValid || files.length === 0) return
+    setSend({ kind: 'sending' })
+    const note = [
+      `Metrc transfer files for ${orderLabel}${first ? ` → ${first.buyer} (${order.header.recipientLicense})` : ''}.`,
+      `${rows.length} packages across ${files.length} origin license${files.length === 1 ? '' : 's'}:`,
+      ...files.map((f) => `  ${f.originLicense}: ${f.packageCount} packages${f.totalGrossG ? `, ${f.totalGrossG} g` : ''}${f.totalWholesale > 0 ? `, $${formatMoney(f.totalWholesale)}` : ''}`),
+      summary.issues.length > 0 ? `Note: pick list not fully scanned (${summary.issues.length} issue${summary.issues.length === 1 ? '' : 's'}).` : '',
+    ]
+      .filter(Boolean)
+      .join('\n')
+    const r = await sendManifestEmail({
+      to: email.to.trim(),
+      accessCode: email.accessCode,
+      subject: `${orderLabel} transfer files (${files.map((f) => f.originLicense).join(', ')})`,
+      note,
+      files,
+    })
+    setSend(r.ok ? { kind: 'sent', to: r.to } : { kind: 'error', message: r.message })
   }
 
   return (
@@ -240,6 +270,40 @@ export function ReviewScreen({ order, transporter, licenses, onHeader, onLicense
           {missingWeight} package{missingWeight === 1 ? '' : 's'} have no unit weight in the product name, so gross weight is left blank. Fill it in Metrc.
         </Notice>
       )}
+
+      <Card className="p-4 space-y-3">
+        <h2 className="text-subhead flex items-center gap-2">
+          <Mail className="h-5 w-5 text-gray-500" /> Email the files
+        </h2>
+        <p className="text-xs text-gray-500">Sends {files.length === 1 ? 'the file' : `all ${files.length} files`} as attachments to whoever creates the transfer in Metrc.</p>
+        <Field label="Send to">
+          <Input
+            type="email"
+            inputMode="email"
+            autoComplete="email"
+            autoCapitalize="none"
+            placeholder="name@company.com"
+            value={email.to}
+            onChange={(e) => {
+              onEmail({ to: e.target.value })
+              if (send.kind !== 'idle') setSend({ kind: 'idle' })
+            }}
+          />
+        </Field>
+        {send.kind === 'sent' && (
+          <Notice tone="green">
+            <span className="flex items-center gap-2">
+              <Check className="h-4 w-4 shrink-0" /> Sent to {send.to}
+            </span>
+          </Notice>
+        )}
+        {send.kind === 'error' && <Notice tone="red">{send.message}</Notice>}
+        <Button block variant={send.kind === 'sent' ? 'secondary' : 'primary'} disabled={!emailValid || files.length === 0 || send.kind === 'sending'} onClick={sendEmail}>
+          {send.kind === 'sending' ? <Loader2 className="h-5 w-5 animate-spin" /> : <Mail className="h-5 w-5" />}
+          {send.kind === 'sending' ? 'Sending…' : send.kind === 'sent' ? 'Send again' : `Email ${files.length} file${files.length === 1 ? '' : 's'}`}
+        </Button>
+        {!email.accessCode && <p className="text-xs text-gray-400">No access code set. If sending fails, add it under Settings → Email export.</p>}
+      </Card>
 
       <p className="text-xs text-gray-400 text-center px-4">
         Open Metrc → Transfers → New Transfer, then use T3's "Autofill T3 CSV" with each file. One file per origin license.

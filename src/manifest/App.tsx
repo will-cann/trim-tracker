@@ -12,12 +12,15 @@ import {
   removeScan,
 } from './lib/order'
 import {
+  loadEmail,
   loadLicenses,
   loadOrder,
   loadTransporter,
+  saveEmail,
   saveLicenses,
   saveOrder,
   saveTransporter,
+  type EmailSettings,
   type LicenseDefaults,
 } from './lib/storage'
 import type { DestinationHeader, OrderState, PickLine, ScanSource, TransporterProfile } from './types'
@@ -33,11 +36,14 @@ export default function App() {
   const [order, setOrder] = useState<OrderState | null>(() => loadOrder())
   const [transporter, setTransporter] = useState<TransporterProfile>(() => loadTransporter())
   const [licenses, setLicenses] = useState<LicenseDefaults>(() => loadLicenses())
+  const [email, setEmail] = useState<EmailSettings>(() => loadEmail())
   const [view, setView] = useState<View>(() => (loadOrder() ? { kind: 'pick' } : { kind: 'load' }))
 
   useEffect(() => saveOrder(order), [order])
   useEffect(() => saveTransporter(transporter), [transporter])
   useEffect(() => saveLicenses(licenses), [licenses])
+  useEffect(() => saveEmail(email), [email])
+  const onEmail = (e: Partial<EmailSettings>) => setEmail((p) => ({ ...p, ...e }))
 
   const update = useCallback((fn: (s: OrderState) => OrderState) => {
     setOrder((s) => (s ? fn(s) : s))
@@ -59,9 +65,11 @@ export default function App() {
       <SettingsScreen
         transporter={transporter}
         licenses={licenses}
+        email={email}
         hasOrder={!!order}
         onTransporter={(t) => setTransporter((p) => ({ ...p, ...t }))}
         onLicenses={(l) => setLicenses((p) => ({ ...p, ...l }))}
+        onEmail={onEmail}
         onReset={reset}
         onBack={() => setView(order ? view.from : { kind: 'load' })}
       />
@@ -113,9 +121,11 @@ export default function App() {
         order={order}
         transporter={transporter}
         licenses={licenses}
+        email={email}
         onHeader={(h: Partial<DestinationHeader>) => update((s) => ({ ...s, header: { ...s.header, ...h } }))}
         onLicenseForType={(pt, lic) => update((s) => ({ ...s, licenseByProductType: { ...s.licenseByProductType, [pt]: lic } }))}
         onLineTotal={(id, v) => update((s) => ({ ...s, lineTotals: { ...s.lineTotals, [id]: v } }))}
+        onEmail={onEmail}
         onEditTransporter={() => setView({ kind: 'settings', from: { kind: 'review' } })}
         onBack={() => setView({ kind: 'pick' })}
       />

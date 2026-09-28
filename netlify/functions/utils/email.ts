@@ -147,6 +147,61 @@ export async function sendSupplierEmail(args: SupplierEmailArgs): Promise<Suppli
     }
 }
 
+// ── Manifest picker export email ────────────────────────────────────────────
+
+export interface ManifestAttachment {
+    filename: string;
+    /** UTF-8 text content (CSV). Base64-encoded before handing to SendGrid. */
+    content: string;
+}
+
+export async function sendManifestEmail(opts: {
+    to: string;
+    subject: string;
+    bodyText: string;
+    attachments: ManifestAttachment[];
+}): Promise<{ success: boolean; error?: string; fromAddress: string }> {
+    const { to, subject, bodyText, attachments } = opts;
+
+    if (isStubMode()) {
+        console.log('[email:stub] sendManifestEmail', {
+            to, subject, attachments: attachments.map(a => `${a.filename} (${a.content.length} chars)`),
+        });
+        return { success: true, fromAddress: FROM_EMAIL };
+    }
+
+    try {
+        ensureInit();
+    } catch {
+        return { success: false, error: 'SendGrid not configured', fromAddress: FROM_EMAIL };
+    }
+
+    try {
+        await sgMail.send({
+            to,
+            from: { email: FROM_EMAIL, name: FROM_NAME },
+            subject,
+            text: bodyText,
+            attachments: attachments.map(a => ({
+                filename: a.filename,
+                content: Buffer.from(a.content, 'utf8').toString('base64'),
+                type: 'text/csv',
+                disposition: 'attachment',
+            })),
+        });
+        return { success: true, fromAddress: FROM_EMAIL };
+    } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : 'SendGrid send failed';
+        if (err && typeof err === 'object' && 'response' in err) {
+            const sgErr = err as { response?: { body?: unknown } };
+            console.error('SendGrid manifest email failed:', message, JSON.stringify(sgErr.response?.body));
+        } else {
+            console.error('SendGrid manifest email failed:', message);
+        }
+        return { success: false, error: message, fromAddress: FROM_EMAIL };
+    }
+}
+
 /**
  * Minimal text→HTML converter for supplier emails. Preserves paragraph
  * breaks and escapes entities, but adds NO styling, colors, or branding —

@@ -1,18 +1,20 @@
 import { Button, Card, Field, Input, Notice, Screen, TopBar } from './ui'
-import type { LicenseDefaults } from '../lib/storage'
+import type { EmailSettings, LicenseDefaults } from '../lib/storage'
 import type { TransporterProfile } from '../types'
 
 interface Props {
   transporter: TransporterProfile
   licenses: LicenseDefaults
+  email: EmailSettings
   hasOrder: boolean
   onTransporter: (t: Partial<TransporterProfile>) => void
   onLicenses: (l: Partial<LicenseDefaults>) => void
+  onEmail: (e: Partial<EmailSettings>) => void
   onReset: () => void
   onBack: () => void
 }
 
-export function SettingsScreen({ transporter, licenses, hasOrder, onTransporter, onLicenses, onReset, onBack }: Props) {
+export function SettingsScreen({ transporter, licenses, email, hasOrder, onTransporter, onLicenses, onEmail, onReset, onBack }: Props) {
   const T = (key: keyof TransporterProfile, label: string, extra?: Record<string, unknown>) => (
     <Field label={label}>
       <Input value={transporter[key]} onChange={(e) => onTransporter({ [key]: e.target.value })} {...extra} />
@@ -59,6 +61,25 @@ export function SettingsScreen({ transporter, licenses, hasOrder, onTransporter,
           {T('licensePlate', 'License plate', { autoCapitalize: 'characters' })}
           {T('registration', 'Registration / unit', { placeholder: 'Van 1' })}
         </div>
+      </Card>
+
+      <Card className="p-4 space-y-3">
+        <h2 className="text-subhead">Email export</h2>
+        <p className="text-xs text-gray-500">Where finished transfer files go by default. The access code is set by whoever runs the server (MANIFEST_ACCESS_CODE).</p>
+        <Field label="Default recipient">
+          <Input
+            type="email"
+            inputMode="email"
+            autoComplete="email"
+            autoCapitalize="none"
+            placeholder="name@company.com"
+            value={email.to}
+            onChange={(e) => onEmail({ to: e.target.value })}
+          />
+        </Field>
+        <Field label="Access code">
+          <Input type="password" autoComplete="off" autoCapitalize="none" value={email.accessCode} onChange={(e) => onEmail({ accessCode: e.target.value })} />
+        </Field>
       </Card>
 
       {hasOrder && (

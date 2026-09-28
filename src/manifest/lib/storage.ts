@@ -3,6 +3,14 @@ import type { OrderState, TransporterProfile } from '../types'
 const ORDER_KEY = 'manifest-picker:order:v1'
 const TRANSPORTER_KEY = 'manifest-picker:transporter:v1'
 const LICENSES_KEY = 'manifest-picker:licenses:v1'
+const EMAIL_KEY = 'manifest-picker:email:v1'
+
+export interface EmailSettings {
+  /** Default recipient for exported transfer files. */
+  to: string
+  /** Shared code matching MANIFEST_ACCESS_CODE on the server. */
+  accessCode: string
+}
 
 export interface LicenseDefaults {
   cultivation: string
@@ -47,3 +55,7 @@ export const saveTransporter = (t: TransporterProfile) => write(TRANSPORTER_KEY,
 export const DEFAULT_LICENSES: LicenseDefaults = { cultivation: 'CUL000030', manufacturing: 'MAN000043' }
 export const loadLicenses = () => read<LicenseDefaults>(LICENSES_KEY) ?? DEFAULT_LICENSES
 export const saveLicenses = (l: LicenseDefaults) => write(LICENSES_KEY, l)
+
+export const EMPTY_EMAIL: EmailSettings = { to: '', accessCode: '' }
+export const loadEmail = () => read<EmailSettings>(EMAIL_KEY) ?? EMPTY_EMAIL
+export const saveEmail = (e: EmailSettings) => write(EMAIL_KEY, e)
