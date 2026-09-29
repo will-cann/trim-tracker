@@ -241,8 +241,10 @@ export function ReviewScreen({ order, transporter, licenses, email, onHeader, on
               Filled {invoice.result.assignments.length} of {order.lines.length} lines
               {invoice.invoice.invoiceNumber ? ` from invoice ${invoice.invoice.invoiceNumber}` : ''}.
             </p>
-            {invoice.result.assignments
-              .filter((a) => a.note)
+            {Array.from(
+              // A split assignment yields one note per pick line; show each note once.
+              new Map(invoice.result.assignments.filter((a) => a.note).map((a) => [`${a.invoiceDescription}|${a.note}`, a])).values(),
+            )
               .slice(0, 4)
               .map((a) => (
                 <p key={a.lineId} className="text-xs mt-1">
