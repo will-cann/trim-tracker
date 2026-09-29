@@ -5,6 +5,8 @@ export interface PickLine {
   category: string
   productType: string
   productName: string
+  /** Apex "Product SKU" — often blank or a copy of the name. Optional for orders saved before it was captured. */
+  sku?: string
   /** Full "Batch ID" text from Apex, e.g. "Proper - Pre-Roll - 1g - Legend OG #1A40C0300000..." */
   lotLabel: string
   /** Parent Metrc package tag extracted from the Batch ID, if present */
