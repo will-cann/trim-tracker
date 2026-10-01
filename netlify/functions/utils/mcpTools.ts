@@ -3,6 +3,7 @@ import { compileReportSpec, getSchemaDescription, type ReportSpec } from './repo
 import { OAUTH_SCOPE_READ, OAUTH_SCOPE_WRITE, type ApiKeyScope, type PluginContext } from './apiKeys';
 import { registerPublicTools } from './mcpPublicTools';
 import { ToolInputError } from './mcpErrors';
+import { PLANNER_WIDGET_URI, WIDGET_TOOLS } from './mcpWidgets';
 
 /**
  * Tool registry for the NeuroCann LLM plugin (MCP server).
@@ -37,8 +38,11 @@ export interface McpToolDefinition {
     };
 }
 
-/** Wire format sent in tools/list — definition plus auth metadata, minus our internal `scope`. */
-export type McpToolListing = Omit<McpToolDefinition, 'scope'> & { securitySchemes: SecurityScheme[] };
+/** Wire format sent in tools/list — definition plus auth and UI metadata, minus our internal `scope`. */
+export type McpToolListing = Omit<McpToolDefinition, 'scope'> & {
+    securitySchemes: SecurityScheme[];
+    _meta: Record<string, unknown>;
+};
 
 /** Handlers for public tools receive `null` — there is no company to scope to. */
 export type ToolHandler = (ctx: PluginContext | null, args: Record<string, any>) => Promise<unknown>;
@@ -650,12 +654,32 @@ register({
  * account linking for gated tools); authenticated callers see public tools plus
  * whatever their scopes allow — a read-only API key never learns about writes.
  */
+/**
+ * Tool-descriptor `_meta`: a mirror of `securitySchemes` for hosts that only
+ * read `_meta`, plus MCP Apps UI linkage for tools that render in the planner
+ * widget. `_meta.ui.resourceUri` is the standard key; `openai/outputTemplate`
+ * is ChatGPT's compatibility alias. Hosts without UI support ignore both and
+ * fall back to the text `content`, so the metadata is safe to advertise to
+ * every client.
+ */
+function toolMeta(definition: McpToolDefinition): Record<string, unknown> {
+    const meta: Record<string, unknown> = { securitySchemes: securitySchemesFor(definition.scope) };
+    const ui = WIDGET_TOOLS[definition.name];
+    if (ui) {
+        meta.ui = { resourceUri: PLANNER_WIDGET_URI };
+        meta['openai/outputTemplate'] = PLANNER_WIDGET_URI;
+        meta['openai/toolInvocation/invoking'] = ui.invoking;
+        meta['openai/toolInvocation/invoked'] = ui.invoked;
+    }
+    return meta;
+}
+
 export function listTools(scopes: ApiKeyScope[] | null): McpToolListing[] {
     return tools
         .filter(t => scopes === null || t.definition.scope === 'public' || scopes.includes(t.definition.scope))
         .map(({ definition }) => {
             const { scope, ...rest } = definition;
-            return { ...rest, securitySchemes: securitySchemesFor(scope) };
+            return { ...rest, securitySchemes: securitySchemesFor(scope), _meta: toolMeta(definition) };
         });
 }
 

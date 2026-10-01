@@ -1,6 +1,7 @@
 import type { Handler, HandlerEvent, HandlerResponse } from '@netlify/functions';
 import { bearerChallenge, resolvePluginAuth, OAUTH_SCOPE_READ, OAUTH_SCOPE_WRITE, type PluginContext } from './utils/apiKeys';
 import { findTool, listTools, ToolInputError, type RegisteredTool } from './utils/mcpTools';
+import { listWidgetResources, readWidgetResource } from './utils/mcpWidgets';
 import { checkRateLimit } from './utils/rateLimit';
 import { captureError } from './utils/sentry';
 
@@ -20,16 +21,20 @@ import { captureError } from './utils/sentry';
  *     account-linking UI for that tool
  *   - a presented-but-invalid credential is a hard 401 with `WWW-Authenticate`
  *     pointing at /.well-known/oauth-protected-resource (RFC 9728)
+ *
+ * Public planner tools also link an MCP Apps UI resource (`ui://…`, served via
+ * resources/read) so hosts like ChatGPT render their results as an inline
+ * card. Tools stay fully usable from the text content alone.
  * See docs/llm-plugin.md.
  */
 
-const SERVER_INFO = { name: 'neurocann', title: 'NeuroCann', version: '1.1.0' };
+const SERVER_INFO = { name: 'neurocann', title: 'NeuroCann', version: '1.2.0' };
 const SUPPORTED_PROTOCOL_VERSIONS = ['2025-06-18', '2025-03-26', '2024-11-05'];
 const LATEST_PROTOCOL_VERSION = SUPPORTED_PROTOCOL_VERSIONS[0];
 
 const SERVER_INSTRUCTIONS = `NeuroCann is a cannabis cultivation and extraction operations platform. Weights are grams unless a unit is given.
 
-Without a linked account you can use about_neurocann, plan_extraction_inputs (demand-backward: "how much fresh frozen for 500 g of rosin?") and estimate_dry_weight. Facility tools (get_facility_overview, list_*, run_report, tasks) require the user to link their NeuroCann account; when one returns an authentication error, offer to connect the account rather than retrying.
+Without a linked account you can use about_neurocann and the free planners: plan_extraction_inputs (demand-backward: "how much fresh frozen for 500 g of rosin?"), estimate_dry_weight, estimate_harvest_yield, plan_harvest_timeline and estimate_trim_labor. Where the host renders their results as a card, summarise the takeaway and the key assumption instead of restating every figure. Facility tools (get_facility_overview, list_*, run_report, tasks) require the user to link their NeuroCann account; when one returns an authentication error, offer to connect the account rather than retrying.
 
 Once linked: start with get_facility_overview, then use list_* tools for detail. Harvests move planning → active → submitted → drying → ready → completed; plants move nursery → vegetative → flowering → harvested. For analytics call get_report_schema and then run_report. Confirm with the user before create_task or update_task_status.`;
 
@@ -39,6 +44,7 @@ const INVALID_REQUEST = -32600;
 const METHOD_NOT_FOUND = -32601;
 const INVALID_PARAMS = -32602;
 const INTERNAL_ERROR = -32603;
+const RESOURCE_NOT_FOUND = -32002;
 
 interface JsonRpcRequest {
     jsonrpc: '2.0';
@@ -145,7 +151,7 @@ async function dispatch(scope: RequestScope, msg: JsonRpcRequest): Promise<Recor
         case 'initialize':
             return rpcResult(id, {
                 protocolVersion: negotiateProtocolVersion(msg.params?.protocolVersion),
-                capabilities: { tools: { listChanged: false } },
+                capabilities: { tools: { listChanged: false }, resources: { listChanged: false, subscribe: false } },
                 serverInfo: SERVER_INFO,
                 instructions: SERVER_INSTRUCTIONS,
             });
@@ -164,9 +170,18 @@ async function dispatch(scope: RequestScope, msg: JsonRpcRequest): Promise<Recor
                 throw err;
             }
 
-        // Advertised-but-empty capabilities and lifecycle notifications.
+        // UI resources (MCP Apps) are static HTML, so they are readable anonymously.
         case 'resources/list':
-            return rpcResult(id, { resources: [] });
+            return rpcResult(id, { resources: listWidgetResources() });
+        case 'resources/read': {
+            const uri = msg.params?.uri;
+            if (typeof uri !== 'string') return rpcError(id, INVALID_PARAMS, 'resources/read requires a resource "uri"');
+            const resource = readWidgetResource(uri);
+            if (!resource) return rpcError(id, RESOURCE_NOT_FOUND, `Resource not found: ${uri}`, { uri });
+            return rpcResult(id, resource);
+        }
+
+        // Advertised-but-empty capabilities and lifecycle notifications.
         case 'resources/templates/list':
             return rpcResult(id, { resourceTemplates: [] });
         case 'prompts/list':
