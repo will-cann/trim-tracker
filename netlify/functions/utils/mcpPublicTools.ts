@@ -51,38 +51,90 @@ function pct(value: unknown, fallback: number, key: string): number {
 
 // ── Extraction process presets (mirror migrations/seed_extraction_presets.sql) ─
 
-interface StepPreset { key: string; name: string; from: string; to: string; yieldPct: number; hours: number }
+/**
+ * `hours` is wall-clock process time for a standard batch; `laborHours` is the
+ * attended labor within it (a 24 h freeze-dry cycle needs ~1 h of hands-on).
+ */
+interface StepPreset { key: string; name: string; from: string; to: string; yieldPct: number; hours: number; laborHours: number }
 
 const SOLVENTLESS: StepPreset[] = [
-    { key: 'washYieldPct', name: 'Wash (ice water)', from: 'fresh_frozen', to: 'bubble_hash', yieldPct: 5, hours: 4.5 },
-    { key: 'freezeDryYieldPct', name: 'Freeze dry', from: 'bubble_hash', to: 'bubble_hash', yieldPct: 96, hours: 24 },
-    { key: 'pressYieldPct', name: 'Press', from: 'bubble_hash', to: 'rosin', yieldPct: 60, hours: 1 },
-    { key: 'decarbYieldPct', name: 'Decarb', from: 'rosin', to: 'rosin', yieldPct: 95, hours: 2 },
-    { key: 'fillYieldPct', name: 'Fill carts', from: 'rosin', to: 'rosin_cart', yieldPct: 95, hours: 2 },
+    { key: 'washYieldPct', name: 'Wash (ice water)', from: 'fresh_frozen', to: 'bubble_hash', yieldPct: 5, hours: 4.5, laborHours: 4.5 },
+    { key: 'freezeDryYieldPct', name: 'Freeze dry', from: 'bubble_hash', to: 'bubble_hash', yieldPct: 96, hours: 24, laborHours: 1 },
+    { key: 'pressYieldPct', name: 'Press', from: 'bubble_hash', to: 'rosin', yieldPct: 60, hours: 1, laborHours: 1 },
+    { key: 'decarbYieldPct', name: 'Decarb', from: 'rosin', to: 'rosin', yieldPct: 95, hours: 2, laborHours: 0.5 },
+    { key: 'fillYieldPct', name: 'Fill carts', from: 'rosin', to: 'rosin_cart', yieldPct: 95, hours: 2, laborHours: 2 },
 ];
 
 const BHO: StepPreset[] = [
-    { key: 'extractYieldPct', name: 'Closed-loop extract', from: 'fresh_frozen', to: 'crude_extract', yieldPct: 15, hours: 4 },
-    { key: 'purgeYieldPct', name: 'Purge / dewax', from: 'crude_extract', to: 'purged_extract', yieldPct: 90, hours: 24 },
-    { key: 'cureYieldPct', name: 'Pour / cure', from: 'purged_extract', to: 'bho_concentrate', yieldPct: 95, hours: 48 },
+    { key: 'extractYieldPct', name: 'Closed-loop extract', from: 'fresh_frozen', to: 'crude_extract', yieldPct: 15, hours: 4, laborHours: 4 },
+    { key: 'purgeYieldPct', name: 'Purge / dewax', from: 'crude_extract', to: 'purged_extract', yieldPct: 90, hours: 24, laborHours: 1 },
+    { key: 'cureYieldPct', name: 'Pour / cure', from: 'purged_extract', to: 'bho_concentrate', yieldPct: 95, hours: 48, laborHours: 1 },
 ];
 
 const DISTILLATE: StepPreset[] = [
-    { key: 'extractYieldPct', name: 'Closed-loop extract', from: 'trim', to: 'crude_extract', yieldPct: 12, hours: 4 },
-    { key: 'winterizeYieldPct', name: 'Winterize', from: 'crude_extract', to: 'winterized', yieldPct: 85, hours: 12 },
-    { key: 'filterYieldPct', name: 'Filter', from: 'winterized', to: 'filtered', yieldPct: 95, hours: 2 },
-    { key: 'distillYieldPct', name: 'Short-path distill', from: 'filtered', to: 'distillate', yieldPct: 80, hours: 6 },
+    { key: 'extractYieldPct', name: 'Closed-loop extract', from: 'trim', to: 'crude_extract', yieldPct: 12, hours: 4, laborHours: 4 },
+    { key: 'winterizeYieldPct', name: 'Winterize', from: 'crude_extract', to: 'winterized', yieldPct: 85, hours: 12, laborHours: 1 },
+    { key: 'filterYieldPct', name: 'Filter', from: 'winterized', to: 'filtered', yieldPct: 95, hours: 2, laborHours: 2 },
+    { key: 'distillYieldPct', name: 'Short-path distill', from: 'filtered', to: 'distillate', yieldPct: 80, hours: 6, laborHours: 6 },
 ];
 
-const TARGETS: Record<string, { chain: StepPreset[]; stopAfter: string; input: string; label: string }> = {
-    bubble_hash: { chain: SOLVENTLESS, stopAfter: 'freezeDryYieldPct', input: 'fresh_frozen', label: 'bubble hash (freeze-dried)' },
-    rosin: { chain: SOLVENTLESS, stopAfter: 'pressYieldPct', input: 'fresh_frozen', label: 'live rosin' },
-    rosin_carts: { chain: SOLVENTLESS, stopAfter: 'fillYieldPct', input: 'fresh_frozen', label: 'live rosin cartridges' },
-    bho_concentrate: { chain: BHO, stopAfter: 'cureYieldPct', input: 'fresh_frozen', label: 'BHO concentrate' },
-    distillate: { chain: DISTILLATE, stopAfter: 'distillYieldPct', input: 'trim', label: 'distillate' },
+interface Target { chain: StepPreset[]; stopAfter: string; input: string; label: string; consumablesUsdPerBatch: number }
+
+const TARGETS: Record<string, Target> = {
+    bubble_hash: { chain: SOLVENTLESS, stopAfter: 'freezeDryYieldPct', input: 'fresh_frozen', label: 'bubble hash (freeze-dried)', consumablesUsdPerBatch: 40 },
+    rosin: { chain: SOLVENTLESS, stopAfter: 'pressYieldPct', input: 'fresh_frozen', label: 'live rosin', consumablesUsdPerBatch: 60 },
+    rosin_carts: { chain: SOLVENTLESS, stopAfter: 'fillYieldPct', input: 'fresh_frozen', label: 'live rosin cartridges', consumablesUsdPerBatch: 60 },
+    bho_concentrate: { chain: BHO, stopAfter: 'cureYieldPct', input: 'fresh_frozen', label: 'BHO concentrate', consumablesUsdPerBatch: 250 },
+    distillate: { chain: DISTILLATE, stopAfter: 'distillYieldPct', input: 'trim', label: 'distillate', consumablesUsdPerBatch: 300 },
 };
 
 const STANDARD_BATCH_G = 500;
+
+/** Planning defaults for the economics tool — always echoed back as assumptions. */
+const DEFAULT_MATERIAL_PRICE_PER_LB: Record<string, number> = { fresh_frozen: 150, trim: 40 };
+const DEFAULT_LABOR_RATE_USD = 22;
+const DEFAULT_LAB_TEST_USD_PER_BATCH = 150;
+
+/** Solventless throughput defaults (wash + freeze-dry capacity planning). */
+const DEFAULT_WASH_CAPACITY_LB = 20;
+const DEFAULT_WASH_STATIONS = 1;
+const DEFAULT_FREEZE_DRYERS = 1;
+const DEFAULT_FREEZE_DRYER_CAPACITY_G = 2000; // wet hash per cycle, large consumer/pro unit
+const DEFAULT_FREEZE_DRYER_CYCLE_HOURS = 24;
+
+interface PlannedStep extends StepPreset { yieldSource: 'override' | 'neurocann_preset'; inputGrams: number; outputGrams: number }
+
+/** Resolve a target's step chain with overrides applied, then walk back from the finished weight. */
+function planBackward(target: Target, outputGrams: number, overrides: Record<string, unknown>): { steps: PlannedStep[]; requiredGrams: number } {
+    const stopIdx = target.chain.findIndex(s => s.key === target.stopAfter);
+    const chain = target.chain.slice(0, stopIdx + 1);
+    let required = outputGrams;
+    const steps: PlannedStep[] = [];
+    for (let i = chain.length - 1; i >= 0; i--) {
+        const s = chain[i];
+        const yieldPct = pct(overrides[s.key], s.yieldPct, s.key);
+        const input = required / (yieldPct / 100);
+        steps.unshift({ ...s, yieldPct, yieldSource: overrides[s.key] !== undefined ? 'override' : 'neurocann_preset', inputGrams: input, outputGrams: required });
+        required = input;
+    }
+    return { steps, requiredGrams: required };
+}
+
+function yieldOverrides(args: Record<string, any>): Record<string, unknown> {
+    return args.yieldOverridesPct && typeof args.yieldOverridesPct === 'object' ? args.yieldOverridesPct : {};
+}
+
+const YIELD_OVERRIDE_SCHEMA = {
+    type: 'object',
+    description: 'Optional per-step yield overrides as percentages, e.g. {"washYieldPct": 3.5, "pressYieldPct": 70}.',
+    properties: {
+        washYieldPct: { type: 'number' }, freezeDryYieldPct: { type: 'number' }, pressYieldPct: { type: 'number' },
+        decarbYieldPct: { type: 'number' }, fillYieldPct: { type: 'number' }, extractYieldPct: { type: 'number' },
+        purgeYieldPct: { type: 'number' }, cureYieldPct: { type: 'number' }, winterizeYieldPct: { type: 'number' },
+        filterYieldPct: { type: 'number' }, distillYieldPct: { type: 'number' },
+    },
+    additionalProperties: false,
+};
 
 // ── Cultivation / trim defaults (explicit assumptions, all overridable) ───────
 
@@ -148,6 +200,8 @@ export function registerPublicTools(register: Register) {
         inThisAssistant: {
             withoutAccount: [
                 'plan_extraction_inputs — demand-backward input planning using NeuroCann preset yields',
+                'estimate_cost_per_gram — extraction economics: batch cost, cost per gram, margin and break-even yield',
+                'plan_wash_schedule — wash runs, freeze-dryer cycles, days and bottleneck for a fresh-frozen lot',
                 'estimate_dry_weight — wet-to-dry harvest estimates',
                 'estimate_harvest_yield — plants or canopy → dry weight and flower/trim/shake split',
                 'plan_harvest_timeline — flip date ↔ harvest, dry and cure dates',
@@ -178,17 +232,7 @@ export function registerPublicTools(register: Register) {
                 gramsPerCart: { type: 'number', exclusiveMinimum: 0, default: 0.5, description: 'Fill weight per cartridge when targetUnit is carts.' },
                 pricePerLb: { type: 'number', minimum: 0, description: 'Optional purchase price of the starting material per pound (USD) for a cost estimate.' },
                 washVesselCapacityLb: { type: 'number', exclusiveMinimum: 0, description: 'Optional: starting-material capacity of one wash/extraction run, to estimate run count and hours.' },
-                yieldOverridesPct: {
-                    type: 'object',
-                    description: 'Optional per-step yield overrides as percentages, e.g. {"washYieldPct": 3.5, "pressYieldPct": 70}.',
-                    properties: {
-                        washYieldPct: { type: 'number' }, freezeDryYieldPct: { type: 'number' }, pressYieldPct: { type: 'number' },
-                        decarbYieldPct: { type: 'number' }, fillYieldPct: { type: 'number' }, extractYieldPct: { type: 'number' },
-                        purgeYieldPct: { type: 'number' }, cureYieldPct: { type: 'number' }, winterizeYieldPct: { type: 'number' },
-                        filterYieldPct: { type: 'number' }, distillYieldPct: { type: 'number' },
-                    },
-                    additionalProperties: false,
-                },
+                yieldOverridesPct: YIELD_OVERRIDE_SCHEMA,
             },
             required: ['targetProduct', 'targetAmount'],
             additionalProperties: false,
@@ -212,19 +256,11 @@ export function registerPublicTools(register: Register) {
             outputGrams = toGrams(amount, unit);
         }
 
-        const overrides = (args.yieldOverridesPct && typeof args.yieldOverridesPct === 'object') ? args.yieldOverridesPct : {};
-        const stopIdx = target.chain.findIndex(s => s.key === target.stopAfter);
-        const steps = target.chain.slice(0, stopIdx + 1).map(s => ({ ...s, yieldPct: pct(overrides[s.key], s.yieldPct, s.key) }));
-
-        // Walk backwards from the finished weight to the starting material.
-        let required = outputGrams;
-        const plan = [];
-        for (let i = steps.length - 1; i >= 0; i--) {
-            const s = steps[i];
-            const input = required / (s.yieldPct / 100);
-            plan.unshift({ step: s.name, input: s.from, output: s.to, yieldPct: s.yieldPct, yieldSource: overrides[s.key] !== undefined ? 'override' : 'neurocann_preset', inputWeight: weight(input), outputWeight: weight(required), estimatedHours: s.hours });
-            required = input;
-        }
+        const { steps, requiredGrams: required } = planBackward(target, outputGrams, yieldOverrides(args));
+        const plan = steps.map(s => ({
+            step: s.name, input: s.from, output: s.to, yieldPct: s.yieldPct, yieldSource: s.yieldSource,
+            inputWeight: weight(s.inputGrams), outputWeight: weight(s.outputGrams), estimatedHours: s.hours,
+        }));
         const overallYieldPct = round((outputGrams / required) * 100, 2);
 
         const materialCost = args.pricePerLb !== undefined && args.pricePerLb !== null
@@ -251,6 +287,208 @@ export function registerPublicTools(register: Register) {
                 'With a linked NeuroCann facility, the planner uses your own historical per-strain yields and on-hand inventory instead of presets.',
             ],
             next: `Connect a facility at ${APP_URL} to plan against live inventory and historical yields.`,
+        };
+    });
+
+    register({
+        name: 'estimate_cost_per_gram',
+        title: 'Estimate cost per gram',
+        description: 'Extraction economics: what it costs to produce a gram of live rosin, bubble hash, rosin carts, BHO concentrate or distillate. Builds a batch cost from starting-material price, attended labor, consumables, lab testing and optional packaging, then reports cost per gram (and per unit), the material share of cost, and — if a wholesale price is given — gross margin and the break-even yield. Defaults are stated and every one can be overridden. No account required.',
+        inputSchema: {
+            type: 'object',
+            properties: {
+                targetProduct: { type: 'string', enum: Object.keys(TARGETS), description: 'Finished product to cost.' },
+                batchOutputGrams: { type: 'number', exclusiveMinimum: 0, default: STANDARD_BATCH_G, description: 'Finished grams per batch to cost against (500 g is the usual lab-test batch).' },
+                materialPricePerLb: { type: 'number', minimum: 0, description: `Starting-material price per pound (USD). Defaults: fresh frozen $${DEFAULT_MATERIAL_PRICE_PER_LB.fresh_frozen}/lb, trim $${DEFAULT_MATERIAL_PRICE_PER_LB.trim}/lb.` },
+                laborRateUsd: { type: 'number', minimum: 0, default: DEFAULT_LABOR_RATE_USD, description: 'Loaded hourly labor rate.' },
+                laborHours: { type: 'number', minimum: 0, description: 'Override attended labor hours per batch; defaults to the sum of NeuroCann preset hands-on hours for the process.' },
+                consumablesUsd: { type: 'number', minimum: 0, description: 'Per-batch consumables (bags, filters, parchment, solvent). Defaults by process: solventless $40–60, BHO $250, distillate $300.' },
+                labTestUsd: { type: 'number', minimum: 0, default: DEFAULT_LAB_TEST_USD_PER_BATCH, description: 'Compliance lab testing per batch.' },
+                overheadUsd: { type: 'number', minimum: 0, default: 0, description: 'Optional per-batch share of rent, utilities, equipment depreciation.' },
+                unitGrams: { type: 'number', exclusiveMinimum: 0, description: 'Optional retail unit size (e.g. 1 for gram jars, 0.5 for half-gram carts) for a per-unit cost.' },
+                packagingUsdPerUnit: { type: 'number', minimum: 0, description: 'Optional packaging/hardware cost per unit (jar, cart, label).' },
+                wholesalePricePerGram: { type: 'number', minimum: 0, description: 'Optional selling price per gram for margin and break-even yield.' },
+                yieldOverridesPct: YIELD_OVERRIDE_SCHEMA,
+            },
+            required: ['targetProduct'],
+            additionalProperties: false,
+        },
+        scope: 'public',
+        annotations: READ_ONLY,
+    }, async (_ctx, args) => {
+        const target = TARGETS[String(args.targetProduct)];
+        if (!target) throw new ToolInputError(`"targetProduct" must be one of: ${Object.keys(TARGETS).join(', ')}`);
+
+        const outputGrams = args.batchOutputGrams === undefined ? STANDARD_BATCH_G : positiveNumber(args.batchOutputGrams, 'batchOutputGrams');
+        const { steps, requiredGrams } = planBackward(target, outputGrams, yieldOverrides(args));
+        const overallYieldPct = (outputGrams / requiredGrams) * 100;
+
+        const optNonNeg = (key: string, fallback: number): { value: number; source: 'input' | 'default' } => {
+            if (args[key] === undefined || args[key] === null) return { value: fallback, source: 'default' };
+            const n = typeof args[key] === 'number' ? args[key] : parseFloat(String(args[key]));
+            if (!Number.isFinite(n) || n < 0) throw new ToolInputError(`"${key}" must be zero or a positive number`);
+            return { value: n, source: 'input' };
+        };
+
+        const materialPrice = optNonNeg('materialPricePerLb', DEFAULT_MATERIAL_PRICE_PER_LB[target.input] ?? 0);
+        const laborRate = optNonNeg('laborRateUsd', DEFAULT_LABOR_RATE_USD);
+        const presetLaborHours = steps.reduce((a, s) => a + s.laborHours, 0);
+        const laborHours = optNonNeg('laborHours', presetLaborHours);
+        const consumables = optNonNeg('consumablesUsd', target.consumablesUsdPerBatch);
+        const labTest = optNonNeg('labTestUsd', DEFAULT_LAB_TEST_USD_PER_BATCH);
+        const overhead = optNonNeg('overheadUsd', 0);
+
+        const unitGrams = args.unitGrams === undefined || args.unitGrams === null ? undefined : positiveNumber(args.unitGrams, 'unitGrams');
+        const units = unitGrams ? Math.floor(outputGrams / unitGrams) : undefined;
+        const packagingPerUnit = optNonNeg('packagingUsdPerUnit', 0);
+
+        const materialUsd = (requiredGrams / GRAMS_PER.lb) * materialPrice.value;
+        const laborUsd = laborHours.value * laborRate.value;
+        const packagingUsd = units ? units * packagingPerUnit.value : 0;
+        const fixedUsd = laborUsd + consumables.value + labTest.value + overhead.value + packagingUsd;
+        const totalUsd = materialUsd + fixedUsd;
+        const costPerGram = totalUsd / outputGrams;
+
+        const breakdown = [
+            { item: 'Starting material', usd: round(materialUsd, 2), basis: `${round(requiredGrams / GRAMS_PER.lb, 2)} lb ${target.input.replace(/_/g, ' ')} × $${materialPrice.value}/lb` },
+            { item: 'Labor', usd: round(laborUsd, 2), basis: `${round(laborHours.value, 1)} h × $${laborRate.value}/h` },
+            { item: 'Consumables', usd: round(consumables.value, 2), basis: 'per batch' },
+            { item: 'Lab testing', usd: round(labTest.value, 2), basis: 'per batch' },
+            ...(overhead.value > 0 ? [{ item: 'Overhead', usd: round(overhead.value, 2), basis: 'per batch' }] : []),
+            ...(packagingUsd > 0 ? [{ item: 'Packaging', usd: round(packagingUsd, 2), basis: `${units} units × $${packagingPerUnit.value}` }] : []),
+        ].map(b => ({ ...b, sharePct: round(totalUsd ? (b.usd / totalUsd) * 100 : 0, 1) }));
+
+        let economics: Record<string, unknown> | undefined;
+        if (args.wholesalePricePerGram !== undefined && args.wholesalePricePerGram !== null) {
+            const price = positiveNumber(args.wholesalePricePerGram, 'wholesalePricePerGram');
+            const revenue = price * outputGrams;
+            const grossMargin = revenue - totalUsd;
+            // Material cost scales inversely with overall yield; everything else is fixed per batch.
+            // Solve price·out = material·(y0/y) + fixed for y.
+            const denominator = revenue - fixedUsd;
+            const breakEvenYieldPct = denominator > 0 ? (materialUsd * overallYieldPct) / denominator : null;
+            const maxMaterialPricePerLb = denominator > 0 ? denominator / (requiredGrams / GRAMS_PER.lb) : 0;
+            economics = {
+                wholesalePricePerGram: price,
+                batchRevenueUsd: round(revenue, 2),
+                grossMarginUsd: round(grossMargin, 2),
+                grossMarginPct: round(revenue ? (grossMargin / revenue) * 100 : 0, 1),
+                breakEvenOverallYieldPct: breakEvenYieldPct === null ? null : round(breakEvenYieldPct, 2),
+                maxMaterialPricePerLbAtBreakEven: round(maxMaterialPricePerLb, 2),
+            };
+        }
+
+        const defaultsUsed = [materialPrice, laborRate, laborHours, consumables, labTest]
+            .map((v, i) => (v.source === 'default' ? ['material price', 'labor rate', 'labor hours', 'consumables', 'lab testing'][i] : null))
+            .filter(Boolean);
+
+        return {
+            product: target.label,
+            batch: { outputWeight: weight(outputGrams), startingMaterial: { type: target.input, required: weight(requiredGrams) }, overallYieldPct: round(overallYieldPct, 2), ...(units ? { units, unitGrams } : {}) },
+            costPerGramUsd: round(costPerGram, 2),
+            ...(units ? { costPerUnitUsd: round(totalUsd / units, 2) } : {}),
+            batchCostUsd: round(totalUsd, 2),
+            breakdown,
+            materialSharePct: round(totalUsd ? (materialUsd / totalUsd) * 100 : 0, 1),
+            sensitivity: {
+                note: 'Cost per gram if the first (highest-leverage) step yield moves by one percentage point.',
+                firstStep: steps[0].name,
+                costPerGramAtMinusOnePoint: round(((materialUsd * steps[0].yieldPct) / Math.max(0.1, steps[0].yieldPct - 1) + fixedUsd) / outputGrams, 2),
+                costPerGramAtPlusOnePoint: round(((materialUsd * steps[0].yieldPct) / (steps[0].yieldPct + 1) + fixedUsd) / outputGrams, 2),
+            },
+            ...(economics ? { economics } : {}),
+            assumptions: [
+                defaultsUsed.length
+                    ? `Planning defaults used for ${defaultsUsed.join(', ')} (fresh frozen $${DEFAULT_MATERIAL_PRICE_PER_LB.fresh_frozen}/lb, trim $${DEFAULT_MATERIAL_PRICE_PER_LB.trim}/lb, $${DEFAULT_LABOR_RATE_USD}/h, ${round(presetLaborHours, 1)} attended hours, $${target.consumablesUsdPerBatch} consumables, $${DEFAULT_LAB_TEST_USD_PER_BATCH} lab test) — pass your own numbers to tighten this.`
+                    : 'All cost inputs were supplied; yields are NeuroCann presets unless overridden.',
+                'Material is usually the dominant cost in solventless, so wash yield and fresh-frozen price move cost per gram far more than labor does.',
+                'With a linked NeuroCann facility, runs record actual input weights, yields and labor so cost per gram comes from your own batches.',
+            ],
+        };
+    });
+
+    register({
+        name: 'plan_wash_schedule',
+        title: 'Plan wash & freeze-dry schedule',
+        description: 'Solventless throughput planner: given a quantity of fresh frozen to process, work out wash runs, freeze-dryer cycles, how many days each stage takes with the stations and dryers available, which stage is the bottleneck, the expected wet and dry hash output, and (optionally) finish dates and the equipment needed to hit a deadline. No account required.',
+        inputSchema: {
+            type: 'object',
+            properties: {
+                freshFrozenWeight: { type: 'number', exclusiveMinimum: 0 },
+                unit: { type: 'string', enum: ['g', 'kg', 'oz', 'lb'], default: 'lb' },
+                washCapacityLb: { type: 'number', exclusiveMinimum: 0, default: DEFAULT_WASH_CAPACITY_LB, description: 'Fresh frozen per wash run.' },
+                washCycleHours: { type: 'number', exclusiveMinimum: 0, default: 4.5, description: 'Wall-clock time per wash run including collection and cleanup.' },
+                washStations: { type: 'integer', minimum: 1, default: DEFAULT_WASH_STATIONS },
+                shiftHours: { type: 'number', exclusiveMinimum: 0, default: DEFAULT_SHIFT_HOURS, description: 'Hours per day the wash team works.' },
+                washYieldPct: { type: 'number', exclusiveMinimum: 0, maximum: 100, default: 5, description: 'Wet hash yield from fresh frozen.' },
+                freezeDryers: { type: 'integer', minimum: 1, default: DEFAULT_FREEZE_DRYERS },
+                freezeDryerCapacityG: { type: 'number', exclusiveMinimum: 0, default: DEFAULT_FREEZE_DRYER_CAPACITY_G, description: 'Wet hash per freeze-dryer cycle.' },
+                freezeDryerCycleHours: { type: 'number', exclusiveMinimum: 0, default: DEFAULT_FREEZE_DRYER_CYCLE_HOURS },
+                startDate: { type: 'string', format: 'date', description: 'Optional: first wash day, to report finish dates.' },
+                targetDays: { type: 'number', exclusiveMinimum: 0, description: 'Optional deadline in days; returns the stations and dryers needed to meet it.' },
+            },
+            required: ['freshFrozenWeight'],
+            additionalProperties: false,
+        },
+        scope: 'public',
+        annotations: READ_ONLY,
+    }, async (_ctx, args) => {
+        const totalG = toGrams(positiveNumber(args.freshFrozenWeight, 'freshFrozenWeight'), String(args.unit || 'lb'));
+        const capG = toGrams(args.washCapacityLb === undefined ? DEFAULT_WASH_CAPACITY_LB : positiveNumber(args.washCapacityLb, 'washCapacityLb'), 'lb');
+        const washCycle = args.washCycleHours === undefined ? SOLVENTLESS[0].hours : positiveNumber(args.washCycleHours, 'washCycleHours');
+        const stations = args.washStations === undefined ? DEFAULT_WASH_STATIONS : Math.max(1, Math.floor(positiveNumber(args.washStations, 'washStations')));
+        const shift = args.shiftHours === undefined ? DEFAULT_SHIFT_HOURS : positiveNumber(args.shiftHours, 'shiftHours');
+        const washYield = pct(args.washYieldPct, SOLVENTLESS[0].yieldPct, 'washYieldPct');
+        const dryers = args.freezeDryers === undefined ? DEFAULT_FREEZE_DRYERS : Math.max(1, Math.floor(positiveNumber(args.freezeDryers, 'freezeDryers')));
+        const fdCapG = args.freezeDryerCapacityG === undefined ? DEFAULT_FREEZE_DRYER_CAPACITY_G : positiveNumber(args.freezeDryerCapacityG, 'freezeDryerCapacityG');
+        const fdCycle = args.freezeDryerCycleHours === undefined ? DEFAULT_FREEZE_DRYER_CYCLE_HOURS : positiveNumber(args.freezeDryerCycleHours, 'freezeDryerCycleHours');
+
+        const washRuns = Math.ceil(totalG / capG);
+        const runsPerStationPerDay = Math.max(1, Math.floor(shift / washCycle));
+        const washDays = Math.ceil(washRuns / (runsPerStationPerDay * stations));
+
+        const wetHashG = totalG * (washYield / 100);
+        const dryHashG = wetHashG * (SOLVENTLESS[1].yieldPct / 100);
+        const fdCycles = Math.ceil(wetHashG / fdCapG);
+        const cyclesPerDryerPerDay = Math.max(1, Math.floor(24 / fdCycle));
+        const fdDays = Math.ceil(fdCycles / (cyclesPerDryerPerDay * dryers));
+
+        // Drying trails washing by one day (the first cycle loads after the first wash day).
+        const elapsedDays = Math.max(washDays, fdDays) + 1;
+        const bottleneck = fdDays > washDays ? 'freeze_dry' : washDays > fdDays ? 'wash' : 'balanced';
+
+        let dates: Record<string, string> | undefined;
+        if (args.startDate) {
+            const start = parseDate(args.startDate, 'startDate');
+            dates = { firstWash: isoDate(start), lastWash: isoDate(addDays(start, washDays - 1)), lastFreezeDryComplete: isoDate(addDays(start, elapsedDays)) };
+        }
+
+        let toMeetDeadline: Record<string, unknown> | undefined;
+        if (args.targetDays !== undefined && args.targetDays !== null) {
+            const days = Math.max(1, Math.floor(positiveNumber(args.targetDays, 'targetDays')));
+            const stageDays = Math.max(1, days - 1);
+            toMeetDeadline = {
+                targetDays: days,
+                washStationsNeeded: Math.ceil(washRuns / (runsPerStationPerDay * stageDays)),
+                freezeDryersNeeded: Math.ceil(fdCycles / (cyclesPerDryerPerDay * stageDays)),
+                achievableWithCurrentEquipment: elapsedDays <= days,
+            };
+        }
+
+        return {
+            input: { freshFrozen: weight(totalG) },
+            wash: { runs: washRuns, capacityPerRun: weight(capG), runsPerStationPerDay, stations, cycleHours: washCycle, days: washDays, lastRunFillPct: round(((totalG - capG * (washRuns - 1)) / capG) * 100, 0) },
+            freezeDry: { cycles: fdCycles, capacityPerCycle: weight(fdCapG), cyclesPerDryerPerDay, dryers, cycleHours: fdCycle, days: fdDays },
+            output: { wetHash: weight(wetHashG), dryHash: weight(dryHashG), washYieldPct: washYield, freezeDryYieldPct: SOLVENTLESS[1].yieldPct },
+            elapsedDays,
+            bottleneck,
+            ...(dates ? { dates } : {}),
+            ...(toMeetDeadline ? { toMeetDeadline } : {}),
+            assumptions: [
+                `${DEFAULT_WASH_CAPACITY_LB} lb per wash, ${SOLVENTLESS[0].hours} h per run, ${DEFAULT_FREEZE_DRYER_CAPACITY_G} g wet hash per ${DEFAULT_FREEZE_DRYER_CYCLE_HOURS} h freeze-dry cycle and a ${SOLVENTLESS[0].yieldPct}% wash yield are planning defaults unless you passed your own.`,
+                'Freeze-dry capacity is the usual bottleneck: one dryer cycle per day caps throughput at roughly capacity ÷ wash yield pounds of fresh frozen per day.',
+                'With a linked NeuroCann facility, runs are scheduled against your actual equipment and the wash yield comes from your own history per strain.',
+            ],
         };
     });
 
