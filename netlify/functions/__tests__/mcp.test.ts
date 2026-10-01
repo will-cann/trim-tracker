@@ -412,6 +412,74 @@ describe('tools', () => {
     });
 });
 
+describe('MCP Apps UI (inline planner card)', () => {
+    const WIDGET_URI = 'ui://neurocann/planner-v1.html';
+
+    beforeEach(() => { delete process.env.MCP_WIDGET_DOMAIN; });
+
+    it('advertises the resources capability and links public tools to the widget', async () => {
+        const init = await call(rpc('initialize', { protocolVersion: '2025-06-18' }));
+        expect(init.json.result.capabilities.resources).toBeDefined();
+
+        const list = await call(rpc('tools/list'));
+        const byName = Object.fromEntries(list.json.result.tools.map((t: any) => [t.name, t]));
+        for (const name of PUBLIC_TOOLS) {
+            expect(byName[name]._meta.ui).toEqual({ resourceUri: WIDGET_URI });
+            expect(byName[name]._meta['openai/outputTemplate']).toBe(WIDGET_URI);
+            expect(byName[name]._meta['openai/toolInvocation/invoking'].length).toBeLessThanOrEqual(64);
+            expect(byName[name]._meta['openai/toolInvocation/invoked'].length).toBeLessThanOrEqual(64);
+            expect(byName[name]._meta.securitySchemes).toEqual(byName[name].securitySchemes);
+        }
+        // Facility tools stay text-only; the card is a prospect-facing surface.
+        expect(byName.list_harvests._meta.ui).toBeUndefined();
+        expect(byName.list_harvests._meta['openai/outputTemplate']).toBeUndefined();
+        expect(byName.list_harvests._meta.securitySchemes).toEqual([{ type: 'oauth2', scopes: ['read:facility'] }]);
+    });
+
+    it('lists and serves the widget resource anonymously with a locked-down CSP', async () => {
+        const list = await call(rpc('resources/list'));
+        expect(list.json.result.resources).toEqual([expect.objectContaining({ uri: WIDGET_URI, mimeType: 'text/html;profile=mcp-app' })]);
+
+        const read = await call(rpc('resources/read', { uri: WIDGET_URI }));
+        expect(read.status).toBe(200);
+        const [content] = read.json.result.contents;
+        expect(content.uri).toBe(WIDGET_URI);
+        expect(content.mimeType).toBe('text/html;profile=mcp-app');
+        expect(content._meta.ui).toEqual(expect.objectContaining({ prefersBorder: true, csp: { connectDomains: [], resourceDomains: [] } }));
+        expect(content._meta.ui.domain).toBeUndefined();
+        expect(content._meta['openai/widgetCSP']).toEqual({ connect_domains: [], resource_domains: [], redirect_domains: ['https://neurocann.app'] });
+        expect(content._meta['openai/widgetDescription']).toMatch(/planner card/);
+
+        const html: string = content.text;
+        expect(html.startsWith('<!doctype html>')).toBe(true);
+        expect(html).toContain("request('ui/initialize'");
+        expect(html).toContain('ui/notifications/tool-result');
+        expect(html).toContain('ui/notifications/size-changed');
+        // Pure inline document: no template leaks, no external scripts/styles/fonts.
+        expect(html).not.toContain('${');
+        expect(html).not.toMatch(/<(script|link)[^>]+(src|href)=["']https?:/);
+        expect(html).not.toMatch(/@import|fonts\.googleapis/);
+        expect(sqlMock).not.toHaveBeenCalled();
+    });
+
+    it('declares the dedicated widget origin when MCP_WIDGET_DOMAIN is set', async () => {
+        process.env.MCP_WIDGET_DOMAIN = 'https://widgets.neurocann.app';
+        const read = await call(rpc('resources/read', { uri: WIDGET_URI }));
+        const [content] = read.json.result.contents;
+        expect(content._meta.ui.domain).toBe('https://widgets.neurocann.app');
+        expect(content._meta['openai/widgetDomain']).toBe('https://widgets.neurocann.app');
+    });
+
+    it('returns the MCP resource-not-found error for unknown URIs', async () => {
+        const res = await call(rpc('resources/read', { uri: 'ui://neurocann/nope.html' }));
+        expect(res.json.error.code).toBe(-32002);
+        expect(res.json.error.data).toEqual({ uri: 'ui://neurocann/nope.html' });
+
+        const missing = await call(rpc('resources/read', {}));
+        expect(missing.json.error.code).toBe(-32602);
+    });
+});
+
 describe('api key helpers', () => {
     it('generates prefixed keys whose hash is stable', () => {
         const { key, prefix, hash } = generateApiKey();
