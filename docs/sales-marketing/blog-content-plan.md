@@ -41,8 +41,8 @@ The mix is **75% short, 25% deep**. Read time is computed by the site at 220 wor
 |---|---|---|
 | Share of posts | 75% (3 of every 4) | 25% (1 of every 4) |
 | Displayed read time | 1–2 min | 8–10 min |
-| Word count | 250–400 | 1,800–2,100 |
-| Structure | One learning. Opening line states it. 0–1 H2. Optional single table or blockquote. Last line lands it. | 5–7 H2 sections, at least one table of real numbers, at least one blockquote (an operator's words), a "Where this breaks" section, and a short "What to do Monday" close. |
+| Word count | 300–500 | 1,800–2,100 |
+| Structure | One learning. The opening paragraph sets the scene or states the learning plainly. 0–1 H2. Optional single table or blockquote. The close explains what to do with the learning; it does not try to land a line. | 5–7 H2 sections, at least one table of real numbers, at least one blockquote (an operator's words), a "Where this breaks" section, and a short "What to do Monday" close. |
 | Job | Hand an operator one thing they can use or repeat. | Teach a whole piece of running a facility — the numbers, the sequence, the failure modes — well enough that a new lead could run it from the post. |
 | Series | Belongs to one of the four recurring series below. | Standalone. One per pillar per quarter at most. |
 
@@ -207,7 +207,11 @@ Filename is the URL. Lowercase, hyphens, under 50 characters, permanent once pub
 
 ### Voice rules
 
-- Written by someone who has done the work, to someone who does it. Short sentences. Numbers in the first hundred words.
+- Written by someone who has done the work, to someone who does it. The register is instructive, explanatory, and earnest: the writer is walking a colleague through something they learned, not selling them on it. Numbers in the first hundred words.
+- Explain the reasoning, not just the conclusion. Every rule should come with the "because" that produced it, in full sentences. If a post could be summarized as a list of maxims, it is not finished.
+- Complete sentences, plainly constructed. Avoid the habits that make writing read as generated: one-word or fragment sentences used for emphasis ("Paper. The spreadsheet. METRC."); "Not X. Y." constructions; paired antitheses ("a slower demo and a faster facility"); rhetorical one-liners that close a paragraph; "Here is …" framing in descriptions; stacking three parallel short sentences for rhythm. Say the thing once, in a sentence that explains it.
+- It is fine to be plain. "We would suggest measuring it directly" is the right register. "Measure it." is not.
+- First person plural is encouraged where it is true ("we found," "in our experience," "we were wrong about this"). The posts are testimony, not copy.
 - Specific over generic. "Batches in 500-gram steps because the test is $500" beats "right-sized batches."
 - No hype words: revolutionary, game-changing, seamless, powerful, unlock, supercharge, leverage, optimize.
 - No emoji. No stock imagery. No leaf motifs. Images only when they carry information; a table usually does the job.
@@ -220,10 +224,11 @@ Filename is the URL. Lowercase, hyphens, under 50 characters, permanent once pub
 2. **Source.** Every learning traces to a Learnings Bank entry or to the author's own experience. Ballpark numbers are labeled.
 3. **Anonymization.** No names, brands, facilities. Locations at state level only. Section 9 rules applied.
 4. **Product claims.** Any sentence about NeuroCann is checked against the module doc's "Key capabilities (shipped)" and appears nowhere in "Do not claim." Roadmap items appear only as "not yet."
-5. **Length.** 250–400 or 1,800–2,100 words. Confirm the displayed read time after a local build.
-6. **Structure.** Floor Notes follow their series shape. Deep Dives have "Where this breaks" and "What to do Monday."
-7. **Description** is 120–160 characters and reads as a reason to click. No hype words or emoji anywhere.
-8. **Tags and slug** follow the taxonomy. Run `npm test` — `src/lib/__tests__/blog.test.ts` validates every post's frontmatter and sort order.
+5. **Length.** 300–500 or 1,800–2,100 words. Confirm the displayed read time after a local build.
+6. **Voice.** Read it aloud once. Any sentence that sounds like a slogan, a kicker, or a fragment for effect gets rewritten as an explanation. See the voice rules above.
+7. **Structure.** Floor Notes follow their series shape. Deep Dives have "Where this breaks" and "What to do Monday."
+8. **Description** is 120–160 characters and reads as a reason to click. No hype words or emoji anywhere.
+9. **Tags and slug** follow the taxonomy. Run `npm test` — `src/lib/__tests__/blog.test.ts` validates every post's frontmatter and sort order.
 
 ## 11. Learnings Bank
 

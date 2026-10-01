@@ -15,7 +15,7 @@ export const BlogIndex: React.FC = () => {
   useDocumentHead({
     title: 'Blog — NeuroCann',
     description:
-      'Notes from the floor: what running rooms, harvests, trim floors, and extraction programs actually taught us. Yields, batch sizes, sourcing, compliance — numbers included.',
+      'What we learned running rooms, harvests, trim floors, and extraction programs, and what the operators we work with have taught us since. Yields, batch sizes, sourcing, and compliance.',
     path: BLOG_BASE_PATH,
     ogType: 'website',
   });
@@ -43,7 +43,7 @@ export const BlogIndex: React.FC = () => {
                 className="text-lg text-gray-500 leading-relaxed"
                 style={{ opacity: 0, animation: 'heroFadeIn 0.7s cubic-bezier(0.16,1,0.3,1) 0.3s forwards' }}
               >
-                What running rooms, harvests, trim floors, and extraction programs actually taught us — and the operators we work with. Yields, batch sizes, sourcing, compliance. Numbers included.
+                What we learned running rooms, harvests, trim floors, and extraction programs, and what the operators we work with have taught us since. Yields, batch sizes, sourcing, and compliance, with the numbers where we have them.
               </p>
             </div>
           </div>
