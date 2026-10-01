@@ -5,9 +5,11 @@ import { apiService } from '../../services/apiService';
 import { useAuth } from '../../contexts/authContext';
 import type { ApiKey, ApiKeyScope, CreatedApiKey } from '../../types/definitions';
 
-type ClientId = 'claude-code' | 'claude-desktop' | 'cursor' | 'other' | 'curl';
+type ClientId = 'chatgpt' | 'claude-web' | 'claude-code' | 'claude-desktop' | 'cursor' | 'other' | 'curl';
 
 const CLIENT_TABS: { id: ClientId; label: string }[] = [
+    { id: 'chatgpt', label: 'ChatGPT' },
+    { id: 'claude-web', label: 'claude.ai' },
     { id: 'claude-code', label: 'Claude Code' },
     { id: 'claude-desktop', label: 'Claude Desktop' },
     { id: 'cursor', label: 'Cursor' },
@@ -19,9 +21,31 @@ function mcpUrl(): string {
     return `${window.location.origin}/mcp`;
 }
 
+function usesKey(client: ClientId): boolean {
+    return client !== 'chatgpt' && client !== 'claude-web';
+}
+
 function snippetFor(client: ClientId, key: string): string {
     const url = mcpUrl();
     switch (client) {
+        case 'chatgpt':
+            return [
+                `# No key needed — ChatGPT signs you in with your NeuroCann login (OAuth).`,
+                `ChatGPT → Settings → Apps → Create (requires Developer Mode)`,
+                `  Name:            NeuroCann`,
+                `  MCP server URL:  ${url}`,
+                `  Authentication:  OAuth`,
+                `→ Create, then sign in when prompted. Tools that need your facility`,
+                `  will ask to link the account the first time they are used.`,
+            ].join('\n');
+        case 'claude-web':
+            return [
+                `# No key needed — claude.ai signs you in with your NeuroCann login (OAuth).`,
+                `claude.ai → Settings → Connectors → Add custom connector`,
+                `  Name:  NeuroCann`,
+                `  URL:   ${url}`,
+                `→ Add, then click Connect and sign in.`,
+            ].join('\n');
         case 'claude-code':
             return `claude mcp add --transport http neurocann ${url} \\\n  --header "Authorization: Bearer ${key}"`;
         case 'claude-desktop':
@@ -86,7 +110,7 @@ export const LlmPluginSection: React.FC = () => {
     const [saving, setSaving] = useState(false);
 
     const [created, setCreated] = useState<CreatedApiKey | null>(null);
-    const [clientTab, setClientTab] = useState<ClientId>('claude-code');
+    const [clientTab, setClientTab] = useState<ClientId>('chatgpt');
 
     const load = useCallback(async () => {
         try {
@@ -133,40 +157,62 @@ export const LlmPluginSection: React.FC = () => {
     const revokedKeys = keys.filter(k => k.revokedAt);
     const placeholderKey = 'nck_YOUR_KEY';
 
-    if (!canManage) {
-        return (
-            <div>
-                <div className="settings-section-header">
-                    <div>
-                        <h3 className="settings-section-title">LLM Plugin</h3>
-                        <p className="settings-section-desc">Connect Claude, ChatGPT or Cursor to this facility.</p>
-                    </div>
-                </div>
-                <div className="settings-empty">
-                    <ShieldOff size={18} className="inline-block mb-1" />
-                    <div>Only admins and directors can create plugin API keys. Ask a director to set one up for you.</div>
-                </div>
-            </div>
-        );
-    }
-
     return (
         <div>
             <div className="settings-section-header">
                 <div>
                     <h3 className="settings-section-title">LLM Plugin</h3>
                     <p className="settings-section-desc">
-                        NeuroCann exposes an MCP server at <code className="text-[#1A1A1A]">{mcpUrl()}</code>. Any MCP-capable
-                        assistant (Claude, Cursor, and others) can read your plants, harvests, inventory and tasks — and, with write access, create tasks.
+                        NeuroCann is available inside ChatGPT, Claude and Cursor as an MCP server at <code className="text-[#1A1A1A]">{mcpUrl()}</code>.
+                        Sign in with your NeuroCann login from ChatGPT or claude.ai — no key needed — to ask about your plants, harvests, inventory and
+                        tasks, or create API keys below for tools that connect with a header (Claude Code, Cursor, scripts).
                     </p>
                 </div>
-                {!isAdding && (
+                {canManage && !isAdding && (
                     <button onClick={() => setIsAdding(true)} className="btn-new-batch text-sm px-3 py-1.5 whitespace-nowrap">
                         <Plus size={14} /> New Key
                     </button>
                 )}
             </div>
 
+            <div className="mb-4">
+                <h4 className="text-sm font-semibold text-[#1A1A1A] mb-1">Connect an assistant</h4>
+                <div className="flex flex-wrap gap-1 mb-2">
+                    {CLIENT_TABS.map(t => (
+                        <button
+                            key={t.id}
+                            onClick={() => setClientTab(t.id)}
+                            className={`text-xs px-2.5 py-1 rounded-full border transition-colors ${clientTab === t.id ? 'bg-[#1A1A1A] text-white border-[#1A1A1A]' : 'bg-white text-[#1A1A1A] border-[#EBEBEB] hover:border-[#959595]'}`}
+                        >
+                            {t.label}
+                        </button>
+                    ))}
+                </div>
+                <div className="relative">
+                    <pre className="settings-add-form !mb-0 text-xs overflow-x-auto whitespace-pre font-mono text-[#1A1A1A]">
+                        {snippetFor(clientTab, created?.key ?? placeholderKey)}
+                    </pre>
+                    <div className="absolute top-2 right-2">
+                        <CopyButton text={snippetFor(clientTab, created?.key ?? placeholderKey)} />
+                    </div>
+                </div>
+                <p className="text-xs text-[#959595] mt-2">
+                    {usesKey(clientTab)
+                        ? (created ? 'Snippet includes your new key.' : 'Replace nck_YOUR_KEY with a key from the table below.')
+                        : 'OAuth clients sign in with your NeuroCann account; no API key is involved.'}
+                    {' '}Everyone can use the planning calculators and product info without an account; facility data appears after linking.
+                </p>
+            </div>
+
+            <h4 className="text-sm font-semibold text-[#1A1A1A] mb-1">API keys</h4>
+
+            {!canManage ? (
+                <div className="settings-empty">
+                    <ShieldOff size={18} className="inline-block mb-1" />
+                    <div>Only admins and directors can create plugin API keys. You can still connect ChatGPT or claude.ai with your own login above.</div>
+                </div>
+            ) : (
+            <>
             {error && <div className="mb-3 text-sm text-red-600">{error}</div>}
 
             {isAdding && (
@@ -265,36 +311,13 @@ export const LlmPluginSection: React.FC = () => {
             {revokedKeys.length > 0 && (
                 <p className="mt-2 text-xs text-[#959595]">{revokedKeys.length} revoked key{revokedKeys.length === 1 ? '' : 's'} hidden.</p>
             )}
+            </>
+            )}
 
-            <div className="mt-6">
-                <h4 className="text-sm font-semibold text-[#1A1A1A] mb-1">Connect an assistant</h4>
-                <p className="text-xs text-[#959595] mb-2">
-                    {created ? 'Snippets below include your new key.' : 'Replace nck_YOUR_KEY with a key from the table above.'}
-                </p>
-                <div className="flex flex-wrap gap-1 mb-2">
-                    {CLIENT_TABS.map(t => (
-                        <button
-                            key={t.id}
-                            onClick={() => setClientTab(t.id)}
-                            className={`text-xs px-2.5 py-1 rounded-full border transition-colors ${clientTab === t.id ? 'bg-[#1A1A1A] text-white border-[#1A1A1A]' : 'bg-white text-[#1A1A1A] border-[#EBEBEB] hover:border-[#959595]'}`}
-                        >
-                            {t.label}
-                        </button>
-                    ))}
-                </div>
-                <div className="relative">
-                    <pre className="settings-add-form !mb-0 text-xs overflow-x-auto whitespace-pre font-mono text-[#1A1A1A]">
-                        {snippetFor(clientTab, created?.key ?? placeholderKey)}
-                    </pre>
-                    <div className="absolute top-2 right-2">
-                        <CopyButton text={snippetFor(clientTab, created?.key ?? placeholderKey)} />
-                    </div>
-                </div>
-                <p className="text-xs text-[#959595] mt-2">
-                    Tools available: facility overview, rooms, strains, plants, harvests, packages, extraction runs, tasks, and ad-hoc reports.
-                    Write keys add <code>create_task</code> and <code>update_task_status</code>.
-                </p>
-            </div>
+            <p className="text-xs text-[#959595] mt-3">
+                Tools available: facility overview, rooms, strains, plants, harvests, packages, extraction runs, tasks, and ad-hoc reports.
+                Write access adds <code>create_task</code> and <code>update_task_status</code>.
+            </p>
         </div>
     );
 };
