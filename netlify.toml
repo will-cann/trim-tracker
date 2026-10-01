@@ -30,6 +30,17 @@
   to = "/manifest.html"
   status = 200
 
+# Legal pages (static HTML in public/) — required URLs for AI assistant directory listings
+[[redirects]]
+  from = "/privacy"
+  to = "/privacy.html"
+  status = 200
+
+[[redirects]]
+  from = "/terms"
+  to = "/terms.html"
+  status = 200
+
 # LLM plugin: stable MCP endpoint URL for external clients (ChatGPT, Claude, Cursor, etc.)
 [[redirects]]
   from = "/mcp"
