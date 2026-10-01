@@ -265,6 +265,10 @@ Planned features, integrations, and improvements. Updated as priorities evolve.
 
 ## Integrations
 
+### LLM Plugin (MCP server)
+- **Built:** `/mcp` Streamable HTTP endpoint with API-key auth, read tools across cultivation/harvest/inventory/extraction/tasks, `run_report` analytics, and task write tools. Keys managed under Settings → LLM Plugin. See `docs/llm-plugin.md`.
+- **Next:** OAuth 2.1 authorization server so claude.ai web and ChatGPT connectors (which can't send static headers) can connect; per-tool allowlists for write keys; expose more safe writes (strain/room setup, package notes) as demand appears.
+
 ### METRC
 - Bidirectional sync for package creation, adjustments, transfers
 - Manufacturing/processing API endpoints

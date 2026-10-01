@@ -98,6 +98,17 @@ send. Inbound bodies are parsed by Claude into structured `vendor_products` rows
 (pricing, availability) for the ordering module. SMS columns exist on the contact
 schema but are not wired to a provider yet.
 
+### LLM Plugin (MCP server)
+
+`netlify/functions/mcp.ts` exposes the facility to external assistants (Claude Desktop/Code,
+Cursor, any MCP client) over MCP Streamable HTTP at `/mcp`. It is stateless JSON-RPC: no
+sessions, no SSE. Auth is a `nck_...` API key (`api_keys` table, SHA-256 hashed, scopes
+`read`/`write`) resolved by `utils/apiKeys.ts`, falling back to Auth0 tokens / dev bypass.
+Tools live in `utils/mcpTools.ts` — read tools over plants/harvests/packages/runs/tasks,
+`run_report` reusing the `reportCompiler` allowlist read-only, and two write tools
+(`create_task`, `update_task_status`). Keys are managed via `manage-api-keys.ts` and the
+Settings → LLM Plugin section. See `docs/llm-plugin.md`.
+
 ### AI System
 
 The `ai-parse` function sends conversation + context to Claude with a detailed system prompt covering all application domains. The AI returns structured `ProposedAction` objects. The system prompt lives inline in `netlify/functions/ai-parse.ts` and covers:
