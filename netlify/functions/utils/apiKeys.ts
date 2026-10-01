@@ -68,13 +68,16 @@ export function authorizationServerIssuer(): string | null {
 
 export function protectedResourceMetadata(headers: Record<string, string | undefined>) {
     const issuer = authorizationServerIssuer();
+    const origin = publicOrigin(headers);
     return {
         resource: mcpResourceUrl(headers),
         authorization_servers: issuer ? [issuer] : [],
         bearer_methods_supported: ['header'],
         scopes_supported: ['openid', 'profile', 'email', 'offline_access', OAUTH_SCOPE_READ, OAUTH_SCOPE_WRITE],
         resource_name: 'NeuroCann',
-        resource_documentation: `${publicOrigin(headers)}/docs/llm-plugin`,
+        resource_documentation: `${origin}/docs/llm-plugin`,
+        resource_policy_uri: `${origin}/privacy`,
+        resource_tos_uri: `${origin}/terms`,
     };
 }
 

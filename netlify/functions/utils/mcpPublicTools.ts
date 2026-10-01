@@ -156,7 +156,13 @@ export function registerPublicTools(register: Register) {
             withLinkedFacility: ['Live plants, rooms, harvests, packages, extraction runs and tasks', 'Reports over your own data (yield by strain, harvest trends, labor)', 'Creating and completing floor tasks'],
             howToLink: 'Link or create a NeuroCann account when this assistant prompts you to sign in; a new sign-in creates a fresh facility workspace automatically.',
         },
-        links: { website: APP_URL, signIn: APP_URL, demoRequest: `mailto:${CONTACT_EMAIL}?subject=NeuroCann%20Demo%20Request` },
+        links: {
+            website: APP_URL,
+            signIn: APP_URL,
+            demoRequest: `mailto:${CONTACT_EMAIL}?subject=NeuroCann%20Demo%20Request`,
+            privacyPolicy: `${APP_URL}/privacy`,
+            termsOfService: `${APP_URL}/terms`,
+        },
     }));
 
     register({
