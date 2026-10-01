@@ -84,6 +84,41 @@ const TARGETS: Record<string, { chain: StepPreset[]; stopAfter: string; input: s
 
 const STANDARD_BATCH_G = 500;
 
+// ── Cultivation / trim defaults (explicit assumptions, all overridable) ───────
+
+const DEFAULT_FLOWERING_DAYS = 63;   // matches the strains.default_flowering_days seed
+const DEFAULT_DRYING_DAYS = 10;
+const DEFAULT_CURE_DAYS = 14;
+const DEFAULT_DRY_G_PER_PLANT = 450; // indoor, ~1 lb dry per plant
+const DEFAULT_FLOWER_SHARE_PCT = 70; // of dry weight → A/B flower; remainder trim + shake
+const DEFAULT_SHAKE_SHARE_PCT = 10;
+const DEFAULT_HAND_TRIM_G_PER_HR = 75;
+const DEFAULT_MACHINE_TRIM_G_PER_HR = 1000;
+const DEFAULT_SHIFT_HOURS = 8;
+
+const DAY_MS = 86_400_000;
+
+function parseDate(value: unknown, key: string): Date {
+    const d = new Date(String(value));
+    if (!value || Number.isNaN(d.getTime())) throw new ToolInputError(`"${key}" must be an ISO date (YYYY-MM-DD)`);
+    return d;
+}
+
+function addDays(d: Date, days: number): Date {
+    return new Date(d.getTime() + days * DAY_MS);
+}
+
+function isoDate(d: Date): string {
+    return d.toISOString().slice(0, 10);
+}
+
+function nonNegativeInt(value: unknown, fallback: number, key: string): number {
+    if (value === undefined || value === null || value === '') return fallback;
+    const n = typeof value === 'number' ? value : parseFloat(String(value));
+    if (!Number.isFinite(n) || n < 0) throw new ToolInputError(`"${key}" must be zero or a positive number`);
+    return Math.round(n);
+}
+
 // ── Tools ─────────────────────────────────────────────────────────────────────
 
 type Register = (definition: McpToolDefinition, handler: ToolHandler) => void;
@@ -111,7 +146,13 @@ export function registerPublicTools(register: Register) {
             reports: 'Ad-hoc analytics on yields, labor productivity and cost per pound.',
         },
         inThisAssistant: {
-            withoutAccount: ['plan_extraction_inputs — demand-backward input planning using NeuroCann preset yields', 'estimate_dry_weight — wet-to-dry harvest estimates'],
+            withoutAccount: [
+                'plan_extraction_inputs — demand-backward input planning using NeuroCann preset yields',
+                'estimate_dry_weight — wet-to-dry harvest estimates',
+                'estimate_harvest_yield — plants or canopy → dry weight and flower/trim/shake split',
+                'plan_harvest_timeline — flip date ↔ harvest, dry and cure dates',
+                'estimate_trim_labor — trimmer-hours, crew size and labor cost',
+            ],
             withLinkedFacility: ['Live plants, rooms, harvests, packages, extraction runs and tasks', 'Reports over your own data (yield by strain, harvest trends, labor)', 'Creating and completing floor tasks'],
             howToLink: 'Link or create a NeuroCann account when this assistant prompts you to sign in; a new sign-in creates a fresh facility workspace automatically.',
         },
@@ -246,5 +287,188 @@ export function registerPublicTools(register: Register) {
                 'With a linked facility, harvests track actual wet, dry and waste weights and the moisture loss per harvest is configurable.',
             ],
         };
+    });
+
+    register({
+        name: 'plan_harvest_timeline',
+        title: 'Plan harvest timeline',
+        description: 'Work out a cultivation calendar from either a flip-to-flower date or a target harvest date: when to flip, when to cut, when drying finishes, when cure finishes, and when flower is ready to sell. Accepts the strain\'s flowering days (default 63) plus optional veg, drying and cure durations. No account required.',
+        inputSchema: {
+            type: 'object',
+            properties: {
+                flipDate: { type: 'string', format: 'date', description: 'Date plants are switched to 12/12. Provide this or targetHarvestDate.' },
+                targetHarvestDate: { type: 'string', format: 'date', description: 'Date you want to cut; the tool back-calculates the flip date.' },
+                floweringDays: { type: 'integer', minimum: 35, maximum: 120, default: DEFAULT_FLOWERING_DAYS },
+                vegDays: { type: 'integer', minimum: 0, description: 'Optional: days in veg before the flip, to report the transplant/clone date.' },
+                dryingDays: { type: 'integer', minimum: 0, default: DEFAULT_DRYING_DAYS },
+                cureDays: { type: 'integer', minimum: 0, default: DEFAULT_CURE_DAYS },
+            },
+            additionalProperties: false,
+        },
+        scope: 'public',
+        annotations: READ_ONLY,
+    }, async (_ctx, args) => {
+        const floweringDays = nonNegativeInt(args.floweringDays, DEFAULT_FLOWERING_DAYS, 'floweringDays');
+        if (floweringDays < 35 || floweringDays > 120) throw new ToolInputError('"floweringDays" must be between 35 and 120');
+        const dryingDays = nonNegativeInt(args.dryingDays, DEFAULT_DRYING_DAYS, 'dryingDays');
+        const cureDays = nonNegativeInt(args.cureDays, DEFAULT_CURE_DAYS, 'cureDays');
+        const vegDays = args.vegDays === undefined ? undefined : nonNegativeInt(args.vegDays, 0, 'vegDays');
+
+        let flip: Date;
+        if (args.flipDate) flip = parseDate(args.flipDate, 'flipDate');
+        else if (args.targetHarvestDate) flip = addDays(parseDate(args.targetHarvestDate, 'targetHarvestDate'), -floweringDays);
+        else throw new ToolInputError('Provide either "flipDate" or "targetHarvestDate"');
+
+        const harvest = addDays(flip, floweringDays);
+        const dryDone = addDays(harvest, dryingDays);
+        const cureDone = addDays(dryDone, cureDays);
+
+        return {
+            milestones: {
+                ...(vegDays !== undefined ? { vegStart: isoDate(addDays(flip, -vegDays)) } : {}),
+                flipToFlower: isoDate(flip),
+                harvest: isoDate(harvest),
+                dryingComplete: isoDate(dryDone),
+                cureComplete: isoDate(cureDone),
+            },
+            durations: { ...(vegDays !== undefined ? { vegDays } : {}), floweringDays, dryingDays, cureDays, flipToSaleableDays: floweringDays + dryingDays + cureDays },
+            weeklyCheckpoints: [
+                { week: 1, note: 'Stretch begins; final defoliation and trellis before week 3.' },
+                { week: 3, note: 'Stretch ends; last IPM application before flower sets.' },
+                { week: Math.max(4, Math.round(floweringDays / 7) - 2), note: 'Begin checking trichomes; schedule harvest crew and drying room.' },
+                { week: Math.round(floweringDays / 7), note: 'Harvest window; book trim capacity for ~10 days later.' },
+            ],
+            assumptions: [
+                `Flowering ${floweringDays} days is a per-strain setting in NeuroCann (default ${DEFAULT_FLOWERING_DAYS}); indica-leaning cuts often finish 56–63, sativa-leaning 70–84.`,
+                'With a linked facility, flipping a room records the flower date on each plant and the target harvest date is tracked per batch.',
+            ],
+        };
+    });
+
+    register({
+        name: 'estimate_harvest_yield',
+        title: 'Estimate harvest yield',
+        description: 'Estimate dry yield for a harvest from plant count (or canopy square footage) and an expected dry grams-per-plant, then split it into flower, trim and shake. Reports the wet weight you should expect to see on harvest day too. No account required.',
+        inputSchema: {
+            type: 'object',
+            properties: {
+                plantCount: { type: 'integer', minimum: 1, description: 'Number of plants. Provide this or canopySqFt.' },
+                canopySqFt: { type: 'number', exclusiveMinimum: 0, description: 'Flowering canopy area; combined with plantsPerSqFt to derive plant count.' },
+                plantsPerSqFt: { type: 'number', exclusiveMinimum: 0, default: 1, description: 'Planting density when using canopySqFt.' },
+                dryGramsPerPlant: { type: 'number', exclusiveMinimum: 0, default: DEFAULT_DRY_G_PER_PLANT },
+                moistureLossPct: { type: 'number', exclusiveMinimum: 0, maximum: 99, default: 75, description: 'Used to back-calculate expected wet weight.' },
+                flowerSharePct: { type: 'number', minimum: 0, maximum: 100, default: DEFAULT_FLOWER_SHARE_PCT, description: 'Share of dry weight that grades as flower.' },
+                shakeSharePct: { type: 'number', minimum: 0, maximum: 100, default: DEFAULT_SHAKE_SHARE_PCT, description: 'Share of dry weight that ends up as shake; the remainder is trim.' },
+                pricePerLbFlower: { type: 'number', minimum: 0, description: 'Optional wholesale price per pound of flower for a revenue estimate.' },
+                pricePerLbTrim: { type: 'number', minimum: 0, description: 'Optional wholesale price per pound of trim/shake.' },
+            },
+            additionalProperties: false,
+        },
+        scope: 'public',
+        annotations: READ_ONLY,
+    }, async (_ctx, args) => {
+        let plants: number;
+        if (args.plantCount !== undefined && args.plantCount !== null) {
+            plants = Math.max(1, Math.floor(positiveNumber(args.plantCount, 'plantCount')));
+        } else if (args.canopySqFt !== undefined && args.canopySqFt !== null) {
+            const density = args.plantsPerSqFt === undefined ? 1 : positiveNumber(args.plantsPerSqFt, 'plantsPerSqFt');
+            plants = Math.max(1, Math.round(positiveNumber(args.canopySqFt, 'canopySqFt') * density));
+        } else {
+            throw new ToolInputError('Provide either "plantCount" or "canopySqFt"');
+        }
+
+        const perPlant = args.dryGramsPerPlant === undefined ? DEFAULT_DRY_G_PER_PLANT : positiveNumber(args.dryGramsPerPlant, 'dryGramsPerPlant');
+        const loss = pct(args.moistureLossPct, 75, 'moistureLossPct');
+        const flowerPct = args.flowerSharePct === undefined ? DEFAULT_FLOWER_SHARE_PCT : pct(args.flowerSharePct, DEFAULT_FLOWER_SHARE_PCT, 'flowerSharePct');
+        const shakePct = args.shakeSharePct === undefined ? DEFAULT_SHAKE_SHARE_PCT : pct(args.shakeSharePct, DEFAULT_SHAKE_SHARE_PCT, 'shakeSharePct');
+        if (flowerPct + shakePct > 100) throw new ToolInputError('"flowerSharePct" plus "shakeSharePct" cannot exceed 100');
+
+        const dryG = plants * perPlant;
+        const wetG = dryG / (1 - loss / 100);
+        const flowerG = dryG * (flowerPct / 100);
+        const shakeG = dryG * (shakePct / 100);
+        const trimG = dryG - flowerG - shakeG;
+
+        const revenue: Record<string, number> = {};
+        if (args.pricePerLbFlower !== undefined && args.pricePerLbFlower !== null) {
+            revenue.flowerUsd = round((flowerG / GRAMS_PER.lb) * positiveNumber(args.pricePerLbFlower, 'pricePerLbFlower'), 2);
+        }
+        if (args.pricePerLbTrim !== undefined && args.pricePerLbTrim !== null) {
+            revenue.trimAndShakeUsd = round(((trimG + shakeG) / GRAMS_PER.lb) * positiveNumber(args.pricePerLbTrim, 'pricePerLbTrim'), 2);
+        }
+        if (Object.keys(revenue).length) revenue.totalUsd = round(Object.values(revenue).reduce((a, b) => a + b, 0), 2);
+
+        return {
+            plants,
+            expectedWetWeight: weight(wetG),
+            expectedDryWeight: weight(dryG),
+            split: {
+                flower: { ...weight(flowerG), sharePct: flowerPct },
+                trim: { ...weight(trimG), sharePct: round(100 - flowerPct - shakePct, 1) },
+                shake: { ...weight(shakeG), sharePct: shakePct },
+            },
+            ...(Object.keys(revenue).length ? { estimatedRevenue: revenue } : {}),
+            assumptions: [
+                `${perPlant} g dry per plant and a ${flowerPct}/${round(100 - flowerPct - shakePct, 1)}/${shakePct} flower/trim/shake split are planning defaults — pass your own numbers for anything but a first estimate.`,
+                'With a linked facility, NeuroCann reports actual flower/trim/shake/waste per harvest and per strain from trim sessions.',
+            ],
+        };
+    });
+
+    register({
+        name: 'estimate_trim_labor',
+        title: 'Estimate trim labor',
+        description: 'Estimate trimmer-hours, crew size and labor cost to trim a given dry weight, by hand or machine, at a chosen throughput (grams per trimmer-hour). Answers "how many trimmers do I need to finish this harvest in N days?" No account required.',
+        inputSchema: {
+            type: 'object',
+            properties: {
+                dryWeight: { type: 'number', exclusiveMinimum: 0 },
+                unit: { type: 'string', enum: ['g', 'kg', 'oz', 'lb'], default: 'lb' },
+                method: { type: 'string', enum: ['hand', 'machine'], default: 'hand' },
+                gramsPerTrimmerHour: { type: 'number', exclusiveMinimum: 0, description: `Override throughput. Defaults: hand ${DEFAULT_HAND_TRIM_G_PER_HR} g/hr, machine ${DEFAULT_MACHINE_TRIM_G_PER_HR} g/hr (operator + QC).` },
+                targetDays: { type: 'number', exclusiveMinimum: 0, description: 'Optional: days available to finish; returns the crew size needed.' },
+                crewSize: { type: 'integer', minimum: 1, description: 'Optional: trimmers available; returns days needed.' },
+                shiftHours: { type: 'number', exclusiveMinimum: 0, default: DEFAULT_SHIFT_HOURS },
+                hourlyRateUsd: { type: 'number', minimum: 0, description: 'Optional loaded labor rate for a cost estimate.' },
+            },
+            required: ['dryWeight'],
+            additionalProperties: false,
+        },
+        scope: 'public',
+        annotations: READ_ONLY,
+    }, async (_ctx, args) => {
+        const dryG = toGrams(positiveNumber(args.dryWeight, 'dryWeight'), String(args.unit || 'lb'));
+        const method = args.method === 'machine' ? 'machine' : 'hand';
+        const defaultRate = method === 'machine' ? DEFAULT_MACHINE_TRIM_G_PER_HR : DEFAULT_HAND_TRIM_G_PER_HR;
+        const rate = args.gramsPerTrimmerHour === undefined ? defaultRate : positiveNumber(args.gramsPerTrimmerHour, 'gramsPerTrimmerHour');
+        const shift = args.shiftHours === undefined ? DEFAULT_SHIFT_HOURS : positiveNumber(args.shiftHours, 'shiftHours');
+
+        const trimmerHours = dryG / rate;
+        const result: Record<string, unknown> = {
+            dryWeight: weight(dryG),
+            method,
+            gramsPerTrimmerHour: rate,
+            trimmerHours: round(trimmerHours, 1),
+            trimmerShifts: round(trimmerHours / shift, 1),
+        };
+
+        if (args.targetDays !== undefined && args.targetDays !== null) {
+            const days = positiveNumber(args.targetDays, 'targetDays');
+            result.crewNeeded = { targetDays: days, trimmers: Math.ceil(trimmerHours / (days * shift)) };
+        }
+        if (args.crewSize !== undefined && args.crewSize !== null) {
+            const crew = Math.max(1, Math.floor(positiveNumber(args.crewSize, 'crewSize')));
+            result.daysNeeded = { crewSize: crew, days: round(trimmerHours / (crew * shift), 1) };
+        }
+        if (args.hourlyRateUsd !== undefined && args.hourlyRateUsd !== null) {
+            const hourly = positiveNumber(args.hourlyRateUsd, 'hourlyRateUsd');
+            result.laborCost = { totalUsd: round(trimmerHours * hourly, 2), perLbUsd: round((trimmerHours * hourly) / (dryG / GRAMS_PER.lb), 2) };
+        }
+
+        result.assumptions = [
+            `${rate} g per trimmer-hour is a planning default for ${method} trimming; real crews range widely with bud structure and trim standard.`,
+            'With a linked facility, NeuroCann reports measured grams-per-hour per trimmer from live trim sessions, so these estimates become your own numbers.',
+        ];
+        return result;
     });
 }

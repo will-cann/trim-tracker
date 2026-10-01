@@ -90,7 +90,7 @@ beforeEach(() => {
     process.env.AUTH0_DOMAIN = 'login.neurocann.app';
 });
 
-const PUBLIC_TOOLS = ['about_neurocann', 'plan_extraction_inputs', 'estimate_dry_weight'];
+const PUBLIC_TOOLS = ['about_neurocann', 'plan_extraction_inputs', 'estimate_dry_weight', 'estimate_harvest_yield', 'plan_harvest_timeline', 'estimate_trim_labor'];
 
 describe('anonymous access (ChatGPT pre-sign-in)', () => {
     it('lets anonymous callers initialize and see every tool with securitySchemes', async () => {
@@ -269,6 +269,39 @@ describe('tools', () => {
         expect(out.estimatedDryWeight.pounds).toBeCloseTo(25, 1);
         expect(out.perPlant.plants).toBe(50);
         expect(out.perPlant.wet.pounds).toBeCloseTo(2, 1);
+    });
+
+    it('plans a harvest timeline forwards from a flip date and backwards from a target harvest', async () => {
+        const fwd = await call(rpc('tools/call', { name: 'plan_harvest_timeline', arguments: { flipDate: '2026-10-01', vegDays: 28 } }));
+        const m = fwd.json.result.structuredContent.milestones;
+        expect(m).toMatchObject({ vegStart: '2026-09-03', flipToFlower: '2026-10-01', harvest: '2026-12-03', dryingComplete: '2026-12-13', cureComplete: '2026-12-27' });
+
+        const back = await call(rpc('tools/call', { name: 'plan_harvest_timeline', arguments: { targetHarvestDate: '2026-12-03', floweringDays: 56 } }));
+        expect(back.json.result.structuredContent.milestones.flipToFlower).toBe('2026-10-08');
+
+        const neither = await call(rpc('tools/call', { name: 'plan_harvest_timeline', arguments: {} }));
+        expect(neither.json.result.isError).toBe(true);
+    });
+
+    it('estimates harvest yield from canopy and splits it into flower, trim and shake', async () => {
+        const res = await call(rpc('tools/call', { name: 'estimate_harvest_yield', arguments: { canopySqFt: 1000, plantsPerSqFt: 0.1, pricePerLbFlower: 1000 } }));
+        const out = res.json.result.structuredContent;
+        expect(out.plants).toBe(100);
+        expect(out.expectedDryWeight.grams).toBe(45000);
+        expect(out.expectedWetWeight.grams).toBe(180000);
+        expect(out.split.flower.grams).toBe(31500);
+        expect(out.split.trim.sharePct + out.split.flower.sharePct + out.split.shake.sharePct).toBe(100);
+        expect(out.estimatedRevenue.flowerUsd).toBeCloseTo(69445, -1);
+    });
+
+    it('estimates trim labor, crew size and cost', async () => {
+        const res = await call(rpc('tools/call', { name: 'estimate_trim_labor', arguments: { dryWeight: 100, unit: 'lb', targetDays: 5, hourlyRateUsd: 20 } }));
+        const out = res.json.result.structuredContent;
+        // 45,359 g ÷ 75 g/hr ≈ 605 trimmer-hours → 16 trimmers over 5 × 8 h days
+        expect(out.trimmerHours).toBeCloseTo(604.8, 0);
+        expect(out.crewNeeded.trimmers).toBe(16);
+        expect(out.laborCost.perLbUsd).toBeCloseTo(120.96, 1);
+        expect(sqlMock).not.toHaveBeenCalled();
     });
 
     it('rejects nonsense public-tool input as a tool error', async () => {
