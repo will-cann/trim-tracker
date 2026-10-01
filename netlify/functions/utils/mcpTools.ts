@@ -1,21 +1,34 @@
 import { sql, pool } from './db';
 import { compileReportSpec, getSchemaDescription, type ReportSpec } from './reportCompiler';
-import type { ApiKeyScope, PluginContext } from './apiKeys';
+import { OAUTH_SCOPE_READ, OAUTH_SCOPE_WRITE, type ApiKeyScope, type PluginContext } from './apiKeys';
+import { registerPublicTools } from './mcpPublicTools';
+import { ToolInputError } from './mcpErrors';
 
 /**
  * Tool registry for the NeuroCann LLM plugin (MCP server).
  *
- * Every tool receives the authenticated PluginContext and must scope all
- * queries to `ctx.companyId`. Tools declare the scope they need; the MCP
- * handler enforces it against the API key's scopes before dispatching.
+ * Tools come in three tiers:
+ *   - `public`  — no account needed; pure calculators / product info that let a
+ *                 prospect get value inside ChatGPT before signing up. Must not
+ *                 touch the database.
+ *   - `read`    — facility data, scoped to `ctx.companyId`.
+ *   - `write`   — safe mutations (tasks), scoped to `ctx.companyId`.
+ *
+ * The MCP handler enforces the tier against the caller's scopes before
+ * dispatching, and advertises per-tool `securitySchemes` so hosts like ChatGPT
+ * know which tools run anonymously and which need account linking.
  */
+
+export type ToolScope = 'public' | ApiKeyScope;
+
+export type SecurityScheme = { type: 'noauth' } | { type: 'oauth2'; scopes: string[] };
 
 export interface McpToolDefinition {
     name: string;
     title: string;
     description: string;
     inputSchema: Record<string, unknown>;
-    scope: ApiKeyScope;
+    scope: ToolScope;
     annotations?: {
         readOnlyHint?: boolean;
         destructiveHint?: boolean;
@@ -24,14 +37,29 @@ export interface McpToolDefinition {
     };
 }
 
-type ToolHandler = (ctx: PluginContext, args: Record<string, any>) => Promise<unknown>;
+/** Wire format sent in tools/list — definition plus auth metadata, minus our internal `scope`. */
+export type McpToolListing = Omit<McpToolDefinition, 'scope'> & { securitySchemes: SecurityScheme[] };
 
-interface RegisteredTool {
+/** Handlers for public tools receive `null` — there is no company to scope to. */
+export type ToolHandler = (ctx: PluginContext | null, args: Record<string, any>) => Promise<unknown>;
+
+export interface RegisteredTool {
     definition: McpToolDefinition;
     handler: ToolHandler;
 }
 
-export class ToolInputError extends Error {}
+export function securitySchemesFor(scope: ToolScope): SecurityScheme[] {
+    switch (scope) {
+        case 'public':
+            return [{ type: 'noauth' }, { type: 'oauth2', scopes: [OAUTH_SCOPE_READ] }];
+        case 'read':
+            return [{ type: 'oauth2', scopes: [OAUTH_SCOPE_READ] }];
+        case 'write':
+            return [{ type: 'oauth2', scopes: [OAUTH_SCOPE_READ, OAUTH_SCOPE_WRITE] }];
+    }
+}
+
+export { ToolInputError };
 
 const DEFAULT_LIMIT = 50;
 const MAX_LIMIT = 200;
@@ -79,9 +107,18 @@ const TASK_CATEGORIES = [
 
 const tools: RegisteredTool[] = [];
 
-function register(definition: McpToolDefinition, handler: ToolHandler) {
-    tools.push({ definition, handler });
+/** Register a tool that requires an authenticated facility context. */
+function register(definition: McpToolDefinition, handler: (ctx: PluginContext, args: Record<string, any>) => Promise<unknown>) {
+    tools.push({
+        definition,
+        handler: (ctx, args) => {
+            if (!ctx) throw new Error(`Tool "${definition.name}" requires authentication`);
+            return handler(ctx, args);
+        },
+    });
 }
+
+registerPublicTools((definition, handler) => tools.push({ definition, handler }));
 
 // ── Facility overview ─────────────────────────────────────────────────────────
 
@@ -608,8 +645,18 @@ register({
 
 // ── Registry API ──────────────────────────────────────────────────────────────
 
-export function listTools(scopes: ApiKeyScope[]): McpToolDefinition[] {
-    return tools.filter(t => scopes.includes(t.definition.scope)).map(t => t.definition);
+/**
+ * Tools to advertise. Anonymous callers see everything (so hosts can offer
+ * account linking for gated tools); authenticated callers see public tools plus
+ * whatever their scopes allow — a read-only API key never learns about writes.
+ */
+export function listTools(scopes: ApiKeyScope[] | null): McpToolListing[] {
+    return tools
+        .filter(t => scopes === null || t.definition.scope === 'public' || scopes.includes(t.definition.scope))
+        .map(({ definition }) => {
+            const { scope, ...rest } = definition;
+            return { ...rest, securitySchemes: securitySchemesFor(scope) };
+        });
 }
 
 export function findTool(name: string): RegisteredTool | undefined {
