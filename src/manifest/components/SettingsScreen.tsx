@@ -95,7 +95,9 @@ export function SettingsScreen({ transporter, licenses, email, layoutPref, hasOr
 
       <Card className="p-4 space-y-3">
         <h2 className="text-subhead">Email export</h2>
-        <p className="text-xs text-gray-500">Where finished transfer files go by default. The access code is set by whoever runs the server (MANIFEST_ACCESS_CODE).</p>
+        <p className="text-xs text-gray-500">
+          Where finished transfer files go by default. The access code unlocks emailing files and reading invoices; it's set by whoever runs the server (MANIFEST_ACCESS_CODE).
+        </p>
         <Field label="Default recipient">
           <Input
             type="email"

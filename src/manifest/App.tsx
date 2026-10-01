@@ -150,6 +150,7 @@ export default function App() {
         onHeader={(h: Partial<DestinationHeader>) => update((s) => ({ ...s, header: { ...s.header, ...h } }))}
         onLicenseForType={(pt, lic) => update((s) => ({ ...s, licenseByProductType: { ...s.licenseByProductType, [pt]: lic } }))}
         onLineTotal={(id, v) => update((s) => ({ ...s, lineTotals: { ...s.lineTotals, [id]: v } }))}
+        onLineTotals={(totals) => update((s) => ({ ...s, lineTotals: { ...s.lineTotals, ...totals } }))}
         onEmail={onEmail}
         onEditTransporter={() => setView({ kind: 'settings', from: { kind: 'review' } })}
         onBack={() => setView({ kind: 'pick' })}

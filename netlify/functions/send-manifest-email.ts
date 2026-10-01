@@ -1,17 +1,10 @@
 import { Handler } from '@netlify/functions';
-import { timingSafeEqual } from 'crypto';
-import { resolveContext } from './utils/auth';
 import { sendManifestEmail, type ManifestAttachment } from './utils/email';
+import { authorizeManifestRequest, jsonResponse as json } from './utils/manifestAuth';
 
 /**
  * Emails the generated .t3csv transfer files from the standalone manifest
- * picker (/manifest) to a user-specified address.
- *
- * The picker has no Auth0 session, so this endpoint accepts either:
- *   - a normal Bearer token (resolveContext), or
- *   - the shared access code from MANIFEST_ACCESS_CODE in `x-manifest-key`.
- * If MANIFEST_ACCESS_CODE is unset and DEV_BYPASS_AUTH is not on, the
- * endpoint is disabled — never an open relay.
+ * picker (/manifest) to a user-specified address. Auth: see manifestAuth.
  */
 
 const MAX_FILES = 5;
@@ -27,40 +20,13 @@ interface Body {
     files?: ManifestAttachment[];
 }
 
-function json(statusCode: number, payload: unknown) {
-    return { statusCode, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) };
-}
-
-function codeMatches(provided: string | undefined, expected: string | undefined): boolean {
-    if (!provided || !expected) return false;
-    const a = Buffer.from(provided);
-    const b = Buffer.from(expected);
-    return a.length === b.length && timingSafeEqual(a, b);
-}
-
-async function authorize(headers: Record<string, string | undefined>): Promise<{ ok: true } | { ok: false; status: number; error: string }> {
-    const bearer = headers.authorization;
-    if (bearer) {
-        const ctx = await resolveContext(bearer);
-        if (ctx) return { ok: true };
-    }
-
-    const expected = process.env.MANIFEST_ACCESS_CODE;
-    if (!expected) {
-        if (process.env.DEV_BYPASS_AUTH === 'true') return { ok: true };
-        return { ok: false, status: 403, error: 'Email export is not enabled on this deploy (MANIFEST_ACCESS_CODE unset).' };
-    }
-    if (codeMatches(headers['x-manifest-key'], expected)) return { ok: true };
-    return { ok: false, status: 401, error: 'Access code is missing or wrong. Set it under Settings → Email export.' };
-}
-
 export const handler: Handler = async (event) => {
     if (event.httpMethod !== 'POST') {
         return { statusCode: 405, body: 'Method Not Allowed' };
     }
 
     try {
-        const auth = await authorize(event.headers);
+        const auth = await authorizeManifestRequest(event.headers);
         if (!auth.ok) return json(auth.status, { error: auth.error });
 
         const body: Body = JSON.parse(event.body || '{}');
@@ -86,7 +52,9 @@ export const handler: Handler = async (event) => {
             'Attached:',
             ...files.map(f => `  - ${f.filename}`),
             '',
-            'Open Metrc → Transfers → New Transfer, then use T3\'s "Autofill T3 CSV" with each file. One file per origin license.',
+            'How to use them: these are T3 Autofill files, not Metrc CSV imports (Metrc\'s own upload page will reject them).',
+            'In Metrc go to Transfers → New Transfer, click T3\'s "Autofill T3 CSV", and pick a file. T3 fills the form; review and submit.',
+            'One file per origin license.',
             '',
             '-- neurocann manifest picker',
         ].join('\n').trimStart();

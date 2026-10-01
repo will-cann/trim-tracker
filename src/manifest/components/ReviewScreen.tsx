@@ -1,10 +1,13 @@
-import { useMemo, useState } from 'react'
-import { AlertTriangle, Share2, Copy, Check, ChevronDown, ChevronUp, Truck, Mail, Loader2 } from 'lucide-react'
+import { useMemo, useRef, useState } from 'react'
+import { AlertTriangle, Share2, Copy, Check, ChevronDown, ChevronUp, Truck, Mail, Loader2, FileText } from 'lucide-react'
 import { Button, Card, Field, Input, Notice, Pill, Screen, Select, TopBar } from './ui'
 import { buildPackageRows, summarize, TRANSFER_TYPES } from '../lib/order'
 import { buildT3Files, formatMoney } from '../lib/t3csv'
 import { copyText, saveTextFile } from '../lib/download'
 import { EMAIL_RE, sendManifestEmail } from '../lib/email'
+import { INVOICE_ACCEPT, parseInvoiceFile } from '../lib/invoice'
+import { assignmentsToLineTotals, matchInvoiceLines, type MatchResult, type ParsedInvoice } from '../lib/invoiceMatch'
+import { SAMPLE_PICKLIST_NAME } from '../sample/proper4934'
 import { shortTag } from '../lib/metrc'
 import type { EmailSettings, LicenseDefaults } from '../lib/storage'
 import type { DestinationHeader, OrderState, TransporterProfile } from '../types'
@@ -17,14 +20,17 @@ interface Props {
   onHeader: (h: Partial<DestinationHeader>) => void
   onLicenseForType: (productType: string, license: string) => void
   onLineTotal: (lineId: string, value: string) => void
+  /** Bulk-apply totals (from an invoice); keeps existing values for lines not in the map. */
+  onLineTotals: (totals: Record<string, string>) => void
   onEmail: (e: Partial<EmailSettings>) => void
   onEditTransporter: () => void
   onBack: () => void
 }
 
 type SendState = { kind: 'idle' } | { kind: 'sending' } | { kind: 'sent'; to: string } | { kind: 'error'; message: string }
+type InvoiceState = { kind: 'idle' } | { kind: 'reading' } | { kind: 'done'; invoice: ParsedInvoice; result: MatchResult } | { kind: 'error'; message: string }
 
-export function ReviewScreen({ order, transporter, licenses, email, onHeader, onLicenseForType, onLineTotal, onEmail, onEditTransporter, onBack }: Props) {
+export function ReviewScreen({ order, transporter, licenses, email, onHeader, onLicenseForType, onLineTotal, onLineTotals, onEmail, onEditTransporter, onBack }: Props) {
   const summary = summarize(order)
   const rows = useMemo(() => buildPackageRows(order), [order])
   const first = order.lines[0]
@@ -47,10 +53,34 @@ export function ReviewScreen({ order, transporter, licenses, email, onHeader, on
   const missingWeight = rows.filter((r) => r.grossWeightG === null).length
   const missingPrice = rows.filter((r) => r.wholesalePrice === null).length
   const isWholesale = order.header.transferType === 'Unaffiliated Transfer'
+  const isSample = order.sourceName === SAMPLE_PICKLIST_NAME
 
   const flag = (key: string, text: string) => {
     setStatus((s) => ({ ...s, [key]: text }))
     setTimeout(() => setStatus((s) => ({ ...s, [key]: '' })), 2000)
+  }
+
+  const [invoice, setInvoice] = useState<InvoiceState>({ kind: 'idle' })
+  const invoiceFileRef = useRef<HTMLInputElement>(null)
+
+  const onInvoiceFile = async (file: File | undefined) => {
+    if (invoiceFileRef.current) invoiceFileRef.current.value = ''
+    if (!file) return
+    setInvoice({ kind: 'reading' })
+    const r = await parseInvoiceFile(file, email.accessCode)
+    if (!r.ok) {
+      setInvoice({ kind: 'error', message: r.message })
+      return
+    }
+    if (r.invoice.lines.length === 0) {
+      setInvoice({ kind: 'error', message: r.invoice.notes ? `No line items found: ${r.invoice.notes}` : 'No line items found on that document.' })
+      return
+    }
+    const result = matchInvoiceLines(order.lines, r.invoice.lines)
+    onLineTotals(assignmentsToLineTotals(result.assignments))
+    if (!order.header.invoiceNumber && r.invoice.invoiceNumber) onHeader({ invoiceNumber: r.invoice.invoiceNumber })
+    setInvoice({ kind: 'done', invoice: r.invoice, result })
+    setPricesOpen(true)
   }
 
   const [send, setSend] = useState<SendState>({ kind: 'idle' })
@@ -198,6 +228,51 @@ export function ReviewScreen({ order, transporter, licenses, email, onHeader, on
           {pricesOpen ? <ChevronDown className="h-5 w-5 text-gray-400" /> : <ChevronUp className="h-5 w-5 text-gray-400" />}
         </button>
         {isWholesale && missingPrice > 0 && !pricesOpen && <Pill tone="amber">{missingPrice} packages without a price</Pill>}
+
+        <input ref={invoiceFileRef} type="file" accept={INVOICE_ACCEPT} className="hidden" onChange={(e) => void onInvoiceFile(e.target.files?.[0])} />
+        <Button block variant="secondary" disabled={invoice.kind === 'reading'} onClick={() => invoiceFileRef.current?.click()}>
+          {invoice.kind === 'reading' ? <Loader2 className="h-5 w-5 animate-spin" /> : <FileText className="h-5 w-5" />}
+          {invoice.kind === 'reading' ? 'Reading invoice…' : 'Attach invoice to fill prices'}
+        </Button>
+        <p className="text-xs text-gray-400 -mt-1">Apex invoice PDF, a photo of it, or a CSV export. Lines are matched by product name and quantity.</p>
+
+        {invoice.kind === 'error' && <Notice tone="red">{invoice.message}</Notice>}
+        {invoice.kind === 'done' && (
+          <Notice tone={invoice.result.unmatchedInvoice.length || invoice.result.unpricedLineIds.length ? 'amber' : 'green'}>
+            <p className="font-bold">
+              Filled {invoice.result.assignments.length} of {order.lines.length} lines
+              {invoice.invoice.invoiceNumber ? ` from invoice ${invoice.invoice.invoiceNumber}` : ''}.
+            </p>
+            {Array.from(
+              // A split assignment yields one note per pick line; show each note once.
+              new Map(invoice.result.assignments.filter((a) => a.note).map((a) => [`${a.invoiceDescription}|${a.note}`, a])).values(),
+            )
+              .slice(0, 4)
+              .map((a) => (
+                <p key={a.lineId} className="text-xs mt-1">
+                  {order.lines.find((l) => l.id === a.lineId)?.productName}: {a.note}
+                </p>
+              ))}
+            {invoice.result.unpricedLineIds.length > 0 && (
+              <p className="text-xs mt-1">
+                Still blank: {invoice.result.unpricedLineIds.map((id) => order.lines.find((l) => l.id === id)?.productName).filter(Boolean).slice(0, 3).join('; ')}
+                {invoice.result.unpricedLineIds.length > 3 ? ` +${invoice.result.unpricedLineIds.length - 3} more` : ''}
+              </p>
+            )}
+            {invoice.result.unmatchedInvoice.length > 0 && (
+              <p className="text-xs mt-1">
+                On the invoice but not the pick list: {invoice.result.unmatchedInvoice.slice(0, 3).map((i) => i.description).join('; ')}
+                {invoice.result.unmatchedInvoice.length > 3 ? ` +${invoice.result.unmatchedInvoice.length - 3} more` : ''}
+              </p>
+            )}
+            {invoice.invoice.total !== null && (
+              <p className="text-xs mt-1">
+                Invoice total ${formatMoney(invoice.invoice.total)} · filled ${formatMoney(invoice.result.assignments.reduce((a, x) => a + x.total, 0))}
+              </p>
+            )}
+          </Notice>
+        )}
+
         {pricesOpen &&
           order.lines.map((l) => (
             <Field key={l.id} label={l.productName}>
@@ -214,6 +289,26 @@ export function ReviewScreen({ order, transporter, licenses, email, onHeader, on
             </Field>
           ))}
       </Card>
+
+      <Notice tone="blue">
+        <p className="font-bold">These files are for T3's Autofill, not Metrc's CSV upload.</p>
+        <p className="text-xs mt-1">
+          In Metrc: Transfers → New Transfer → T3 "Autofill T3 CSV" → pick a file. T3 fills the form; you review and submit. Metrc's own
+          import page won't accept them. One file per origin license.
+        </p>
+      </Notice>
+
+      {isSample && (
+        <Notice tone="amber">
+          <div className="flex items-start gap-2">
+            <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
+            <p>
+              Sample order: these cases already shipped on manifests 0002077929 / 0002077937, so Metrc will say the packages don't exist if
+              you submit. Check the filled form against those manifests instead.
+            </p>
+          </div>
+        </Notice>
+      )}
 
       {files.map((f) => (
         <Card key={f.originLicense}>
@@ -304,10 +399,6 @@ export function ReviewScreen({ order, transporter, licenses, email, onHeader, on
         </Button>
         {!email.accessCode && <p className="text-xs text-gray-400">No access code set. If sending fails, add it under Settings → Email export.</p>}
       </Card>
-
-      <p className="text-xs text-gray-400 text-center px-4">
-        Open Metrc → Transfers → New Transfer, then use T3's "Autofill T3 CSV" with each file. One file per origin license.
-      </p>
     </Screen>
   )
 }
