@@ -90,7 +90,7 @@ beforeEach(() => {
     process.env.AUTH0_DOMAIN = 'login.neurocann.app';
 });
 
-const PUBLIC_TOOLS = ['about_neurocann', 'plan_extraction_inputs', 'estimate_dry_weight', 'estimate_harvest_yield', 'plan_harvest_timeline', 'estimate_trim_labor'];
+const PUBLIC_TOOLS = ['about_neurocann', 'plan_extraction_inputs', 'estimate_cost_per_gram', 'plan_wash_schedule', 'estimate_dry_weight', 'estimate_harvest_yield', 'plan_harvest_timeline', 'estimate_trim_labor'];
 
 describe('anonymous access (ChatGPT pre-sign-in)', () => {
     it('lets anonymous callers initialize and see every tool with securitySchemes', async () => {
@@ -120,6 +120,63 @@ describe('anonymous access (ChatGPT pre-sign-in)', () => {
         expect(plan.overallYieldPct).toBeCloseTo(2.88, 1);
         expect(plan.steps.map((s: any) => s.step)).toEqual(['Wash (ice water)', 'Freeze dry', 'Press']);
         expect(sqlMock).not.toHaveBeenCalled();
+    });
+
+    it('costs a rosin batch from defaults and reports margin and break-even yield', async () => {
+        const res = await call(rpc('tools/call', { name: 'estimate_cost_per_gram', arguments: { targetProduct: 'rosin', wholesalePricePerGram: 12, unitGrams: 1, packagingUsdPerUnit: 0.9 } }));
+        expect(res.json.result.isError).toBeUndefined();
+        const c = res.json.result.structuredContent;
+        // 38.27 lb × $150 = $5,741 material; 6.5 h × $22 = $143; $60 consumables; $150 lab; 500 × $0.90 packaging
+        expect(c.batch.startingMaterial.required.pounds).toBeCloseTo(38.27, 1);
+        expect(c.breakdown.map((b: any) => [b.item, b.usd])).toEqual([
+            ['Starting material', 5741.21], ['Labor', 143], ['Consumables', 60], ['Lab testing', 150], ['Packaging', 450],
+        ]);
+        expect(c.batchCostUsd).toBeCloseTo(6544.21, 1);
+        expect(c.costPerGramUsd).toBeCloseTo(13.09, 2);
+        expect(c.costPerUnitUsd).toBe(c.costPerGramUsd);
+        expect(c.materialSharePct).toBeCloseTo(87.7, 0);
+        // Selling at $12/g loses money; break-even needs the overall yield to rise from 2.88% to ~3.18%.
+        expect(c.economics.grossMarginUsd).toBeCloseTo(-544.21, 1);
+        expect(c.economics.breakEvenOverallYieldPct).toBeCloseTo(3.18, 1);
+        expect(c.sensitivity.costPerGramAtMinusOnePoint).toBeGreaterThan(c.costPerGramUsd);
+        expect(c.sensitivity.costPerGramAtPlusOnePoint).toBeLessThan(c.costPerGramUsd);
+        expect(c.assumptions[0]).toMatch(/Planning defaults used for material price/);
+        expect(sqlMock).not.toHaveBeenCalled();
+    });
+
+    it('omits defaults from the assumptions when every cost input is supplied', async () => {
+        const res = await call(rpc('tools/call', { name: 'estimate_cost_per_gram', arguments: { targetProduct: 'distillate', materialPricePerLb: 30, laborRateUsd: 25, laborHours: 10, consumablesUsd: 200, labTestUsd: 120 } }));
+        const c = res.json.result.structuredContent;
+        expect(c.batch.startingMaterial.type).toBe('trim');
+        expect(c.assumptions[0]).toMatch(/All cost inputs were supplied/);
+        expect(c.economics).toBeUndefined();
+        expect(c.costPerUnitUsd).toBeUndefined();
+    });
+
+    it('schedules wash runs and freeze-dry cycles and names the bottleneck', async () => {
+        const res = await call(rpc('tools/call', { name: 'plan_wash_schedule', arguments: { freshFrozenWeight: 200, unit: 'lb', washStations: 2, startDate: '2026-10-05', targetDays: 5 } }));
+        expect(res.json.result.isError).toBeUndefined();
+        const s = res.json.result.structuredContent;
+        // 200 lb / 20 lb = 10 runs; 1 run per station per 8 h shift at 4.5 h → 5 days on 2 stations
+        expect(s.wash).toMatchObject({ runs: 10, runsPerStationPerDay: 1, stations: 2, days: 5 });
+        // 5% → 10 lb (4,536 g) wet hash; 3 × 2 kg cycles on one dryer → 3 days; dry hash 96%
+        expect(s.output.wetHash.pounds).toBeCloseTo(10, 1);
+        expect(s.freezeDry).toMatchObject({ cycles: 3, dryers: 1, days: 3 });
+        expect(s.output.dryHash.grams).toBeCloseTo(4354.5, 0);
+        expect(s.bottleneck).toBe('wash');
+        expect(s.elapsedDays).toBe(6);
+        expect(s.dates).toEqual({ firstWash: '2026-10-05', lastWash: '2026-10-09', lastFreezeDryComplete: '2026-10-11' });
+        expect(s.toMeetDeadline).toEqual({ targetDays: 5, washStationsNeeded: 3, freezeDryersNeeded: 1, achievableWithCurrentEquipment: false });
+        expect(sqlMock).not.toHaveBeenCalled();
+    });
+
+    it('flags the freeze dryer as the bottleneck when wash capacity outruns it', async () => {
+        const res = await call(rpc('tools/call', { name: 'plan_wash_schedule', arguments: { freshFrozenWeight: 400, washStations: 4, washCycleHours: 2 } }));
+        const s = res.json.result.structuredContent;
+        expect(s.wash.days).toBe(2);        // 20 runs ÷ (4 per station per day × 4 stations)
+        expect(s.freezeDry.days).toBe(5);   // 9.07 kg wet hash ÷ 2 kg per cycle
+        expect(s.bottleneck).toBe('freeze_dry');
+        expect(s.dates).toBeUndefined();
     });
 
     it('points prospects at the privacy policy and terms from about_neurocann', async () => {
@@ -430,7 +487,8 @@ describe('MCP Apps UI (inline planner card)', () => {
             expect(byName[name]._meta['openai/toolInvocation/invoked'].length).toBeLessThanOrEqual(64);
             expect(byName[name]._meta.securitySchemes).toEqual(byName[name].securitySchemes);
         }
-        // Facility tools stay text-only; the card is a prospect-facing surface.
+        // The first linked-account call gets a card too; the other facility tools stay text-only.
+        expect(byName.get_facility_overview._meta.ui).toEqual({ resourceUri: WIDGET_URI });
         expect(byName.list_harvests._meta.ui).toBeUndefined();
         expect(byName.list_harvests._meta['openai/outputTemplate']).toBeUndefined();
         expect(byName.list_harvests._meta.securitySchemes).toEqual([{ type: 'oauth2', scopes: ['read:facility'] }]);
