@@ -34,6 +34,8 @@ what changes once a facility is linked (historical per-strain yields, on-hand in
 | --- | --- | --- |
 | `about_neurocann` | public | Product summary, audience, modules, how to link |
 | `plan_extraction_inputs` | public | Demand-backward planner: finished product → starting material, per-step weights, hours, cost, run count |
+| `estimate_cost_per_gram` | public | Extraction economics: batch cost breakdown (material, labor, consumables, lab test, packaging), cost per gram/unit, yield sensitivity, margin and break-even yield at a wholesale price |
+| `plan_wash_schedule` | public | Solventless throughput: wash runs and days, freeze-dryer cycles and days, bottleneck, wet/dry hash output, finish dates, equipment needed for a deadline |
 | `estimate_dry_weight` | public | Wet → dry harvest estimate (75% default moisture loss), per-plant, fresh-frozen split |
 | `estimate_harvest_yield` | public | Plants or canopy sq ft → expected wet/dry weight, flower/trim/shake split, optional revenue |
 | `plan_harvest_timeline` | public | Flip date ↔ harvest date, drying and cure completion, weekly checkpoints |
@@ -53,9 +55,10 @@ scope `read:facility`; write tools additionally need `write:tasks`.
 
 ## Inline planner card (MCP Apps UI)
 
-The six public tools render as an inline card in hosts that implement the
-[MCP Apps](https://modelcontextprotocol.io/docs/extensions/apps) extension — ChatGPT,
-claude.ai / Claude Desktop, VS Code and others. Facility tools stay text-only.
+The eight public tools and `get_facility_overview` render as an inline card in hosts that
+implement the [MCP Apps](https://modelcontextprotocol.io/docs/extensions/apps) extension —
+ChatGPT, claude.ai / Claude Desktop, VS Code and others. The remaining facility tools stay
+text-only until there is a linked-account audience to design for.
 
 - `utils/mcpWidgets.ts` owns the single HTML resource `ui://neurocann/planner-v1.html`
   (`mimeType: text/html;profile=mcp-app`), served through `resources/list` /
@@ -68,10 +71,14 @@ claude.ai / Claude Desktop, VS Code and others. Facility tools stay text-only.
   `openai/toolInvocation/invoking|invoked` status strings. Hosts without UI support ignore
   the metadata and use the text `content`, so nothing degrades.
 - Views: extraction pipeline (starting material headline, per-step yield bars, cost/runs/
-  batches tiles), harvest yield (flower/trim/shake stacked bar, revenue), harvest calendar
-  (veg/flower/dry/cure segments and milestone dates), trim labor (crew headline + tiles),
-  dry weight (retention bar), and the product overview with "Try a free planner" (sends a
-  chat message) and "Open NeuroCann" (host link). Every planner card ends with the first
+  batches tiles), cost per gram (cost-breakdown stacked bar, margin / break-even / per-unit
+  tiles, one-point yield sensitivity), wash & freeze-dry schedule (stage duration bars with
+  the bottleneck highlighted, hash output, finish dates, deadline chip), harvest yield
+  (flower/trim/shake stacked bar, revenue), harvest calendar (veg/flower/dry/cure segments
+  and milestone dates), trim labor (crew headline + tiles), dry weight (retention bar), the
+  product overview with "Try a free planner" (sends a chat message) and "Open NeuroCann"
+  (host link), and the facility overview (plants-by-phase bar, harvest and task chips,
+  inventory tiles, "What's drying?" follow-up). Every planner card ends with the first
   assumption and a single "Open NeuroCann" call to action.
 - Styling follows the ChatGPT UI guidelines: system font stack, host colour variables
   (`--color-text-primary` etc., with `light-dark()` fallbacks), brand green only as an
@@ -128,7 +135,7 @@ APP_CONTACT_EMAIL=will@neurocann.app
 
 ChatGPT → Settings → Apps → *Create* (Developer Mode must be on) → MCP server URL
 `https://neurocann.app/mcp`, Authentication **OAuth** → *Scan tools*. You should see all
-tools, with the six public ones runnable immediately (rendering the inline planner card)
+tools, with the eight public ones runnable immediately (rendering the inline planner card)
 and the rest prompting to connect.
 Try: "How many pounds of fresh frozen do I need for 1,000 half-gram live rosin carts?"
 then "What's drying in my facility right now?" (triggers the link flow).
@@ -189,9 +196,12 @@ Cursor: `.cursor/mcp.json` with `url` + `headers`. Claude Desktop: bridge via
 - **Public tool numbers come from `migrations/seed_extraction_presets.sql`** (wash 5%,
   freeze-dry 96%, press 60%, decarb 95%, fill 95%; BHO 15/90/95; distillate 12/85/95/80),
   the 75% moisture-loss default and the 63-day flowering default. Cultivation/trim defaults
-  (450 g dry per plant, 70/20/10 flower/trim/shake, 75 g/hr hand trim, 1,000 g/hr machine)
-  are declared as constants at the top of `mcpPublicTools.ts` and are always echoed back in
-  the tool's `assumptions` so the model presents them as estimates, not facts.
+  (450 g dry per plant, 70/20/10 flower/trim/shake, 75 g/hr hand trim, 1,000 g/hr machine),
+  economics defaults (fresh frozen $150/lb, trim $40/lb, $22/h loaded labor, per-step
+  attended hours, $40–300 consumables by process, $150 lab test) and throughput defaults
+  (20 lb per wash, 4.5 h cycle, 2 kg wet hash per 24 h freeze-dry cycle) are declared as
+  constants at the top of `mcpPublicTools.ts` and are always echoed back in the tool's
+  `assumptions` so the model presents them as estimates, not facts.
 
 ## Before submitting to the Apps Directory
 
