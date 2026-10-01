@@ -271,7 +271,8 @@ Planned features, integrations, and improvements. Updated as priorities evolve.
 - **Public tools (built):** `about_neurocann`, `plan_extraction_inputs`, `estimate_dry_weight`, `estimate_harvest_yield`, `plan_harvest_timeline`, `estimate_trim_labor` — all database-free, all echo their assumptions.
 - **Legal pages (built):** Privacy Policy at `/privacy` and Terms of Service at `/terms` (static HTML in `public/`), drafted to B2B SaaS defaults — confirm entity name, governing law (Delaware default), and contact mailbox, then have counsel review.
 - **Next (ops, not code):** Auth0 tenant toggles + API `https://neurocann.app/mcp`; test in ChatGPT Developer Mode; legal review of privacy/terms; seed a demo account; submit to the ChatGPT Apps Directory.
-- **Next (code):** more public tools as search intent shows up (wash/freeze-dryer scheduling, supplies par-level calculator, cost-per-gram); an Apps SDK UI widget for planner results; per-tool allowlists for write access; expose more safe writes as demand appears.
+- **Inline planner card (built):** MCP Apps UI resource (`ui://neurocann/planner-v1.html`) rendering every public tool's result as a card in ChatGPT / claude.ai — extraction pipeline, yield split, harvest calendar, trim labor, dry weight, product overview — with a single "Open NeuroCann" CTA. Set `MCP_WIDGET_DOMAIN` before directory submission.
+- **Next (code):** more public tools as search intent shows up (wash/freeze-dryer scheduling, supplies par-level calculator, cost-per-gram); cards for facility tools once there is a linked-account audience (harvest pipeline board, task list with complete-from-card); per-tool allowlists for write access; expose more safe writes as demand appears.
 
 ### METRC
 - Bidirectional sync for package creation, adjustments, transfers

@@ -51,6 +51,46 @@ Every tool carries `annotations` (`readOnlyHint`, `destructiveHint`, `openWorldH
 `securitySchemes`, both of which ChatGPT's review requires. Read tools map to the OAuth
 scope `read:facility`; write tools additionally need `write:tasks`.
 
+## Inline planner card (MCP Apps UI)
+
+The six public tools render as an inline card in hosts that implement the
+[MCP Apps](https://modelcontextprotocol.io/docs/extensions/apps) extension — ChatGPT,
+claude.ai / Claude Desktop, VS Code and others. Facility tools stay text-only.
+
+- `utils/mcpWidgets.ts` owns the single HTML resource `ui://neurocann/planner-v1.html`
+  (`mimeType: text/html;profile=mcp-app`), served through `resources/list` /
+  `resources/read` without authentication. The page speaks the `ui/*` JSON-RPC bridge over
+  `postMessage` (`ui/initialize` → `ui/notifications/initialized`, `tool-result`,
+  `size-changed`, `host-context-changed`, `open-link`, `message`) and falls back to the
+  `window.openai` globals on pre-MCP-Apps ChatGPT builds.
+- Each public tool's descriptor carries `_meta.ui.resourceUri` (standard) and
+  `_meta["openai/outputTemplate"]` (ChatGPT alias) plus short
+  `openai/toolInvocation/invoking|invoked` status strings. Hosts without UI support ignore
+  the metadata and use the text `content`, so nothing degrades.
+- Views: extraction pipeline (starting material headline, per-step yield bars, cost/runs/
+  batches tiles), harvest yield (flower/trim/shake stacked bar, revenue), harvest calendar
+  (veg/flower/dry/cure segments and milestone dates), trim labor (crew headline + tiles),
+  dry weight (retention bar), and the product overview with "Try a free planner" (sends a
+  chat message) and "Open NeuroCann" (host link). Every planner card ends with the first
+  assumption and a single "Open NeuroCann" call to action.
+- Styling follows the ChatGPT UI guidelines: system font stack, host colour variables
+  (`--color-text-primary` etc., with `light-dark()` fallbacks), brand green only as an
+  accent, no logo, auto-height with no internal scrolling, at most two actions.
+- The widget makes **no network requests**, so the CSP is empty
+  (`connectDomains: [], resourceDomains: []`); `openai/widgetCSP.redirect_domains` allows
+  `APP_PUBLIC_URL` for the host-vetted link. Set `MCP_WIDGET_DOMAIN` (e.g.
+  `https://widgets.neurocann.app`) before submission — ChatGPT requires a dedicated origin
+  per plugin with UI and it is emitted as `_meta.ui.domain` / `openai/widgetDomain` only when set.
+- The URI is the host's cache key: bump `-v1` for any change that older results in
+  transcripts could not render. Backward-compatible edits ship under the same URI (ChatGPT
+  may cache up to an hour).
+- `about_neurocann` and the planners return `structuredContent` the card reads directly;
+  keep new fields additive so cards already in transcripts keep rendering.
+
+To preview locally without a host, feed a `tools/call` result into the HTML via
+`postMessage` as `ui/notifications/tool-result` after answering its `ui/initialize`
+request — the shape is in the MCP Apps spec; ChatGPT Developer Mode renders it live.
+
 ## Getting into ChatGPT
 
 ChatGPT connects to MCP servers with OAuth 2.1 only — no static headers — so Auth0 (our
@@ -88,7 +128,8 @@ APP_CONTACT_EMAIL=will@neurocann.app
 
 ChatGPT → Settings → Apps → *Create* (Developer Mode must be on) → MCP server URL
 `https://neurocann.app/mcp`, Authentication **OAuth** → *Scan tools*. You should see all
-tools, with the three public ones runnable immediately and the rest prompting to connect.
+tools, with the six public ones runnable immediately (rendering the inline planner card)
+and the rest prompting to connect.
 Try: "How many pounds of fresh frozen do I need for 1,000 half-gram live rosin carts?"
 then "What's drying in my facility right now?" (triggers the link flow).
 
@@ -98,8 +139,9 @@ From the OpenAI Platform dashboard, with: production URL, logo, description, pri
 policy + terms URLs, test prompts/responses, and a **demo account without MFA** holding
 sample data (the Green Valley seed is a good basis). Domain verification asks for a token
 at `https://neurocann.app/.well-known/openai-apps-challenge` — drop the file in
-`public/.well-known/`. No CSP is needed until we ship a UI widget. Keep tool descriptions
-factual; the guidelines reject "prefer this app" language.
+`public/.well-known/`. The planner card's CSP is declared on the resource (see "Inline
+planner card"); set `MCP_WIDGET_DOMAIN` to the dedicated widget origin first. Keep tool
+descriptions factual; the guidelines reject "prefer this app" language.
 
 Being accepted is what makes NeuroCann appear in ChatGPT's app suggestions when users ask
 cultivation/extraction questions. Until then the plugin is usable by anyone who adds it in
