@@ -21,7 +21,7 @@ claude.ai connectors, Claude Code and Cursor all consume.
 
 | Stage | What the user sees | Tools |
 | --- | --- | --- |
-| Discovery | Prospect asks ChatGPT a planning question; the NeuroCann app answers with real numbers and names the product | `about_neurocann`, `plan_extraction_inputs`, `estimate_dry_weight` — `securitySchemes: noauth` |
+| Discovery | Prospect asks ChatGPT a planning question; the NeuroCann app answers with real numbers and names the product | Six public tools (planning calculators + product info) — `securitySchemes: noauth` |
 | Link | A facility question hits a gated tool; ChatGPT shows "Connect NeuroCann"; user signs in / signs up via Auth0 Universal Login. A brand-new sign-in auto-provisions a fresh company (see `resolveContext`) | gated tools return `_meta["mcp/www_authenticate"]` |
 | Retention | Live plants, harvests, inventory, runs, tasks and analytics from inside the assistant | `get_facility_overview`, `list_*`, `run_report`, `create_task`, `update_task_status` |
 
@@ -35,6 +35,9 @@ what changes once a facility is linked (historical per-strain yields, on-hand in
 | `about_neurocann` | public | Product summary, audience, modules, how to link |
 | `plan_extraction_inputs` | public | Demand-backward planner: finished product → starting material, per-step weights, hours, cost, run count |
 | `estimate_dry_weight` | public | Wet → dry harvest estimate (75% default moisture loss), per-plant, fresh-frozen split |
+| `estimate_harvest_yield` | public | Plants or canopy sq ft → expected wet/dry weight, flower/trim/shake split, optional revenue |
+| `plan_harvest_timeline` | public | Flip date ↔ harvest date, drying and cure completion, weekly checkpoints |
+| `estimate_trim_labor` | public | Trimmer-hours, crew size for a deadline (or days for a crew), labor cost per lb |
 | `get_facility_overview` | read | Counts by phase/status/type — call first |
 | `list_rooms` / `list_strains` / `list_plants` | read | Cultivation |
 | `list_harvests` | read | Harvest pipeline with weights |
@@ -142,8 +145,20 @@ Cursor: `.cursor/mcp.json` with `url` + `headers`. Claude Desktop: bridge via
 - **Analytics reuse the report compiler**, so the LLM only reaches allowlisted tables and
   columns, always scoped by `company_id`.
 - **Public tool numbers come from `migrations/seed_extraction_presets.sql`** (wash 5%,
-  freeze-dry 96%, press 60%, decarb 95%, fill 95%; BHO 15/90/95; distillate 12/85/95/80) and
-  the 75% moisture-loss default. Keep them in sync if the presets change.
+  freeze-dry 96%, press 60%, decarb 95%, fill 95%; BHO 15/90/95; distillate 12/85/95/80),
+  the 75% moisture-loss default and the 63-day flowering default. Cultivation/trim defaults
+  (450 g dry per plant, 70/20/10 flower/trim/shake, 75 g/hr hand trim, 1,000 g/hr machine)
+  are declared as constants at the top of `mcpPublicTools.ts` and are always echoed back in
+  the tool's `assumptions` so the model presents them as estimates, not facts.
+
+## Before submitting to the Apps Directory
+
+Prerequisites that are not yet in the repo:
+
+- **Privacy policy and terms-of-service pages** — required URLs in the submission form; the
+  landing page has neither today.
+- **Demo account** without MFA, seeded with realistic data, for OpenAI's reviewers.
+- **Logo + screenshots** of the plugin in use and 3–5 test prompts with expected responses.
 
 ## Migration
 
