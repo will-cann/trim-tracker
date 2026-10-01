@@ -122,6 +122,14 @@ describe('anonymous access (ChatGPT pre-sign-in)', () => {
         expect(sqlMock).not.toHaveBeenCalled();
     });
 
+    it('points prospects at the privacy policy and terms from about_neurocann', async () => {
+        const res = await call(rpc('tools/call', { name: 'about_neurocann', arguments: {} }));
+        expect(res.status).toBe(200);
+        const links = res.json.result.structuredContent.links;
+        expect(links.privacyPolicy).toMatch(/\/privacy$/);
+        expect(links.termsOfService).toMatch(/\/terms$/);
+    });
+
     it('challenges anonymous calls to facility tools with mcp/www_authenticate instead of a 401', async () => {
         const res = await call(rpc('tools/call', { name: 'list_harvests', arguments: {} }));
         expect(res.status).toBe(200);
@@ -141,6 +149,8 @@ describe('anonymous access (ChatGPT pre-sign-in)', () => {
         expect(doc.resource).toBe(MCP_RESOURCE);
         expect(doc.authorization_servers).toEqual(['https://login.neurocann.app/']);
         expect(doc.scopes_supported).toEqual(expect.arrayContaining(['openid', 'offline_access', 'read:facility', 'write:tasks']));
+        expect(doc.resource_policy_uri).toBe(`https://${HOST}/privacy`);
+        expect(doc.resource_tos_uri).toBe(`https://${HOST}/terms`);
     });
 
     it('honours MCP_RESOURCE when the public identifier differs from the request host', async () => {
