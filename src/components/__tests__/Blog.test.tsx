@@ -48,8 +48,9 @@ describe('BlogPostPage', () => {
     expect(screen.getByRole('heading', { level: 1, name: post.title })).toBeTruthy();
     expect(screen.getByText(post.author)).toBeTruthy();
     expect(screen.getByText(`${post.readingMinutes} min read`)).toBeTruthy();
-    // Every post has at least one H2 section in its body.
-    expect(screen.getAllByRole('heading', { level: 2 }).length).toBeGreaterThan(0);
+    // Short posts may have no section headings, so assert the markdown body
+    // itself rendered rather than any particular element inside it.
+    expect(document.querySelectorAll('.blog-article p').length).toBeGreaterThan(0);
     expect(document.title).toBe(`${post.title} — NeuroCann Blog`);
   });
 

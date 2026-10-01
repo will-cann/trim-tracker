@@ -15,7 +15,7 @@ export const BlogIndex: React.FC = () => {
   useDocumentHead({
     title: 'Blog — NeuroCann',
     description:
-      'Notes from the floor: how cannabis facilities run harvest day, trim, extraction, and compliance — and how a voice-first operations platform fits into that work.',
+      'Notes from the floor: what running rooms, harvests, trim floors, and extraction programs actually taught us. Yields, batch sizes, sourcing, compliance — numbers included.',
     path: BLOG_BASE_PATH,
     ogType: 'website',
   });
@@ -43,7 +43,7 @@ export const BlogIndex: React.FC = () => {
                 className="text-lg text-gray-500 leading-relaxed"
                 style={{ opacity: 0, animation: 'heroFadeIn 0.7s cubic-bezier(0.16,1,0.3,1) 0.3s forwards' }}
               >
-                How facilities actually run harvest day, trim, extraction, and compliance — and what changes when the system listens instead of waiting for a tap.
+                What running rooms, harvests, trim floors, and extraction programs actually taught us — and the operators we work with. Yields, batch sizes, sourcing, compliance. Numbers included.
               </p>
             </div>
           </div>
