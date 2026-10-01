@@ -73,6 +73,7 @@ Reports close the loop on trim labor.
 
 ## Related internal briefs
 
+- Blog content plan (formats, cadence, schedule, claims checklist): `docs/sales-marketing/blog-content-plan.md`
 - Landing page structure: `docs/briefs/landing-page-brief.md`
 - Demo honesty checklist: `docs/briefs/demo-readiness-apr2026.md`
 - Product roadmap: `docs/ROADMAP.md`
