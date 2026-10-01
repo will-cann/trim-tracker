@@ -1,8 +1,8 @@
 import React from 'react';
-import { KeyRound, Leaf, LayoutGrid, Tag, Users, Wrench, Package } from 'lucide-react';
+import { KeyRound, Leaf, LayoutGrid, Tag, Users, Wrench, Package, Plug } from 'lucide-react';
 import { ff } from '../../utils/featureFlags';
 
-export type SettingsSection = 'licenses' | 'strains' | 'rooms' | 'tags' | 'equipment' | 'products' | 'team';
+export type SettingsSection = 'licenses' | 'strains' | 'rooms' | 'tags' | 'equipment' | 'products' | 'team' | 'llm-plugin';
 
 interface SettingsNavProps {
     active: SettingsSection;
@@ -23,6 +23,7 @@ const NAV_ITEMS: { id: SettingsSection; label: string; icon: React.ElementType; 
     { id: 'equipment', label: 'Equipment', icon: Wrench, flag: ff.extractionWorkspace },
     { id: 'products', label: 'Product Catalog', icon: Package },
     { id: 'team', label: 'Team', icon: Users, countKey: 'team' },
+    { id: 'llm-plugin', label: 'LLM Plugin', icon: Plug },
 ];
 
 export const SettingsNav: React.FC<SettingsNavProps> = ({ active, onChange, counts }) => {

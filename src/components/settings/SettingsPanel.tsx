@@ -12,6 +12,7 @@ import { TagSection } from './TagSection';
 import { TeamSettingsSection } from './TeamSettingsSection';
 import { EquipmentSection } from './EquipmentSection';
 import { ProductTypeSection } from './ProductTypeSection';
+import { LlmPluginSection } from './LlmPluginSection';
 
 interface SettingsPanelProps {
     onViewChange?: (view: any) => void;
@@ -160,6 +161,8 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ onViewChange }) =>
                         onReload={loadProfiles}
                     />
                 );
+            case 'llm-plugin':
+                return <LlmPluginSection />;
         }
     };
 

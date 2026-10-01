@@ -1,4 +1,4 @@
-import type { TrimSession, CreateTrimSessionDTO, Trimmer, TrimmerProfile, ProposedAction, Harvest, CreateHarvestDTO, HarvestWasteType, HarvestAllocation, HarvestPlantWeight, HarvestBin, BinCureLog, CreateBinDTO, FloweringBatchGroup, Strain, License, SpeechMode, HumanTask, TeamRole, Tag, TagType, TagStats, TagSettings, Package, CreatePackageDTO, MetrcItem, PackageAdjustment, AdjustmentReason, ProductType, ProcessTemplate, StepSupplyRequirement, YieldAverage, BackwardPlan, PlanningSession, PlanTargetInput, StrainYieldOverride, ReportSpec, SavedReport, TaskViewSpec, SavedTaskView, SupplyPool, SupplyItem, SupplyLedgerEntry, SupplyChangeType, SupplyPoolSlug, ContactThread } from '../types/definitions';
+import type { TrimSession, CreateTrimSessionDTO, Trimmer, TrimmerProfile, ProposedAction, Harvest, CreateHarvestDTO, HarvestWasteType, HarvestAllocation, HarvestPlantWeight, HarvestBin, BinCureLog, CreateBinDTO, FloweringBatchGroup, Strain, License, SpeechMode, HumanTask, TeamRole, Tag, TagType, TagStats, TagSettings, Package, CreatePackageDTO, MetrcItem, PackageAdjustment, AdjustmentReason, ProductType, ProcessTemplate, StepSupplyRequirement, YieldAverage, BackwardPlan, PlanningSession, PlanTargetInput, StrainYieldOverride, ReportSpec, SavedReport, TaskViewSpec, SavedTaskView, SupplyPool, SupplyItem, SupplyLedgerEntry, SupplyChangeType, SupplyPoolSlug, ContactThread, ApiKey, ApiKeyScope, CreatedApiKey } from '../types/definitions';
 
 const API_BASE = '/.netlify/functions';
 
@@ -599,6 +599,38 @@ export const deleteLicense = async (id: string): Promise<void> => {
         method: 'DELETE',
     });
     if (!response.ok) throw new Error('Failed to delete license');
+};
+
+// ============================================================================
+// LLM PLUGIN API KEYS
+// ============================================================================
+
+export const getApiKeys = async (): Promise<ApiKey[]> => {
+    const response = await fetchWithAuth(`${API_BASE}/manage-api-keys`);
+    if (!response.ok) throw new Error('Failed to fetch API keys');
+    return await response.json();
+};
+
+export const createApiKey = async (name: string, scopes: ApiKeyScope[]): Promise<CreatedApiKey> => {
+    const response = await fetchWithAuth(`${API_BASE}/manage-api-keys`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, scopes }),
+    });
+    if (!response.ok) {
+        const err = await response.json().catch(() => ({ error: 'Failed to create API key' }));
+        throw new Error(err.error || 'Failed to create API key');
+    }
+    return await response.json();
+};
+
+export const revokeApiKey = async (id: string): Promise<void> => {
+    const response = await fetchWithAuth(`${API_BASE}/manage-api-keys`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id }),
+    });
+    if (!response.ok) throw new Error('Failed to revoke API key');
 };
 
 // ============================================================================
@@ -1949,6 +1981,10 @@ export const apiService = {
     createLicense,
     updateLicenseLabel,
     deleteLicense,
+    // LLM plugin API keys
+    getApiKeys,
+    createApiKey,
+    revokeApiKey,
     // Strains
     getStrains,
     upsertStrain,
