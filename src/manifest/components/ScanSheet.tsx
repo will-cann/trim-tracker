@@ -3,7 +3,7 @@ import { Camera, CameraOff, Keyboard, Trash2, Check, Download } from 'lucide-rea
 import { Button, Card, Input, Notice, Pill, Screen, TopBar } from './ui'
 import { Scanner } from './Scanner'
 import { lineStatus } from '../lib/order'
-import { extractTags, isMetrcTag, shortTag } from '../lib/metrc'
+import { extractTags, isMetrcTag, shortTag, TAG_HINT } from '../lib/metrc'
 import type { OrderState, PickLine, ScanSource } from '../types'
 
 interface Props {
@@ -25,7 +25,9 @@ export function ScanSheet({ order, line, onScan, onRemove, onImportRecorded, onN
   const scans = order.scans[line.id] ?? []
   const status = lineStatus(line, scans)
   const [cameraOn, setCameraOn] = useState(true)
-  const [manual, setManual] = useState('')
+  // Uncontrolled on purpose: Bluetooth/USB scanners type ~24 keys a few ms
+  // apart, and a controlled value re-render per keystroke can reorder them.
+  const [hasText, setHasText] = useState(false)
   const [toast, setToast] = useState<Toast | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -46,13 +48,17 @@ export function ScanSheet({ order, line, onScan, onRemove, onImportRecorded, onN
   }
 
   const submitManual = () => {
-    const tags = extractTags(manual)
+    const el = inputRef.current
+    if (!el) return
+    const raw = el.value
+    const tags = extractTags(raw)
     if (tags.length === 0) {
-      if (manual.trim()) showToast({ tone: 'red', text: 'Not a Metrc tag. Tags are 24 characters starting with 1A.' })
+      if (raw.trim()) showToast({ tone: 'red', text: `Not a Metrc tag. ${TAG_HINT}` })
       return
     }
+    el.value = ''
+    setHasText(false)
     tags.forEach((t) => handle(t, 'manual'))
-    setManual('')
   }
 
   const recordedLeft = line.recordedTags.filter((t) => !scans.some((s) => s.tag === t))
@@ -124,24 +130,24 @@ export function ScanSheet({ order, line, onScan, onRemove, onImportRecorded, onN
       >
         <Input
           ref={inputRef}
-          value={manual}
-          onChange={(e) => {
-            const v = e.target.value
-            setManual(v)
+          defaultValue=""
+          onInput={(e) => {
+            const v = e.currentTarget.value
+            setHasText(v.trim().length > 0)
             // Handheld scanners in keyboard mode type the whole tag in one burst
-            if (v.length >= 24 && isMetrcTag(v)) {
-              handle(v, 'manual')
-              setManual('')
-            }
+            const t = v.trim().toUpperCase()
+            if (t.length >= 24 && isMetrcTag(t)) submitManual()
           }}
           placeholder="1A40C0300000B5…"
-          autoCapitalize="characters"
+          autoCapitalize="none"
           autoCorrect="off"
+          autoComplete="off"
           spellCheck={false}
           inputMode="text"
+          enterKeyHint="done"
           className="font-mono tracking-wide uppercase"
         />
-        <Button type="submit" variant="secondary" className="px-4" disabled={!manual.trim()}>
+        <Button type="submit" variant="secondary" className="px-4" disabled={!hasText}>
           Add
         </Button>
       </form>

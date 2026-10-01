@@ -1,5 +1,5 @@
 import type { OrderState, PackageRow, PickLine, Scan, ScanSource } from '../types'
-import { guessLicenseKind, normalizeTag } from './metrc'
+import { guessLicenseKind, isMetrcTag, normalizeTag, TAG_HINT } from './metrc'
 import { invoiceNumberFromOrder } from './pickList'
 import type { LicenseDefaults } from './storage'
 
@@ -71,7 +71,7 @@ export type AddScanResult =
 export function scanFailureMessage(reason: ScanFailReason | 'no-open-line', detail?: string): string {
   switch (reason) {
     case 'invalid':
-      return 'Not a Metrc tag. Tags are 24 characters starting with 1A.'
+      return `Not a Metrc tag. ${TAG_HINT}`
     case 'duplicate-here':
       return 'Already scanned on this line.'
     case 'duplicate-elsewhere':
@@ -85,7 +85,7 @@ export function scanFailureMessage(reason: ScanFailReason | 'no-open-line', deta
 
 export function addScan(state: OrderState, lineId: string, raw: string, source: ScanSource): AddScanResult {
   const tag = normalizeTag(raw)
-  if (!/^1A[0-9A-Z]{22}$/.test(tag)) return { ok: false, reason: 'invalid' }
+  if (!isMetrcTag(tag)) return { ok: false, reason: 'invalid' }
 
   const line = state.lines.find((l) => l.id === lineId)
   if (!line) return { ok: false, reason: 'invalid' }
