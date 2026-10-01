@@ -90,7 +90,7 @@ beforeEach(() => {
     process.env.AUTH0_DOMAIN = 'login.neurocann.app';
 });
 
-const PUBLIC_TOOLS = ['about_neurocann', 'plan_extraction_inputs', 'estimate_dry_weight', 'estimate_harvest_yield', 'plan_harvest_timeline', 'estimate_trim_labor'];
+const PUBLIC_TOOLS = ['about_neurocann', 'plan_extraction_inputs', 'estimate_cost_per_gram', 'plan_wash_schedule', 'estimate_dry_weight', 'estimate_harvest_yield', 'plan_harvest_timeline', 'estimate_trim_labor'];
 
 describe('anonymous access (ChatGPT pre-sign-in)', () => {
     it('lets anonymous callers initialize and see every tool with securitySchemes', async () => {
@@ -122,6 +122,71 @@ describe('anonymous access (ChatGPT pre-sign-in)', () => {
         expect(sqlMock).not.toHaveBeenCalled();
     });
 
+    it('costs a rosin batch from defaults and reports margin and break-even yield', async () => {
+        const res = await call(rpc('tools/call', { name: 'estimate_cost_per_gram', arguments: { targetProduct: 'rosin', wholesalePricePerGram: 12, unitGrams: 1, packagingUsdPerUnit: 0.9 } }));
+        expect(res.json.result.isError).toBeUndefined();
+        const c = res.json.result.structuredContent;
+        // 38.27 lb × $150 = $5,741 material; 6.5 h × $22 = $143; $60 consumables; $150 lab; 500 × $0.90 packaging
+        expect(c.batch.startingMaterial.required.pounds).toBeCloseTo(38.27, 1);
+        expect(c.breakdown.map((b: any) => [b.item, b.usd])).toEqual([
+            ['Starting material', 5741.21], ['Labor', 143], ['Consumables', 60], ['Lab testing', 150], ['Packaging', 450],
+        ]);
+        expect(c.batchCostUsd).toBeCloseTo(6544.21, 1);
+        expect(c.costPerGramUsd).toBeCloseTo(13.09, 2);
+        expect(c.costPerUnitUsd).toBe(c.costPerGramUsd);
+        expect(c.materialSharePct).toBeCloseTo(87.7, 0);
+        // Selling at $12/g loses money; break-even needs the overall yield to rise from 2.88% to ~3.18%.
+        expect(c.economics.grossMarginUsd).toBeCloseTo(-544.21, 1);
+        expect(c.economics.breakEvenOverallYieldPct).toBeCloseTo(3.18, 1);
+        expect(c.sensitivity.costPerGramAtMinusOnePoint).toBeGreaterThan(c.costPerGramUsd);
+        expect(c.sensitivity.costPerGramAtPlusOnePoint).toBeLessThan(c.costPerGramUsd);
+        expect(c.assumptions[0]).toMatch(/Planning defaults used for material price/);
+        expect(sqlMock).not.toHaveBeenCalled();
+    });
+
+    it('omits defaults from the assumptions when every cost input is supplied', async () => {
+        const res = await call(rpc('tools/call', { name: 'estimate_cost_per_gram', arguments: { targetProduct: 'distillate', materialPricePerLb: 30, laborRateUsd: 25, laborHours: 10, consumablesUsd: 200, labTestUsd: 120 } }));
+        const c = res.json.result.structuredContent;
+        expect(c.batch.startingMaterial.type).toBe('trim');
+        expect(c.assumptions[0]).toMatch(/All cost inputs were supplied/);
+        expect(c.economics).toBeUndefined();
+        expect(c.costPerUnitUsd).toBeUndefined();
+    });
+
+    it('schedules wash runs and freeze-dry cycles and names the bottleneck', async () => {
+        const res = await call(rpc('tools/call', { name: 'plan_wash_schedule', arguments: { freshFrozenWeight: 200, unit: 'lb', washStations: 2, startDate: '2026-10-05', targetDays: 5 } }));
+        expect(res.json.result.isError).toBeUndefined();
+        const s = res.json.result.structuredContent;
+        // 200 lb / 20 lb = 10 runs; 1 run per station per 8 h shift at 4.5 h → 5 days on 2 stations
+        expect(s.wash).toMatchObject({ runs: 10, runsPerStationPerDay: 1, stations: 2, days: 5 });
+        // 5% → 10 lb (4,536 g) wet hash; 3 × 2 kg cycles on one dryer → 3 days; dry hash 96%
+        expect(s.output.wetHash.pounds).toBeCloseTo(10, 1);
+        expect(s.freezeDry).toMatchObject({ cycles: 3, dryers: 1, days: 3 });
+        expect(s.output.dryHash.grams).toBeCloseTo(4354.5, 0);
+        expect(s.bottleneck).toBe('wash');
+        expect(s.elapsedDays).toBe(6);
+        expect(s.dates).toEqual({ firstWash: '2026-10-05', lastWash: '2026-10-09', lastFreezeDryComplete: '2026-10-11' });
+        expect(s.toMeetDeadline).toEqual({ targetDays: 5, washStationsNeeded: 3, freezeDryersNeeded: 1, achievableWithCurrentEquipment: false });
+        expect(sqlMock).not.toHaveBeenCalled();
+    });
+
+    it('flags the freeze dryer as the bottleneck when wash capacity outruns it', async () => {
+        const res = await call(rpc('tools/call', { name: 'plan_wash_schedule', arguments: { freshFrozenWeight: 400, washStations: 4, washCycleHours: 2 } }));
+        const s = res.json.result.structuredContent;
+        expect(s.wash.days).toBe(2);        // 20 runs ÷ (4 per station per day × 4 stations)
+        expect(s.freezeDry.days).toBe(5);   // 9.07 kg wet hash ÷ 2 kg per cycle
+        expect(s.bottleneck).toBe('freeze_dry');
+        expect(s.dates).toBeUndefined();
+    });
+
+    it('points prospects at the privacy policy and terms from about_neurocann', async () => {
+        const res = await call(rpc('tools/call', { name: 'about_neurocann', arguments: {} }));
+        expect(res.status).toBe(200);
+        const links = res.json.result.structuredContent.links;
+        expect(links.privacyPolicy).toMatch(/\/privacy$/);
+        expect(links.termsOfService).toMatch(/\/terms$/);
+    });
+
     it('challenges anonymous calls to facility tools with mcp/www_authenticate instead of a 401', async () => {
         const res = await call(rpc('tools/call', { name: 'list_harvests', arguments: {} }));
         expect(res.status).toBe(200);
@@ -141,6 +206,8 @@ describe('anonymous access (ChatGPT pre-sign-in)', () => {
         expect(doc.resource).toBe(MCP_RESOURCE);
         expect(doc.authorization_servers).toEqual(['https://login.neurocann.app/']);
         expect(doc.scopes_supported).toEqual(expect.arrayContaining(['openid', 'offline_access', 'read:facility', 'write:tasks']));
+        expect(doc.resource_policy_uri).toBe(`https://${HOST}/privacy`);
+        expect(doc.resource_tos_uri).toBe(`https://${HOST}/terms`);
     });
 
     it('honours MCP_RESOURCE when the public identifier differs from the request host', async () => {
@@ -399,6 +466,75 @@ describe('tools', () => {
         }), { authorization: `Bearer ${key}` });
         expect(res.json.result.isError).toBe(true);
         expect(poolQuery).not.toHaveBeenCalled();
+    });
+});
+
+describe('MCP Apps UI (inline planner card)', () => {
+    const WIDGET_URI = 'ui://neurocann/planner-v1.html';
+
+    beforeEach(() => { delete process.env.MCP_WIDGET_DOMAIN; });
+
+    it('advertises the resources capability and links public tools to the widget', async () => {
+        const init = await call(rpc('initialize', { protocolVersion: '2025-06-18' }));
+        expect(init.json.result.capabilities.resources).toBeDefined();
+
+        const list = await call(rpc('tools/list'));
+        const byName = Object.fromEntries(list.json.result.tools.map((t: any) => [t.name, t]));
+        for (const name of PUBLIC_TOOLS) {
+            expect(byName[name]._meta.ui).toEqual({ resourceUri: WIDGET_URI });
+            expect(byName[name]._meta['openai/outputTemplate']).toBe(WIDGET_URI);
+            expect(byName[name]._meta['openai/toolInvocation/invoking'].length).toBeLessThanOrEqual(64);
+            expect(byName[name]._meta['openai/toolInvocation/invoked'].length).toBeLessThanOrEqual(64);
+            expect(byName[name]._meta.securitySchemes).toEqual(byName[name].securitySchemes);
+        }
+        // The first linked-account call gets a card too; the other facility tools stay text-only.
+        expect(byName.get_facility_overview._meta.ui).toEqual({ resourceUri: WIDGET_URI });
+        expect(byName.list_harvests._meta.ui).toBeUndefined();
+        expect(byName.list_harvests._meta['openai/outputTemplate']).toBeUndefined();
+        expect(byName.list_harvests._meta.securitySchemes).toEqual([{ type: 'oauth2', scopes: ['read:facility'] }]);
+    });
+
+    it('lists and serves the widget resource anonymously with a locked-down CSP', async () => {
+        const list = await call(rpc('resources/list'));
+        expect(list.json.result.resources).toEqual([expect.objectContaining({ uri: WIDGET_URI, mimeType: 'text/html;profile=mcp-app' })]);
+
+        const read = await call(rpc('resources/read', { uri: WIDGET_URI }));
+        expect(read.status).toBe(200);
+        const [content] = read.json.result.contents;
+        expect(content.uri).toBe(WIDGET_URI);
+        expect(content.mimeType).toBe('text/html;profile=mcp-app');
+        expect(content._meta.ui).toEqual(expect.objectContaining({ prefersBorder: true, csp: { connectDomains: [], resourceDomains: [] } }));
+        expect(content._meta.ui.domain).toBeUndefined();
+        expect(content._meta['openai/widgetCSP']).toEqual({ connect_domains: [], resource_domains: [], redirect_domains: ['https://neurocann.app'] });
+        expect(content._meta['openai/widgetDescription']).toMatch(/planner card/);
+
+        const html: string = content.text;
+        expect(html.startsWith('<!doctype html>')).toBe(true);
+        expect(html).toContain("request('ui/initialize'");
+        expect(html).toContain('ui/notifications/tool-result');
+        expect(html).toContain('ui/notifications/size-changed');
+        // Pure inline document: no template leaks, no external scripts/styles/fonts.
+        expect(html).not.toContain('${');
+        expect(html).not.toMatch(/<(script|link)[^>]+(src|href)=["']https?:/);
+        expect(html).not.toMatch(/@import|fonts\.googleapis/);
+        expect(sqlMock).not.toHaveBeenCalled();
+    });
+
+    it('declares the dedicated widget origin when MCP_WIDGET_DOMAIN is set', async () => {
+        process.env.MCP_WIDGET_DOMAIN = 'https://widgets.neurocann.app';
+        const read = await call(rpc('resources/read', { uri: WIDGET_URI }));
+        const [content] = read.json.result.contents;
+        expect(content._meta.ui.domain).toBe('https://widgets.neurocann.app');
+        expect(content._meta['openai/widgetDomain']).toBe('https://widgets.neurocann.app');
+    });
+
+    it('returns the MCP resource-not-found error for unknown URIs', async () => {
+        const res = await call(rpc('resources/read', { uri: 'ui://neurocann/nope.html' }));
+        expect(res.json.error.code).toBe(-32002);
+        expect(res.json.error.data).toEqual({ uri: 'ui://neurocann/nope.html' });
+
+        const missing = await call(rpc('resources/read', {}));
+        expect(missing.json.error.code).toBe(-32602);
     });
 });
 

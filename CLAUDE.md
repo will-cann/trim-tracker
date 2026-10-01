@@ -110,9 +110,12 @@ Auth0 OAuth token minted for `MCP_RESOURCE` (ChatGPT/claude.ai sign-in, scopes
 Gated tools called anonymously return `_meta["mcp/www_authenticate"]` so ChatGPT shows its
 link-account UI; every tool advertises `securitySchemes` and annotations. OAuth discovery is
 `oauth-protected-resource.ts` at `/.well-known/oauth-protected-resource`. Tools live in
-`utils/mcpTools.ts` (`run_report` reuses the `reportCompiler` allowlist read-only). Keys are
-managed via `manage-api-keys.ts` and Settings → LLM Plugin. Auth0 setup and the ChatGPT
-Apps Directory submission checklist are in `docs/llm-plugin.md`.
+`utils/mcpTools.ts` (`run_report` reuses the `reportCompiler` allowlist read-only). Public
+tools also render as an inline card in MCP Apps hosts (ChatGPT, claude.ai): the HTML
+resource and its `ui://` URI live in `utils/mcpWidgets.ts`, served via `resources/read`
+and linked from tool `_meta.ui.resourceUri` — keep `structuredContent` changes additive.
+Keys are managed via `manage-api-keys.ts` and Settings → LLM Plugin. Auth0 setup and the
+ChatGPT Apps Directory submission checklist are in `docs/llm-plugin.md`.
 
 ### AI System
 

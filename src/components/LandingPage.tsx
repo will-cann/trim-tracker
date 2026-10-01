@@ -1347,9 +1347,11 @@ export const LandingPage: React.FC = () => {
               neuro<span className="text-gray-700">cann</span>
             </span>
           </div>
-          <p className="text-xs text-gray-600">
-            &copy; {new Date().getFullYear()} NeuroCann. All rights reserved.
-          </p>
+          <div className="flex items-center gap-4 text-xs text-gray-600">
+            <a href="/privacy" className="hover:text-gray-400 transition-colors">Privacy Policy</a>
+            <a href="/terms" className="hover:text-gray-400 transition-colors">Terms of Service</a>
+            <p>&copy; {new Date().getFullYear()} NeuroCann. All rights reserved.</p>
+          </div>
         </div>
       </footer>
 

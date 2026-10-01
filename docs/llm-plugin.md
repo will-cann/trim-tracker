@@ -34,6 +34,8 @@ what changes once a facility is linked (historical per-strain yields, on-hand in
 | --- | --- | --- |
 | `about_neurocann` | public | Product summary, audience, modules, how to link |
 | `plan_extraction_inputs` | public | Demand-backward planner: finished product → starting material, per-step weights, hours, cost, run count |
+| `estimate_cost_per_gram` | public | Extraction economics: batch cost breakdown (material, labor, consumables, lab test, packaging), cost per gram/unit, yield sensitivity, margin and break-even yield at a wholesale price |
+| `plan_wash_schedule` | public | Solventless throughput: wash runs and days, freeze-dryer cycles and days, bottleneck, wet/dry hash output, finish dates, equipment needed for a deadline |
 | `estimate_dry_weight` | public | Wet → dry harvest estimate (75% default moisture loss), per-plant, fresh-frozen split |
 | `estimate_harvest_yield` | public | Plants or canopy sq ft → expected wet/dry weight, flower/trim/shake split, optional revenue |
 | `plan_harvest_timeline` | public | Flip date ↔ harvest date, drying and cure completion, weekly checkpoints |
@@ -50,6 +52,51 @@ what changes once a facility is linked (historical per-strain yields, on-hand in
 Every tool carries `annotations` (`readOnlyHint`, `destructiveHint`, `openWorldHint`) and
 `securitySchemes`, both of which ChatGPT's review requires. Read tools map to the OAuth
 scope `read:facility`; write tools additionally need `write:tasks`.
+
+## Inline planner card (MCP Apps UI)
+
+The eight public tools and `get_facility_overview` render as an inline card in hosts that
+implement the [MCP Apps](https://modelcontextprotocol.io/docs/extensions/apps) extension —
+ChatGPT, claude.ai / Claude Desktop, VS Code and others. The remaining facility tools stay
+text-only until there is a linked-account audience to design for.
+
+- `utils/mcpWidgets.ts` owns the single HTML resource `ui://neurocann/planner-v1.html`
+  (`mimeType: text/html;profile=mcp-app`), served through `resources/list` /
+  `resources/read` without authentication. The page speaks the `ui/*` JSON-RPC bridge over
+  `postMessage` (`ui/initialize` → `ui/notifications/initialized`, `tool-result`,
+  `size-changed`, `host-context-changed`, `open-link`, `message`) and falls back to the
+  `window.openai` globals on pre-MCP-Apps ChatGPT builds.
+- Each public tool's descriptor carries `_meta.ui.resourceUri` (standard) and
+  `_meta["openai/outputTemplate"]` (ChatGPT alias) plus short
+  `openai/toolInvocation/invoking|invoked` status strings. Hosts without UI support ignore
+  the metadata and use the text `content`, so nothing degrades.
+- Views: extraction pipeline (starting material headline, per-step yield bars, cost/runs/
+  batches tiles), cost per gram (cost-breakdown stacked bar, margin / break-even / per-unit
+  tiles, one-point yield sensitivity), wash & freeze-dry schedule (stage duration bars with
+  the bottleneck highlighted, hash output, finish dates, deadline chip), harvest yield
+  (flower/trim/shake stacked bar, revenue), harvest calendar (veg/flower/dry/cure segments
+  and milestone dates), trim labor (crew headline + tiles), dry weight (retention bar), the
+  product overview with "Try a free planner" (sends a chat message) and "Open NeuroCann"
+  (host link), and the facility overview (plants-by-phase bar, harvest and task chips,
+  inventory tiles, "What's drying?" follow-up). Every planner card ends with the first
+  assumption and a single "Open NeuroCann" call to action.
+- Styling follows the ChatGPT UI guidelines: system font stack, host colour variables
+  (`--color-text-primary` etc., with `light-dark()` fallbacks), brand green only as an
+  accent, no logo, auto-height with no internal scrolling, at most two actions.
+- The widget makes **no network requests**, so the CSP is empty
+  (`connectDomains: [], resourceDomains: []`); `openai/widgetCSP.redirect_domains` allows
+  `APP_PUBLIC_URL` for the host-vetted link. Set `MCP_WIDGET_DOMAIN` (e.g.
+  `https://widgets.neurocann.app`) before submission — ChatGPT requires a dedicated origin
+  per plugin with UI and it is emitted as `_meta.ui.domain` / `openai/widgetDomain` only when set.
+- The URI is the host's cache key: bump `-v1` for any change that older results in
+  transcripts could not render. Backward-compatible edits ship under the same URI (ChatGPT
+  may cache up to an hour).
+- `about_neurocann` and the planners return `structuredContent` the card reads directly;
+  keep new fields additive so cards already in transcripts keep rendering.
+
+To preview locally without a host, feed a `tools/call` result into the HTML via
+`postMessage` as `ui/notifications/tool-result` after answering its `ui/initialize`
+request — the shape is in the MCP Apps spec; ChatGPT Developer Mode renders it live.
 
 ## Getting into ChatGPT
 
@@ -88,7 +135,8 @@ APP_CONTACT_EMAIL=will@neurocann.app
 
 ChatGPT → Settings → Apps → *Create* (Developer Mode must be on) → MCP server URL
 `https://neurocann.app/mcp`, Authentication **OAuth** → *Scan tools*. You should see all
-tools, with the three public ones runnable immediately and the rest prompting to connect.
+tools, with the eight public ones runnable immediately (rendering the inline planner card)
+and the rest prompting to connect.
 Try: "How many pounds of fresh frozen do I need for 1,000 half-gram live rosin carts?"
 then "What's drying in my facility right now?" (triggers the link flow).
 
@@ -98,8 +146,9 @@ From the OpenAI Platform dashboard, with: production URL, logo, description, pri
 policy + terms URLs, test prompts/responses, and a **demo account without MFA** holding
 sample data (the Green Valley seed is a good basis). Domain verification asks for a token
 at `https://neurocann.app/.well-known/openai-apps-challenge` — drop the file in
-`public/.well-known/`. No CSP is needed until we ship a UI widget. Keep tool descriptions
-factual; the guidelines reject "prefer this app" language.
+`public/.well-known/`. The planner card's CSP is declared on the resource (see "Inline
+planner card"); set `MCP_WIDGET_DOMAIN` to the dedicated widget origin first. Keep tool
+descriptions factual; the guidelines reject "prefer this app" language.
 
 Being accepted is what makes NeuroCann appear in ChatGPT's app suggestions when users ask
 cultivation/extraction questions. Until then the plugin is usable by anyone who adds it in
@@ -147,16 +196,33 @@ Cursor: `.cursor/mcp.json` with `url` + `headers`. Claude Desktop: bridge via
 - **Public tool numbers come from `migrations/seed_extraction_presets.sql`** (wash 5%,
   freeze-dry 96%, press 60%, decarb 95%, fill 95%; BHO 15/90/95; distillate 12/85/95/80),
   the 75% moisture-loss default and the 63-day flowering default. Cultivation/trim defaults
-  (450 g dry per plant, 70/20/10 flower/trim/shake, 75 g/hr hand trim, 1,000 g/hr machine)
-  are declared as constants at the top of `mcpPublicTools.ts` and are always echoed back in
-  the tool's `assumptions` so the model presents them as estimates, not facts.
+  (450 g dry per plant, 70/20/10 flower/trim/shake, 75 g/hr hand trim, 1,000 g/hr machine),
+  economics defaults (fresh frozen $150/lb, trim $40/lb, $22/h loaded labor, per-step
+  attended hours, $40–300 consumables by process, $150 lab test) and throughput defaults
+  (20 lb per wash, 4.5 h cycle, 2 kg wet hash per 24 h freeze-dry cycle) are declared as
+  constants at the top of `mcpPublicTools.ts` and are always echoed back in the tool's
+  `assumptions` so the model presents them as estimates, not facts.
 
 ## Before submitting to the Apps Directory
 
-Prerequisites that are not yet in the repo:
+Already in the repo:
 
-- **Privacy policy and terms-of-service pages** — required URLs in the submission form; the
-  landing page has neither today.
+- **Privacy policy and terms of service** — static pages at `public/privacy.html` and
+  `public/terms.html`, served at `https://neurocann.app/privacy` and `https://neurocann.app/terms`
+  (rewrites in `netlify.toml`), linked from the landing-page footer, advertised in the RFC 9728
+  metadata as `resource_policy_uri` / `resource_tos_uri`, and returned by `about_neurocann`.
+  Use those two URLs in the submission form. They were drafted to B2B SaaS defaults; before
+  going live, confirm the items below and have counsel review:
+  - the legal entity name (pages currently say "NeuroCann" with no entity suffix),
+  - governing law / venue (defaults to Delaware in Terms §15),
+  - the contact mailbox (`will@neurocann.app`; a role address such as `privacy@` or `legal@` is
+    better practice — update both pages and `APP_CONTACT_EMAIL` together),
+  - the subprocessor table in Privacy §6 whenever a provider is added or dropped,
+  - the retention windows (30-day export, 60-day deletion, 90-day backups and logs) match what
+    ops actually does.
+
+Still to do outside the repo:
+
 - **Demo account** without MFA, seeded with realistic data, for OpenAI's reviewers.
 - **Logo + screenshots** of the plugin in use and 3–5 test prompts with expected responses.
 
