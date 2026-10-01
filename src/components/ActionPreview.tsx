@@ -3,6 +3,7 @@ import { Package, Plus, UserPlus, User, Loader2, Check, X, Sprout, Scale, ArrowR
 import type { ProposedAction } from '../types/definitions';
 import { TERPENE_TAG_LABELS } from '../types/definitions';
 import { TypeChip } from './ui';
+import type { TypeChipPalette } from './ui';
 
 interface ActionPreviewProps {
     actions: ProposedAction[];
@@ -504,6 +505,18 @@ const PACKAGE_TYPE_FIELDS = new Set([
     'inputMaterial', 'targetProduct',
 ]);
 
+/** Enum / catalog fields → TypeChip palette. Prefer chips over free text. */
+const CHIP_PALETTE_BY_FIELD: Record<string, TypeChipPalette> = {
+    priority: 'taskPriority',
+    category: 'taskCategory',
+    labTestingState: 'labState',
+    packageType: 'packageType',
+    inputPackageType: 'packageType',
+    outputPackageType: 'packageType',
+    inputMaterial: 'packageType',
+    targetProduct: 'packageType',
+};
+
 /**
  * Fields whose value is a reference to a DB entity or catalog entry.
  * These render as locked read-only text — allowing free-text edits here
@@ -766,23 +779,66 @@ function FieldRow({
                     disabled
                     labels={fieldKey === 'terpeneTags' ? TERPENE_TAG_LABELS : undefined}
                 />
+            ) : options ? (
+                // Structured enums — always chips, never free text / bare strings.
+                <div className="flex-1 min-w-0 flex flex-wrap gap-1.5" role={isReadonly ? undefined : 'group'} aria-label={label}>
+                    {isReadonly ? (
+                        CHIP_PALETTE_BY_FIELD[fieldKey] ? (
+                            <TypeChip
+                                palette={CHIP_PALETTE_BY_FIELD[fieldKey]}
+                                value={value == null ? null : String(value)}
+                                fallback="—"
+                            />
+                        ) : (
+                            <span
+                                className="inline-flex items-center px-2 py-0.5 text-[0.6875rem] font-bold rounded-md"
+                                style={{ background: '#F1F1F1', color: '#1A1A1A' }}
+                            >
+                                {humanize(value)}
+                            </span>
+                        )
+                    ) : (
+                        options.map((opt) => {
+                            const selected = value === opt.value;
+                            const palette = CHIP_PALETTE_BY_FIELD[fieldKey];
+                            if (palette && selected) {
+                                return (
+                                    <button
+                                        key={opt.value}
+                                        type="button"
+                                        disabled={isExecuting}
+                                        onClick={() => onChange(opt.value)}
+                                        className="p-0 border-0 bg-transparent cursor-pointer disabled:opacity-50"
+                                        aria-pressed={selected}
+                                    >
+                                        <TypeChip palette={palette} value={opt.value} />
+                                    </button>
+                                );
+                            }
+                            return (
+                                <button
+                                    key={opt.value}
+                                    type="button"
+                                    disabled={isExecuting}
+                                    onClick={() => onChange(opt.value)}
+                                    aria-pressed={selected}
+                                    className="inline-flex items-center px-2 py-0.5 text-[0.6875rem] font-bold rounded-md border transition-colors disabled:opacity-50"
+                                    style={
+                                        selected
+                                            ? { background: 'rgba(47, 158, 95, 0.16)', color: '#1a5c38', borderColor: 'transparent' }
+                                            : { background: '#fff', color: '#5c5c5c', borderColor: 'rgba(26,26,26,0.12)' }
+                                    }
+                                >
+                                    {opt.label}
+                                </button>
+                            );
+                        })
+                    )}
+                </div>
             ) : isReadonly ? (
                 <span className="flex-1 text-sm text-gray-700 px-2 py-1">
                     {humanize(value)}
                 </span>
-            ) : options ? (
-                <select
-                    value={value ?? ''}
-                    onChange={(e) => onChange(e.target.value)}
-                    disabled={isExecuting}
-                    className="flex-1 text-sm px-2 py-1 border border-gray-200 rounded-md bg-white
-                               focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:border-emerald-400
-                               disabled:bg-gray-50 disabled:text-gray-400"
-                >
-                    {options.map(opt => (
-                        <option key={opt.value} value={opt.value}>{opt.label}</option>
-                    ))}
-                </select>
             ) : isChipArrayField ? (
                 <ChipArrayEditor
                     value={value}

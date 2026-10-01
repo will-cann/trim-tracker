@@ -6541,7 +6541,8 @@ select.field-input {
  * by ChatPanel.tsx) so table rendering is consistent across both.
  */
 .ai-cmd-response table,
-.ai-msg-bubble-assistant table {
+.ai-msg-bubble-assistant table,
+.fig-msg.is-ai table {
   width: 100%;
   border-collapse: separate;
   border-spacing: 0;
@@ -6555,7 +6556,8 @@ select.field-input {
 }
 
 .ai-cmd-response thead th,
-.ai-msg-bubble-assistant thead th {
+.ai-msg-bubble-assistant thead th,
+.fig-msg.is-ai thead th {
   text-align: left;
   font-weight: 600;
   font-size: 0.6875rem;
@@ -6569,38 +6571,44 @@ select.field-input {
 }
 
 .ai-cmd-response tbody td,
-.ai-msg-bubble-assistant tbody td {
+.ai-msg-bubble-assistant tbody td,
+.fig-msg.is-ai tbody td {
   padding: 0.5rem 0.75rem;
   border-bottom: 1px solid var(--border-color);
   color: var(--text-color);
 }
 
 .ai-cmd-response tbody tr:last-child td,
-.ai-msg-bubble-assistant tbody tr:last-child td {
+.ai-msg-bubble-assistant tbody tr:last-child td,
+.fig-msg.is-ai tbody tr:last-child td {
   border-bottom: none;
 }
 
 .ai-cmd-response tbody tr,
-.ai-msg-bubble-assistant tbody tr {
+.ai-msg-bubble-assistant tbody tr,
+.fig-msg.is-ai tbody tr {
   transition: background 0.12s ease;
 }
 
 .ai-cmd-response tbody tr:hover td,
-.ai-msg-bubble-assistant tbody tr:hover td {
+.ai-msg-bubble-assistant tbody tr:hover td,
+.fig-msg.is-ai tbody tr:hover td {
   background: var(--detail-bg);
 }
 
 /* First column gets slightly stronger weight — the label/subject column
  * is typically an entity name (strain, package label) that anchors the row. */
 .ai-cmd-response tbody td:first-child,
-.ai-msg-bubble-assistant tbody td:first-child {
+.ai-msg-bubble-assistant tbody td:first-child,
+.fig-msg.is-ai tbody td:first-child {
   font-weight: 600;
 }
 
 /* Totals / summary row gets the primary-light tint + stronger weight so
  * it visually separates from body rows. */
 .ai-cmd-response tfoot td,
-.ai-msg-bubble-assistant tfoot td {
+.ai-msg-bubble-assistant tfoot td,
+.fig-msg.is-ai tfoot td {
   padding: 0.5rem 0.75rem;
   border-top: 1px solid var(--border-color);
   background: var(--primary-light);
@@ -6620,7 +6628,11 @@ select.field-input {
 .ai-msg-bubble-assistant th[align="right"],
 .ai-msg-bubble-assistant td[align="right"],
 .ai-msg-bubble-assistant th[style*="text-align:right"],
-.ai-msg-bubble-assistant td[style*="text-align:right"] {
+.ai-msg-bubble-assistant td[style*="text-align:right"],
+.fig-msg.is-ai th[align="right"],
+.fig-msg.is-ai td[align="right"],
+.fig-msg.is-ai th[style*="text-align:right"],
+.fig-msg.is-ai td[style*="text-align:right"] {
   text-align: right !important;
 }
 
