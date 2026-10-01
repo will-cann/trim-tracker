@@ -95,6 +95,10 @@ export function LoadScreen({ onLoaded, onSettings }: Props) {
           Proper-4934 to Terrabis Springfield: 10 lines, 16 cases, 528 units. Case tags from Apex are included so you can
           compare against a real manifest.
         </p>
+        <Notice tone="amber">
+          These cases already shipped (manifests 0002077929 / 0002077937), so Metrc will reject them if you try to submit. Use the
+          sample to check the form fill, not to create a transfer.
+        </Notice>
         <Button block variant="secondary" onClick={() => ingest(SAMPLE_PICKLIST_CSV, SAMPLE_PICKLIST_NAME)}>
           Load sample order
         </Button>

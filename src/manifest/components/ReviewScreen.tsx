@@ -7,6 +7,7 @@ import { copyText, saveTextFile } from '../lib/download'
 import { EMAIL_RE, sendManifestEmail } from '../lib/email'
 import { INVOICE_ACCEPT, parseInvoiceFile } from '../lib/invoice'
 import { assignmentsToLineTotals, matchInvoiceLines, type MatchResult, type ParsedInvoice } from '../lib/invoiceMatch'
+import { SAMPLE_PICKLIST_NAME } from '../sample/proper4934'
 import { shortTag } from '../lib/metrc'
 import type { EmailSettings, LicenseDefaults } from '../lib/storage'
 import type { DestinationHeader, OrderState, TransporterProfile } from '../types'
@@ -52,6 +53,7 @@ export function ReviewScreen({ order, transporter, licenses, email, onHeader, on
   const missingWeight = rows.filter((r) => r.grossWeightG === null).length
   const missingPrice = rows.filter((r) => r.wholesalePrice === null).length
   const isWholesale = order.header.transferType === 'Unaffiliated Transfer'
+  const isSample = order.sourceName === SAMPLE_PICKLIST_NAME
 
   const flag = (key: string, text: string) => {
     setStatus((s) => ({ ...s, [key]: text }))
@@ -288,6 +290,26 @@ export function ReviewScreen({ order, transporter, licenses, email, onHeader, on
           ))}
       </Card>
 
+      <Notice tone="blue">
+        <p className="font-bold">These files are for T3's Autofill, not Metrc's CSV upload.</p>
+        <p className="text-xs mt-1">
+          In Metrc: Transfers → New Transfer → T3 "Autofill T3 CSV" → pick a file. T3 fills the form; you review and submit. Metrc's own
+          import page won't accept them. One file per origin license.
+        </p>
+      </Notice>
+
+      {isSample && (
+        <Notice tone="amber">
+          <div className="flex items-start gap-2">
+            <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
+            <p>
+              Sample order: these cases already shipped on manifests 0002077929 / 0002077937, so Metrc will say the packages don't exist if
+              you submit. Check the filled form against those manifests instead.
+            </p>
+          </div>
+        </Notice>
+      )}
+
       {files.map((f) => (
         <Card key={f.originLicense}>
           <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
@@ -377,10 +399,6 @@ export function ReviewScreen({ order, transporter, licenses, email, onHeader, on
         </Button>
         {!email.accessCode && <p className="text-xs text-gray-400">No access code set. If sending fails, add it under Settings → Email export.</p>}
       </Card>
-
-      <p className="text-xs text-gray-400 text-center px-4">
-        Open Metrc → Transfers → New Transfer, then use T3's "Autofill T3 CSV" with each file. One file per origin license.
-      </p>
     </Screen>
   )
 }

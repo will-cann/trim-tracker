@@ -52,7 +52,9 @@ export const handler: Handler = async (event) => {
             'Attached:',
             ...files.map(f => `  - ${f.filename}`),
             '',
-            'Open Metrc → Transfers → New Transfer, then use T3\'s "Autofill T3 CSV" with each file. One file per origin license.',
+            'How to use them: these are T3 Autofill files, not Metrc CSV imports (Metrc\'s own upload page will reject them).',
+            'In Metrc go to Transfers → New Transfer, click T3\'s "Autofill T3 CSV", and pick a file. T3 fills the form; review and submit.',
+            'One file per origin license.',
             '',
             '-- neurocann manifest picker',
         ].join('\n').trimStart();
