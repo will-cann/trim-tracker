@@ -102,7 +102,7 @@ Deep dives at weeks 4, 8, 12. Every row cites its Learnings Bank entries (sectio
 | 4 | **Deep Dive** | **A solventless wholesale program, by the numbers** | Extraction / Planning | Grams needed → pounds of biomass → price tier → batch sizing (500 g test floor, equipment-defined ~17 kg fills) → 4.5-hour washes at 2/day → freeze-dryer as the real ceiling → ballpark COGS ($2–3/g at $65/lb and ~4%; ~$6.50/g at $100/lb) against $9–12/g wholesale → 3–5 kg/month cadence. | E1–E8, S1, S2, P1–P3 |
 | 5 | On the calendar | **Make the 420 rosin in February** | Planning | Set the reminder for the end of February. Product finished April 10 is too late; serious buyers bought on April 1. The week after 420 is for locking the next biomass supplier. Same logic for June and 710. | P4, P5, P6 |
 | 6 | Floor math | **Dry-down: what 75% moisture loss does to the trim schedule** | Harvest | Wet weight × (1 − moisture loss) = the weight trim will actually see. Worked example: 5,832 g wet → ~1,458 g dry at 75%. Why trim capacity should be planned off the dry number, not the harvest-day number. | H5 |
-| 7 | Rule of thumb | **Somebody has to count grams in and out** | Trim / Shrink | Without one person who owns reconciling weight in versus weight out — and cares about the bottom line — the numbers drift, and nobody can tell drift from theft. Name the role, not the software. | T1, T2 |
+| 7 | Rule of thumb | **Keep the batch size the same run to run** | Extraction | A 4% result on 1,500 g and a 4% result on 400 g are not the same information; consistent batches are what make yield comparisons between strains and suppliers mean anything. *(Replaces "Somebody has to count grams in and out," which was published early as "A nug in the glove, a glove in the pocket.")* | E1, E8 |
 | 8 | **Deep Dive** | **Harvest day, start to finish** | Harvest | The cut planned from strain flowering days; per-plant wet weights at the scale; flower vs. fresh frozen allocation decided before anything hangs; contamination and waste logged in the moment; hang → bin → cure (burp, aerate, inspect, moisture) → release to trim. Drawn from the founders' own harvest days. | H1, H5, H6 |
 | 9 | What went wrong | **When the new trim manager's yields look too good** | Trim / Shrink | A facility whose first one or two harvests after every trim-manager change showed remarkable yields. Not a biology story. What to check first: start weights, waste logging, per-trimmer totals against batch totals. Framed as a control signal, not an accusation. | T1, T3 |
 | 10 | Rule of thumb | **The wash takes 4.5 hours no matter what you put in it** | Extraction | Cycle time is fixed, not input-dependent. Plan two washes a day, three when pushing, one when the calendar is full. The freeze dryer, not the wash vessel, sets the real daily ceiling. | E5, E7 |
@@ -143,6 +143,27 @@ Keep the 3:1 rhythm. Rotate deep dives to pillars Q1 did not cover (Trim floor, 
 - The founders' own facility time (rooms, harvests, trim floors).
 - SME and customer calls. After every call, add the operator learnings — not the product feedback — to the Learnings Bank in section 11 with a date and a firm/ballpark flag.
 - Operators who agree to be quoted. Quotes are the best blockquotes we will ever have; ask.
+
+**Founder anecdotes — the primary stream**
+
+There is a personal anecdote behind nearly every feature. Those are the highest-value posts this blog can run, because nobody else can write them. The process:
+
+1. A founder recounts the story in their own words — spoken, rough, unedited. A voice memo or a chat transcript is fine. Do not write it up first; the writing-up loses the details that make it real.
+2. The anecdote is captured as one or more **F entries** in the Learnings Bank (section 11), anonymized, with the specific numbers, timings, and roles preserved.
+3. Each distinct learning inside the anecdote becomes its own Floor Note. One story usually holds two or three. Do not cram them into one post.
+4. The feature the anecdote produced appears as the final "How we handle it" sentence, or not at all. The post is about the room, not the software.
+
+Prompt sheet for the sit-down (work through one feature at a time):
+
+| Ask | Why it matters |
+|---|---|
+| What was the day? Where were you standing, what was in your hands? | The scene is the first two sentences of a "What went wrong" post. |
+| What did it cost — in hours, grams, dollars, or people's time? | Every post needs a number in the first hundred words. |
+| Who was carrying the problem, and what was their actual job title? | Roles make it real; names come out later. |
+| What did you try first that did not work? | The failed fix is usually the most useful paragraph. |
+| What is the rule you run on now because of it? | That is the "Rule of thumb" post hiding inside the story. |
+| Is there a number you still remember? A weight, a count, a day-count, a time of day? | Firm numbers get published; "about" numbers get labeled approximate. |
+| Which of these details would identify the facility or a person? | Decides what gets abstracted to a role or a state. |
 
 **Anonymization rules (non-negotiable)**
 - No people's names, company names, brand names, or facility names. "An extraction lead who runs programs in several states." "A multi-store operator."
@@ -207,6 +228,16 @@ Filename is the URL. Lowercase, hyphens, under 50 characters, permanent once pub
 ## 11. Learnings Bank
 
 Seed material, anonymized, extracted from SME calls (spring 2026) and the founders' facility experience. **Firm** = stated as how they operate. **Ballpark** = stated as rough or illustrative. Add to this list after every operator conversation; cite entries by ID from the schedule.
+
+### Founder anecdotes (F)
+Captured from the founders directly. Former employers are not named in posts; "a vertically integrated operator" / "an operator we helped launch post-harvest and supply-chain processes" are the stand-ins unless the founders decide otherwise.
+
+- **F1** · firm · The trim room ran on paper: one sheet per batch (start weight, trimmers, flower / small bud / trim / waste). Sheets went to the compliance administrator, who re-keyed them into a spreadsheet, verified weights, and then entered METRC. Four inventories existed at once — paper, spreadsheet, digital inventory, METRC — and there were full-time roles whose job was reconciling them. *Posts: "A nug in the glove, a glove in the pocket."*
+- **F2** · firm · Trim crews are often third party with rotating staff. Product loss is small and chronic ("a nug in the glove, a glove in the pocket, for lunch") and adds up over a season. Accountability came from weighing what goes onto the table and what comes off, per person and per bucket, at the time — not from the sheet. A live count also protects the honest crew; with four inventories and no live count, any gap landed on everyone. *Posts: same.*
+- **F3** · firm (timing approximate) · Trim is the first point you get a dry weight — roughly 21 days after the chop — and therefore the first point to grade a crop. From a trim batch you can read dry yield by strain, cut performance vs. the mother's previous rounds, the large-bud / small-bud / trim ratio by strain, per-trimmer speed and ratios, and cost per pound. Most facilities record flower and waste for compliance and let the rest die on the sheet. *Posts: "Trim is the first real weight you get after the chop."*
+- **F4** · firm · Origin: the accountability-and-re-keying problem was seen first at a vertically integrated operator; the yield-feedback insight came while launching post-harvest and supply-chain processes for a second operator. The trim tracker was the first thing built, and it was built for both reasons at once: save the administrator's time, and make the room's count live.
+
+*Next anecdotes to capture (one sit-down each): harvest day and the cockpit; plant map and health scoring; bins and cure logs; extraction templates; tags and the adjustment ledger; ordering and the store matrix; SOPs; tasks and hybrid completion.*
 
 ### Harvest & dry room (H)
 - **H1** · firm · Common dry-to-trim path is hang → bin → release bins to trimmers when ready; bins are where cure happens.
@@ -287,7 +318,13 @@ Exact freeze-dryer fill weights and the press capacity figure; the "bigger wash 
 
 ## 13. The launch posts
 
-"Harvest day with gloved hands," "Confirm before execute," and "Where every gram goes" were published before this plan at ~3 minutes each, and they lean more on the product than the operator rule allows. They stand as launch posts. "Confirm before execute" stays as the single "how the product thinks" post; it will not be repeated. "Batches come in 500-gram increments" is the first post written under this plan and is the reference for what a Floor Note should feel like.
+"Harvest day with gloved hands," "Confirm before execute," and "Where every gram goes" were published before this plan at ~3 minutes each, and they lean more on the product than the operator rule allows. They stand as launch posts. "Confirm before execute" stays as the single "how the product thinks" post; it will not be repeated.
+
+Posts written under this plan so far, and what each is the reference for:
+
+- **Batches come in 500-gram increments** — a Rule of thumb from an SME learning (E1–E3, E7, E8).
+- **A nug in the glove, a glove in the pocket** — a What went wrong from a founder anecdote (F1, F2). The reference for how a founder story reads: the room first, the feature in the last sentence.
+- **Trim is the first real weight you get after the chop** — a Rule of thumb split out of the same anecdote (F3). The reference for pulling a second post out of one story instead of overloading the first.
 
 ## 14. Measurement
 
