@@ -265,9 +265,11 @@ Planned features, integrations, and improvements. Updated as priorities evolve.
 
 ## Integrations
 
-### LLM Plugin (MCP server)
-- **Built:** `/mcp` Streamable HTTP endpoint with API-key auth, read tools across cultivation/harvest/inventory/extraction/tasks, `run_report` analytics, and task write tools. Keys managed under Settings → LLM Plugin. See `docs/llm-plugin.md`.
-- **Next:** OAuth 2.1 authorization server so claude.ai web and ChatGPT connectors (which can't send static headers) can connect; per-tool allowlists for write keys; expose more safe writes (strain/room setup, package notes) as demand appears.
+### LLM Plugin (MCP server) — distribution via ChatGPT / Claude
+- **Goal:** gain market share by being present in the LLM chats growers and extractors already use. Free planning calculators answer the question and introduce NeuroCann; linking an account unlocks the facility.
+- **Built:** `/mcp` endpoint with mixed auth (anonymous public tools, Auth0 OAuth for ChatGPT/claude.ai, API keys for header clients), RFC 9728 discovery, per-tool `securitySchemes`, `mcp/www_authenticate` link challenges, read tools across cultivation/harvest/inventory/extraction/tasks, `run_report` analytics, task write tools. See `docs/llm-plugin.md`.
+- **Next (ops, not code):** Auth0 tenant toggles + API `https://neurocann.app/mcp`; test in ChatGPT Developer Mode; submit to the ChatGPT Apps Directory (demo account, privacy/terms URLs, domain challenge file).
+- **Next (code):** more public tools that match real search intent (canopy/room capacity planning, trim labor estimates, wash scheduling); an Apps SDK UI widget for the planner result; per-tool allowlists for write access; expose more safe writes as demand appears.
 
 ### METRC
 - Bidirectional sync for package creation, adjustments, transfers

@@ -100,14 +100,19 @@ schema but are not wired to a provider yet.
 
 ### LLM Plugin (MCP server)
 
-`netlify/functions/mcp.ts` exposes the facility to external assistants (Claude Desktop/Code,
-Cursor, any MCP client) over MCP Streamable HTTP at `/mcp`. It is stateless JSON-RPC: no
-sessions, no SSE. Auth is a `nck_...` API key (`api_keys` table, SHA-256 hashed, scopes
-`read`/`write`) resolved by `utils/apiKeys.ts`, falling back to Auth0 tokens / dev bypass.
-Tools live in `utils/mcpTools.ts` — read tools over plants/harvests/packages/runs/tasks,
-`run_report` reusing the `reportCompiler` allowlist read-only, and two write tools
-(`create_task`, `update_task_status`). Keys are managed via `manage-api-keys.ts` and the
-Settings → LLM Plugin section. See `docs/llm-plugin.md`.
+`netlify/functions/mcp.ts` is a distribution channel: it exposes NeuroCann inside ChatGPT,
+claude.ai, Claude Code and Cursor over MCP Streamable HTTP at `/mcp` (stateless JSON-RPC,
+no sessions/SSE). Auth is mixed-mode (`utils/apiKeys.ts`): anonymous callers can run the
+database-free public tools in `utils/mcpPublicTools.ts` (product info, demand-backward
+extraction planner, dry-weight estimator — the top of the funnel); facility tools need an
+Auth0 OAuth token minted for `MCP_RESOURCE` (ChatGPT/claude.ai sign-in, scopes
+`read:facility` / `write:tasks`) or a `nck_...` API key (`api_keys` table, SHA-256 hashed).
+Gated tools called anonymously return `_meta["mcp/www_authenticate"]` so ChatGPT shows its
+link-account UI; every tool advertises `securitySchemes` and annotations. OAuth discovery is
+`oauth-protected-resource.ts` at `/.well-known/oauth-protected-resource`. Tools live in
+`utils/mcpTools.ts` (`run_report` reuses the `reportCompiler` allowlist read-only). Keys are
+managed via `manage-api-keys.ts` and Settings → LLM Plugin. Auth0 setup and the ChatGPT
+Apps Directory submission checklist are in `docs/llm-plugin.md`.
 
 ### AI System
 
