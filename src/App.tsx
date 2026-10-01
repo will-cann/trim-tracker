@@ -16,6 +16,8 @@ import { RightPanel } from './components/RightPanel';
 import { SettingsPanel } from './components/SettingsPanel';
 import { Auth0Wrapper, useAuth } from './contexts/authContext';
 import { LandingPage } from './components/LandingPage';
+import { PublicSite } from './components/public/PublicSite';
+import { usePathname, matchPublicRoute } from './lib/publicRouter';
 import { useConversationHistory } from './hooks/useConversationHistory';
 import { useHumanTasks } from './hooks/useHumanTasks';
 import { PlantMapDashboard } from './components/PlantMap/PlantMapDashboard';
@@ -51,6 +53,7 @@ const VIEW_SCREEN_CONTEXT: Record<ViewType, string> = {
 
 function AppContent() {
   const { user, loading: authLoading } = useAuth();
+  const publicRoute = matchPublicRoute(usePathname());
   const [session, setSession] = useState<TrimSession | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshKey, setRefreshKey] = useState(0);
@@ -172,6 +175,11 @@ function AppContent() {
     plantMapSummary: plantMapSummary || undefined,
     screenContext: VIEW_SCREEN_CONTEXT[currentView],
   }), [session, trimmerProfiles, harvests, myLicenses, activeLicenseId, humanTasks, plantMapSummary, currentView]);
+
+  // Public marketing pages (blog) render for everyone and don't wait on auth.
+  if (publicRoute) {
+    return <PublicSite route={publicRoute} />;
+  }
 
   if (authLoading) {
     return (
