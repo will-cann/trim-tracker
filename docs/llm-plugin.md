@@ -153,10 +153,24 @@ Cursor: `.cursor/mcp.json` with `url` + `headers`. Claude Desktop: bridge via
 
 ## Before submitting to the Apps Directory
 
-Prerequisites that are not yet in the repo:
+Already in the repo:
 
-- **Privacy policy and terms-of-service pages** — required URLs in the submission form; the
-  landing page has neither today.
+- **Privacy policy and terms of service** — static pages at `public/privacy.html` and
+  `public/terms.html`, served at `https://neurocann.app/privacy` and `https://neurocann.app/terms`
+  (rewrites in `netlify.toml`), linked from the landing-page footer, advertised in the RFC 9728
+  metadata as `resource_policy_uri` / `resource_tos_uri`, and returned by `about_neurocann`.
+  Use those two URLs in the submission form. They were drafted to B2B SaaS defaults; before
+  going live, confirm the items below and have counsel review:
+  - the legal entity name (pages currently say "NeuroCann" with no entity suffix),
+  - governing law / venue (defaults to Delaware in Terms §15),
+  - the contact mailbox (`will@neurocann.app`; a role address such as `privacy@` or `legal@` is
+    better practice — update both pages and `APP_CONTACT_EMAIL` together),
+  - the subprocessor table in Privacy §6 whenever a provider is added or dropped,
+  - the retention windows (30-day export, 60-day deletion, 90-day backups and logs) match what
+    ops actually does.
+
+Still to do outside the repo:
+
 - **Demo account** without MFA, seeded with realistic data, for OpenAI's reviewers.
 - **Logo + screenshots** of the plugin in use and 3–5 test prompts with expected responses.
 
