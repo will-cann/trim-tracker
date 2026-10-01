@@ -248,6 +248,28 @@ export interface License {
 }
 
 // ============================================================================
+// LLM PLUGIN (MCP) API KEYS
+// ============================================================================
+
+export type ApiKeyScope = 'read' | 'write';
+
+export interface ApiKey {
+  id: string;
+  name: string;
+  keyPrefix: string;
+  scopes: ApiKeyScope[];
+  createdBy?: string;
+  lastUsedAt?: string;
+  revokedAt?: string;
+  createdAt: string;
+}
+
+/** Returned once from createApiKey — `key` is the plaintext secret and is never shown again. */
+export interface CreatedApiKey extends ApiKey {
+  key: string;
+}
+
+// ============================================================================
 // STRAIN TYPES
 // ============================================================================
 

@@ -64,7 +64,13 @@ export function authorize(context: AuthenticatedContext, minRole: Role, required
     return null;
 }
 
-export async function verifyToken(authHeader?: string): Promise<Auth0User | null> {
+/**
+ * Verify an Auth0 access token. By default the token must be minted for the
+ * app API (AUTH0_AUDIENCE); callers that accept additional audiences (e.g. the
+ * MCP resource URL that OAuth clients like ChatGPT request via RFC 8707) can
+ * pass them in `extraAudiences`.
+ */
+export async function verifyToken(authHeader?: string, extraAudiences: string[] = []): Promise<Auth0User | null> {
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
         return null;
     }
@@ -72,9 +78,10 @@ export async function verifyToken(authHeader?: string): Promise<Auth0User | null
     const token = authHeader.split(' ')[1];
 
     try {
+        const audiences = [AUTH0_AUDIENCE, ...extraAudiences].filter((a): a is string => !!a);
         const { payload } = await jwtVerify(token, getJWKS(), {
             issuer: `https://${AUTH0_DOMAIN}/`,
-            audience: AUTH0_AUDIENCE,
+            audience: audiences.length === 1 ? audiences[0] : audiences,
         });
 
         return payload as unknown as Auth0User;
@@ -84,20 +91,30 @@ export async function verifyToken(authHeader?: string): Promise<Auth0User | null
     }
 }
 
+export const DEV_BYPASS_CONTEXT: AuthenticatedContext = {
+    userId: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
+    companyId: '11111111-1111-1111-1111-111111111111',
+    role: 'admin',
+    departments: [],
+};
+
 export async function resolveContext(authHeader?: string): Promise<AuthenticatedContext | null> {
     // Dev bypass — skip JWT verification and return seed user context
     if (process.env.DEV_BYPASS_AUTH === 'true') {
-        return {
-            userId: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
-            companyId: '11111111-1111-1111-1111-111111111111',
-            role: 'admin',
-            departments: [],
-        };
+        return DEV_BYPASS_CONTEXT;
     }
 
     const auth0User = await verifyToken(authHeader);
     if (!auth0User) return null;
 
+    return contextForAuth0User(auth0User);
+}
+
+/**
+ * Map a verified Auth0 identity to our user/company, auto-provisioning on
+ * first login (new company + admin, or joining the company that invited them).
+ */
+export async function contextForAuth0User(auth0User: Auth0User): Promise<AuthenticatedContext | null> {
     try {
         // Look up existing user by Auth0 sub
         const { rows } = await sql`
