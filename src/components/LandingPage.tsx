@@ -3,81 +3,15 @@ import { useAuth } from '../contexts/authContext';
 import { ActionPreview } from './ActionPreview';
 import type { ProposedAction } from '../types/definitions';
 import logo from '../assets/logo.png';
-
-/* ─── Scroll-reveal hook ─── */
-function useReveal<T extends HTMLElement>(threshold = 0.15) {
-  const ref = useRef<T>(null);
-  const [visible, setVisible] = useState(false);
-  useEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-    const obs = new IntersectionObserver(
-      ([entry]) => { if (entry.isIntersecting) { setVisible(true); obs.disconnect(); } },
-      { threshold }
-    );
-    obs.observe(el);
-    return () => obs.disconnect();
-  }, [threshold]);
-  return { ref, visible };
-}
-
-/* ─── Reveal wrapper ─── */
-const Reveal: React.FC<{
-  children: React.ReactNode;
-  className?: string;
-  delay?: number;
-  direction?: 'up' | 'left' | 'right';
-}> = ({ children, className = '', delay = 0, direction = 'up' }) => {
-  const { ref, visible } = useReveal<HTMLDivElement>();
-  const transforms = { up: 'translateY(40px)', left: 'translateX(-40px)', right: 'translateX(40px)' };
-  return (
-    <div
-      ref={ref}
-      className={className}
-      style={{
-        opacity: visible ? 1 : 0,
-        transform: visible ? 'none' : transforms[direction],
-        transition: `opacity 0.7s cubic-bezier(0.16,1,0.3,1) ${delay}ms, transform 0.7s cubic-bezier(0.16,1,0.3,1) ${delay}ms`,
-      }}
-    >
-      {children}
-    </div>
-  );
-};
-
-/* ─── Neurocann brain+leaf logo as inline SVG (from original site) ─── */
-const NeurocannLogo: React.FC<{ className?: string; stroke?: string }> = ({
-  className = '',
-  stroke = '#3BB570',
-}) => (
-  <svg
-    className={className}
-    viewBox="0 0 203 197"
-    fill="none"
-    xmlns="http://www.w3.org/2000/svg"
-  >
-    <path d="M97.895 15.5746C97.895 35.3094 97.895 55.0441 97.895 74.7788C97.895 77.7632 97.6282 79.4534 95.2441 82.0689C91.9138 85.7224 82.7503 83.2156 82.7503 84.1062C82.7503 84.9968 87.3022 85.3591 89.8318 86.929C94.3154 89.7116 97.4998 93.4534 98.8154 97.9534C99.4001 99.9534 100.177 105.505 99.3154 108.953C98.4533 112.402 96.7459 114.442 93.8154 116.453C89.8927 119.146 81.8154 118.453 81.8154 118.453" stroke={stroke} strokeWidth="5" strokeLinecap="round"/>
-    <path d="M81.8154 118.453C81.8154 118.453 87.2604 119.329 90.3154 120.953C95.2595 123.582 98.2182 126.857 99.3154 132.453C99.6775 134.301 100.296 139.232 97.8154 142.953C95.8154 145.953 93.4985 146.815 89.9422 148.121C86.6062 149.347 79.1047 149.005 80.8848 149.005C82.665 149.005 85.5815 149.718 88.3154 150.953C91.8744 152.561 93.9566 153.841 96.3154 156.953C98.231 159.481 99.3367 161.6 100.315 164.953C101.337 168.453 102.104 172.443 100.815 176.953C99.8154 180.453 98.1036 185.411 93.8154 188.453C88.7727 192.03 82.3154 193.578 77.8154 192.453C74.595 191.648 72.8154 190.953 71.3154 188.953C69.8154 186.953 69.3154 179.453 68.8154 179.453C68.3154 179.453 67.0266 182.794 65.3154 184.453C63.4876 186.226 62.2194 187.325 59.8154 188.453C57.5815 189.502 55.9492 190.112 53.3154 190.453C49.6401 190.929 47.2653 190.807 43.8154 189.453C39.323 187.691 37.0768 185.441 34.3154 181.453C32.8239 179.3 31.0376 176.206 31.3154 175.453C31.8154 174.098 35.2372 174.152 37.8154 172.953C40.6151 171.652 42.4388 171.019 44.8154 168.953C47.2327 166.853 49.8154 162.453 49.8154 162.453C49.8154 162.453 52.6197 157.784 52.8154 154.453C52.9477 152.201 52.2064 148.586 52.3154 148.453C52.4244 148.321 55.4314 149.703 57.3154 149.953C60.8021 150.418 62.9064 149.431 65.8154 147.453C69.7389 144.786 71.3154 141.953 72.3154 136.953" stroke={stroke} strokeWidth="5" strokeLinecap="round"/>
-    <path d="M32.8154 174.453C32.8154 174.453 30.3154 175.953 21.8154 171.453C19.1478 170.041 17.7435 168.503 15.8265 166.567C12.0436 162.748 10.5211 159.325 10.3154 153.953C10.1175 148.785 11.4725 146.174 14.4888 141.384C15.8117 139.282 18.6357 136.614 18.5879 136.524C18.5401 136.433 16.3325 137.427 14.8154 137.453C11.4964 137.512 9.66297 136.345 7.31538 133.453C4.84166 130.407 3.92694 127.453 3.31538 123.953C2.70381 120.453 2.87033 114.953 4.81538 110.953C6.546 107.394 8.99198 105.252 11.9606 103.767C16.5824 101.456 22.2419 100.846 27.3753 100.846C29.4562 100.846 32.7196 101.344 34.3217 102.785C36.4133 104.668 39.7273 107.032 38.9117 107.032" stroke={stroke} strokeWidth="5" strokeLinecap="round"/>
-    <path d="M12.8154 102.953C9.78976 100.669 8.36508 98.5965 7.31537 94.9534C6.3963 91.7637 6.58685 89.6919 7.31537 86.4534C8.02473 83.3 8.85277 81.4907 10.8154 78.9534C12.9382 76.2089 14.405 75.0617 17.3154 73.4534C20.0176 71.9601 21.94 71.2006 24.8154 70.9534C28.923 70.6002 30.8204 72.9561 34.3154 74.9533C37.8154 76.9534 40.542 77.7081 44.3154 76.9534C46.5445 76.5075 49.5155 74.337 49.5155 74.337" stroke={stroke} strokeWidth="5" strokeLinecap="round"/>
-    <path d="M28.5 71.5C25.8951 69.637 21.9479 67.449 20.8154 64.4534C18.6575 58.7458 19.7593 50.919 23.5 46.5C26 43.5466 30.3162 40.2697 34.5 40C37.2899 39.8202 39.5558 39.9768 41.5 41.5C43.6353 43.173 44.1309 45.8271 45.8154 47.9534C47.1872 49.685 49.8154 51.9534 49.8154 51.9534" stroke={stroke} strokeWidth="5" strokeLinecap="round"/>
-    <path d="M42.3154 41.9534C42.3154 41.9534 40.9628 38.6762 40.679 36.4534C40.4565 34.7101 40.433 33.6934 40.679 31.9534C41.1234 28.8099 41.9906 27.0513 43.8154 24.4534C45.6424 21.8522 46.9426 20.6278 49.8154 18.9534C52.0084 17.6751 53.6449 16.9682 56.3154 16.4534C59.1913 15.8989 63.8154 16.4534 63.8154 16.4534" stroke={stroke} strokeWidth="5" strokeLinecap="round"/>
-    <path d="M63.8154 15.9534C61.9513 22.0718 63.0669 27.172 67.3154 31.9534C70.39 35.4137 72.8154 37.4534 77.8154 37.4534" stroke={stroke} strokeWidth="5" strokeLinecap="round"/>
-    <path d="M63.8154 16.4533C63.8154 16.4533 66.3235 12.247 68.5138 10.0518C70.8154 7.74512 73.3406 5.25247 77.3154 3.95336C80.4386 2.93257 83.1961 2.81869 85.6958 3.20357C89.6646 3.81464 92.256 4.85913 94.8154 7.95333C96.826 10.3841 97.9655 13.898 97.8154 15.4533" stroke={stroke} strokeWidth="5" strokeLinecap="round"/>
-    <path d="M57.8154 58.9534C60.4767 59.8282 61.7362 60.711 63.8154 62.4534C65.6175 63.9636 66.6233 64.9267 67.8154 66.9534C69.8345 70.3861 70.4272 72.9295 70.3154 76.9534C70.226 80.1725 69.5651 82.0644 68.3154 84.9534C66.8324 88.3815 65.1653 89.7531 62.3154 91.9534C60.0333 93.7152 55.8154 95.4534 55.8154 95.4534" stroke={stroke} strokeWidth="5" strokeLinecap="round"/>
-    <path d="M69.8154 69.4534C71.6109 70.4509 74.2271 70.3329 76.8154 69.4534C79.7033 68.472 81.4799 66.7261 83.3154 63.9534C85.0196 61.379 85.6341 59.5354 85.8154 56.4534" stroke={stroke} strokeWidth="5" strokeLinecap="round"/>
-    <path d="M59.8154 120.453C56.1054 120.258 53.602 119.488 50.3154 119.953C46.4633 120.499 44.7303 121.358 41.8154 123.453C39.2344 125.309 37.9551 126.730 36.3154 129.453C34.7092 132.121 34.0414 133.870 33.6099 136.953C33.1482 140.252 33.3162 142.276 34.3154 145.453" stroke={stroke} strokeWidth="5" strokeLinecap="round"/>
-    <path d="M106.815 7.45337C106.815 7.45337 109.269 10.5973 110.315 12.4534C115.007 20.7737 117.815 35.9534 117.815 35.9534C117.815 35.9534 120.508 50.1066 121.533 58.9534C122.628 68.411 123.079 83.284 123.079 83.284C123.079 83.284 123.203 94.6089 122.858 101.853C122.548 108.349 122.435 111.979 121.815 118.453C120.898 128.045 120.635 132.453 118.612 142.953C117.164 150.468 116.016 155.813 113.815 161.953C111.626 168.063 107.394 177.282 107.394 177.282" stroke={stroke} strokeWidth="5" strokeLinecap="round"/>
-    <path d="M123.315 109.453C123.315 109.453 127.481 103.587 130.315 99.9534C134.406 94.71 141.315 86.9534 141.315 86.9534C141.315 86.9534 148.527 80.135 153.315 75.9534C157.91 71.9408 165.315 65.9534 165.315 65.9534" stroke={stroke} strokeWidth="5" strokeLinecap="round"/>
-    <path d="M165.315 65.9534C165.315 65.9534 164.612 75.7369 163.815 81.9534C163.211 86.6657 162.862 89.3191 161.815 93.9534C160.604 99.3169 159.637 102.265 157.815 107.453C155.64 113.646 154.117 117.018 151.315 122.953C148.295 129.352 146.602 132.977 142.815 138.953C138.049 146.476 134.996 150.542 128.815 156.953C122.465 163.541 118.44 167.895 110.815 172.953" stroke={stroke} strokeWidth="5" strokeLinecap="round"/>
-    <path d="M146.315 133.453L157.815 126.453C157.815 126.453 164.391 122.823 168.815 120.953C175.414 118.165 179.313 116.965 186.315 115.453C191.714 114.288 200.315 113.453 200.315 113.453" stroke={stroke} strokeWidth="5" strokeLinecap="round"/>
-    <path d="M200.315 113.453C200.315 113.453 195.689 121.539 192.315 126.453C187.363 133.669 184.464 137.725 178.315 143.953C172.765 149.576 169.341 152.501 162.815 156.953C155.168 162.171 150.393 164.470 141.815 167.953C135.350 170.579 131.705 172.348 124.815 173.453C119.221 174.351 115.958 174.464 110.315 173.953" stroke={stroke} strokeWidth="5" strokeLinecap="round"/>
-    <path d="M151 164C151 164 164.954 160.54 174 161C179.056 161.257 181.926 161.641 186.815 162.953C190.215 163.866 191.996 164.782 195.315 165.953" stroke={stroke} strokeWidth="5" strokeLinecap="round"/>
-    <path d="M195.315 165.953C193.005 167.374 191.690 168.141 189.315 169.453C185.112 171.776 182.747 173.102 178.315 174.953C172.275 177.476 168.717 178.586 162.315 179.953C155.019 181.511 143.315 181.953 143.315 181.953C143.315 181.953 134.435 181.916 128.815 181.151C123.070 180.369 114.315 177.953 114.315 177.953" stroke={stroke} strokeWidth="5" strokeLinecap="round"/>
-    <path d="M112.5 177.5C112.5 177.5 119.113 180.160 121.815 181.953C124.148 183.501 126 184.502 127.815 186.953C129.585 189.343 130.305 191.023 130.815 193.953" stroke={stroke} strokeWidth="5" strokeLinecap="round"/>
-    <path d="M130.815 193.953C126.793 193.788 124.442 193.200 120.815 191.453C117.543 189.877 113.315 185.953 113.315 185.953C113.315 185.953 110.595 183.426 109.315 181.453C108.365 179.988 107.315 177.453 107.315 177.453" stroke={stroke} strokeWidth="5" strokeLinecap="round"/>
-  </svg>
-);
+import { NeurocannLogo } from './public/NeurocannLogo';
+import { Reveal } from './public/Reveal';
+import { Eyebrow } from './public/Eyebrow';
+import { PublicNav, DEMO_MAILTO } from './public/PublicNav';
+import { PublicFooter } from './public/PublicFooter';
+import { Link } from './public/Link';
+import { BlogCard } from './Blog/BlogCard';
+import { getLatestPosts } from '../lib/blog';
+import { BLOG_BASE_PATH } from '../lib/publicRouter';
 
 /* ─── Demo conversation data ─── */
 type DemoStep =
@@ -849,66 +783,15 @@ const STEPS = [
   },
 ];
 
-/* ─── Section eyebrow ─── */
-const Eyebrow: React.FC<{ accent: string; label: string; align?: 'left' | 'center' }> = ({ accent, label, align = 'left' }) => (
-  <div className={`flex items-center gap-3 mb-4 ${align === 'center' ? 'justify-center' : ''}`}>
-    <div className={`w-10 h-0.5 ${accent} rounded-full`} />
-    <p className={`text-xs font-bold tracking-[0.2em] uppercase`} style={{ color: 'currentColor' }}>{label}</p>
-  </div>
-);
-
 /* ─── Main Landing Page ─── */
 export const LandingPage: React.FC = () => {
   const { login } = useAuth();
-  const [scrollY, setScrollY] = useState(0);
-
-  useEffect(() => {
-    const onScroll = () => setScrollY(window.scrollY);
-    window.addEventListener('scroll', onScroll, { passive: true });
-    return () => window.removeEventListener('scroll', onScroll);
-  }, []);
-
-  const navOpaque = scrollY > 40;
+  const latestPosts = getLatestPosts(3);
 
   return (
     <div className="min-h-screen bg-white">
       {/* ═══════════════════ NAV ═══════════════════ */}
-      <nav
-        className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
-          navOpaque
-            ? 'bg-white/95 backdrop-blur-sm border-b border-gray-100'
-            : 'bg-transparent'
-        }`}
-      >
-        <div className="max-w-6xl mx-auto px-6 lg:px-8 flex items-center justify-between h-16">
-          <div className="flex items-center gap-2.5">
-            <NeurocannLogo className="w-7 h-7" stroke="#3BB570" />
-            <span className="text-base font-black text-gray-900 tracking-tight">
-              neuro<span className="text-gray-400">cann</span>
-            </span>
-          </div>
-          <div className="flex items-center gap-8">
-            <a href="#capabilities" className="hidden sm:block text-sm font-medium text-gray-500 hover:text-gray-900 transition-colors">
-              Platform
-            </a>
-            <a href="#how-it-works" className="hidden sm:block text-sm font-medium text-gray-500 hover:text-gray-900 transition-colors">
-              How It Works
-            </a>
-            <button
-              onClick={() => login()}
-              className="text-sm font-bold text-gray-900 hover:text-emerald-600 transition-colors"
-            >
-              Sign In
-            </button>
-            <a
-              href="mailto:will@neurocann.app?subject=NeuroCann%20Demo%20Request"
-              className="bg-gray-900 hover:bg-gray-800 text-white text-sm font-bold px-5 py-2 rounded-lg transition-colors"
-            >
-              Book Demo
-            </a>
-          </div>
-        </div>
-      </nav>
+      <PublicNav variant="transparent" />
 
       {/* ═══════════════════ HERO ═══════════════════ */}
       <section className="relative pt-28 pb-20 lg:pt-36 lg:pb-28 px-6 lg:px-8 overflow-hidden">
@@ -943,7 +826,7 @@ export const LandingPage: React.FC = () => {
                 style={{ opacity: 0, animation: 'heroFadeIn 0.7s cubic-bezier(0.16,1,0.3,1) 0.55s forwards' }}
               >
                 <a
-                  href="mailto:will@neurocann.app?subject=NeuroCann%20Demo%20Request"
+                  href={DEMO_MAILTO}
                   className="group relative bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-8 py-4 rounded-xl transition-all text-sm inline-block shadow-lg shadow-emerald-500/20 hover:shadow-emerald-500/30"
                 >
                   Book a Demo
@@ -1304,6 +1187,40 @@ export const LandingPage: React.FC = () => {
         </div>
       </section>
 
+      {/* ═══════════════════ FROM THE BLOG ═══════════════════ */}
+      {latestPosts.length > 0 && (
+        <section id="blog" className="py-24 lg:py-32 px-6 lg:px-8 bg-gray-50/80">
+          <div className="max-w-7xl mx-auto">
+            <Reveal>
+              <div className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-4 mb-12">
+                <div>
+                  <div className="text-emerald-600">
+                    <Eyebrow accent="bg-emerald-500" label="From the Blog" />
+                  </div>
+                  <h2 className="text-4xl sm:text-5xl font-black text-gray-900 tracking-tight">
+                    Notes from the floor.
+                  </h2>
+                </div>
+                <Link
+                  href={BLOG_BASE_PATH}
+                  className="group inline-flex items-center gap-2 text-sm font-bold text-gray-900 hover:text-emerald-600 transition-colors"
+                >
+                  All posts
+                  <span className="inline-block transition-transform group-hover:translate-x-0.5">&rarr;</span>
+                </Link>
+              </div>
+            </Reveal>
+            <div className="grid md:grid-cols-3 gap-4">
+              {latestPosts.map((post, i) => (
+                <Reveal key={post.slug} delay={i * 80} className="h-full">
+                  <BlogCard post={post} />
+                </Reveal>
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
+
       {/* ═══════════════════ CLOSING CTA ═══════════════════ */}
       <section className="relative py-28 lg:py-36 px-6 lg:px-8 bg-gray-950 overflow-hidden">
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[400px] pointer-events-none" style={{ background: 'radial-gradient(ellipse, rgba(59,181,112,0.12) 0%, transparent 70%)' }} />
@@ -1321,7 +1238,7 @@ export const LandingPage: React.FC = () => {
             </p>
             <div className="flex flex-wrap justify-center gap-4">
               <a
-                href="mailto:will@neurocann.app?subject=NeuroCann%20Demo%20Request"
+                href={DEMO_MAILTO}
                 className="group bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-10 py-4 rounded-xl transition-all text-sm inline-block shadow-lg shadow-emerald-500/25 hover:shadow-emerald-500/40"
               >
                 Book a Demo
@@ -1339,19 +1256,7 @@ export const LandingPage: React.FC = () => {
       </section>
 
       {/* ═══════════════════ FOOTER ═══════════════════ */}
-      <footer className="bg-gray-950 border-t border-gray-800 py-10 px-6 lg:px-8">
-        <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-6">
-          <div className="flex items-center gap-2.5">
-            <NeurocannLogo className="w-5 h-5" stroke="#4B5563" />
-            <span className="text-sm font-bold text-gray-600 tracking-tight">
-              neuro<span className="text-gray-700">cann</span>
-            </span>
-          </div>
-          <p className="text-xs text-gray-600">
-            &copy; {new Date().getFullYear()} NeuroCann. All rights reserved.
-          </p>
-        </div>
-      </footer>
+      <PublicFooter />
 
       {/* ═══════════════════ Keyframes ═══════════════════ */}
       <style>{`
