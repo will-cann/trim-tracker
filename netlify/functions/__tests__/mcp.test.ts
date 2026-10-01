@@ -23,21 +23,28 @@ vi.mock('../utils/rateLimit', () => ({
 
 vi.mock('../utils/sentry', () => ({ captureError: () => {} }));
 
-const resolveContextMock = vi.fn();
+const verifyTokenMock = vi.fn();
+const contextForAuth0UserMock = vi.fn();
 vi.mock('../utils/auth', () => ({
-    resolveContext: (...args: unknown[]) => resolveContextMock(...args),
+    verifyToken: (...args: unknown[]) => verifyTokenMock(...args),
+    contextForAuth0User: (...args: unknown[]) => contextForAuth0UserMock(...args),
+    DEV_BYPASS_CONTEXT: { userId: 'dev', companyId: 'dev-co', role: 'admin', departments: [] },
 }));
 
 import { handler } from '../mcp';
+import { handler as metadataHandler } from '../oauth-protected-resource';
 import { hashApiKey, generateApiKey } from '../utils/apiKeys';
 
 const COMPANY = '11111111-1111-1111-1111-111111111111';
 const USER = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
+const HOST = 'neurocann.app';
+const MCP_RESOURCE = `https://${HOST}/mcp`;
+const METADATA_URL = `https://${HOST}/.well-known/oauth-protected-resource`;
 
 function event(body: unknown, headers: Record<string, string> = {}, httpMethod = 'POST'): HandlerEvent {
     return {
         httpMethod,
-        headers: { 'content-type': 'application/json', ...headers },
+        headers: { 'content-type': 'application/json', host: HOST, 'x-forwarded-proto': 'https', ...headers },
         body: body === undefined ? null : typeof body === 'string' ? body : JSON.stringify(body),
         path: '/mcp',
         queryStringParameters: null,
@@ -73,33 +80,120 @@ const rpc = (method: string, params?: unknown, id: number | string = 1) => ({ js
 
 beforeEach(() => {
     sqlMock.mockReset();
+    sqlMock.mockResolvedValue({ rows: [] });
     poolQuery.mockReset();
-    resolveContextMock.mockReset();
-    resolveContextMock.mockResolvedValue(null);
+    verifyTokenMock.mockReset();
+    verifyTokenMock.mockResolvedValue(null);
+    contextForAuth0UserMock.mockReset();
+    contextForAuth0UserMock.mockResolvedValue({ userId: USER, companyId: COMPANY, role: 'technician', departments: [] });
+    delete process.env.MCP_RESOURCE;
+    process.env.AUTH0_DOMAIN = 'login.neurocann.app';
+});
+
+const PUBLIC_TOOLS = ['about_neurocann', 'plan_extraction_inputs', 'estimate_dry_weight'];
+
+describe('anonymous access (ChatGPT pre-sign-in)', () => {
+    it('lets anonymous callers initialize and see every tool with securitySchemes', async () => {
+        const init = await call(rpc('initialize', { protocolVersion: '2025-06-18' }));
+        expect(init.status).toBe(200);
+        expect(init.json.result.instructions).toMatch(/plan_extraction_inputs/);
+
+        const list = await call(rpc('tools/list'));
+        expect(list.status).toBe(200);
+        const byName = Object.fromEntries(list.json.result.tools.map((t: any) => [t.name, t]));
+        for (const name of PUBLIC_TOOLS) {
+            expect(byName[name].securitySchemes).toEqual(expect.arrayContaining([{ type: 'noauth' }]));
+        }
+        expect(byName.list_harvests.securitySchemes).toEqual([{ type: 'oauth2', scopes: ['read:facility'] }]);
+        expect(byName.create_task.securitySchemes).toEqual([{ type: 'oauth2', scopes: ['read:facility', 'write:tasks'] }]);
+        for (const t of list.json.result.tools) expect(t.scope).toBeUndefined();
+    });
+
+    it('runs public tools without credentials and without touching the database', async () => {
+        const res = await call(rpc('tools/call', { name: 'plan_extraction_inputs', arguments: { targetProduct: 'rosin', targetAmount: 500 } }));
+        expect(res.status).toBe(200);
+        expect(res.json.result.isError).toBeUndefined();
+        const plan = res.json.result.structuredContent;
+        // 500 g rosin ÷ (5% × 96% × 60%) ≈ 17.36 kg fresh frozen ≈ 38.3 lb
+        expect(plan.startingMaterial.type).toBe('fresh_frozen');
+        expect(plan.startingMaterial.required.pounds).toBeCloseTo(38.3, 0);
+        expect(plan.overallYieldPct).toBeCloseTo(2.88, 1);
+        expect(plan.steps.map((s: any) => s.step)).toEqual(['Wash (ice water)', 'Freeze dry', 'Press']);
+        expect(sqlMock).not.toHaveBeenCalled();
+    });
+
+    it('challenges anonymous calls to facility tools with mcp/www_authenticate instead of a 401', async () => {
+        const res = await call(rpc('tools/call', { name: 'list_harvests', arguments: {} }));
+        expect(res.status).toBe(200);
+        expect(res.json.result.isError).toBe(true);
+        const challenge = res.json.result._meta['mcp/www_authenticate'][0];
+        expect(challenge).toContain(`resource_metadata="${METADATA_URL}"`);
+        expect(challenge).toContain('error="invalid_token"');
+        expect(challenge).toMatch(/error_description="/);
+        expect(challenge).toContain('scope="read:facility"');
+        expect(sqlMock).not.toHaveBeenCalled();
+    });
+
+    it('serves RFC 9728 protected-resource metadata pointing at Auth0', async () => {
+        const res = await metadataHandler(event(undefined, {}, 'GET'), {} as any);
+        expect(res!.statusCode).toBe(200);
+        const doc = JSON.parse(res!.body!);
+        expect(doc.resource).toBe(MCP_RESOURCE);
+        expect(doc.authorization_servers).toEqual(['https://login.neurocann.app/']);
+        expect(doc.scopes_supported).toEqual(expect.arrayContaining(['openid', 'offline_access', 'read:facility', 'write:tasks']));
+    });
+
+    it('honours MCP_RESOURCE when the public identifier differs from the request host', async () => {
+        process.env.MCP_RESOURCE = 'https://app.example.com/mcp';
+        const res = await metadataHandler(event(undefined, { host: 'internal.netlify.app' }, 'GET'), {} as any);
+        expect(JSON.parse(res!.body!).resource).toBe('https://app.example.com/mcp');
+    });
+});
+
+describe('OAuth tokens (ChatGPT / claude.ai after linking)', () => {
+    it('verifies tokens against the MCP resource audience and derives scopes from the token', async () => {
+        verifyTokenMock.mockResolvedValue({ sub: 'auth0|1', aud: [MCP_RESOURCE], scope: 'openid read:facility' });
+        const list = await call(rpc('tools/list'), { authorization: 'Bearer eyJhbGciOi.jwt.token' });
+        expect(verifyTokenMock).toHaveBeenCalledWith('Bearer eyJhbGciOi.jwt.token', [MCP_RESOURCE]);
+        const names = list.json.result.tools.map((t: any) => t.name);
+        expect(names).toContain('list_harvests');
+        expect(names).not.toContain('create_task');
+    });
+
+    it('grants write tools when the token carries write:tasks', async () => {
+        verifyTokenMock.mockResolvedValue({ sub: 'auth0|1', aud: MCP_RESOURCE, scope: 'read:facility write:tasks' });
+        const list = await call(rpc('tools/list'), { authorization: 'Bearer eyJhbGciOi.jwt.token' });
+        expect(list.json.result.tools.map((t: any) => t.name)).toContain('create_task');
+    });
+
+    it('asks for an upgraded link (insufficient_scope) when a read-only token calls a write tool', async () => {
+        verifyTokenMock.mockResolvedValue({ sub: 'auth0|1', aud: MCP_RESOURCE, scope: 'read:facility' });
+        const res = await call(rpc('tools/call', { name: 'create_task', arguments: { title: 'x' } }), { authorization: 'Bearer eyJhbGciOi.jwt.token' });
+        expect(res.json.result.isError).toBe(true);
+        expect(res.json.result._meta['mcp/www_authenticate'][0]).toContain('error="insufficient_scope"');
+    });
+
+    it('treats in-app session tokens (app audience) as full access', async () => {
+        verifyTokenMock.mockResolvedValue({ sub: 'auth0|1', aud: 'https://api.neurocann.app' });
+        const list = await call(rpc('tools/list'), { authorization: 'Bearer eyJhbGciOi.jwt.token' });
+        expect(list.json.result.tools.map((t: any) => t.name)).toContain('create_task');
+    });
+
+    it('returns 401 with a resource_metadata challenge for tokens that do not verify', async () => {
+        verifyTokenMock.mockResolvedValue(null);
+        const res = await call(rpc('ping'), { authorization: 'Bearer garbage' });
+        expect(res.status).toBe(401);
+        expect(res.headers['WWW-Authenticate']).toContain(`resource_metadata="${METADATA_URL}"`);
+        expect(res.headers['WWW-Authenticate']).toContain('error="invalid_token"');
+    });
 });
 
 describe('transport', () => {
-    it('rejects unauthenticated requests with 401 + WWW-Authenticate', async () => {
-        sqlMock.mockResolvedValue({ rows: [] });
-        const res = await call(rpc('initialize'));
-        expect(res.status).toBe(401);
-        expect(res.headers['WWW-Authenticate']).toContain('Bearer');
-        expect(res.json.error.message).toMatch(/nck_/);
-    });
-
-    it('rejects unknown API keys', async () => {
+    it('rejects unknown API keys with 401', async () => {
         installApiKey(['read']);
         const res = await call(rpc('ping'), { authorization: 'Bearer nck_doesnotexist' });
         expect(res.status).toBe(401);
-    });
-
-    it('falls back to Auth0 session context for non-key bearer tokens', async () => {
-        resolveContextMock.mockResolvedValue({ userId: USER, companyId: COMPANY, role: 'technician', departments: [] });
-        const res = await call(rpc('tools/list'), { authorization: 'Bearer eyJhbGciOi.jwt.token' });
-        expect(res.status).toBe(200);
-        // Session auth gets both scopes, so write tools are listed.
-        const names = res.json.result.tools.map((t: any) => t.name);
-        expect(names).toContain('create_task');
+        expect(res.headers['WWW-Authenticate']).toContain('Bearer');
     });
 
     it('answers initialize with negotiated protocol version and instructions', async () => {
@@ -154,18 +248,33 @@ describe('transport', () => {
 });
 
 describe('tools', () => {
-    it('lists only read tools for read-only keys, with annotations and schemas', async () => {
+    it('lists public + read tools for read-only keys, with annotations and schemas', async () => {
         const key = installApiKey(['read']);
         const res = await call(rpc('tools/list'), { authorization: `Bearer ${key}` });
         const tools = res.json.result.tools;
         const names = tools.map((t: any) => t.name);
-        expect(names).toEqual(expect.arrayContaining(['get_facility_overview', 'list_harvests', 'list_packages', 'list_plants', 'list_tasks', 'run_report']));
+        expect(names).toEqual(expect.arrayContaining([...PUBLIC_TOOLS, 'get_facility_overview', 'list_harvests', 'list_packages', 'list_plants', 'list_tasks', 'run_report']));
         expect(names).not.toContain('create_task');
         expect(names).not.toContain('update_task_status');
         for (const t of tools) {
             expect(t.inputSchema.type).toBe('object');
             expect(t.annotations.readOnlyHint).toBe(true);
+            expect(t.description.length).toBeGreaterThan(20);
         }
+    });
+
+    it('estimates dry weight with the product default moisture loss', async () => {
+        const res = await call(rpc('tools/call', { name: 'estimate_dry_weight', arguments: { wetWeight: 100, unit: 'lb', plantCount: 50 } }));
+        const out = res.json.result.structuredContent;
+        expect(out.estimatedDryWeight.pounds).toBeCloseTo(25, 1);
+        expect(out.perPlant.plants).toBe(50);
+        expect(out.perPlant.wet.pounds).toBeCloseTo(2, 1);
+    });
+
+    it('rejects nonsense public-tool input as a tool error', async () => {
+        const res = await call(rpc('tools/call', { name: 'plan_extraction_inputs', arguments: { targetProduct: 'rosin', targetAmount: 10, targetUnit: 'carts' } }));
+        expect(res.json.result.isError).toBe(true);
+        expect(res.json.result.content[0].text).toMatch(/carts/);
     });
 
     it('blocks write tools for read-only keys even when called directly', async () => {
