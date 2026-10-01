@@ -16,6 +16,10 @@
 [functions."ai-parse"]
   timeout = 120
 
+# LLM plugin (MCP server) — run_report can hit cold Neon connections
+[functions."mcp"]
+  timeout = 60
+
 # Scheduled: supplier outreach cadence reminders (daily 14:00 UTC / 09:00 CT)
 [functions."cron-supplier-reminders"]
   schedule = "0 14 * * *"
@@ -25,6 +29,13 @@
   from = "/manifest"
   to = "/manifest.html"
   status = 200
+
+# LLM plugin: stable MCP endpoint URL for external clients (Claude, Cursor, etc.)
+[[redirects]]
+  from = "/mcp"
+  to = "/.netlify/functions/mcp"
+  status = 200
+  force = true
 
 [[redirects]]
   from = "/*"
