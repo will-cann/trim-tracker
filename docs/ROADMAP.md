@@ -269,7 +269,8 @@ Planned features, integrations, and improvements. Updated as priorities evolve.
 - **Goal:** gain market share by being present in the LLM chats growers and extractors already use. Free planning calculators answer the question and introduce NeuroCann; linking an account unlocks the facility.
 - **Built:** `/mcp` endpoint with mixed auth (anonymous public tools, Auth0 OAuth for ChatGPT/claude.ai, API keys for header clients), RFC 9728 discovery, per-tool `securitySchemes`, `mcp/www_authenticate` link challenges, read tools across cultivation/harvest/inventory/extraction/tasks, `run_report` analytics, task write tools. See `docs/llm-plugin.md`.
 - **Public tools (built):** `about_neurocann`, `plan_extraction_inputs`, `estimate_dry_weight`, `estimate_harvest_yield`, `plan_harvest_timeline`, `estimate_trim_labor` — all database-free, all echo their assumptions.
-- **Next (ops, not code):** Auth0 tenant toggles + API `https://neurocann.app/mcp`; test in ChatGPT Developer Mode; write privacy policy + terms pages (required URLs); seed a demo account; submit to the ChatGPT Apps Directory.
+- **Legal pages (built):** Privacy Policy at `/privacy` and Terms of Service at `/terms` (static HTML in `public/`), drafted to B2B SaaS defaults — confirm entity name, governing law (Delaware default), and contact mailbox, then have counsel review.
+- **Next (ops, not code):** Auth0 tenant toggles + API `https://neurocann.app/mcp`; test in ChatGPT Developer Mode; legal review of privacy/terms; seed a demo account; submit to the ChatGPT Apps Directory.
 - **Next (code):** more public tools as search intent shows up (wash/freeze-dryer scheduling, supplies par-level calculator, cost-per-gram); an Apps SDK UI widget for planner results; per-tool allowlists for write access; expose more safe writes as demand appears.
 
 ### METRC
