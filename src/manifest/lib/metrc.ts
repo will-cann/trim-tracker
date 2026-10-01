@@ -1,5 +1,12 @@
-/** Metrc package/plant tags are 24 alphanumeric characters starting with "1A". */
-const TAG_RE = /^1A[0-9A-Z]{22}$/
+/**
+ * Metrc package/plant tags are 24 alphanumeric characters starting with
+ * "1A4" (every US Metrc state: MO 1A40C…, CO 1A401…, OK 1A40A…, CA 1A4FF…).
+ * Requiring the "4" catches keyboard-wedge garbles like "1AC03…19540",
+ * where characters 3–4 of a real tag landed at the end.
+ */
+export const TAG_PREFIX = '1A4'
+const TAG_RE = /^1A4[0-9A-Z]{21}$/
+export const TAG_HINT = `Tags are 24 characters starting with ${TAG_PREFIX}.`
 
 export function normalizeTag(raw: string): string {
   return raw.trim().toUpperCase().replace(/[^0-9A-Z]/g, '')
@@ -10,7 +17,7 @@ export function isMetrcTag(raw: string): boolean {
 }
 
 export function extractTags(text: string): string[] {
-  const found = text.toUpperCase().match(/1A[0-9A-Z]{22}/g) ?? []
+  const found = text.toUpperCase().match(/1A4[0-9A-Z]{21}/g) ?? []
   return Array.from(new Set(found))
 }
 

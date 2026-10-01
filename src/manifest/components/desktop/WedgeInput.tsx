@@ -15,10 +15,15 @@ interface Props {
  * soon as a full 24-char Metrc tag is present. Keystrokes that land on the
  * page body (after the user clicked a row or button) are redirected here so
  * the picker never has to click back into the box.
+ *
+ * The input is deliberately UNCONTROLLED. Scanners emit ~24 keystrokes a few
+ * ms apart; with a React-controlled value, each keystroke's re-render races
+ * the next keystroke and characters can land out of order (seen in the
+ * field: "1A40C03…195" arriving as "1AC03…19540"). Reading the DOM value
+ * directly sidesteps that entirely.
  */
 export function WedgeInput({ onScan, capture = true }: Props) {
   const ref = useRef<HTMLInputElement>(null)
-  const [value, setValue] = useState('')
   const [focused, setFocused] = useState(false)
 
   useEffect(() => {
@@ -36,11 +41,14 @@ export function WedgeInput({ onScan, capture = true }: Props) {
     return () => document.removeEventListener('keydown', onKey)
   }, [capture])
 
-  const submit = (raw: string) => {
+  const submit = () => {
+    const el = ref.current
+    if (!el) return
+    const raw = el.value
+    el.value = ''
     const tags = extractTags(raw)
-    if (tags.length) tags.forEach(onScan)
+    if (tags.length) tags.forEach((t) => onScan(t))
     else if (raw.trim()) onScan(raw.trim())
-    setValue('')
   }
 
   return (
@@ -49,26 +57,26 @@ export function WedgeInput({ onScan, capture = true }: Props) {
         <ScanBarcode className={`absolute left-4 top-1/2 -translate-y-1/2 h-6 w-6 ${focused ? 'text-emerald-500' : 'text-gray-400'}`} />
         <input
           ref={ref}
-          value={value}
-          onChange={(e) => {
-            const v = e.target.value
-            setValue(v)
-            const t = v.trim().toUpperCase()
-            if (t.length >= 24 && isMetrcTag(t)) submit(t)
+          defaultValue=""
+          onInput={(e) => {
+            const t = e.currentTarget.value.trim().toUpperCase()
+            if (t.length >= 24 && isMetrcTag(t)) submit()
           }}
           onKeyDown={(e) => {
             if (WEDGE_SUFFIX_KEYS.has(e.key)) {
               e.preventDefault()
-              submit(value)
+              submit()
             }
           }}
           onFocus={() => setFocused(true)}
           onBlur={() => setFocused(false)}
           placeholder="Scan a case tag"
-          autoCapitalize="characters"
+          autoCapitalize="none"
           autoCorrect="off"
           autoComplete="off"
           spellCheck={false}
+          inputMode="text"
+          enterKeyHint="done"
           aria-label="Barcode scanner input"
           className={`w-full rounded-2xl border-2 bg-white pl-14 pr-4 h-16 font-mono text-xl tracking-wider uppercase text-gray-900 placeholder:font-sans placeholder:normal-case placeholder:tracking-normal placeholder:text-gray-400 focus:outline-none ${
             focused ? 'border-emerald-400 ring-4 ring-emerald-100' : 'border-gray-200'
