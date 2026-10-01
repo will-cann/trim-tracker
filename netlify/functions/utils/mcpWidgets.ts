@@ -29,10 +29,14 @@ const APP_URL = process.env.APP_PUBLIC_URL || 'https://neurocann.app';
 export const WIDGET_TOOLS: Record<string, { invoking: string; invoked: string }> = {
     about_neurocann: { invoking: 'Loading NeuroCann overview…', invoked: 'Overview ready' },
     plan_extraction_inputs: { invoking: 'Planning extraction inputs…', invoked: 'Extraction plan ready' },
+    estimate_cost_per_gram: { invoking: 'Costing the batch…', invoked: 'Cost per gram ready' },
+    plan_wash_schedule: { invoking: 'Scheduling wash and freeze-dry…', invoked: 'Schedule ready' },
     estimate_dry_weight: { invoking: 'Estimating dry weight…', invoked: 'Dry weight estimated' },
     estimate_harvest_yield: { invoking: 'Estimating harvest yield…', invoked: 'Yield estimate ready' },
     plan_harvest_timeline: { invoking: 'Building harvest calendar…', invoked: 'Calendar ready' },
     estimate_trim_labor: { invoking: 'Estimating trim labor…', invoked: 'Labor estimate ready' },
+    // The first facility tool a newly linked user sees — worth a card.
+    get_facility_overview: { invoking: 'Reading your facility…', invoked: 'Facility overview ready' },
 };
 
 export interface WidgetResource {
@@ -48,7 +52,7 @@ export function listWidgetResources(): WidgetResource[] {
         uri: PLANNER_WIDGET_URI,
         name: 'neurocann-planner',
         title: 'NeuroCann planner card',
-        description: 'Inline card that visualises NeuroCann planner results: extraction input pipeline, harvest yield split, cultivation timeline, trim labor and dry-weight estimates, plus the product overview.',
+        description: 'Inline card that visualises NeuroCann planner results — extraction input pipeline, cost per gram, wash/freeze-dry schedule, harvest yield split, cultivation timeline, trim labor and dry-weight estimates — plus the product overview and the linked-facility snapshot.',
         mimeType: MCP_APP_MIME_TYPE,
     }];
 }
@@ -167,6 +171,20 @@ export const PLANNER_WIDGET_HTML = `<!doctype html>
   .free { margin: 8px 0 0; padding-left: 18px; font-size: 13px; color: var(--nc-muted); }
   .free li { margin: 2px 0; }
 
+  .rows { display: grid; gap: 8px; margin-top: 8px; }
+  .row { display: grid; grid-template-columns: 96px 1fr 88px; align-items: center; gap: 10px; }
+  .row .name { font-weight: 600; font-size: 13px; }
+  .row .name span { display: block; font-weight: 400; font-size: 11px; color: var(--nc-faint); }
+  .row .amt { text-align: right; font-variant-numeric: tabular-nums; font-size: 13px; }
+  .row .amt span { display: block; font-size: 11px; color: var(--nc-faint); }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+  .chip { font-size: 12px; padding: 3px 9px; border-radius: 999px; background: var(--nc-surface); color: var(--nc-muted); }
+  .chip b { color: var(--nc-text); font-variant-numeric: tabular-nums; margin-right: 4px; }
+  .chip.hot { background: color-mix(in srgb, var(--nc-amber) 18%, transparent); color: var(--nc-amber); }
+  .chip.hot b { color: inherit; }
+  .neg { color: var(--color-text-danger, #D23F3F); }
+  .pos { color: var(--nc-accent); }
+  .cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 14px 20px; }
   .note { font-size: 12px; color: var(--nc-faint); margin-top: 12px; }
   .cta { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--nc-border); }
   .cta p { margin: 0; font-size: 13px; color: var(--nc-muted); flex: 1 1 200px; }
@@ -496,6 +514,127 @@ export const PLANNER_WIDGET_HTML = `<!doctype html>
     ];
   }
 
+  var COST_COLOURS = ['var(--nc-accent)', 'var(--nc-blue)', 'var(--nc-violet)', 'var(--nc-amber)', 'var(--nc-faint)', 'color-mix(in srgb, var(--nc-accent) 45%, transparent)'];
+  function viewCost(d) {
+    var batch = d.batch || {};
+    var startM = massLb(batch.startingMaterial && batch.startingMaterial.required);
+    var out = mass(batch.outputWeight);
+    var rows = Array.isArray(d.breakdown) ? d.breakdown : [];
+    var eco = d.economics;
+    var sub = out.big + ' batch of ' + (d.product || 'product') + ' · ' + startM.big + ' ' + String(batch.startingMaterial && batch.startingMaterial.type || '').replace(/_/g, ' ') + ' · ' + num(batch.overallYieldPct, 2) + '% overall yield';
+    var tiles = [tile(usd(d.batchCostUsd), '', 'batch cost'), tile(num(d.materialSharePct, 0), '%', 'material share of cost')];
+    if (typeof d.costPerUnitUsd === 'number') tiles.push(tile(usd2(d.costPerUnitUsd), '', 'per ' + num(batch.unitGrams, 2) + ' g unit (' + num(batch.units, 0) + ')'));
+    if (eco) {
+      var m = typeof eco.grossMarginPct === 'number' ? eco.grossMarginPct : null;
+      tiles.push(h('div', { class: 'tile' },
+        h('div', { class: 'v ' + (m !== null && m < 0 ? 'neg' : 'pos') }, (m !== null && m < 0 ? '−' : '') + num(Math.abs(m || 0), 1), h('small', null, '%')),
+        h('div', { class: 'k' }, 'gross margin at ' + usd2(eco.wholesalePricePerGram) + '/g')));
+      tiles.push(tile(eco.breakEvenOverallYieldPct === null ? '—' : num(eco.breakEvenOverallYieldPct, 2), eco.breakEvenOverallYieldPct === null ? '' : '%', 'break-even overall yield'));
+    }
+    var sens = d.sensitivity;
+    return [
+      header('Cost per gram', usd2(d.costPerGramUsd), '/ g', sub),
+      h('div', { class: 'section' },
+        h('div', { class: 'label' }, 'Where the batch cost goes'),
+        h('div', { class: 'stack' }, rows.map(function (r, i) { return h('div', { style: 'width:' + num(r.sharePct, 1) + '%;background:' + COST_COLOURS[i % COST_COLOURS.length], title: r.item }); })),
+        h('div', { class: 'legend' }, rows.map(function (r, i) {
+          return h('div', { title: r.basis || '' }, h('span', { class: 'dot', style: 'background:' + COST_COLOURS[i % COST_COLOURS.length] }), h('b', null, usd(r.usd)), ' ', h('span', { class: 'm' }, r.item.toLowerCase() + ' · ' + num(r.sharePct, 0) + '%'));
+        }))),
+      h('div', { class: 'section' }, h('div', { class: 'tiles' }, tiles)),
+      sens ? h('p', { class: 'note' }, 'If ' + String(sens.firstStep || 'the first step').toLowerCase() + ' yield drops one point: ' + usd2(sens.costPerGramAtMinusOnePoint) + '/g · up one point: ' + usd2(sens.costPerGramAtPlusOnePoint) + '/g.') : null,
+      assumptions(d.assumptions),
+      connectCta('Linked facilities get cost per gram from their own runs: real input weights, yields and labor.')
+    ];
+  }
+  function usd2(n) {
+    if (typeof n !== 'number' || !isFinite(n)) return '—';
+    return n.toLocaleString(locale(), { style: 'currency', currency: 'USD', minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+
+  function viewSchedule(d) {
+    var wash = d.wash || {}, fd = d.freezeDry || {}, outp = d.output || {};
+    var inM = massLb(d.input && d.input.freshFrozen);
+    var maxDays = Math.max(wash.days || 0, fd.days || 0, 1);
+    var bottleneck = d.bottleneck === 'freeze_dry' ? 'Freeze-dry is the bottleneck' : d.bottleneck === 'wash' ? 'Washing is the bottleneck' : 'Wash and freeze-dry are balanced';
+    function stage(name, detail, days, colour, right, rightSub) {
+      return h('div', { class: 'row' },
+        h('div', { class: 'name' }, name, h('span', null, detail)),
+        h('div', null,
+          h('div', { class: 'track', style: 'height:14px' }, h('div', { class: 'fill', style: 'width:' + pctWidth(days, maxDays, 4).toFixed(1) + '%;background:' + colour })),
+          h('div', { style: 'margin-top:3px' }, h('span', { class: 'badge' + (d.bottleneck === (name === 'Wash' ? 'wash' : 'freeze_dry') ? ' override' : '') }, num(days, 0) + (days === 1 ? ' day' : ' days')))),
+        h('div', { class: 'amt' }, right, h('span', null, rightSub)));
+    }
+    var tiles = [tile(massLb(outp.wetHash).big, '', 'wet hash (' + num(outp.washYieldPct, 1) + '%)'), tile(massLb(outp.dryHash).big, '', 'dry hash after freeze-dry')];
+    if (d.dates) tiles.push(tile(date(d.dates.lastWash), '', 'last wash'), tile(date(d.dates.lastFreezeDryComplete), '', 'all hash dry'));
+    var deadline = d.toMeetDeadline;
+    return [
+      header('Wash & freeze-dry schedule', num(d.elapsedDays, 0) + ' days', '', 'to process ' + inM.big + ' fresh frozen with ' + num(wash.stations, 0) + (wash.stations === 1 ? ' wash station' : ' wash stations') + ' and ' + num(fd.dryers, 0) + (fd.dryers === 1 ? ' freeze dryer' : ' freeze dryers') + ' · ' + bottleneck.toLowerCase()),
+      h('div', { class: 'section' },
+        h('div', { class: 'label' }, 'Stage durations'),
+        h('div', { class: 'rows' },
+          stage('Wash', num(wash.runs, 0) + ' runs × ' + massLb(wash.capacityPerRun).big, wash.days || 0, 'var(--nc-accent)', num(wash.runs, 0) + ' runs', num(wash.runsPerStationPerDay, 0) + '/station/day'),
+          stage('Freeze dry', num(fd.cycles, 0) + ' cycles × ' + mass(fd.capacityPerCycle).big, fd.days || 0, 'var(--nc-blue)', num(fd.cycles, 0) + ' cycles', num(fd.cyclesPerDryerPerDay, 0) + '/dryer/day'))),
+      h('div', { class: 'section' }, h('div', { class: 'tiles' }, tiles)),
+      deadline ? h('div', { class: 'chips' },
+        h('span', { class: 'chip' + (deadline.achievableWithCurrentEquipment ? '' : ' hot') }, h('b', null, num(deadline.targetDays, 0) + '-day target'), deadline.achievableWithCurrentEquipment ? 'achievable as is' : 'needs ' + num(deadline.washStationsNeeded, 0) + ' wash station' + (deadline.washStationsNeeded === 1 ? '' : 's') + ' and ' + num(deadline.freezeDryersNeeded, 0) + ' freeze dryer' + (deadline.freezeDryersNeeded === 1 ? '' : 's'))) : null,
+      assumptions(d.assumptions),
+      connectCta('Linked facilities schedule runs against their real equipment and per-strain wash yields.')
+    ];
+  }
+
+  var PHASES = [['nursery', 'var(--nc-faint)'], ['vegetative', 'var(--nc-blue)'], ['flowering', 'var(--nc-accent)']];
+  var HARVEST_ORDER = ['planning', 'active', 'submitted', 'drying', 'ready', 'completed'];
+  var PRIORITY_ORDER = ['urgent', 'high', 'medium', 'low'];
+  function viewOverview(d) {
+    var plants = d.plants || {}; var byPhase = plants.byPhase || {};
+    var nursery = (byPhase.nursery || 0) + (plants.nurseryUntrackedPlants || 0);
+    var counts = PHASES.map(function (p) { return { k: p[0], c: p[1], n: p[0] === 'nursery' ? nursery : (byPhase[p[0]] || 0) }; });
+    var totalPlants = counts.reduce(function (a, c) { return a + c.n; }, 0);
+    Object.keys(byPhase).forEach(function (k) { if (!PHASES.some(function (p) { return p[0] === k; })) { counts.push({ k: k, c: 'var(--nc-violet)', n: byPhase[k] }); totalPlants += byPhase[k]; } });
+
+    var harvests = (d.harvests && d.harvests.byStatus) || {};
+    var hKeys = Object.keys(harvests).sort(function (a, b) { return HARVEST_ORDER.indexOf(a) - HARVEST_ORDER.indexOf(b); });
+    var totalHarvests = hKeys.reduce(function (a, k) { return a + harvests[k]; }, 0);
+    var inProgress = hKeys.filter(function (k) { return k !== 'completed' && k !== 'planning'; }).reduce(function (a, k) { return a + harvests[k]; }, 0);
+
+    var tasks = Array.isArray(d.openTasks) ? d.openTasks : [];
+    var byPriority = {};
+    tasks.forEach(function (t) { byPriority[t.priority] = (byPriority[t.priority] || 0) + (t.count || 0); });
+    var openTasks = tasks.reduce(function (a, t) { return a + (t.count || 0); }, 0);
+
+    var runs = (d.extractionRuns && d.extractionRuns.byStatus) || {};
+    var activeRuns = (runs.active || 0) + (runs.planned || 0);
+    var pkgs = Array.isArray(d.activePackages) ? d.activePackages : [];
+    var pkgCount = pkgs.reduce(function (a, p) { return a + (p.count || 0); }, 0);
+
+    var sub = num(totalPlants, 0) + ' plants · ' + num(inProgress, 0) + ' harvests in progress · ' + num(pkgCount, 0) + ' active packages · ' + num(openTasks, 0) + ' open tasks';
+    return [
+      header('Facility overview', d.company || 'Your facility', '', sub),
+      h('div', { class: 'section' },
+        h('div', { class: 'label' }, 'Plants by phase'),
+        totalPlants ? h('div', { class: 'stack' }, counts.filter(function (c) { return c.n > 0; }).map(function (c) { return h('div', { style: 'width:' + ((c.n / totalPlants) * 100).toFixed(1) + '%;background:' + c.c, title: c.k }); })) : h('div', { class: 'empty' }, 'No tracked plants yet.'),
+        h('div', { class: 'legend' }, counts.filter(function (c) { return c.n > 0; }).map(function (c) { return h('div', null, h('span', { class: 'dot', style: 'background:' + c.c }), h('b', null, num(c.n, 0)), ' ', h('span', { class: 'm' }, c.k)); }))),
+      h('div', { class: 'section cols' },
+        h('div', null, h('div', { class: 'label' }, 'Harvests (' + num(totalHarvests, 0) + ')'),
+          hKeys.length ? h('div', { class: 'chips' }, hKeys.map(function (k) { return h('span', { class: 'chip' + (k === 'ready' ? ' hot' : '') }, h('b', null, num(harvests[k], 0)), k); })) : h('div', { class: 'empty' }, 'None yet.')),
+        h('div', null, h('div', { class: 'label' }, 'Open tasks (' + num(openTasks, 0) + ')'),
+          openTasks ? h('div', { class: 'chips' }, PRIORITY_ORDER.filter(function (p) { return byPriority[p]; }).map(function (p) { return h('span', { class: 'chip' + (p === 'urgent' || p === 'high' ? ' hot' : '') }, h('b', null, num(byPriority[p], 0)), p); })) : h('div', { class: 'empty' }, 'Nothing open.'))),
+      h('div', { class: 'section' },
+        h('div', { class: 'tiles' },
+          pkgs.slice(0, 4).map(function (p) {
+            var q = typeof p.totalQuantity === 'number' ? p.totalQuantity : 0;
+            var shown = p.unit === 'g' ? mass({ grams: q, pounds: q / 453.592 }) : { big: num(q, 0) + (p.unit ? ' ' + p.unit : ''), small: '' };
+            return tile(shown.big, '', String(p.packageType || 'packages').replace(/_/g, ' ') + ' · ' + num(p.count, 0) + ' pkgs');
+          }),
+          tile(num(activeRuns, 0), '', 'extraction runs planned or active'))),
+      h('div', { class: 'cta' },
+        h('p', null, 'Ask for any list in detail — plants in a room, harvests drying, packages by strain — or create a floor task from here.'),
+        h('div', { class: 'actions' },
+          h('button', { type: 'button', class: 'secondary', onclick: function () { sendMessage("What's drying or ready in my facility right now?"); } }, "What's drying?"),
+          h('button', { type: 'button', onclick: function () { openLink(APP_URL); } }, 'Open NeuroCann')))
+    ];
+  }
+
   function viewAbout(d) {
     var modules = d.modules || {};
     var free = (d.inThisAssistant && d.inThisAssistant.withoutAccount) || [];
@@ -520,14 +659,20 @@ export const PLANNER_WIDGET_HTML = `<!doctype html>
   var VIEWS = {
     about_neurocann: viewAbout,
     plan_extraction_inputs: viewExtraction,
+    estimate_cost_per_gram: viewCost,
+    plan_wash_schedule: viewSchedule,
     estimate_dry_weight: viewDry,
     estimate_harvest_yield: viewYield,
     plan_harvest_timeline: viewTimeline,
-    estimate_trim_labor: viewLabor
+    estimate_trim_labor: viewLabor,
+    get_facility_overview: viewOverview
   };
   function detectView(d) {
     if (!d || typeof d !== 'object') return null;
     if (d.startingMaterial && Array.isArray(d.steps)) return viewExtraction;
+    if (typeof d.costPerGramUsd === 'number' && Array.isArray(d.breakdown)) return viewCost;
+    if (d.wash && d.freezeDry) return viewSchedule;
+    if (d.plants && d.harvests && d.activePackages) return viewOverview;
     if (d.split && d.expectedDryWeight) return viewYield;
     if (d.milestones && d.durations) return viewTimeline;
     if (typeof d.trimmerHours === 'number') return viewLabor;
