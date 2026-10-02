@@ -41,8 +41,8 @@ The mix is **75% short, 25% deep**. Read time is computed by the site at 220 wor
 |---|---|---|
 | Share of posts | 75% (3 of every 4) | 25% (1 of every 4) |
 | Displayed read time | 1–2 min | 8–10 min |
-| Word count | 250–400 | 1,800–2,100 |
-| Structure | One learning. Opening line states it. 0–1 H2. Optional single table or blockquote. Last line lands it. | 5–7 H2 sections, at least one table of real numbers, at least one blockquote (an operator's words), a "Where this breaks" section, and a short "What to do Monday" close. |
+| Word count | 300–500 | 1,800–2,100 |
+| Structure | One learning. The opening paragraph sets the scene or states the learning plainly. 0–1 H2. Optional single table or blockquote. The close explains what to do with the learning; it does not try to land a line. | 5–7 H2 sections, at least one table of real numbers, at least one blockquote (an operator's words), a "Where this breaks" section, and a short "What to do Monday" close. |
 | Job | Hand an operator one thing they can use or repeat. | Teach a whole piece of running a facility — the numbers, the sequence, the failure modes — well enough that a new lead could run it from the post. |
 | Series | Belongs to one of the four recurring series below. | Standalone. One per pillar per quarter at most. |
 
@@ -102,7 +102,7 @@ Deep dives at weeks 4, 8, 12. Every row cites its Learnings Bank entries (sectio
 | 4 | **Deep Dive** | **A solventless wholesale program, by the numbers** | Extraction / Planning | Grams needed → pounds of biomass → price tier → batch sizing (500 g test floor, equipment-defined ~17 kg fills) → 4.5-hour washes at 2/day → freeze-dryer as the real ceiling → ballpark COGS ($2–3/g at $65/lb and ~4%; ~$6.50/g at $100/lb) against $9–12/g wholesale → 3–5 kg/month cadence. | E1–E8, S1, S2, P1–P3 |
 | 5 | On the calendar | **Make the 420 rosin in February** | Planning | Set the reminder for the end of February. Product finished April 10 is too late; serious buyers bought on April 1. The week after 420 is for locking the next biomass supplier. Same logic for June and 710. | P4, P5, P6 |
 | 6 | Floor math | **Dry-down: what 75% moisture loss does to the trim schedule** | Harvest | Wet weight × (1 − moisture loss) = the weight trim will actually see. Worked example: 5,832 g wet → ~1,458 g dry at 75%. Why trim capacity should be planned off the dry number, not the harvest-day number. | H5 |
-| 7 | Rule of thumb | **Keep the batch size the same run to run** | Extraction | A 4% result on 1,500 g and a 4% result on 400 g are not the same information; consistent batches are what make yield comparisons between strains and suppliers mean anything. *(Replaces "Somebody has to count grams in and out," which was published early as "A nug in the glove, a glove in the pocket.")* | E1, E8 |
+| 7 | Rule of thumb | **Keep the batch size the same run to run** | Extraction | A 4% result on 1,500 g and a 4% result on 400 g are not the same information; consistent batches are what make yield comparisons between strains and suppliers mean anything. *(Replaces "Somebody has to count grams in and out," which was published early as "What a paper trim room cost us, and what it could not catch.")* | E1, E8 |
 | 8 | **Deep Dive** | **Harvest day, start to finish** | Harvest | The cut planned from strain flowering days; per-plant wet weights at the scale; flower vs. fresh frozen allocation decided before anything hangs; contamination and waste logged in the moment; hang → bin → cure (burp, aerate, inspect, moisture) → release to trim. Open with the room-turnover economics (F5) and close with the "second harvest" of data entry (F6, F7). Drawn from the founders' own harvest days. | F5–F7, H1, H5, H6 |
 | 9 | What went wrong | **When the new trim manager's yields look too good** | Trim / Shrink | A facility whose first one or two harvests after every trim-manager change showed remarkable yields. Not a biology story. What to check first: start weights, waste logging, per-trimmer totals against batch totals. Framed as a control signal, not an accusation. | T1, T3 |
 | 10 | Rule of thumb | **The wash takes 4.5 hours no matter what you put in it** | Extraction | Cycle time is fixed, not input-dependent. Plan two washes a day, three when pushing, one when the calendar is full. The freeze dryer, not the wash vessel, sets the real daily ceiling. | E5, E7 |
@@ -187,7 +187,7 @@ tags: [extraction, rule-of-thumb]
 ---
 ```
 
-- `title` — sentence case, no trailing period, under 60 characters where possible. A rule of thumb may be the rule itself; a floor math title may be the formula.
+- `title` — sentence case, no trailing period, under 60 characters where possible. The title describes what the reader will learn ("What a week of room turnover costs you over a year"). A rule of thumb may be the rule itself when the rule is literal and specific ("Batches come in 500-gram increments"). A founder's turn of phrase ("your money is square footage times time," "a nug in the glove") is not a title; quote it inside the post, attribute it, and explain what was meant by it. That is where it adds depth. As a headline it reads as a slogan.
 - `description` — one sentence, 120–160 characters, written as the reason to click. It is the card copy and the meta description.
 - `date` — `YYYY-MM-DD`, publish date. Posts sort newest-first by this field.
 - `tags` — one pillar tag, plus one series tag for Floor Notes (none for Deep Dives). Two tags maximum.
@@ -207,7 +207,11 @@ Filename is the URL. Lowercase, hyphens, under 50 characters, permanent once pub
 
 ### Voice rules
 
-- Written by someone who has done the work, to someone who does it. Short sentences. Numbers in the first hundred words.
+- Written by someone who has done the work, to someone who does it. The register is instructive, explanatory, and earnest: the writer is walking a colleague through something they learned, not selling them on it. Numbers in the first hundred words.
+- Explain the reasoning, not just the conclusion. Every rule should come with the "because" that produced it, in full sentences. If a post could be summarized as a list of maxims, it is not finished.
+- Complete sentences, plainly constructed. Avoid the habits that make writing read as generated: one-word or fragment sentences used for emphasis ("Paper. The spreadsheet. METRC."); "Not X. Y." constructions; paired antitheses ("a slower demo and a faster facility"); rhetorical one-liners that close a paragraph; "Here is …" framing in descriptions; stacking three parallel short sentences for rhythm. Say the thing once, in a sentence that explains it.
+- It is fine to be plain. "We would suggest measuring it directly" is the right register. "Measure it." is not.
+- First person plural is encouraged where it is true ("we found," "in our experience," "we were wrong about this"). The posts are testimony, not copy.
 - Specific over generic. "Batches in 500-gram steps because the test is $500" beats "right-sized batches."
 - No hype words: revolutionary, game-changing, seamless, powerful, unlock, supercharge, leverage, optimize.
 - No emoji. No stock imagery. No leaf motifs. Images only when they carry information; a table usually does the job.
@@ -220,10 +224,11 @@ Filename is the URL. Lowercase, hyphens, under 50 characters, permanent once pub
 2. **Source.** Every learning traces to a Learnings Bank entry or to the author's own experience. Ballpark numbers are labeled.
 3. **Anonymization.** No names, brands, facilities. Locations at state level only. Section 9 rules applied.
 4. **Product claims.** Any sentence about NeuroCann is checked against the module doc's "Key capabilities (shipped)" and appears nowhere in "Do not claim." Roadmap items appear only as "not yet."
-5. **Length.** 250–400 or 1,800–2,100 words. Confirm the displayed read time after a local build.
-6. **Structure.** Floor Notes follow their series shape. Deep Dives have "Where this breaks" and "What to do Monday."
-7. **Description** is 120–160 characters and reads as a reason to click. No hype words or emoji anywhere.
-8. **Tags and slug** follow the taxonomy. Run `npm test` — `src/lib/__tests__/blog.test.ts` validates every post's frontmatter and sort order.
+5. **Length.** 300–500 or 1,800–2,100 words. Confirm the displayed read time after a local build.
+6. **Voice.** Read it aloud once. Any sentence that sounds like a slogan, a kicker, or a fragment for effect gets rewritten as an explanation. See the voice rules above.
+7. **Structure.** Floor Notes follow their series shape. Deep Dives have "Where this breaks" and "What to do Monday."
+8. **Description** is 120–160 characters and reads as a reason to click. No hype words or emoji anywhere.
+9. **Tags and slug** follow the taxonomy. Run `npm test` — `src/lib/__tests__/blog.test.ts` validates every post's frontmatter and sort order.
 
 ## 11. Learnings Bank
 
@@ -232,16 +237,17 @@ Seed material, anonymized, extracted from SME calls (spring 2026) and the founde
 ### Founder anecdotes (F)
 Captured from the founders directly. Former employers are not named in posts; "a vertically integrated operator" / "an operator we helped launch post-harvest and supply-chain processes" are the stand-ins unless the founders decide otherwise.
 
-- **F1** · firm · The trim room ran on paper: one sheet per batch (start weight, trimmers, flower / small bud / trim / waste). Sheets went to the compliance administrator, who re-keyed them into a spreadsheet, verified weights, and then entered METRC. Four inventories existed at once — paper, spreadsheet, digital inventory, METRC — and there were full-time roles whose job was reconciling them. *Posts: "A nug in the glove, a glove in the pocket."*
+- **F1** · firm · The trim room ran on paper: one sheet per batch (start weight, trimmers, flower / small bud / trim / waste). Sheets went to the compliance administrator, who re-keyed them into a spreadsheet, verified weights, and then entered METRC. Four inventories existed at once — paper, spreadsheet, digital inventory, METRC — and there were full-time roles whose job was reconciling them. *Posts: "What a paper trim room cost us, and what it could not catch."*
 - **F2** · firm · Trim crews are often third party with rotating staff. Product loss is small and chronic ("a nug in the glove, a glove in the pocket, for lunch") and adds up over a season. Accountability came from weighing what goes onto the table and what comes off, per person and per bucket, at the time — not from the sheet. A live count also protects the honest crew; with four inventories and no live count, any gap landed on everyone. *Posts: same.*
 - **F3** · firm (timing approximate) · Trim is the first point you get a dry weight — roughly 21 days after the chop — and therefore the first point to grade a crop. From a trim batch you can read dry yield by strain, cut performance vs. the mother's previous rounds, the large-bud / small-bud / trim ratio by strain, per-trimmer speed and ratios, and cost per pound. Most facilities record flower and waste for compliance and let the rest die on the sheet. *Posts: "Trim is the first real weight you get after the chop."*
 - **F4** · firm · Origin: the accountability-and-re-keying problem was seen first at a vertically integrated operator; the yield-feedback insight came while launching post-harvest and supply-chain processes for a second operator. The trim tracker was the first thing built, and it was built for both reasons at once: save the administrator's time, and make the room's count live.
 
-- **F5** · firm · The goal of harvest is to get it done in a day, maybe two, because **money is square footage times time**: a flower room earns only while plants are in it. At a vertically integrated operator (since closed), a CFO's financial plan assumed a cycle count; rooms took about a week to turn over after harvest; year-end cycles came in short of plan and nobody could explain why. *Posts: "Your money is square footage times time."*
+- **F5** · firm · The goal of harvest is to get it done in a day, maybe two, because **money is square footage times time**: a flower room earns only while plants are in it. At a vertically integrated operator (since closed), a CFO's financial plan assumed a cycle count; rooms took about a week to turn over after harvest; year-end cycles came in short of plan and nobody could explain why. *Posts: "What a week of room turnover costs you over a year."*
 - **F6** · firm (duration approximate) · "Digital harvest" — the compliance administrator entering plant tag by plant tag and weight by weight into the system and METRC after the physical harvest — took about four hours each time, with error rates to match. The first mechanism built against it was scanner-based: scan tag → two taps → number → next plant. *Posts: "Four hours of digital harvest."*
 - **F7** · firm · Systems deployed to collect data points were inconsistently filled and unstructured (spreadsheets) because collection was a separate step from the work. Capture has to happen in the same motion as the thing being recorded or it degrades into reconciliation. *Posts: same; also the thesis behind the whole blog.*
 - **F8** · firm (founder journey) · Between NeuroCann's first and second lives, a founder worked at a digital-health startup focused on ambient transcription and concluded voice is the right input wherever hands are gloved — hence voice-first Harvest Day. **Caveat:** ambient always-on mode is feature-flagged off and deferred on the roadmap. Posts may say "voice" and "hands-free"; they may not describe ambient as shipped.
 - **F9** · company history, not an operator learning · 2020: raised money, hired a dev team, built infrastructure-first toward a self-optimizing supply chain. Paying customers came for consulting, not software; a further raise did not close; the company paused. Rebuilt on that foundation once AI-assisted development made a small team viable. Stated regret: should have built Harvest Day and the trim tracker first, infrastructure second. **Use:** a single founder letter or an About page — not the weekly cadence. Pairs with F7 as the lesson ("build the narrow workflow that captures data at the moment of work, then the platform").
+- **F10** · firm (pattern), ballpark (prices) · Trim is seen as the least interesting step in the facility, which is why so few operators measure it. Two reasons it deserves a feature: it is where the product is actually counted (everything upstream is wet weight or hanging weight), and the byproduct has value that most growers miss. Many operations bag trim as waste, give it away, or sell it for very little; others freeze it off the table and sell it as fresh frozen material to extractors for a comparatively high price. The difference is whether anyone looked at the trim pile as a product. Generalizes to: a step nobody thought was worth measuring is where a second look pays off. *Posts: opening of "Trim tracker: is trim even worth tracking?" Candidate Floor Note: "Your trim pile might be a product" (Rule of thumb), once we have a price range we can cite.*
 
 *Next anecdotes to capture (one sit-down each): plant map and health scoring; bins and cure logs; extraction templates; tags and the adjustment ledger; ordering and the store matrix; SOPs; tasks and hybrid completion.*
 
@@ -324,14 +330,14 @@ Exact freeze-dryer fill weights and the press capacity figure; the "bigger wash 
 
 ## 13. The launch posts
 
-"Harvest day with gloved hands," "Confirm before execute," and "Where every gram goes" were published before this plan at ~3 minutes each, and they lean more on the product than the operator rule allows. They stand as launch posts. "Confirm before execute" stays as the single "how the product thinks" post; it will not be repeated.
+"Harvest day with gloved hands," "Confirm before execute," and "Trim tracker: is trim even worth tracking?" (slug `where-every-gram-goes`, originally titled "Where every gram goes") were published before this plan at ~3 minutes each, and they lean more on the product than the operator rule allows. They stand as launch posts. The trim post was later given an opening that answers its own question (F10) so that the product walkthrough has an operator reason in front of it. "Confirm before execute" stays as the single "how the product thinks" post; it will not be repeated.
 
 Posts written under this plan so far, and what each is the reference for:
 
 - **Batches come in 500-gram increments** — a Rule of thumb from an SME learning (E1–E3, E7, E8).
-- **A nug in the glove, a glove in the pocket** — a What went wrong from a founder anecdote (F1, F2). The reference for how a founder story reads: the room first, the feature in the last sentence.
+- **What a paper trim room cost us, and what it could not catch** (`a-nug-in-the-glove`) — a What went wrong from a founder anecdote (F1, F2). The reference for how a founder story reads: the room first, the feature in the last sentence. Also the reference for how to use a founder's phrase: "a nug in the glove, a glove in the pocket" was the original title and now sits inside the post, attributed, where it adds texture instead of carrying the headline.
 - **Trim is the first real weight you get after the chop** — a Rule of thumb split out of the same anecdote (F3). The reference for pulling a second post out of one story instead of overloading the first.
-- **Your money is square footage times time** — a Floor math from the harvest anecdote (F5). The reference for turning a war story into a formula with a worked table.
+- **What a week of room turnover costs you over a year** (`square-footage-times-time`) — a Floor math from the harvest anecdote (F5). The reference for turning a war story into a formula with a worked table. The founder's phrase "your money is square footage times time" is quoted and explained in the body rather than used as the title.
 - **Four hours of digital harvest** — a What went wrong from the same anecdote (F6, F7). The reference for stating the general principle ("move the record to the moment") without it reading as a pitch.
 
 ## 14. Measurement
