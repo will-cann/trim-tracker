@@ -5,6 +5,7 @@ date: 2026-08-27
 author: NeuroCann Team
 tags: [trim, operations]
 ---
+
 Of all the steps in a cultivation facility, trim is the one that looks least worth building anything for. Growing is the craft, harvest is the event, and extraction has the equipment. Trim is processing: people at a table with scissors or a machine, turning dried plants into finished flower. It is easy to see it as a cost to be minimized rather than a step to be measured.
 
 We think that view is mistaken, for two reasons.
