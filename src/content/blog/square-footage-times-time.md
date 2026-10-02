@@ -1,5 +1,5 @@
 ---
-title: "Your money is square footage times time"
+title: "What a week of room turnover costs you over a year"
 description: "A flower room that takes a week to turn over loses about half a cycle a year. The arithmetic explains the gap between the plan and what the floor delivered."
 date: 2026-10-01
 author: NeuroCann Team
@@ -8,7 +8,7 @@ tags: [harvest, floor-math]
 
 At one vertically integrated operator we worked for, the company brought in a CFO from a Wall Street background. He built the financial plan the way you would expect: a number of rooms, a number of cycles per room per year, grams per cycle, and a price per gram. The plan itself was reasonable. The problem was on the floor. Rooms were taking about a week to turn over after harvest, and at the end of the year no one could explain why the room count and the cycle count did not multiply out the way the spreadsheet said they would.
 
-The explanation comes down to one idea: your money is square footage times time. A flower room only earns while there are plants in it. Every day between the last plant leaving and the first new plant arriving is a day you are paying for a room that produces nothing.
+The explanation comes down to one idea, which we took to summarizing as "your money is square footage times time." What we meant by it is that a cultivation business does not really sell grams; it sells the use of a licensed room for a period of time, and the grams are what that time produces. A flower room only earns while there are plants in it. Every day between the last plant leaving and the first new plant arriving is a day you are paying rent, power, and labor on a room that produces nothing, and the financial plan was quietly assuming those days did not exist.
 
 ## The formula
 
