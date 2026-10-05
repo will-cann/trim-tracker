@@ -1,23 +1,23 @@
 ---
 title: "Trim is the first real weight you get after the chop"
-description: "Wet weight tells you about water. The number that grades the plant arrives about three weeks later, at the trim table — and most facilities let it pass."
+description: "Wet weight mostly tells you about water. The first number that grades the plant arrives three weeks later, at the trim table, and most facilities do not use it."
 date: 2026-10-01
 author: NeuroCann Team
 tags: [trim, rule-of-thumb]
 ---
 
-Harvest day gives you a wet weight. It is a useful number and a misleading one: it says more about water than about the plant. The first weight that tells you how a crop actually performed arrives roughly 21 days after the chop, when the batch is dry and hits the trim table.
+Harvest day gives you a wet weight for each plant. It is a useful number, but it is also a misleading one, because it says more about the water content of the plant than about the plant itself. The first weight that tells you how a crop actually performed arrives about 21 days after the chop, when the batch has dried and reaches the trim table.
 
-That makes trim the first point in the cycle where you can grade a crop. Most facilities let it pass. The sheet records flower and waste for compliance, and the information dies there.
+That makes the trim table the first point in the cycle where you can grade a crop. In our experience most facilities let that moment pass. The trim sheet records flower and waste because compliance requires it, and the information stops there.
 
-Treat it instead as the moment the data comes back to cultivation. From one trim batch you can read:
+We would encourage you to treat it instead as the point where data returns to cultivation. From a single trim batch, if the weights are recorded per person and per bucket, you can read the following:
 
-- **Yield per strain, dry.** What a flower room really produced after dry-down, not what it weighed wet.
-- **Cut performance.** Did the clones off this mother yield like the last round off the same mother? If not, is it the mother, the room, or the week? You cannot ask that question without a dry weight per batch.
-- **The ratio.** Large bud to small bud to trim, by strain, round over round. A strain that comes in mostly larf is a different economic proposition than one that comes in mostly tops, at the same total grams.
-- **Per trimmer.** Who moves faster, and whose small-bud-to-larf split differs from the room's. That is a training question before it is a cost question.
-- **Cost per pound.** Trim labor hours against finished flower, by strain. The number that decides whether a strain stays in rotation or gets replaced to hit the yield target.
+- **Dry yield per strain.** What a flower room actually produced after dry-down, as opposed to what it weighed wet.
+- **Cut performance.** Whether the clones taken from a particular mother yielded the way the last round from that mother did. If they did not, the question becomes whether the cause was the mother, the room, or the week. You cannot ask that question without a dry weight per batch.
+- **The ratio.** Large bud to small bud to trim, by strain, from one round to the next. A strain that comes in mostly as small bud is a different economic proposition from one that comes in mostly as tops, even at the same total weight.
+- **Per-trimmer results.** Who works faster, and whose split between small bud and larf differs from the rest of the room. We treat this as a training question before it is a cost question.
+- **Cost per pound.** Trim labor hours set against finished flower, by strain. This is the number that decides whether a strain stays in rotation or is replaced to meet a yield target.
 
-None of this is new analysis. Good cultivators have done it on a whiteboard for years, a round late, from whatever the sheet happened to capture. What is new is noticing that the trim table produces every one of those inputs at once — per person, per batch, per bucket — if you capture it as it happens instead of a week later from paper.
+None of this analysis is new. Good cultivators have done it on a whiteboard for years, usually a round late and from whatever the sheet happened to capture. What we are pointing out is that the trim table produces every one of those inputs at the same time, per person, per batch, and per bucket, provided you record the weights as they happen rather than reconstructing them from paper a week later.
 
-The rule: weigh at the trim table as if cultivation is going to read it. Because it should, and because three weeks after the chop is the earliest anyone can.
+The rule we would suggest is simple: weigh at the trim table as though cultivation is going to read the results. They should, and three weeks after the chop is the earliest point at which anyone can.
