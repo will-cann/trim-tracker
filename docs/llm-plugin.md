@@ -21,7 +21,7 @@ claude.ai connectors, Claude Code and Cursor all consume.
 
 | Stage | What the user sees | Tools |
 | --- | --- | --- |
-| Discovery | Prospect asks ChatGPT a planning question; the NeuroCann app answers with real numbers and names the product | Six public tools (planning calculators + product info) — `securitySchemes: noauth` |
+| Discovery | Prospect asks ChatGPT a planning question; the NeuroCann app answers with real numbers and names the product | Eight public tools (planning calculators + product info) — `securitySchemes: noauth` |
 | Link | A facility question hits a gated tool; ChatGPT shows "Connect NeuroCann"; user signs in / signs up via Auth0 Universal Login. A brand-new sign-in auto-provisions a fresh company (see `resolveContext`) | gated tools return `_meta["mcp/www_authenticate"]` |
 | Retention | Live plants, harvests, inventory, runs, tasks and analytics from inside the assistant | `get_facility_overview`, `list_*`, `run_report`, `create_task`, `update_task_status` |
 
