@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { matchPublicRoute, blogPostPath } from '../publicRouter';
+import { matchPublicRoute, blogPostPath, demoPath } from '../publicRouter';
 
 describe('matchPublicRoute', () => {
   it('matches the blog index with or without a trailing slash', () => {
@@ -26,5 +26,18 @@ describe('blogPostPath', () => {
     const path = blogPostPath('where-every-gram-goes');
     expect(path).toBe('/blog/where-every-gram-goes');
     expect(matchPublicRoute(path)).toEqual({ kind: 'blog-post', slug: 'where-every-gram-goes' });
+  });
+});
+
+describe('demo route', () => {
+  it('matches /demo with or without a trailing slash', () => {
+    expect(matchPublicRoute('/demo')).toEqual({ kind: 'demo' });
+    expect(matchPublicRoute('/demo/')).toEqual({ kind: 'demo' });
+    expect(matchPublicRoute('/demos')).toBeNull();
+  });
+
+  it('builds CTA links tagged with their source', () => {
+    expect(demoPath('hero')).toBe('/demo?from=hero');
+    expect(demoPath('blog post')).toBe('/demo?from=blog%20post');
   });
 });

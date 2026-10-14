@@ -1,8 +1,9 @@
 import React from 'react';
 import { getAllPosts } from '../../lib/blog';
 import { useDocumentHead } from '../../lib/documentHead';
-import { BLOG_BASE_PATH } from '../../lib/publicRouter';
-import { PublicNav, DEMO_MAILTO } from '../public/PublicNav';
+import { BLOG_BASE_PATH, demoPath } from '../../lib/publicRouter';
+import { PublicNav } from '../public/PublicNav';
+import { Link } from '../public/Link';
 import { PublicFooter } from '../public/PublicFooter';
 import { Reveal } from '../public/Reveal';
 import { Eyebrow } from '../public/Eyebrow';
@@ -84,13 +85,13 @@ export const BlogIndex: React.FC = () => {
                 <h2 className="text-2xl sm:text-3xl font-black text-gray-900 tracking-tight mb-2">See it run on your floor.</h2>
                 <p className="text-base text-gray-500">Thirty minutes. Your harvest, your rooms, your workflow.</p>
               </div>
-              <a
-                href={DEMO_MAILTO}
+              <Link
+                href={demoPath('blog-index')}
                 className="group self-start md:self-auto bg-gray-900 hover:bg-gray-800 text-white font-bold px-8 py-4 rounded-xl transition-colors text-sm inline-block"
               >
                 Book a Demo
                 <span className="inline-block ml-2 transition-transform group-hover:translate-x-0.5">&rarr;</span>
-              </a>
+              </Link>
             </div>
           </Reveal>
         </section>

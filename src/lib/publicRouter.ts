@@ -47,15 +47,18 @@ export function navigate(path: string, { replace = false }: { replace?: boolean 
 }
 
 export const BLOG_BASE_PATH = '/blog';
+export const DEMO_PATH = '/demo';
 
 export type PublicRoute =
   | { kind: 'blog-index' }
   | { kind: 'blog-post'; slug: string }
+  | { kind: 'demo' }
   | null;
 
 /** Resolve a pathname to a public route, or `null` if it is not a public page. */
 export function matchPublicRoute(pathname: string): PublicRoute {
   const normalized = pathname.replace(/\/+$/, '') || '/';
+  if (normalized === DEMO_PATH) return { kind: 'demo' };
   if (normalized === BLOG_BASE_PATH) return { kind: 'blog-index' };
   if (normalized.startsWith(`${BLOG_BASE_PATH}/`)) {
     const slug = decodeURIComponent(normalized.slice(BLOG_BASE_PATH.length + 1));
@@ -66,4 +69,9 @@ export function matchPublicRoute(pathname: string): PublicRoute {
 
 export function blogPostPath(slug: string): string {
   return `${BLOG_BASE_PATH}/${encodeURIComponent(slug)}`;
+}
+
+/** Link to the demo request page, tagged with where the click came from. */
+export function demoPath(from: string): string {
+  return `${DEMO_PATH}?from=${encodeURIComponent(from)}`;
 }

@@ -6,12 +6,12 @@ import logo from '../assets/logo.png';
 import { NeurocannLogo } from './public/NeurocannLogo';
 import { Reveal } from './public/Reveal';
 import { Eyebrow } from './public/Eyebrow';
-import { PublicNav, DEMO_MAILTO } from './public/PublicNav';
+import { PublicNav } from './public/PublicNav';
 import { PublicFooter } from './public/PublicFooter';
 import { Link } from './public/Link';
 import { BlogCard } from './Blog/BlogCard';
 import { getLatestPosts } from '../lib/blog';
-import { BLOG_BASE_PATH } from '../lib/publicRouter';
+import { BLOG_BASE_PATH, demoPath } from '../lib/publicRouter';
 
 /* ─── Demo conversation data ─── */
 type DemoStep =
@@ -825,13 +825,13 @@ export const LandingPage: React.FC = () => {
                 className="flex flex-wrap gap-3"
                 style={{ opacity: 0, animation: 'heroFadeIn 0.7s cubic-bezier(0.16,1,0.3,1) 0.55s forwards' }}
               >
-                <a
-                  href={DEMO_MAILTO}
+                <Link
+                  href={demoPath('hero')}
                   className="group relative bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-8 py-4 rounded-xl transition-all text-sm inline-block shadow-lg shadow-emerald-500/20 hover:shadow-emerald-500/30"
                 >
                   Book a Demo
                   <span className="inline-block ml-2 transition-transform group-hover:translate-x-0.5">&rarr;</span>
-                </a>
+                </Link>
                 <a
                   href="#how-it-works"
                   className="border-2 border-gray-200 hover:border-gray-900 text-gray-700 hover:text-gray-900 font-bold px-8 py-4 rounded-xl transition-all text-sm"
@@ -1237,13 +1237,13 @@ export const LandingPage: React.FC = () => {
               Built by operators who&apos;ve managed rooms, run harvests, and trimmed alongside their crews. NeuroCann is the tool we wished we had.
             </p>
             <div className="flex flex-wrap justify-center gap-4">
-              <a
-                href={DEMO_MAILTO}
+              <Link
+                href={demoPath('footer-cta')}
                 className="group bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-10 py-4 rounded-xl transition-all text-sm inline-block shadow-lg shadow-emerald-500/25 hover:shadow-emerald-500/40"
               >
                 Book a Demo
                 <span className="inline-block ml-2 transition-transform group-hover:translate-x-0.5">&rarr;</span>
-              </a>
+              </Link>
               <button
                 onClick={() => login()}
                 className="border-2 border-gray-700 hover:border-gray-500 text-gray-300 hover:text-white font-bold px-10 py-4 rounded-xl transition-all text-sm"
