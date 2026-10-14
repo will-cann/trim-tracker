@@ -63,9 +63,12 @@ Tools: `pipeline_summary`, `list_demo_requests`, `update_demo_request`, `search_
 
 ## Deploying on Railway
 
-1. Create a project from this GitHub repo. Leave the service's **Root Directory** empty (the build needs `shared/` as well as `growth/`) and set **Config file path** to `growth/railway.json`. That file builds `growth/Dockerfile` from the repo root (the image holds only `shared/` and `growth/`), sets the `/healthz` health check, and only redeploys on `growth/**` or `shared/**` changes.
+1. Create a project from this GitHub repo and leave the service's **Root Directory** empty (the build needs `shared/` as well as `growth/`). Railway no longer lets new services use a config file, so set these in the dashboard:
+   - Variable `RAILWAY_DOCKERFILE_PATH=growth/Dockerfile`, so it builds the growth image from the repo root (the image holds only `shared/` and `growth/`). Without it Railway tries to build the website and fails.
+   - **Settings → Deploy → Healthcheck Path:** `/healthz`.
+   - **Settings → Build → Watch Paths:** `/growth/**` and `/shared/**`, so website-only changes don't redeploy it.
 2. Add a **Postgres** database to the project and set `DATABASE_URL=${{Postgres.DATABASE_URL}}` on the service.
-3. Set the variables from `.env.example`. At minimum: `GROWTH_API_KEYS`, `IP_HASH_SALT`, `SENDGRID_API_KEY`, `SENDGRID_FROM_EMAIL`, `DEMO_NOTIFY_EMAIL`, `DEMO_SCHEDULING_URL`.
+3. Set the variables from `.env.example`. At minimum: `GROWTH_API_KEYS`, `IP_HASH_SALT`, `SENDGRID_API_KEY`, `SENDGRID_FROM_EMAIL`, `DEMO_NOTIFY_EMAIL`. `DEMO_SCHEDULING_URL` is optional; without it the form just says you'll reply by email.
 4. Add the custom domain `growth.neurocann.app` and create the CNAME Railway gives you. The main site's `netlify.toml` proxies `/api/growth/v1/demo-requests` to that host.
 5. Migrations run on every boot (`src/migrate.ts`; files in `migrations/` apply once each, in order). Graphile Worker installs its own `graphile_worker` schema.
 
