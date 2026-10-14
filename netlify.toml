@@ -30,6 +30,16 @@
   to = "/manifest.html"
   status = 200
 
+# Growth server (growth/ in this repo, deployed on Railway). Same-origin proxy so the
+# public "Book a Demo" form posts without CORS; Netlify forwards the visitor IP in
+# X-Forwarded-For. Only the public demo-request route is exposed; /mcp stays on the
+# growth host itself.
+[[redirects]]
+  from = "/api/growth/v1/demo-requests"
+  to = "https://growth.neurocann.app/v1/demo-requests"
+  status = 200
+  force = true
+
 # LLM plugin: stable MCP endpoint URL for external clients (ChatGPT, Claude, Cursor, etc.)
 [[redirects]]
   from = "/mcp"

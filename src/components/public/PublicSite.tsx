@@ -2,6 +2,7 @@ import React from 'react';
 import type { PublicRoute } from '../../lib/publicRouter';
 import { BlogIndex } from '../Blog/BlogIndex';
 import { BlogPostPage } from '../Blog/BlogPostPage';
+import { DemoRequestPage } from './DemoRequestPage';
 
 /**
  * Renders a matched public route. Public pages are reachable whether or not
@@ -13,5 +14,7 @@ export const PublicSite: React.FC<{ route: NonNullable<PublicRoute> }> = ({ rout
       return <BlogIndex />;
     case 'blog-post':
       return <BlogPostPage slug={route.slug} />;
+    case 'demo':
+      return <DemoRequestPage />;
   }
 };

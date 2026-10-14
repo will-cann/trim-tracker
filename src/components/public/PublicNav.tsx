@@ -2,9 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useAuth } from '../../contexts/authContext';
 import { NeurocannLogo } from './NeurocannLogo';
 import { Link } from './Link';
-import { BLOG_BASE_PATH } from '../../lib/publicRouter';
-
-export const DEMO_MAILTO = 'mailto:will@neurocann.app?subject=NeuroCann%20Demo%20Request';
+import { BLOG_BASE_PATH, demoPath } from '../../lib/publicRouter';
 
 interface PublicNavProps {
   /**
@@ -67,12 +65,12 @@ export const PublicNav: React.FC<PublicNavProps> = ({ variant = 'transparent', a
               Sign In
             </button>
           )}
-          <a
-            href={DEMO_MAILTO}
+          <Link
+            href={demoPath('nav')}
             className="bg-gray-900 hover:bg-gray-800 text-white text-sm font-bold px-5 py-2 rounded-lg transition-colors"
           >
             Book Demo
-          </a>
+          </Link>
         </div>
       </div>
     </nav>

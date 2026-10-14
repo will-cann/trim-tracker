@@ -1,0 +1,10 @@
+# Only growth/Dockerfile builds from the repo root; keep its context small.
+**/node_modules
+**/.env
+dist
+src
+public
+netlify
+migrations
+tests
+docs

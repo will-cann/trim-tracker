@@ -114,6 +114,14 @@ link-account UI; every tool advertises `securitySchemes` and annotations. OAuth 
 managed via `manage-api-keys.ts` and Settings → LLM Plugin. Auth0 setup and the ChatGPT
 Apps Directory submission checklist are in `docs/llm-plugin.md`.
 
+### Growth server (`growth/`)
+
+A separate package and deploy, not part of the Netlify app: NeuroCann's own prospect CRM. Node + Hono + Graphile Worker on Railway Postgres, with no UI (MCP at `/mcp` plus the `growth` CLI). The public `/demo` page (`src/components/public/DemoRequestPage.tsx`) posts to `/api/growth/v1/demo-requests`. `netlify.toml` proxies that to `growth.neurocann.app`, and `vite.config.ts` proxies it to `localhost:8787` in dev. The server stores the lead, emails the team and the prospect, enriches the company (Claude web research plus state license registries), and pushes to Attio. Prospect data never goes in the product database. It has its own `package.json`, migrations (`growth/migrations/`, applied on boot) and Postgres-backed vitest suite; the root vitest excludes `growth/**`. See `growth/README.md`.
+
+### Shared types (`shared/`)
+
+Dependency-free TypeScript (types, `as const` data, pure functions) imported by relative path from both `src/` and `growth/`, e.g. `shared/growth/demoRequest.ts` is the demo-request wire contract. Change a contract here, not in either consumer. Rules are in `shared/README.md`.
+
 ### AI System
 
 The `ai-parse` function sends conversation + context to Claude with a detailed system prompt covering all application domains. The AI returns structured `ProposedAction` objects. The system prompt lives inline in `netlify/functions/ai-parse.ts` and covers:

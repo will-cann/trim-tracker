@@ -2,8 +2,8 @@ import React from 'react';
 import { ArrowLeft, ArrowRight } from 'lucide-react';
 import { getPostBySlug, getAdjacentPosts, formatPostDate, type BlogPost } from '../../lib/blog';
 import { useDocumentHead } from '../../lib/documentHead';
-import { BLOG_BASE_PATH, blogPostPath } from '../../lib/publicRouter';
-import { PublicNav, DEMO_MAILTO } from '../public/PublicNav';
+import { BLOG_BASE_PATH, blogPostPath, demoPath } from '../../lib/publicRouter';
+import { PublicNav } from '../public/PublicNav';
 import { PublicFooter } from '../public/PublicFooter';
 import { Link } from '../public/Link';
 import { BlogMarkdown } from './BlogMarkdown';
@@ -100,13 +100,13 @@ const Article: React.FC<{ post: BlogPost }> = ({ post }) => {
                 <p className="text-base text-gray-400 mb-7 max-w-md">
                   See the loop from the post on your own rooms, harvests, and crew. Thirty minutes, no slides.
                 </p>
-                <a
-                  href={DEMO_MAILTO}
+                <Link
+                  href={demoPath('blog-post')}
                   className="group bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-7 py-3.5 rounded-xl transition-all text-sm inline-block shadow-lg shadow-emerald-500/25"
                 >
                   Book a Demo
                   <span className="inline-block ml-2 transition-transform group-hover:translate-x-0.5">&rarr;</span>
-                </a>
+                </Link>
               </div>
             </div>
 
