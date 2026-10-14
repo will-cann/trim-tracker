@@ -97,6 +97,7 @@ describe('anonymous access (ChatGPT pre-sign-in)', () => {
         const init = await call(rpc('initialize', { protocolVersion: '2025-06-18' }));
         expect(init.status).toBe(200);
         expect(init.json.result.instructions).toMatch(/plan_extraction_inputs/);
+        for (const name of PUBLIC_TOOLS) expect(init.json.result.instructions).toContain(name);
 
         const list = await call(rpc('tools/list'));
         expect(list.status).toBe(200);
@@ -122,8 +123,8 @@ describe('anonymous access (ChatGPT pre-sign-in)', () => {
         expect(sqlMock).not.toHaveBeenCalled();
     });
 
-    it('challenges anonymous calls to facility tools with mcp/www_authenticate instead of a 401', async () => {
-        const res = await call(rpc('tools/call', { name: 'list_harvests', arguments: {} }));
+    it('challenges ChatGPT\'s anonymous facility-tool calls with mcp/www_authenticate instead of a 401', async () => {
+        const res = await call(rpc('tools/call', { name: 'list_harvests', arguments: {}, _meta: { 'openai/locale': 'en-US' } }));
         expect(res.status).toBe(200);
         expect(res.json.result.isError).toBe(true);
         const challenge = res.json.result._meta['mcp/www_authenticate'][0];
@@ -132,6 +133,39 @@ describe('anonymous access (ChatGPT pre-sign-in)', () => {
         expect(challenge).toMatch(/error_description="/);
         expect(challenge).toContain('scope="read:facility"');
         expect(sqlMock).not.toHaveBeenCalled();
+    });
+
+    it('also recognises ChatGPT by user agent', async () => {
+        const res = await call(rpc('tools/call', { name: 'list_harvests', arguments: {} }), { 'user-agent': 'openai-mcp/1.0.0' });
+        expect(res.status).toBe(200);
+        expect(res.json.result._meta['mcp/www_authenticate']).toHaveLength(1);
+    });
+
+    it('answers other clients\' anonymous facility-tool calls with an HTTP 401 so Claude starts sign-in', async () => {
+        const res = await call(rpc('tools/call', { name: 'list_harvests', arguments: {} }), { 'user-agent': 'Claude-User' });
+        expect(res.status).toBe(401);
+        const challenge = res.headers['WWW-Authenticate'];
+        expect(challenge).toContain(`resource_metadata="${METADATA_URL}"`);
+        expect(challenge).toContain('error="invalid_token"');
+        expect(challenge).toContain('scope="read:facility"');
+        expect(res.json.error).toBe('invalid_token');
+        expect(sqlMock).not.toHaveBeenCalled();
+    });
+
+    it('fails a whole batch with 401 when any call in it needs sign-in', async () => {
+        const res = await call([
+            rpc('tools/call', { name: 'about_neurocann', arguments: {} }, 1),
+            rpc('tools/call', { name: 'create_task', arguments: { title: 'x' } }, 2),
+        ]);
+        expect(res.status).toBe(401);
+        expect(res.headers['WWW-Authenticate']).toContain('scope="read:facility write:tasks"');
+    });
+
+    it('keeps public tools and unknown tools on the normal path for anonymous callers', async () => {
+        expect((await call(rpc('tools/call', { name: 'about_neurocann', arguments: {} }))).status).toBe(200);
+        const unknown = await call(rpc('tools/call', { name: 'nope', arguments: {} }));
+        expect(unknown.status).toBe(200);
+        expect(unknown.json.result.isError).toBe(true);
     });
 
     it('serves RFC 9728 protected-resource metadata pointing at Auth0', async () => {
@@ -166,11 +200,19 @@ describe('OAuth tokens (ChatGPT / claude.ai after linking)', () => {
         expect(list.json.result.tools.map((t: any) => t.name)).toContain('create_task');
     });
 
-    it('asks for an upgraded link (insufficient_scope) when a read-only token calls a write tool', async () => {
+    it('asks ChatGPT for an upgraded link (insufficient_scope) when a read-only token calls a write tool', async () => {
         verifyTokenMock.mockResolvedValue({ sub: 'auth0|1', aud: MCP_RESOURCE, scope: 'read:facility' });
-        const res = await call(rpc('tools/call', { name: 'create_task', arguments: { title: 'x' } }), { authorization: 'Bearer eyJhbGciOi.jwt.token' });
+        const res = await call(rpc('tools/call', { name: 'create_task', arguments: { title: 'x' }, _meta: { 'openai/subject': 'abc' } }), { authorization: 'Bearer eyJhbGciOi.jwt.token' });
         expect(res.json.result.isError).toBe(true);
         expect(res.json.result._meta['mcp/www_authenticate'][0]).toContain('error="insufficient_scope"');
+    });
+
+    it('steps up other OAuth clients with a 403 insufficient_scope naming every scope needed', async () => {
+        verifyTokenMock.mockResolvedValue({ sub: 'auth0|1', aud: MCP_RESOURCE, scope: 'read:facility' });
+        const res = await call(rpc('tools/call', { name: 'create_task', arguments: { title: 'x' } }), { authorization: 'Bearer eyJhbGciOi.jwt.token' });
+        expect(res.status).toBe(403);
+        expect(res.headers['WWW-Authenticate']).toContain('error="insufficient_scope"');
+        expect(res.headers['WWW-Authenticate']).toContain('scope="read:facility write:tasks"');
     });
 
     it('treats in-app session tokens (app audience) as full access', async () => {

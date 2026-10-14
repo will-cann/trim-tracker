@@ -12,12 +12,14 @@ import { captureError } from './utils/sentry';
  * no server-initiated SSE streams, so it fits a serverless function.
  *
  * Auth is mixed-mode so the server can be listed publicly (ChatGPT Apps
- * Directory, claude.ai connectors) and still be useful before sign-in:
+ * Directory, Claude directory) and still be useful before sign-in:
  *   - anonymous callers can initialize, list tools, and call `public` tools
- *   - facility tools need an API key (`nck_...`) or an OAuth token from Auth0;
- *     calling one anonymously returns a tool error carrying
- *     `_meta["mcp/www_authenticate"]`, which is what makes ChatGPT show its
- *     account-linking UI for that tool
+ *   - facility tools need an API key (`nck_...`) or an OAuth token from Auth0.
+ *     Calling one without sufficient credentials is challenged in the shape
+ *     each host acts on: ChatGPT shows its account-linking UI for a tool
+ *     result carrying `_meta["mcp/www_authenticate"]`; every other client
+ *     (Claude, Claude Code, Cursor) starts sign-in only on an HTTP 401, or a
+ *     403 `insufficient_scope` for step-up, with a `WWW-Authenticate` header
  *   - a presented-but-invalid credential is a hard 401 with `WWW-Authenticate`
  *     pointing at /.well-known/oauth-protected-resource (RFC 9728)
  * See docs/llm-plugin.md.
@@ -29,7 +31,7 @@ const LATEST_PROTOCOL_VERSION = SUPPORTED_PROTOCOL_VERSIONS[0];
 
 const SERVER_INSTRUCTIONS = `NeuroCann is a cannabis cultivation and extraction operations platform. Weights are grams unless a unit is given.
 
-Without a linked account you can use about_neurocann, plan_extraction_inputs (demand-backward: "how much fresh frozen for 500 g of rosin?") and estimate_dry_weight. Facility tools (get_facility_overview, list_*, run_report, tasks) require the user to link their NeuroCann account; when one returns an authentication error, offer to connect the account rather than retrying.
+Without a linked account you can use about_neurocann, plan_extraction_inputs (demand-backward: "how much fresh frozen for 500 g of rosin?"), estimate_dry_weight, estimate_harvest_yield, plan_harvest_timeline and estimate_trim_labor. Facility tools (get_facility_overview, list_*, run_report, tasks) require the user to link their NeuroCann account; when one returns an authentication error, offer to connect the account rather than retrying.
 
 Once linked: start with get_facility_overview, then use list_* tools for detail. Harvests move planning → active → submitted → drying → ready → completed; plants move nursery → vegetative → flowering → harvested. For analytics call get_report_schema and then run_report. Confirm with the user before create_task or update_task_status.`;
 
@@ -91,18 +93,51 @@ function textContent(payload: unknown) {
     return [{ type: 'text', text: typeof payload === 'string' ? payload : JSON.stringify(payload, null, 2) }];
 }
 
-/** Tool result that tells MCP hosts to start (or upgrade) account linking. */
-function authChallengeResult(scope: RequestScope, tool: RegisteredTool, reason: 'unauthenticated' | 'insufficient_scope') {
+/** Message and `WWW-Authenticate` value that tell MCP hosts to start (or upgrade) account linking. */
+function authChallenge(scope: RequestScope, tool: RegisteredTool, reason: 'unauthenticated' | 'insufficient_scope') {
     const required = tool.definition.scope === 'write' ? `${OAUTH_SCOPE_READ} ${OAUTH_SCOPE_WRITE}` : OAUTH_SCOPE_READ;
     const message = reason === 'unauthenticated'
-        ? `"${tool.definition.name}" needs a linked NeuroCann account. Sign in to connect your facility, or ask about the free tools (about_neurocann, plan_extraction_inputs, estimate_dry_weight).`
+        ? `"${tool.definition.name}" needs a linked NeuroCann account. Sign in to connect your facility, or use the free planning tools that need no account.`
         : `This credential cannot use "${tool.definition.name}" — it needs "${tool.definition.scope}" access. Re-link with write permission, or create a read & write key under Settings → LLM Plugin.`;
     const error = reason === 'unauthenticated' ? 'invalid_token' : 'insufficient_scope';
-    return {
-        content: textContent(message),
-        isError: true,
-        _meta: { 'mcp/www_authenticate': [bearerChallenge(scope.headers, error, message, required)] },
-    };
+    return { message, challenge: bearerChallenge(scope.headers, error, message, required) };
+}
+
+/** Why the caller cannot run this tool yet, or null when it can. */
+function missingAuth(ctx: PluginContext | null, tool: RegisteredTool): 'unauthenticated' | 'insufficient_scope' | null {
+    if (tool.definition.scope === 'public') return null;
+    if (!ctx) return 'unauthenticated';
+    if (!ctx.scopes.includes(tool.definition.scope)) return 'insufficient_scope';
+    return null;
+}
+
+/**
+ * ChatGPT acts on a challenge inside the tool result and identifies itself
+ * with `openai/*` keys in the request `_meta`. Everyone else gets the
+ * spec-standard HTTP 401/403 that Claude needs to show its Connect card.
+ */
+function wantsToolResultChallenge(headers: Headers, msg: JsonRpcRequest): boolean {
+    const meta = msg.params?._meta;
+    if (meta && typeof meta === 'object' && Object.keys(meta).some(k => k.startsWith('openai/'))) return true;
+    return /openai|chatgpt/i.test(headers['user-agent'] ?? '');
+}
+
+/**
+ * HTTP-level challenge for a `tools/call` the caller is not yet allowed to make,
+ * checked before dispatch because a 401/403 has to fail the whole request.
+ */
+function transportChallenge(scope: RequestScope, messages: unknown[]): { status: 401 | 403; message: string; challenge: string } | null {
+    for (const msg of messages) {
+        if (!isRequest(msg) || msg.method !== 'tools/call' || wantsToolResultChallenge(scope.headers, msg)) continue;
+        const tool = typeof msg.params?.name === 'string' ? findTool(msg.params.name) : undefined;
+        if (!tool) continue;
+        const reason = missingAuth(scope.ctx, tool);
+        // An API key can't be upgraded through OAuth, so its scope errors stay tool errors.
+        if (!reason || (reason === 'insufficient_scope' && scope.ctx?.via === 'api_key')) continue;
+        const { message, challenge } = authChallenge(scope, tool, reason);
+        return { status: reason === 'unauthenticated' ? 401 : 403, message, challenge };
+    }
+    return null;
 }
 
 async function callTool(scope: RequestScope, params: any) {
@@ -115,9 +150,10 @@ async function callTool(scope: RequestScope, params: any) {
     }
 
     const { ctx } = scope;
-    if (tool.definition.scope !== 'public') {
-        if (!ctx) return authChallengeResult(scope, tool, 'unauthenticated');
-        if (!ctx.scopes.includes(tool.definition.scope)) return authChallengeResult(scope, tool, 'insufficient_scope');
+    const reason = missingAuth(ctx, tool);
+    if (reason) {
+        const { message, challenge } = authChallenge(scope, tool, reason);
+        return { content: textContent(message), isError: true, _meta: { 'mcp/www_authenticate': [challenge] } };
     }
 
     const args = params?.arguments && typeof params.arguments === 'object' ? params.arguments : {};
@@ -232,6 +268,16 @@ export async function handleMcpRequest(event: HandlerEvent): Promise<HandlerResp
     const messages = batch ? parsed as unknown[] : [parsed];
     if (messages.length === 0) {
         return respond(400, rpcError(null, INVALID_REQUEST, 'Invalid Request: empty batch'), versionHeaders);
+    }
+
+    const denied = transportChallenge(scope, messages);
+    if (denied) {
+        const error = denied.status === 401 ? 'invalid_token' : 'insufficient_scope';
+        return respond(
+            denied.status,
+            { error, error_description: denied.message },
+            { ...versionHeaders, 'WWW-Authenticate': denied.challenge },
+        );
     }
 
     const responses: Record<string, unknown>[] = [];

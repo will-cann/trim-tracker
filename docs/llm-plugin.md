@@ -130,9 +130,9 @@ Cursor: `.cursor/mcp.json` with `url` + `headers`. Claude Desktop: bridge via
 
 | Credential | How detected | Scopes |
 | --- | --- | --- |
-| none | no `Authorization` header | public tools only; gated tools return a `mcp/www_authenticate` challenge |
+| none | no `Authorization` header | public tools only; a gated `tools/call` gets HTTP 401 + `WWW-Authenticate` (what Claude needs to show its Connect card), or a `mcp/www_authenticate` tool-result challenge when the caller is ChatGPT (`openai/*` request `_meta` or an OpenAI user agent) |
 | `nck_…` API key | prefix, SHA-256 lookup in `api_keys` | from the key (`read` / `read,write`) |
-| Auth0 token, `aud = MCP_RESOURCE` | `verifyToken(header, [MCP_RESOURCE])` | `read`, plus `write` if `write:tasks` is in `scope`/`permissions` |
+| Auth0 token, `aud = MCP_RESOURCE` | `verifyToken(header, [MCP_RESOURCE])` | `read`, plus `write` if `write:tasks` is in `scope`/`permissions`; a write tool on a read token gets 403 `insufficient_scope` (ChatGPT: tool-result challenge) |
 | Auth0 token, `aud = AUTH0_AUDIENCE` | same verifier | full (in-app session) |
 | any presented credential that fails | — | HTTP 401 + `WWW-Authenticate: Bearer resource_metadata=…` |
 
