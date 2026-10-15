@@ -1,4 +1,7 @@
+import { LogOut } from 'lucide-react'
 import { Button, Card, Field, Input, Notice, Screen, TopBar } from './ui'
+import { T3StatusCard } from './T3StatusCard'
+import { DEPLOY_NAME, useManifestAuth } from '../lib/authContext'
 import type { EmailSettings, LayoutPreference, LicenseDefaults } from '../lib/storage'
 import type { TransporterProfile } from '../types'
 
@@ -23,6 +26,7 @@ const LAYOUTS: { value: LayoutPreference; label: string; hint: string }[] = [
 ]
 
 export function SettingsScreen({ transporter, licenses, email, layoutPref, hasOrder, onTransporter, onLicenses, onEmail, onLayoutPref, onReset, onBack }: Props) {
+  const auth = useManifestAuth()
   const T = (key: keyof TransporterProfile, label: string, extra?: Record<string, unknown>) => (
     <Field label={label}>
       <Input value={transporter[key]} onChange={(e) => onTransporter({ [key]: e.target.value })} {...extra} />
@@ -38,6 +42,18 @@ export function SettingsScreen({ transporter, licenses, email, layoutPref, hasOr
       }
     >
       <TopBar title="Settings" subtitle="Saved on this device only" onBack={onBack} />
+
+      <Card className="p-4 space-y-3">
+        <h2 className="text-subhead">Account</h2>
+        <p className="text-sm text-gray-700">
+          Signed in as <span className="font-bold">{auth.email ?? 'unknown'}</span>
+          {DEPLOY_NAME && <span className="text-gray-500"> · {DEPLOY_NAME}</span>}
+        </p>
+        <p className="text-xs text-gray-500">Emailing files, reading invoices and Metrc checks run as this account. Only companies enabled on the server can use them.</p>
+        <Button block variant="secondary" onClick={auth.logout}>
+          <LogOut className="h-5 w-5" /> Sign out
+        </Button>
+      </Card>
 
       <Card className="p-4 space-y-3">
         <h2 className="text-subhead">Layout</h2>
@@ -95,9 +111,7 @@ export function SettingsScreen({ transporter, licenses, email, layoutPref, hasOr
 
       <Card className="p-4 space-y-3">
         <h2 className="text-subhead">Email export</h2>
-        <p className="text-xs text-gray-500">
-          Where finished transfer files go by default. The access code unlocks emailing files and reading invoices; it's set by whoever runs the server (MANIFEST_ACCESS_CODE).
-        </p>
+        <p className="text-xs text-gray-500">Where finished transfer files go by default.</p>
         <Field label="Default recipient">
           <Input
             type="email"
@@ -109,10 +123,9 @@ export function SettingsScreen({ transporter, licenses, email, layoutPref, hasOr
             onChange={(e) => onEmail({ to: e.target.value })}
           />
         </Field>
-        <Field label="Access code">
-          <Input type="password" autoComplete="off" autoCapitalize="none" value={email.accessCode} onChange={(e) => onEmail({ accessCode: e.target.value })} />
-        </Field>
       </Card>
+
+      <T3StatusCard />
 
       {hasOrder && (
         <Card className="p-4 space-y-3">

@@ -3,14 +3,21 @@
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
-vi.mock('../utils/auth', () => ({ resolveContext: vi.fn().mockResolvedValue(null) }));
+vi.mock('../utils/auth', async () => {
+    const actual = await vi.importActual<typeof import('../utils/auth')>('../utils/auth');
+    return {
+        ...actual,
+        resolveContext: vi.fn(async (header?: string) =>
+            header === 'Bearer good' ? { userId: 'u', companyId: 'c1', role: 'technician', departments: [] } : null),
+    };
+});
 
 import { handler, normalizeParsed, extractJson } from '../parse-invoice';
 
 const fetchMock = vi.fn();
 const realFetch = globalThis.fetch;
 
-function call(body: unknown, headers: Record<string, string> = { 'x-manifest-key': 'secret' }) {
+function call(body: unknown, headers: Record<string, string> = { authorization: 'Bearer good' }) {
     return handler(
         { httpMethod: 'POST', headers, body: JSON.stringify(body) } as Parameters<typeof handler>[0],
         {} as Parameters<typeof handler>[1],
@@ -22,7 +29,7 @@ function modelReply(text: string) {
 }
 
 beforeEach(() => {
-    process.env.MANIFEST_ACCESS_CODE = 'secret';
+    process.env.MANIFEST_COMPANY_IDS = 'c1';
     process.env.ANTHROPIC_API_KEY = 'test-key';
     fetchMock.mockReset();
     globalThis.fetch = fetchMock as unknown as typeof fetch;
@@ -60,7 +67,7 @@ describe('extractJson', () => {
 });
 
 describe('parse-invoice handler', () => {
-    it('requires the access code', async () => {
+    it('requires a signed-in user', async () => {
         const res = await call({ text: 'x' }, {});
         expect(res.statusCode).toBe(401);
         expect(fetchMock).not.toHaveBeenCalled();
