@@ -2,6 +2,7 @@ import { useRef, useState } from 'react'
 import { FileUp, ClipboardPaste, FlaskConical, Settings } from 'lucide-react'
 import { Button, Card, Notice, Screen, TopBar } from './ui'
 import { parsePickList } from '../lib/pickList'
+import { sortByVaultOrder } from '../lib/vaultOrder'
 import type { PickLine } from '../types'
 import { SAMPLE_PICKLIST_CSV, SAMPLE_PICKLIST_NAME } from '../sample/proper4934'
 
@@ -26,7 +27,7 @@ export function LoadScreen({ onLoaded, onSettings }: Props) {
     }
     setError(null)
     setWarnings(warnings)
-    onLoaded(lines, name)
+    onLoaded(sortByVaultOrder(lines), name)
   }
 
   const onFile = async (f: File | undefined) => {
