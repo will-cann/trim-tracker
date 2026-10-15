@@ -15,7 +15,7 @@ interface Props {
   isSample: boolean
   onMetrcSnapshot: (snapshot: MetrcSnapshot) => void
   onLicenseForType: (productType: string, license: string) => void
-  onTransferRecorded: (license: string, record: MetrcTransferRecord) => void
+  onTransferRecorded: (license: string, record: Omit<MetrcTransferRecord, 'submittedAt'>) => void
 }
 
 type StatusState = { kind: 'loading' } | { kind: 'ready'; status: T3Status } | { kind: 'error'; message: string }
@@ -120,7 +120,7 @@ export function MetrcCard({ order, rows, transporter, accessCode, isSample, onMe
       setTransfer(license, { kind: 'error', message: r.message, tags: r.tags })
       return
     }
-    onTransferRecorded(license, { manifestNumber: r.data.manifestNumber, transferId: r.data.transferId, submittedAt: Date.now(), mode: r.data.mode })
+    onTransferRecorded(license, { manifestNumber: r.data.manifestNumber, transferId: r.data.transferId, mode: r.data.mode })
     setTransfer(license, { kind: 'validated', result: r.data })
   }
 

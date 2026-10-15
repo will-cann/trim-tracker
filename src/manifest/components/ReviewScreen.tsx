@@ -26,7 +26,7 @@ interface Props {
   /** Remember which invoice line matched each pick line, for the Metrc reconciliation. */
   onInvoiceLines: (lines: Record<string, InvoiceLineRef>) => void
   onMetrcSnapshot: (snapshot: MetrcSnapshot) => void
-  onTransferRecorded: (license: string, record: MetrcTransferRecord) => void
+  onTransferRecorded: (license: string, record: Omit<MetrcTransferRecord, 'submittedAt'>) => void
   onEmail: (e: Partial<EmailSettings>) => void
   onEditTransporter: () => void
   onBack: () => void

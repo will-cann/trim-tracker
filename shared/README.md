@@ -10,3 +10,4 @@ Rules, so every consumer can import them:
 | File | Used by |
 |------|---------|
 | `growth/demoRequest.ts` | `src/lib/demoRequest.ts`, `src/components/public/DemoRequestPage.tsx`, `growth/src/demoRequest.ts` |
+| `manifest/t3.ts` | `src/manifest/lib/t3api.ts`, `src/manifest/lib/reconcile.ts`, `netlify/functions/t3-*.ts`, `netlify/functions/utils/t3*.ts` |

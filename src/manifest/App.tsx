@@ -153,7 +153,7 @@ export default function App() {
         onLineTotals={(totals) => update((s) => ({ ...s, lineTotals: { ...s.lineTotals, ...totals } }))}
         onInvoiceLines={(lines) => update((s) => ({ ...s, invoiceLines: { ...s.invoiceLines, ...lines } }))}
         onMetrcSnapshot={(metrc) => update((s) => ({ ...s, metrc }))}
-        onTransferRecorded={(license, record) => update((s) => ({ ...s, metrcTransfers: { ...s.metrcTransfers, [license]: record } }))}
+        onTransferRecorded={(license, record) => update((s) => ({ ...s, metrcTransfers: { ...s.metrcTransfers, [license]: { ...record, submittedAt: Date.now() } } }))}
         onEmail={onEmail}
         onEditTransporter={() => setView({ kind: 'settings', from: { kind: 'review' } })}
         onBack={() => setView({ kind: 'pick' })}

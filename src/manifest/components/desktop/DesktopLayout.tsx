@@ -204,7 +204,7 @@ export function DesktopLayout(props: Props) {
                 onLineTotals={(totals) => update((s) => ({ ...s, lineTotals: { ...s.lineTotals, ...totals } }))}
                 onInvoiceLines={(lines) => update((s) => ({ ...s, invoiceLines: { ...s.invoiceLines, ...lines } }))}
                 onMetrcSnapshot={(metrc) => update((s) => ({ ...s, metrc }))}
-                onTransferRecorded={(license, record) => update((s) => ({ ...s, metrcTransfers: { ...s.metrcTransfers, [license]: record } }))}
+                onTransferRecorded={(license, record) => update((s) => ({ ...s, metrcTransfers: { ...s.metrcTransfers, [license]: { ...record, submittedAt: Date.now() } } }))}
                 onEmail={onEmail}
                 onEditTransporter={() => setPane('settings')}
                 onBack={() => setPane('scan')}

@@ -98,6 +98,17 @@ send. Inbound bodies are parsed by Claude into structured `vendor_products` rows
 (pricing, availability) for the ordering module. SMS columns exist on the contact
 schema but are not wired to a provider yet.
 
+### Manifest picker (`src/manifest/`, `/manifest`)
+
+Standalone pick-and-scan page (no Auth0; shared `MANIFEST_ACCESS_CODE`) that loads an Apex
+pick list, scans Metrc case tags, and emits T3 Autofill `.t3csv` transfer files. With
+`T3_API_KEY` set it also talks to metrc.com through the T3 API (`netlify/functions/t3-*.ts`,
+client in `utils/t3.ts`): `lib/reconcile.ts` checks each scanned case's Metrc contents (item,
+qty, parent lot, lab state) against the pick list and attached invoice, and
+`t3-create-transfer` validates/submits the transfer. `T3_MODE` (`read-only` default,
+`sandbox`, `live`) decides whether submit is allowed. Wire types live in
+`shared/manifest/t3.ts`; setup in `docs/manifest-t3.md`.
+
 ### LLM Plugin (MCP server)
 
 `netlify/functions/mcp.ts` is a distribution channel: it exposes NeuroCann inside ChatGPT,
