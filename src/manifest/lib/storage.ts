@@ -12,8 +12,6 @@ export type LayoutPreference = 'auto' | 'phone' | 'laptop'
 export interface EmailSettings {
   /** Default recipient for exported transfer files. */
   to: string
-  /** Shared code matching MANIFEST_ACCESS_CODE on the server. */
-  accessCode: string
 }
 
 export interface LicenseDefaults {
@@ -60,8 +58,9 @@ export const DEFAULT_LICENSES: LicenseDefaults = { cultivation: 'CUL000030', man
 export const loadLicenses = () => read<LicenseDefaults>(LICENSES_KEY) ?? DEFAULT_LICENSES
 export const saveLicenses = (l: LicenseDefaults) => write(LICENSES_KEY, l)
 
-export const EMPTY_EMAIL: EmailSettings = { to: '', accessCode: '' }
-export const loadEmail = () => read<EmailSettings>(EMAIL_KEY) ?? EMPTY_EMAIL
+export const EMPTY_EMAIL: EmailSettings = { to: '' }
+/** Older builds stored a shared access code here; it is dropped on load. */
+export const loadEmail = (): EmailSettings => ({ to: read<Partial<EmailSettings>>(EMAIL_KEY)?.to ?? '' })
 export const saveEmail = (e: EmailSettings) => write(EMAIL_KEY, e)
 
 export const loadLayoutPreference = (): LayoutPreference => {

@@ -2,16 +2,18 @@
  * send-manifest-email handler tests.
  *
  * SendGrid is stubbed (SENDGRID_API_KEY=stub). Asserts the endpoint:
- *   - is disabled when neither MANIFEST_ACCESS_CODE nor DEV_BYPASS_AUTH is set
- *   - accepts the shared access code in x-manifest-key
- *   - accepts a resolvable Bearer token
+ *   - requires a resolvable Bearer token from an allowlisted company
+ *   - is disabled when MANIFEST_COMPANY_IDS is unset (unless DEV_BYPASS_AUTH)
  *   - validates recipient, file count, filenames, and size
  *   - passes attachments through to the mailer
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 const resolveContext = vi.fn();
-vi.mock('../utils/auth', () => ({ resolveContext: (...a: unknown[]) => resolveContext(...a) }));
+vi.mock('../utils/auth', async () => {
+    const actual = await vi.importActual<typeof import('../utils/auth')>('../utils/auth');
+    return { ...actual, resolveContext: (...a: unknown[]) => resolveContext(...a) };
+});
 
 const sendManifestEmail = vi.fn();
 vi.mock('../utils/email', () => ({ sendManifestEmail: (...a: unknown[]) => sendManifestEmail(...a) }));
@@ -21,6 +23,9 @@ process.env.SENDGRID_API_KEY = 'stub';
 import { handler } from '../send-manifest-email';
 
 const goodFile = { filename: 'Proper-4934_CUL000030_transfer.t3csv', content: 'a,b,c\n1,2,3\n' };
+const COMPANY = 'c0ffee00-0000-0000-0000-000000000001';
+const user = { userId: 'u', companyId: COMPANY, role: 'technician', departments: [] };
+const auth = { authorization: 'Bearer good' };
 
 function call(body: unknown, headers: Record<string, string> = {}) {
     return handler(
@@ -31,51 +36,51 @@ function call(body: unknown, headers: Record<string, string> = {}) {
 
 beforeEach(() => {
     resolveContext.mockReset();
-    resolveContext.mockResolvedValue(null);
+    resolveContext.mockImplementation(async (header?: string) => (header === 'Bearer good' ? user : null));
     sendManifestEmail.mockReset();
     sendManifestEmail.mockResolvedValue({ success: true, fromAddress: 'invites@neurocann.app' });
-    delete process.env.MANIFEST_ACCESS_CODE;
+    process.env.MANIFEST_COMPANY_IDS = COMPANY;
     delete process.env.DEV_BYPASS_AUTH;
 });
 
 describe('send-manifest-email auth', () => {
-    it('is disabled when no access code is configured', async () => {
-        const res = await call({ to: 'a@b.co', files: [goodFile] }, { 'x-manifest-key': 'whatever' });
-        expect(res.statusCode).toBe(403);
+    it('rejects an anonymous or forged request', async () => {
+        expect((await call({ to: 'a@b.co', files: [goodFile] })).statusCode).toBe(401);
+        expect((await call({ to: 'a@b.co', files: [goodFile] }, { authorization: 'Bearer nope' })).statusCode).toBe(401);
         expect(sendManifestEmail).not.toHaveBeenCalled();
     });
 
-    it('rejects a wrong access code', async () => {
-        process.env.MANIFEST_ACCESS_CODE = 'secret';
-        const res = await call({ to: 'a@b.co', files: [goodFile] }, { 'x-manifest-key': 'nope' });
-        expect(res.statusCode).toBe(401);
+    it('is disabled when no company allowlist is configured', async () => {
+        delete process.env.MANIFEST_COMPANY_IDS;
+        const res = await call({ to: 'a@b.co', files: [goodFile] }, auth);
+        expect(res.statusCode).toBe(403);
+        expect(JSON.parse(res.body).error).toMatch(/MANIFEST_COMPANY_IDS/);
     });
 
-    it('accepts the right access code', async () => {
-        process.env.MANIFEST_ACCESS_CODE = 'secret';
-        const res = await call({ to: 'a@b.co', files: [goodFile] }, { 'x-manifest-key': 'secret' });
+    it('rejects a signed-in user from a company that is not allowlisted', async () => {
+        process.env.MANIFEST_COMPANY_IDS = 'other-company, another-one';
+        const res = await call({ to: 'a@b.co', files: [goodFile] }, auth);
+        expect(res.statusCode).toBe(403);
+        expect(JSON.parse(res.body).error).toContain(COMPANY);
+    });
+
+    it('accepts a signed-in user from an allowlisted company (case-insensitive, any role)', async () => {
+        process.env.MANIFEST_COMPANY_IDS = ` other, ${COMPANY.toUpperCase()} `;
+        const res = await call({ to: 'a@b.co', files: [goodFile] }, auth);
         expect(res.statusCode).toBe(200);
         expect(JSON.parse(res.body)).toMatchObject({ sent: true, to: 'a@b.co', files: [goodFile.filename] });
     });
 
-    it('accepts a valid bearer token without an access code', async () => {
-        resolveContext.mockResolvedValue({ userId: 'u', companyId: 'c', role: 'admin', departments: [] });
-        const res = await call({ to: 'a@b.co', files: [goodFile] }, { authorization: 'Bearer t' });
-        expect(res.statusCode).toBe(200);
-    });
-
-    it('allows dev bypass', async () => {
+    it('allows dev bypass without an allowlist', async () => {
         process.env.DEV_BYPASS_AUTH = 'true';
+        delete process.env.MANIFEST_COMPANY_IDS;
+        resolveContext.mockResolvedValue(user);
         const res = await call({ to: 'a@b.co', files: [goodFile] });
         expect(res.statusCode).toBe(200);
     });
 });
 
 describe('send-manifest-email validation', () => {
-    beforeEach(() => {
-        process.env.MANIFEST_ACCESS_CODE = 'secret';
-    });
-    const auth = { 'x-manifest-key': 'secret' };
 
     it('rejects a bad recipient', async () => {
         const res = await call({ to: 'not-an-email', files: [goodFile] }, auth);

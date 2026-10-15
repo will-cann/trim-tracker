@@ -1,5 +1,6 @@
 import { Handler } from '@netlify/functions';
 import { authorizeManifestRequest, jsonResponse as json } from './utils/manifestAuth';
+import { authorize, type Role } from './utils/auth';
 import {
     isT3Configured,
     t3CreateTransfer,
@@ -21,10 +22,12 @@ import type { T3TransferRequest, T3TransferResponse } from '../../shared/manifes
  *   submit=false — resolve every id, build the payload, and have T3 validate it
  *                  (static + dynamic). Nothing is written. Works in every T3_MODE.
  *   submit=true  — the same payload is forwarded to Metrc. Refused unless
- *                  T3_MODE is live or sandbox.
+ *                  T3_MODE is live or sandbox and the caller is a director/admin.
  */
 
 const MAX_PACKAGES = 400;
+/** Dry runs are open to anyone in an allowlisted company; writing to Metrc is not. */
+const SUBMIT_ROLE: Role = 'director';
 const LICENSE_RE = /^[A-Z0-9-]{3,32}$/i;
 const MANIFEST_LOOKUP_ATTEMPTS = 3;
 const MANIFEST_LOOKUP_DELAY_MS = 1500;
@@ -109,6 +112,9 @@ export const handler: Handler = async (event) => {
                 error: 'This deploy is in read-only mode (T3_MODE=read-only): transfers can be validated but not submitted to Metrc.',
                 code: 'READ_ONLY',
             });
+        }
+        if (req.submit && authorize(auth.ctx, SUBMIT_ROLE)) {
+            return json(403, { error: `Submitting a transfer to Metrc needs the ${SUBMIT_ROLE} or admin role; you are ${auth.ctx.role}.`, code: 'ROLE' });
         }
 
         const [inputs, recipient, transporter, eligible] = await Promise.all([

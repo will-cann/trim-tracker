@@ -100,8 +100,11 @@ schema but are not wired to a provider yet.
 
 ### Manifest picker (`src/manifest/`, `/manifest`)
 
-Standalone pick-and-scan page (no Auth0; shared `MANIFEST_ACCESS_CODE`) that loads an Apex
-pick list, scans Metrc case tags, and emits T3 Autofill `.t3csv` transfer files. With
+Standalone pick-and-scan page (own Auth0 provider in `src/manifest/auth.tsx`; functions require a
+Bearer token from a company listed in `MANIFEST_COMPANY_IDS`, transfer submit needs director+)
+that loads an Apex pick list, scans Metrc case tags, and emits T3 Autofill `.t3csv` transfer files.
+Customers whose Metrc we touch get their own Netlify site from the same branch with their own
+`T3_API_KEY`/`T3_MODE`/allowlist (`docs/manifest-t3.md`). With
 `T3_API_KEY` set it also talks to metrc.com through the T3 API (`netlify/functions/t3-*.ts`,
 client in `utils/t3.ts`): `lib/reconcile.ts` checks each scanned case's Metrc contents (item,
 qty, parent lot, lab state) against the pick list and attached invoice, and

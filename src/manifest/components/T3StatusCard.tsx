@@ -12,22 +12,22 @@ const MODE_HINT: Record<T3Status['mode'], string> = {
   live: 'Reads real Metrc data and submits real transfers when you confirm.',
 }
 
-export function T3StatusCard({ accessCode }: { accessCode: string }) {
+export function T3StatusCard() {
   const [state, setState] = useState<State>({ kind: 'loading' })
 
   const load = (force: boolean) => {
     setState({ kind: 'loading' })
-    void cachedT3Status(accessCode, force).then((r) => setState(r.ok ? { kind: 'ready', status: r.data } : { kind: 'error', message: r.message }))
+    void cachedT3Status(force).then((r) => setState(r.ok ? { kind: 'ready', status: r.data } : { kind: 'error', message: r.message }))
   }
   useEffect(() => {
     let cancelled = false
-    void cachedT3Status(accessCode).then((r) => {
+    void cachedT3Status().then((r) => {
       if (!cancelled) setState(r.ok ? { kind: 'ready', status: r.data } : { kind: 'error', message: r.message })
     })
     return () => {
       cancelled = true
     }
-  }, [accessCode])
+  }, [])
 
   const s = state.kind === 'ready' ? state.status : null
 
@@ -51,10 +51,7 @@ export function T3StatusCard({ accessCode }: { accessCode: string }) {
         </p>
       )}
       {state.kind === 'error' && (
-        <Notice tone="amber">
-          {state.message}
-          {!accessCode && ' Enter the access code below first.'}
-        </Notice>
+        <Notice tone="amber">{state.message}</Notice>
       )}
 
       {s && !s.configured && (

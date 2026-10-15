@@ -11,7 +11,10 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import type { T3Mode } from '../../../shared/manifest/t3';
 
 const resolveContext = vi.fn();
-vi.mock('../utils/auth', () => ({ resolveContext: (...a: unknown[]) => resolveContext(...a) }));
+vi.mock('../utils/auth', async () => {
+    const actual = await vi.importActual<typeof import('../utils/auth')>('../utils/auth');
+    return { ...actual, resolveContext: (...a: unknown[]) => resolveContext(...a) };
+});
 
 const t3 = {
     inputs: vi.fn(),
@@ -44,7 +47,10 @@ import { T3Error } from '../utils/t3';
 
 const TAG_A = '1A40C0300000B55000135918';
 const TAG_B = '1A40C0300000B55000135919';
-const auth = { 'x-manifest-key': 'secret' };
+const auth = { authorization: 'Bearer good' };
+const COMPANY = 'c0ffee00-0000-0000-0000-000000000001';
+const director = { userId: 'u1', companyId: COMPANY, role: 'director', departments: [] };
+const technician = { ...director, role: 'technician' };
 
 const body = {
     licenseNumber: 'CUL000030',
@@ -69,11 +75,11 @@ function call(payload: unknown, headers: Record<string, string> = auth) {
 
 beforeEach(() => {
     mode = 'read-only';
-    process.env.MANIFEST_ACCESS_CODE = 'secret';
+    process.env.MANIFEST_COMPANY_IDS = COMPANY;
     process.env.T3_API_KEY = 'k';
     delete process.env.DEV_BYPASS_AUTH;
     resolveContext.mockReset();
-    resolveContext.mockResolvedValue(null);
+    resolveContext.mockImplementation(async (header?: string) => (header === 'Bearer good' ? director : null));
     for (const fn of Object.values(t3)) fn.mockReset();
     t3.inputs.mockResolvedValue({
         transferTypes: [
@@ -90,10 +96,36 @@ beforeEach(() => {
 });
 
 describe('t3-create-transfer gating', () => {
-    it('requires the access code', async () => {
-        const res = await call(body, { 'x-manifest-key': 'nope' });
+    it('requires a signed-in user', async () => {
+        const res = await call(body, { authorization: 'Bearer forged' });
         expect(res.statusCode).toBe(401);
         expect(t3.create).not.toHaveBeenCalled();
+    });
+
+    it('requires the company to be allowlisted', async () => {
+        process.env.MANIFEST_COMPANY_IDS = 'some-other-company';
+        const res = await call(body);
+        expect(res.statusCode).toBe(403);
+        expect(JSON.parse(res.body).error).toContain(COMPANY);
+        expect(t3.create).not.toHaveBeenCalled();
+    });
+
+    it('is disabled when no company allowlist is configured', async () => {
+        delete process.env.MANIFEST_COMPANY_IDS;
+        const res = await call(body);
+        expect(res.statusCode).toBe(403);
+        expect(JSON.parse(res.body).error).toMatch(/MANIFEST_COMPANY_IDS/);
+    });
+
+    it('lets a technician dry-run but not submit', async () => {
+        mode = 'live';
+        resolveContext.mockResolvedValue(technician);
+        const dry = await call(body);
+        expect(dry.statusCode).toBe(200);
+        const real = await call({ ...body, submit: true });
+        expect(real.statusCode).toBe(403);
+        expect(JSON.parse(real.body).code).toBe('ROLE');
+        expect(t3.create).toHaveBeenCalledTimes(1);
     });
 
     it('explains when T3 is not configured', async () => {

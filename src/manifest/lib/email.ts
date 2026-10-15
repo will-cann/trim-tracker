@@ -1,10 +1,10 @@
+import { authHeaders } from './authToken'
 import type { T3File } from './t3csv'
 
 export const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
 export interface SendEmailArgs {
   to: string
-  accessCode: string
   subject: string
   note: string
   files: T3File[]
@@ -13,8 +13,7 @@ export interface SendEmailArgs {
 export type SendEmailResult = { ok: true; to: string } | { ok: false; message: string }
 
 export async function sendManifestEmail(args: SendEmailArgs): Promise<SendEmailResult> {
-  const headers: Record<string, string> = { 'Content-Type': 'application/json' }
-  if (args.accessCode) headers['x-manifest-key'] = args.accessCode
+  const headers = await authHeaders({ 'Content-Type': 'application/json' })
 
   let res: Response
   try {

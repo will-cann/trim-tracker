@@ -11,7 +11,6 @@ interface Props {
   order: OrderState
   rows: PackageRow[]
   transporter: TransporterProfile
-  accessCode: string
   isSample: boolean
   onMetrcSnapshot: (snapshot: MetrcSnapshot) => void
   onLicenseForType: (productType: string, license: string) => void
@@ -51,7 +50,7 @@ function describeFacts(f: T3PackageFacts): string {
   return parts.join(' · ')
 }
 
-export function MetrcCard({ order, rows, transporter, accessCode, isSample, onMetrcSnapshot, onLicenseForType, onTransferRecorded }: Props) {
+export function MetrcCard({ order, rows, transporter, isSample, onMetrcSnapshot, onLicenseForType, onTransferRecorded }: Props) {
   const [status, setStatus] = useState<StatusState>({ kind: 'loading' })
   const [check, setCheck] = useState<CheckState>({ kind: 'idle' })
   const [showAll, setShowAll] = useState(false)
@@ -59,17 +58,17 @@ export function MetrcCard({ order, rows, transporter, accessCode, isSample, onMe
 
   const loadStatus = (force = false) => {
     setStatus({ kind: 'loading' })
-    void cachedT3Status(accessCode, force).then((r) => setStatus(r.ok ? { kind: 'ready', status: r.data } : { kind: 'error', message: r.message }))
+    void cachedT3Status(force).then((r) => setStatus(r.ok ? { kind: 'ready', status: r.data } : { kind: 'error', message: r.message }))
   }
   useEffect(() => {
     let cancelled = false
-    void cachedT3Status(accessCode).then((r) => {
+    void cachedT3Status().then((r) => {
       if (!cancelled) setStatus(r.ok ? { kind: 'ready', status: r.data } : { kind: 'error', message: r.message })
     })
     return () => {
       cancelled = true
     }
-  }, [accessCode])
+  }, [])
 
   const t3 = status.kind === 'ready' ? status.status : null
   const connected = Boolean(t3?.configured && t3.connected)
@@ -87,7 +86,7 @@ export function MetrcCard({ order, rows, transporter, accessCode, isSample, onMe
     let mode = t3?.mode ?? 'read-only'
     for (const license of licenses) {
       const tags = rows.filter((r) => r.originLicense === license).map((r) => r.tag)
-      const r = await verifyPackages(accessCode, { licenseNumber: license, tags, otherLicenses: licenses.filter((l) => l !== license) })
+      const r = await verifyPackages({ licenseNumber: license, tags, otherLicenses: licenses.filter((l) => l !== license) })
       if (!r.ok) {
         setCheck({ kind: 'error', message: `${license}: ${r.message}` })
         return
@@ -106,7 +105,7 @@ export function MetrcCard({ order, rows, transporter, accessCode, isSample, onMe
 
   const validate = async (license: string) => {
     setTransfer(license, { kind: 'validating' })
-    const r = await createTransfer(accessCode, { licenseNumber: license, header: order.header, transporter, packages: packagesFor(license), submit: false })
+    const r = await createTransfer({ licenseNumber: license, header: order.header, transporter, packages: packagesFor(license), submit: false })
     setTransfer(license, r.ok ? { kind: 'validated', result: r.data } : { kind: 'error', message: r.message, tags: r.tags })
   }
 
@@ -115,7 +114,7 @@ export function MetrcCard({ order, rows, transporter, accessCode, isSample, onMe
     const where = t3?.mode === 'sandbox' ? 'the Metrc SANDBOX' : 'Metrc'
     if (!window.confirm(`Create this transfer in ${where}?\n\n${n} packages from ${license} → ${validated.resolved.recipient.facilityName} (${validated.resolved.recipient.licenseNumber})\n${validated.resolved.transferType.name}\n\nThis is the real thing: Metrc will issue a manifest.`)) return
     setTransfer(license, { kind: 'submitting', result: validated })
-    const r = await createTransfer(accessCode, { licenseNumber: license, header: order.header, transporter, packages: packagesFor(license), submit: true })
+    const r = await createTransfer({ licenseNumber: license, header: order.header, transporter, packages: packagesFor(license), submit: true })
     if (!r.ok) {
       setTransfer(license, { kind: 'error', message: r.message, tags: r.tags })
       return
@@ -148,10 +147,7 @@ export function MetrcCard({ order, rows, transporter, accessCode, isSample, onMe
         </p>
       )}
       {status.kind === 'error' && (
-        <Notice tone="amber">
-          {status.message}
-          {!accessCode && ' Add the access code under Settings → Email export.'}
-        </Notice>
+        <Notice tone="amber">{status.message}</Notice>
       )}
       {t3 && !t3.configured && (
         <Notice tone="blue">

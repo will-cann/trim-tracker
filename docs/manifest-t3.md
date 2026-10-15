@@ -38,6 +38,29 @@ Settings shows the connection: which Metrc login the key is bound to, the T3+
 subscription, the licences it can see and whether Metrc grants
 `packages:new_transfer` on each.
 
+## Who can use it
+
+The picker signs in with the same Auth0 application as the main app
+(`src/manifest/auth.tsx`; callbacks return to `/manifest`). Every manifest
+function (`t3-*`, `parse-invoice`, `send-manifest-email`) requires that Bearer
+token **and** the caller's company to be listed in `MANIFEST_COMPANY_IDS`
+(comma-separated company UUIDs). The allowlist is what actually protects the
+Metrc data: `resolveContext()` auto-provisions a company for any new Auth0 signup,
+so a token alone would let anyone who can register read the facility's inventory.
+Unset = every manifest function answers 403.
+
+Within an allowlisted company any role can scan, read invoices, check packages
+and dry-run a transfer; **submitting** a transfer to Metrc additionally needs the
+`director` or `admin` role (403 `ROLE` otherwise).
+
+Auth0 → Applications → *(the SPA app)* must list the picker URL in **Allowed
+Callback URLs** and **Allowed Logout URLs** (`https://<host>/manifest`,
+`http://localhost:5173/manifest`) and the origin in **Allowed Web Origins**.
+Tokens are cached in localStorage so a phone reload mid-pick stays signed in.
+
+To find a company id: sign in once and open Settings → *Metrc via T3*; the 403
+message quotes your company id, which is what goes in `MANIFEST_COMPANY_IDS`.
+
 ## Setup
 
 1. Sign in to T3 (dash.trackandtrace.tools) with the Metrc login that owns the
@@ -45,14 +68,48 @@ subscription, the licences it can see and whether Metrc grants
 2. Generate a secret key at <https://api.trackandtrace.tools/v2/pages/secret-key>
    (or `POST /v2/auth/secretkey`). The key is bound to that Metrc username and
    password; rotating the password invalidates it.
-3. In Netlify env vars set `T3_API_KEY` to the key and `T3_MODE` (below).
-   `MANIFEST_ACCESS_CODE` must also be set — the t3-\* functions are gated by the
-   same access code as email export.
-4. Open `/manifest` → Settings → *Metrc via T3* → **Check connection**.
+3. In Netlify env vars set `T3_API_KEY` to the key, `T3_MODE` (below) and
+   `MANIFEST_COMPANY_IDS` (above).
+4. Open `/manifest`, sign in, then Settings → *Metrc via T3* → **Check connection**.
 
 The key never reaches the browser. All T3 calls go through
 `netlify/functions/t3-status.ts`, `t3-verify-packages.ts` and
 `t3-create-transfer.ts`, which share the client in `utils/t3.ts`.
+
+## A dedicated deploy per customer (Proper)
+
+A T3 key is a customer's Metrc login. Don't put it in the shared production
+site's env: give each customer whose Metrc we touch its own Netlify site, deployed
+from the same repo and branch, so the key, the mode and the allowlist are scoped
+to that deploy and the main site never has a T3 key at all.
+
+For Proper:
+
+1. Netlify → **Add new site → Import an existing project**, same repo, production
+   branch `main`, build `npm run build`, publish `dist`, functions
+   `netlify/functions` (all read from `netlify.toml`). Name it e.g. `neurocann-proper`
+   and give it a domain such as `proper.neurocann.app`.
+2. Env vars on that site only:
+   - `DATABASE_URL` — the production Neon branch (Proper is a tenant there;
+     `MANIFEST_COMPANY_IDS` is what keeps other tenants out). Use a separate Neon
+     branch only if you want their users fully isolated from the main app.
+   - `AUTH0_DOMAIN`, `AUTH0_AUDIENCE`, `VITE_AUTH0_DOMAIN`, `VITE_AUTH0_CLIENT_ID`,
+     `VITE_AUTH0_AUDIENCE` — same values as production (one Auth0 tenant and SPA
+     app; add `https://proper.neurocann.app/manifest` to its callback/logout URLs
+     and the origin to Allowed Web Origins).
+   - `T3_API_KEY` — the key generated from Proper's Metrc login.
+   - `T3_MODE=read-only` until the reconciliation has been checked on real orders;
+     flip to `live` on this site only when Proper wants transfers created here.
+   - `MANIFEST_COMPANY_IDS` — Proper's company id.
+   - `VITE_MANIFEST_DEPLOY_NAME="Proper Cannabis"` — shown on the sign-in screen and
+     Settings so nobody confuses deploys.
+   - `ANTHROPIC_API_KEY` (invoice reading) and `SENDGRID_API_KEY` (email export)
+     as needed.
+3. Deploy, open `https://proper.neurocann.app/manifest`, sign in, Settings →
+   *Metrc via T3* → **Check connection**.
+
+The main production site keeps `T3_API_KEY` unset (Metrc card shows "Not set
+up"). Code changes still ship to both sites from `main`; only env differs.
 
 ## Read-only, sandbox and live (`T3_MODE`)
 

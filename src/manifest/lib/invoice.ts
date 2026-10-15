@@ -1,3 +1,4 @@
+import { authHeaders } from './authToken'
 import type { ParsedInvoice } from './invoiceMatch'
 
 export const INVOICE_ACCEPT = '.pdf,.csv,.txt,image/*,application/pdf,text/csv,text/plain'
@@ -39,9 +40,8 @@ async function downscaleImage(file: File): Promise<{ blob: Blob; mediaType: stri
   }
 }
 
-export async function parseInvoiceFile(file: File, accessCode: string): Promise<InvoiceParseResult> {
-  const headers: Record<string, string> = { 'Content-Type': 'application/json' }
-  if (accessCode) headers['x-manifest-key'] = accessCode
+export async function parseInvoiceFile(file: File): Promise<InvoiceParseResult> {
+  const headers = await authHeaders({ 'Content-Type': 'application/json' })
 
   let body: Record<string, string>
   if (isTextFile(file)) {

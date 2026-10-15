@@ -87,7 +87,7 @@ export function ReviewScreen({
     if (invoiceFileRef.current) invoiceFileRef.current.value = ''
     if (!file) return
     setInvoice({ kind: 'reading' })
-    const r = await parseInvoiceFile(file, email.accessCode)
+    const r = await parseInvoiceFile(file)
     if (!r.ok) {
       setInvoice({ kind: 'error', message: r.message })
       return
@@ -121,7 +121,6 @@ export function ReviewScreen({
       .join('\n')
     const r = await sendManifestEmail({
       to: email.to.trim(),
-      accessCode: email.accessCode,
       subject: `${orderLabel} transfer files (${files.map((f) => f.originLicense).join(', ')})`,
       note,
       files,
@@ -315,7 +314,6 @@ export function ReviewScreen({
         order={order}
         rows={rows}
         transporter={transporter}
-        accessCode={email.accessCode}
         isSample={isSample}
         onMetrcSnapshot={onMetrcSnapshot}
         onLicenseForType={onLicenseForType}
@@ -429,7 +427,6 @@ export function ReviewScreen({
           {send.kind === 'sending' ? <Loader2 className="h-5 w-5 animate-spin" /> : <Mail className="h-5 w-5" />}
           {send.kind === 'sending' ? 'Sending…' : send.kind === 'sent' ? 'Send again' : `Email ${files.length} file${files.length === 1 ? '' : 's'}`}
         </Button>
-        {!email.accessCode && <p className="text-xs text-gray-400">No access code set. If sending fails, add it under Settings → Email export.</p>}
       </Card>
     </Screen>
   )
