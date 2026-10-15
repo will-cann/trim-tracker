@@ -7,11 +7,9 @@ import { setTokenProvider } from './lib/authToken'
 
 /**
  * Sign-in for the manifest picker. Same Auth0 application as the main UI, but
- * the picker lives at /manifest (alias /picker) in its own bundle, so it has its
- * own provider: callbacks return to /manifest, the only picker URL registered in
- * Auth0, and then put back whichever path the user signed in from. Tokens are
- * cached in localStorage so a reload on a phone mid-pick doesn't bounce through
- * Auth0 again.
+ * the picker lives at /manifest in its own bundle, so it has its own provider:
+ * callbacks return to /manifest and tokens are cached in localStorage so a
+ * reload on a phone mid-pick doesn't bounce through Auth0 again.
  *
  * The Netlify functions decide who may actually use the picker
  * (MANIFEST_COMPANY_IDS); this just gets a token.
@@ -19,16 +17,8 @@ import { setTokenProvider } from './lib/authToken'
 
 const DEV_BYPASS = import.meta.env.VITE_DEV_BYPASS_AUTH === 'true'
 
-const PICKER_PATHS = ['/manifest', '/picker']
-
 function returnTo(): string {
   return `${window.location.origin}/manifest`
-}
-
-/** The picker path the user is on, so sign-in can bring them back to it. */
-function currentPickerPath(): string {
-  const path = window.location.pathname.replace(/\/+$/, '')
-  return PICKER_PATHS.includes(path) ? path : '/manifest'
 }
 
 function Frame({ children }: { children: ReactNode }) {
@@ -75,7 +65,7 @@ function Auth0Bridge({ children }: { children: ReactNode }) {
       <Frame>
         {error && <Notice tone="red">{error.message}</Notice>}
         <p className="text-sm text-gray-600">Scanning, invoice reading and Metrc checks need a NeuroCann account.</p>
-        <Button block onClick={() => void loginWithRedirect({ appState: { returnTo: currentPickerPath() } })}>
+        <Button block onClick={() => void loginWithRedirect({ appState: { returnTo: '/manifest' } })}>
           <LogIn className="h-5 w-5" /> Sign in
         </Button>
       </Frame>
@@ -121,10 +111,7 @@ export function ManifestAuthProvider({ children }: { children: ReactNode }) {
       clientId={clientId}
       cacheLocation="localstorage"
       authorizationParams={{ redirect_uri: returnTo(), audience, scope: 'openid profile email' }}
-      onRedirectCallback={(appState) => {
-        const path = appState?.returnTo && PICKER_PATHS.includes(appState.returnTo) ? appState.returnTo : '/manifest'
-        window.history.replaceState({}, document.title, path)
-      }}
+      onRedirectCallback={() => window.history.replaceState({}, document.title, '/manifest')}
     >
       <Auth0Bridge>{children}</Auth0Bridge>
     </Auth0Provider>
