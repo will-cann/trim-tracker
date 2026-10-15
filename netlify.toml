@@ -20,6 +20,13 @@
 [functions."mcp"]
   timeout = 60
 
+# Manifest picker ↔ Metrc via T3: each call fans out to several Metrc page loads
+[functions."t3-verify-packages"]
+  timeout = 60
+
+[functions."t3-create-transfer"]
+  timeout = 60
+
 # Scheduled: supplier outreach cadence reminders (daily 14:00 UTC / 09:00 CT)
 [functions."cron-supplier-reminders"]
   schedule = "0 14 * * *"

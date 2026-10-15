@@ -1,3 +1,5 @@
+import type { T3Mode, T3PackageFacts } from '../../shared/manifest/t3'
+
 export interface PickLine {
   id: string
   orderNumber: string
@@ -56,6 +58,28 @@ export interface TransporterProfile {
   registration: string
 }
 
+/** What the attached invoice said about one pick line, kept so Metrc checks can use it after a reload. */
+export interface InvoiceLineRef {
+  description: string
+  /** Sellable units billed; null when the invoice did not print one. */
+  quantity: number | null
+  total: number
+}
+
+/** Snapshot of what Metrc (via T3) reported for the scanned tags. */
+export interface MetrcSnapshot {
+  checkedAt: number
+  mode: T3Mode
+  byTag: Record<string, T3PackageFacts>
+}
+
+export interface MetrcTransferRecord {
+  manifestNumber: string | null
+  transferId: number | null
+  submittedAt: number
+  mode: T3Mode
+}
+
 export interface OrderState {
   loadedAt: number
   sourceName: string
@@ -65,7 +89,13 @@ export interface OrderState {
   licenseByProductType: Record<string, string>
   /** lineId -> invoice line total in dollars (optional, for WholesalePrice) */
   lineTotals: Record<string, string>
+  /** lineId -> matched invoice line (optional; set when an invoice is attached) */
+  invoiceLines?: Record<string, InvoiceLineRef>
   header: DestinationHeader
+  /** Last Metrc lookup of the scanned tags (optional). */
+  metrc?: MetrcSnapshot
+  /** originLicense -> transfer submitted to Metrc from this order (optional). */
+  metrcTransfers?: Record<string, MetrcTransferRecord>
 }
 
 export interface PackageRow {

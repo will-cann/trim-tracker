@@ -6,11 +6,12 @@ import { buildT3Files, formatMoney } from '../lib/t3csv'
 import { copyText, saveTextFile } from '../lib/download'
 import { EMAIL_RE, sendManifestEmail } from '../lib/email'
 import { INVOICE_ACCEPT, parseInvoiceFile } from '../lib/invoice'
-import { assignmentsToLineTotals, matchInvoiceLines, type MatchResult, type ParsedInvoice } from '../lib/invoiceMatch'
+import { assignmentsToInvoiceLines, assignmentsToLineTotals, matchInvoiceLines, type MatchResult, type ParsedInvoice } from '../lib/invoiceMatch'
 import { SAMPLE_PICKLIST_NAME } from '../sample/proper4934'
 import { shortTag } from '../lib/metrc'
+import { MetrcCard } from './MetrcCard'
 import type { EmailSettings, LicenseDefaults } from '../lib/storage'
-import type { DestinationHeader, OrderState, TransporterProfile } from '../types'
+import type { DestinationHeader, InvoiceLineRef, MetrcSnapshot, MetrcTransferRecord, OrderState, TransporterProfile } from '../types'
 
 interface Props {
   order: OrderState
@@ -22,6 +23,10 @@ interface Props {
   onLineTotal: (lineId: string, value: string) => void
   /** Bulk-apply totals (from an invoice); keeps existing values for lines not in the map. */
   onLineTotals: (totals: Record<string, string>) => void
+  /** Remember which invoice line matched each pick line, for the Metrc reconciliation. */
+  onInvoiceLines: (lines: Record<string, InvoiceLineRef>) => void
+  onMetrcSnapshot: (snapshot: MetrcSnapshot) => void
+  onTransferRecorded: (license: string, record: MetrcTransferRecord) => void
   onEmail: (e: Partial<EmailSettings>) => void
   onEditTransporter: () => void
   onBack: () => void
@@ -30,7 +35,22 @@ interface Props {
 type SendState = { kind: 'idle' } | { kind: 'sending' } | { kind: 'sent'; to: string } | { kind: 'error'; message: string }
 type InvoiceState = { kind: 'idle' } | { kind: 'reading' } | { kind: 'done'; invoice: ParsedInvoice; result: MatchResult } | { kind: 'error'; message: string }
 
-export function ReviewScreen({ order, transporter, licenses, email, onHeader, onLicenseForType, onLineTotal, onLineTotals, onEmail, onEditTransporter, onBack }: Props) {
+export function ReviewScreen({
+  order,
+  transporter,
+  licenses,
+  email,
+  onHeader,
+  onLicenseForType,
+  onLineTotal,
+  onLineTotals,
+  onInvoiceLines,
+  onMetrcSnapshot,
+  onTransferRecorded,
+  onEmail,
+  onEditTransporter,
+  onBack,
+}: Props) {
   const summary = summarize(order)
   const rows = useMemo(() => buildPackageRows(order), [order])
   const first = order.lines[0]
@@ -78,6 +98,7 @@ export function ReviewScreen({ order, transporter, licenses, email, onHeader, on
     }
     const result = matchInvoiceLines(order.lines, r.invoice.lines)
     onLineTotals(assignmentsToLineTotals(result.assignments))
+    onInvoiceLines(assignmentsToInvoiceLines(result.assignments))
     if (!order.header.invoiceNumber && r.invoice.invoiceNumber) onHeader({ invoiceNumber: r.invoice.invoiceNumber })
     setInvoice({ kind: 'done', invoice: r.invoice, result })
     setPricesOpen(true)
@@ -290,11 +311,22 @@ export function ReviewScreen({ order, transporter, licenses, email, onHeader, on
           ))}
       </Card>
 
+      <MetrcCard
+        order={order}
+        rows={rows}
+        transporter={transporter}
+        accessCode={email.accessCode}
+        isSample={isSample}
+        onMetrcSnapshot={onMetrcSnapshot}
+        onLicenseForType={onLicenseForType}
+        onTransferRecorded={onTransferRecorded}
+      />
+
       <Notice tone="blue">
         <p className="font-bold">These files are for T3's Autofill, not Metrc's CSV upload.</p>
         <p className="text-xs mt-1">
-          In Metrc: Transfers → New Transfer → T3 "Autofill T3 CSV" → pick a file. T3 fills the form; you review and submit. Metrc's own
-          import page won't accept them. One file per origin license.
+          If you're not creating the transfer from here: in Metrc go to Transfers → New Transfer → T3 "Autofill T3 CSV" → pick a file. T3 fills
+          the form; you review and submit. Metrc's own import page won't accept them. One file per origin license.
         </p>
       </Notice>
 

@@ -1,4 +1,4 @@
-import type { PickLine } from '../types'
+import type { InvoiceLineRef, PickLine } from '../types'
 
 export interface InvoiceLine {
   description: string
@@ -24,6 +24,8 @@ export interface LineAssignment {
   lineId: string
   /** Dollar total for this pick line (what goes in lineTotals, split across its packages later). */
   total: number
+  /** Units the invoice bills for this pick line; null when the invoice printed none or the match was ambiguous. */
+  invoiceQuantity: number | null
   method: MatchMethod
   invoiceDescription: string
   note?: string
@@ -84,9 +86,9 @@ export function matchInvoiceLines(lines: PickLine[], invoice: InvoiceLine[]): Ma
   const taken = new Set<string>()
   const free = () => lines.filter((l) => !taken.has(l.id))
 
-  const assign = (line: PickLine, total: number, method: MatchMethod, inv: InvoiceLine, note?: string) => {
+  const assign = (line: PickLine, total: number, method: MatchMethod, inv: InvoiceLine, note?: string, invoiceQuantity: number | null = inv.quantity) => {
     taken.add(line.id)
-    assignments.push({ lineId: line.id, total: money(total), method, invoiceDescription: inv.description, note })
+    assignments.push({ lineId: line.id, total: money(total), invoiceQuantity, method, invoiceDescription: inv.description, note })
   }
 
   for (const inv of invoice) {
@@ -119,7 +121,7 @@ export function matchInvoiceLines(lines: PickLine[], invoice: InvoiceLine[]): Ma
         sameName.forEach((l, i) => {
           const share = i === sameName.length - 1 ? remaining : money((total * l.totalUnits) / sumUnits)
           remaining = money(remaining - share)
-          assign(l, share, 'name-split', inv, `Invoice line covers ${sameName.length} pick lines; split by units.`)
+          assign(l, share, 'name-split', inv, `Invoice line covers ${sameName.length} pick lines; split by units.`, l.totalUnits)
         })
         continue
       }
@@ -154,5 +156,12 @@ export function matchInvoiceLines(lines: PickLine[], invoice: InvoiceLine[]): Ma
 export function assignmentsToLineTotals(assignments: LineAssignment[]): Record<string, string> {
   const out: Record<string, string> = {}
   for (const a of assignments) out[a.lineId] = a.total.toFixed(2)
+  return out
+}
+
+/** Convert assignments into the invoiceLines map used by the Metrc reconciliation. */
+export function assignmentsToInvoiceLines(assignments: LineAssignment[]): Record<string, InvoiceLineRef> {
+  const out: Record<string, InvoiceLineRef> = {}
+  for (const a of assignments) out[a.lineId] = { description: a.invoiceDescription, quantity: a.invoiceQuantity, total: a.total }
   return out
 }

@@ -151,6 +151,9 @@ export default function App() {
         onLicenseForType={(pt, lic) => update((s) => ({ ...s, licenseByProductType: { ...s.licenseByProductType, [pt]: lic } }))}
         onLineTotal={(id, v) => update((s) => ({ ...s, lineTotals: { ...s.lineTotals, [id]: v } }))}
         onLineTotals={(totals) => update((s) => ({ ...s, lineTotals: { ...s.lineTotals, ...totals } }))}
+        onInvoiceLines={(lines) => update((s) => ({ ...s, invoiceLines: { ...s.invoiceLines, ...lines } }))}
+        onMetrcSnapshot={(metrc) => update((s) => ({ ...s, metrc }))}
+        onTransferRecorded={(license, record) => update((s) => ({ ...s, metrcTransfers: { ...s.metrcTransfers, [license]: record } }))}
         onEmail={onEmail}
         onEditTransporter={() => setView({ kind: 'settings', from: { kind: 'review' } })}
         onBack={() => setView({ kind: 'pick' })}
