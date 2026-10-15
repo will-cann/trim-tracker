@@ -34,7 +34,11 @@ export async function authorizeManifestRequest(
     if (process.env.DEV_BYPASS_AUTH !== 'true') {
         const allowed = allowedCompanyIds();
         if (!allowed) {
-            return { ok: false, status: 403, error: 'The manifest picker is not enabled on this deploy (MANIFEST_COMPANY_IDS unset).' };
+            return {
+                ok: false,
+                status: 403,
+                error: `The manifest picker is not enabled on this deploy (MANIFEST_COMPANY_IDS unset). Your company id is ${ctx.companyId}.`,
+            };
         }
         if (!allowed.has(ctx.companyId.toLowerCase())) {
             return {
