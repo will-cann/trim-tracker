@@ -37,6 +37,12 @@
   to = "/manifest.html"
   status = 200
 
+# Short alias for the picker (proper.neurocann.app/picker). Auth0 still calls back to /manifest.
+[[redirects]]
+  from = "/picker"
+  to = "/manifest.html"
+  status = 200
+
 # Growth server (growth/ in this repo, deployed on Railway). Same-origin proxy so the
 # public "Book a Demo" form posts without CORS; Netlify forwards the visitor IP in
 # X-Forwarded-For. Only the public demo-request route is exposed; /mcp stays on the
