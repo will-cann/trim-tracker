@@ -21,7 +21,7 @@ function ensureInit() {
 
 // ── Invite email ────────────────────────────────────────────────────────────
 
-export async function sendInviteEmail(opts: {
+export interface InviteEmailArgs {
     to: string;
     inviteUrl: string;
     inviterName?: string;
@@ -29,7 +29,119 @@ export async function sendInviteEmail(opts: {
     companyName?: string;
     /** Where to sign in once the password is set, e.g. https://proper.neurocann.app */
     appUrl?: string;
-}): Promise<{ success: boolean; error?: string }> {
+    /** Set on deploys with the manifest picker; adds a short section about it. */
+    pickerUrl?: string;
+    /** Where replies go (APP_CONTACT_EMAIL). */
+    replyTo?: string;
+}
+
+const BRAND = '#3BB570';
+const INK = '#1f2937';
+const MUTED = '#6b7280';
+
+/** Brand name: always lowercase; in HTML "neuro" is brand green, "cann" black. */
+const BRAND_NAME = 'neurocann';
+const wordmark = (size = 'inherit') =>
+    `<span style="font-weight:900;letter-spacing:-0.02em;font-size:${size};white-space:nowrap;"><span style="color:${BRAND};">neuro</span><span style="color:#111111;">cann</span></span>`;
+
+function esc(s: string): string {
+    return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+/**
+ * The team invite / onboarding email: subject, plain text and HTML. Pure so it
+ * can be tested and previewed without SendGrid. Table layout and inline styles
+ * because that is what email clients render reliably.
+ */
+export function renderInviteEmail(opts: InviteEmailArgs): { subject: string; text: string; html: string } {
+    const { to, inviteUrl, inviterName, memberName, companyName, appUrl, pickerUrl } = opts;
+    const firstName = (memberName || to.split('@')[0]).trim().split(/\s+/)[0];
+    const company = companyName || 'your team';
+    const introLead = inviterName ? `${inviterName} added you to ${company} on` : `You've been added to ${company} on`;
+    const intro = `${introLead} ${BRAND_NAME}.`;
+    const subject = `You're invited to ${company} on ${BRAND_NAME}`;
+
+    const pickerPoints = [
+        'Load the Apex pick list. Lines come up in vault walk order.',
+        'Scan each case’s Metrc tag with your phone camera or the USB scanner.',
+        'On Review, “Check packages in Metrc” compares every case’s item, quantity, parent lot and lab status with the pick list and the invoice, so a wrong package is caught before it goes on a manifest.',
+        'It is read-only for now: it can check and dry-run a transfer in Metrc, but not create one.',
+    ];
+
+    const text = [
+        `Hi ${firstName},`,
+        '',
+        intro,
+        '',
+        `1. Set your password: ${inviteUrl}`,
+        ...(appUrl ? [`2. Sign in at ${appUrl} with ${to}.`] : []),
+        '',
+        ...(pickerUrl
+            ? [
+                  `Manifest picker: ${pickerUrl}`,
+                  ...pickerPoints.map((p) => `- ${p}`),
+                  '',
+              ]
+            : []),
+        'The password link expires in 7 days. Reply to this email if anything goes wrong.',
+        '',
+        `-- ${BRAND_NAME}`,
+    ].join('\n');
+
+    const logo = appUrl ? `<img src="${esc(appUrl)}/logo.png" width="40" height="40" alt="" style="display:block;border:0;width:40px;height:40px;" />` : '';
+    const button = (href: string, label: string) =>
+        `<table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr><td style="border-radius:8px;background:${BRAND};">` +
+        `<a href="${esc(href)}" style="display:inline-block;padding:12px 22px;font-size:15px;font-weight:600;color:#ffffff;text-decoration:none;border-radius:8px;">${esc(label)}</a>` +
+        `</td></tr></table>`;
+    const p = (inner: string, extra = '') => `<p style="margin:0 0 16px;font-size:15px;line-height:1.55;color:${INK};${extra}">${inner}</p>`;
+
+    const pickerHtml = pickerUrl
+        ? `<tr><td style="padding:8px 32px 8px;">
+            <div style="border:1px solid #e5e7eb;border-radius:10px;padding:18px 20px;background:#f9fafb;">
+              <p style="margin:0 0 10px;font-size:15px;font-weight:700;color:${INK};">Manifest picker</p>
+              <ul style="margin:0 0 14px;padding-left:18px;font-size:14px;line-height:1.55;color:${INK};">
+                ${pickerPoints.map((pt) => `<li style="margin:0 0 6px;">${esc(pt)}</li>`).join('')}
+              </ul>
+              <a href="${esc(pickerUrl)}" style="font-size:14px;font-weight:600;color:${BRAND};text-decoration:none;">Open the picker &rarr;</a>
+            </div>
+          </td></tr>`
+        : '';
+
+    const html = `<!doctype html>
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${esc(subject)}</title></head>
+<body style="margin:0;padding:0;background:#f3f4f6;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#f3f4f6;padding:24px 12px;">
+    <tr><td align="center">
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:560px;background:#ffffff;border-radius:12px;">
+        <tr><td style="padding:28px 32px 8px;">
+          <table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr>
+            ${logo ? `<td style="padding-right:10px;vertical-align:middle;">${logo}</td>` : ''}
+            <td style="vertical-align:middle;">${wordmark('22px')}</td>
+          </tr></table>
+        </td></tr>
+        <tr><td style="padding:8px 32px 0;">
+          <h1 style="margin:0 0 16px;font-size:22px;line-height:1.3;color:${INK};">You're invited to ${esc(company)} on ${wordmark()}</h1>
+          ${p(`Hi ${esc(firstName)},`)}
+          ${p(`${esc(introLead)} ${wordmark()}.`)}
+          ${p('<strong>1.</strong> Set your password:', 'margin-bottom:10px;')}
+          ${button(inviteUrl, 'Set your password')}
+          <div style="height:16px;"></div>
+          ${appUrl ? p(`<strong>2.</strong> Then sign in at <a href="${esc(appUrl)}" style="color:${BRAND};">${esc(appUrl.replace(/^https?:\/\//, ''))}</a> with <strong>${esc(to)}</strong>.`) : ''}
+        </td></tr>
+        ${pickerHtml}
+        <tr><td style="padding:16px 32px 28px;">
+          <p style="margin:0;font-size:13px;line-height:1.5;color:${MUTED};">The password link expires in 7 days. Reply to this email if anything goes wrong.</p>
+        </td></tr>
+      </table>
+      <p style="margin:16px 0 0;font-size:13px;">${wordmark()}</p>
+    </td></tr>
+  </table>
+</body></html>`;
+
+    return { subject, text, html };
+}
+
+export async function sendInviteEmail(opts: InviteEmailArgs): Promise<{ success: boolean; error?: string }> {
     if (isStubMode()) {
         console.log('[email:stub] sendInviteEmail', { to: opts.to, inviteUrl: opts.inviteUrl });
         return { success: true };
@@ -40,28 +152,15 @@ export async function sendInviteEmail(opts: {
         return { success: false, error: 'SendGrid not configured' };
     }
 
-    const { to, inviteUrl, inviterName, memberName, companyName, appUrl } = opts;
-    const greeting = memberName || to.split('@')[0];
-    const invitedBy = inviterName ? ` ${inviterName} has` : ' You have been';
-    const company = companyName || 'your team';
-
+    const { subject, text, html } = renderInviteEmail(opts);
     try {
         await sgMail.send({
-            to,
+            to: opts.to,
             from: { email: FROM_EMAIL, name: FROM_NAME },
-            subject: `You're invited to join ${company} on neurocann`,
-            text: [
-                `Hey ${greeting},`,
-                '',
-                `${invitedBy} invited you to join ${company} on neurocann.`,
-                '',
-                `Set your password: ${inviteUrl}`,
-                '',
-                ...(appUrl ? [`Then sign in at ${appUrl} with ${to}.`, ''] : []),
-                'This link expires in 7 days.',
-                '',
-                '-- neurocann',
-            ].join('\n'),
+            ...(opts.replyTo ? { replyTo: opts.replyTo } : {}),
+            subject,
+            text,
+            html,
         });
         return { success: true };
     } catch (err: unknown) {
