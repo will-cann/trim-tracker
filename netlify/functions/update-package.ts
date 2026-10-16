@@ -2,7 +2,7 @@ import { Handler } from '@netlify/functions';
 import { pool } from './utils/db';
 import { resolveContext, authorize } from './utils/auth';
 
-const VALID_STATUSES = ['active', 'on_hold', 'finished', 'archived'];
+const VALID_STATUSES = ['active', 'on_hold', 'in_transit', 'finished', 'archived'];
 const VALID_LAB_STATES = ['not_submitted', 'submitted', 'passed', 'failed'];
 
 export const handler: Handler = async (event) => {
@@ -119,6 +119,9 @@ export const handler: Handler = async (event) => {
                 sourceHarvestNames: row.source_harvest_names || [],
                 sourcePackageLabels: row.source_package_labels || [],
                 metrcSyncedAt: row.metrc_synced_at || null,
+                metrcId: row.metrc_id != null ? Number(row.metrc_id) : null,
+                metrcLicense: row.metrc_license || null,
+                metrcLabState: row.metrc_lab_state || null,
                 packagedDate: row.packaged_date,
                 finishedDate: row.finished_date,
                 createdAt: row.created_at,

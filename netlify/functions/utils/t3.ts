@@ -20,6 +20,8 @@ const T3_BASE_URL = process.env.T3_API_URL || 'https://api.trackandtrace.tools';
 const PAGE_SIZE = 500;
 /** Metrc labels are 24 chars; ~40 OR'd label filters keeps URLs well under 8 KB. */
 const LABEL_FILTER_CHUNK = 40;
+/** One retry on a 5xx / dropped GET; T3 has to load Metrc pages and sometimes just needs a second. */
+const RETRY_DELAY_MS = 1500;
 
 export type QueryValue = string | number | boolean | undefined | null | Array<string | number>;
 export type Query = Record<string, QueryValue>;
@@ -69,8 +71,8 @@ function describeError(status: number, body: unknown): T3Error {
     const title = typeof o.title === 'string' ? o.title : undefined;
 
     let message: string;
-    if (status === 401) message = 'T3 rejected the secret key. Regenerate it at api.trackandtrace.tools/v2/pages/secret-key and update T3_API_KEY.';
-    else if (status === 402 || /t3\+|subscription/i.test(`${code} ${title} ${detail}`)) message = 'This T3 account needs an active T3+ subscription for Metrc data and transfer endpoints.';
+    if (status === 401) message = detail ?? 'T3 rejected the secret key. Regenerate it at api.trackandtrace.tools/v2/pages/secret-key and update T3_API_KEY.';
+    else if (status === 402 || /t3\+|subscription/i.test(`${code} ${title} ${detail}`)) message = detail ?? 'This T3 account needs an active T3+ subscription for Metrc data and transfer endpoints.';
     else if (status === 403) message = detail ?? 'The Metrc login behind the T3 key does not have access to that licence or action.';
     else if (status === 400) message = detail ?? title ?? 'T3 rejected the request.';
     else if (status >= 500) message = 'T3 or Metrc is having trouble right now. Try again in a moment.';
@@ -152,12 +154,28 @@ export async function t3Request<T>(
         });
     };
 
+    const attempt = async (): Promise<Response> => {
+        if (t3Mode() === 'sandbox') {
+            let res = await send({ Authorization: `Bearer ${await sandboxToken(apiKey)}` });
+            if (res.status === 401) res = await send({ Authorization: `Bearer ${await sandboxToken(apiKey, true)}` });
+            return res;
+        }
+        return send({ 'X-T3-API-Key': apiKey });
+    };
+
+    // T3 loads real Metrc pages; a 5xx or a dropped connection is usually a blip, so a GET gets one more try.
+    const isGet = (opts.method ?? 'GET') === 'GET';
     let res: Response;
-    if (t3Mode() === 'sandbox') {
-        res = await send({ Authorization: `Bearer ${await sandboxToken(apiKey)}` });
-        if (res.status === 401) res = await send({ Authorization: `Bearer ${await sandboxToken(apiKey, true)}` });
-    } else {
-        res = await send({ 'X-T3-API-Key': apiKey });
+    try {
+        res = await attempt();
+        if (res.status >= 500 && isGet) {
+            await new Promise(r => setTimeout(r, RETRY_DELAY_MS));
+            res = await attempt();
+        }
+    } catch (err) {
+        if (!isGet || !(err instanceof T3Error && err.code === 'UNREACHABLE')) throw err;
+        await new Promise(r => setTimeout(r, RETRY_DELAY_MS));
+        res = await attempt();
     }
 
     const json = await parseBody(res);
@@ -174,6 +192,8 @@ export interface T3WhoAmI {
     hasT3plus?: boolean;
     t3plusSubscriptionTier?: string | null;
     subscriptionStatus?: string | null;
+    /** 'reports' on the basic tier (only `/report` endpoints), 'full' on Team/Enterprise. */
+    t3plusApiAccessLevel?: string | null;
 }
 
 export const t3WhoAmI = () => t3Request<T3WhoAmI>('/v2/auth/whoami');
@@ -185,6 +205,14 @@ export const t3PackagePermissions = (licenseNumber: string) =>
     t3Request<string[]>('/v2/permissions', { query: { licenseNumber, view: 'packages' } });
 
 export const grantsAction = (permissions: string[], action: string) => permissions.some(p => p.split(':')[1] === action);
+
+/**
+ * Metrc permissions on the plants view for one licence, e.g. "plants/vegetative".
+ * A manufacturing licence has none, which is how the sync knows to skip its
+ * cultivation lists instead of getting 401s from pages Metrc won't show.
+ */
+export const t3PlantPermissions = (licenseNumber: string) =>
+    t3Request<string[]>('/v2/permissions', { query: { licenseNumber, view: 'plants' } });
 
 // ── Collections ────────────────────────────────────────────────────────────
 
@@ -215,24 +243,197 @@ export interface T3Package {
     quantity?: number;
     unitOfMeasureAbbreviation?: string;
     unitOfMeasureName?: string;
+    unitOfMeasureQuantityType?: string;
     item?: {
+        id?: number;
         name?: string;
         productCategoryName?: string;
         strainName?: string | null;
         unitWeight?: number | null;
         unitWeightUnitOfMeasureAbbreviation?: string | null;
         unitOfMeasureName?: string;
+        quantityTypeName?: string;
     } | null;
     sourcePackageLabels?: string | null;
+    sourceHarvestNames?: string | null;
     productionBatchNumber?: string | null;
     labTestingStateName?: string;
     isOnHold?: boolean;
     isInTransit?: boolean;
     isFinished?: boolean;
     isTestingSample?: boolean;
+    isProductionBatch?: boolean;
+    isTradeSample?: boolean;
+    isDonation?: boolean;
     packagedDate?: string | null;
+    finishedDate?: string | null;
+    lastModified?: string | null;
     locationName?: string | null;
+    note?: string | null;
 }
+
+// ── Sync lists (Metrc → NeuroCann mirror; see utils/metrcSync.ts) ──────────
+
+/** GET /v2/items — the licence's registered product items. */
+export interface T3Item {
+    id: number;
+    name: string;
+    productCategoryName?: string;
+    productCategoryTypeName?: string;
+    quantityTypeName?: string;
+    unitOfMeasureName?: string;
+    strainName?: string | null;
+    unitWeight?: number | null;
+    unitWeightUnitOfMeasureAbbreviation?: string | null;
+    isUsed?: boolean;
+    isArchived?: boolean;
+    lastModified?: string | null;
+}
+
+/** GET /v2/strains */
+export interface T3Strain {
+    id: number;
+    name: string;
+    testingStatus?: string;
+    isUsed?: boolean;
+    isArchived?: boolean;
+}
+
+/** GET /v2/locations/active */
+export interface T3Location {
+    id: number;
+    name: string;
+    locationTypeName?: string;
+    forPlants?: boolean;
+    forPlantBatches?: boolean;
+    forHarvests?: boolean;
+    forPackages?: boolean;
+    isArchived?: boolean;
+}
+
+const ITEM_MASK = [
+    'id', 'name', 'productCategoryName', 'productCategoryTypeName', 'quantityTypeName', 'unitOfMeasureName',
+    'strainName', 'unitWeight', 'unitWeightUnitOfMeasureAbbreviation', 'isUsed', 'isArchived', 'lastModified',
+].join(',');
+const STRAIN_MASK = 'id,name,testingStatus,isUsed,isArchived';
+const LOCATION_MASK = 'id,name,locationTypeName,forPlants,forPlantBatches,forHarvests,forPackages,isArchived';
+const SYNC_PACKAGE_MASK = [
+    'id', 'label', 'licenseNumber', 'quantity', 'unitOfMeasureAbbreviation', 'unitOfMeasureName', 'unitOfMeasureQuantityType',
+    'item.id', 'item.name', 'item.productCategoryName', 'item.strainName', 'item.unitWeight', 'item.unitWeightUnitOfMeasureAbbreviation',
+    'item.unitOfMeasureName', 'item.quantityTypeName',
+    'sourcePackageLabels', 'sourceHarvestNames', 'productionBatchNumber', 'labTestingStateName',
+    'isOnHold', 'isInTransit', 'isFinished', 'isTestingSample', 'isProductionBatch', 'isTradeSample', 'isDonation',
+    'packagedDate', 'finishedDate', 'lastModified', 'locationName', 'note',
+].join(',');
+
+/** A first full pull across a busy licence can run past 20 pages of 500. */
+const SYNC_MAX_PAGES = 60;
+
+/**
+ * One package list (`/v2/packages/active|onhold|intransit|inactive`) for a
+ * licence, optionally only rows Metrc modified at or after `since`
+ * (`lastModified__gte:<ISO8601>`, a datetime filter per the T3 spec).
+ */
+export const t3PackageList = (path: string, licenseNumber: string, since?: Date) =>
+    t3Collection<T3Package>(path, {
+        licenseNumber,
+        filter: since ? `lastModified__gte:${since.toISOString()}` : undefined,
+        collectionMask: SYNC_PACKAGE_MASK,
+    }, SYNC_MAX_PAGES);
+
+export const t3Items = (licenseNumber: string, since?: Date) =>
+    t3Collection<T3Item>('/v2/items', {
+        licenseNumber,
+        filter: since ? `lastModified__gte:${since.toISOString()}` : undefined,
+        collectionMask: ITEM_MASK,
+    }, SYNC_MAX_PAGES);
+
+/** Strains and locations carry no lastModified in T3, so they are always a full pull. */
+export const t3Strains = (licenseNumber: string) =>
+    t3Collection<T3Strain>('/v2/strains', { licenseNumber, collectionMask: STRAIN_MASK }, SYNC_MAX_PAGES);
+
+export const t3Locations = (licenseNumber: string) =>
+    t3Collection<T3Location>('/v2/locations/active', { licenseNumber, collectionMask: LOCATION_MASK }, SYNC_MAX_PAGES);
+
+/** GET /v2/plantbatches/active|inactive — Metrc's immature plants (NeuroCann nursery batches). */
+export interface T3PlantBatch {
+    id: number;
+    name: string;
+    plantBatchTypeName?: string | null;
+    locationName?: string | null;
+    strainName?: string | null;
+    untrackedCount?: number;
+    trackedCount?: number;
+    packagedCount?: number;
+    destroyedCount?: number;
+    harvestedCount?: number;
+    plantedDate?: string | null;
+    isOnHold?: boolean;
+    lastModified?: string | null;
+}
+
+/** GET /v2/harvests/active|inactive */
+export interface T3Harvest {
+    id: number;
+    name: string;
+    harvestTypeName?: string | null;
+    sourceStrainNames?: string | null;
+    dryingLocationName?: string | null;
+    currentWeight?: number;
+    totalWasteWeight?: number;
+    totalWetWeight?: number;
+    plantCount?: number;
+    unitOfWeightAbbreviation?: string | null;
+    isOnHold?: boolean;
+    harvestStartDate?: string | null;
+    isFinished?: boolean;
+    finishedDate?: string | null;
+    lastModified?: string | null;
+}
+
+/** GET /v2/plants/vegetative|flowering|inactive — tagged plants. */
+export interface T3Plant {
+    id: number;
+    label: string;
+    stateName?: string | null;
+    growthPhaseName?: string | null;
+    plantBatchName?: string | null;
+    plantBatchId?: number | null;
+    strainName?: string | null;
+    locationName?: string | null;
+    harvestId?: number | null;
+    harvestedDate?: string | null;
+    isOnHold?: boolean;
+    plantedDate?: string | null;
+    vegetativeDate?: string | null;
+    floweringDate?: string | null;
+    destroyedDate?: string | null;
+    lastModified?: string | null;
+}
+
+const PLANT_BATCH_MASK = [
+    'id', 'name', 'plantBatchTypeName', 'locationName', 'strainName', 'untrackedCount', 'trackedCount',
+    'packagedCount', 'destroyedCount', 'harvestedCount', 'plantedDate', 'isOnHold', 'lastModified',
+].join(',');
+const HARVEST_MASK = [
+    'id', 'name', 'harvestTypeName', 'sourceStrainNames', 'dryingLocationName', 'currentWeight', 'totalWasteWeight',
+    'totalWetWeight', 'plantCount', 'unitOfWeightAbbreviation', 'isOnHold', 'harvestStartDate', 'isFinished', 'finishedDate', 'lastModified',
+].join(',');
+const PLANT_MASK = [
+    'id', 'label', 'stateName', 'growthPhaseName', 'plantBatchName', 'plantBatchId', 'strainName', 'locationName',
+    'harvestId', 'harvestedDate', 'isOnHold', 'plantedDate', 'vegetativeDate', 'floweringDate', 'destroyedDate', 'lastModified',
+].join(',');
+
+const sinceFilter = (since?: Date) => (since ? `lastModified__gte:${since.toISOString()}` : undefined);
+
+export const t3PlantBatchList = (path: string, licenseNumber: string, since?: Date) =>
+    t3Collection<T3PlantBatch>(path, { licenseNumber, filter: sinceFilter(since), collectionMask: PLANT_BATCH_MASK }, SYNC_MAX_PAGES);
+
+export const t3HarvestList = (path: string, licenseNumber: string, since?: Date) =>
+    t3Collection<T3Harvest>(path, { licenseNumber, filter: sinceFilter(since), collectionMask: HARVEST_MASK }, SYNC_MAX_PAGES);
+
+export const t3PlantList = (path: string, licenseNumber: string, since?: Date) =>
+    t3Collection<T3Plant>(path, { licenseNumber, filter: sinceFilter(since), collectionMask: PLANT_MASK }, SYNC_MAX_PAGES);
 
 const PACKAGE_MASK = [
     'id', 'label', 'licenseNumber', 'quantity', 'unitOfMeasureAbbreviation',

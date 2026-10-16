@@ -405,7 +405,7 @@ export interface ProductType {
   updatedAt: string;
 }
 
-export type PackageStatus = 'active' | 'on_hold' | 'finished' | 'archived';
+export type PackageStatus = 'active' | 'on_hold' | 'in_transit' | 'finished' | 'archived';
 export type LabTestingState = 'not_submitted' | 'submitted' | 'passed' | 'failed';
 export type ExtractionType = 'ice_water' | 'rosin_press' | 'cart_fill' | 'other';
 export type AdjustmentReason = 'Waste' | 'Moisture Loss' | 'Processing Loss' | 'Theft' | 'Reconciliation';
@@ -804,6 +804,11 @@ export interface Package {
   sourceHarvestNames?: string[];
   sourcePackageLabels?: string[];
   metrcSyncedAt?: string;
+  /** Set when this row mirrors a Metrc package (synced via T3). Metrc then owns status, quantity, item, location and lab state. */
+  metrcId?: number | null;
+  metrcLicense?: string | null;
+  /** Metrc's raw lab testing state, e.g. TestPassed, NotRequired. */
+  metrcLabState?: string | null;
   packagedDate: string;
   finishedDate?: string;
   createdAt: string;

@@ -1,5 +1,5 @@
 # Build context is the REPO ROOT (growth imports ../shared). Railway: leave the
-# service Root Directory empty and set the config file path to growth/railway.json.
+# service Root Directory empty and set RAILWAY_DOCKERFILE_PATH=growth/Dockerfile.
 FROM node:22-slim
 WORKDIR /app
 COPY shared/ shared/

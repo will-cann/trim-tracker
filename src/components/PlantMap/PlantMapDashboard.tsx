@@ -100,10 +100,15 @@ export const PlantMapDashboard: React.FC<PlantMapDashboardProps> = ({ refreshKey
     const [viewMode, setViewMode] = useViewMode('plant-map');
     const { data, loading, refetch } = usePlantMap(activePhase);
 
-    // Table mode state
+    // Table mode state — rows come paged and filtered from the server, since a
+    // Metrc-synced facility can hold tens of thousands of plants.
     const [plantList, setPlantList] = useState<any[]>([]);
+    const [plantTotal, setPlantTotal] = useState(0);
     const [tableLoading, setTableLoading] = useState(false);
+    const [loadingMore, setLoadingMore] = useState(false);
+    const [tableStrains, setTableStrains] = useState<string[]>([]);
     const [search, setSearch] = useState('');
+    const [debouncedSearch, setDebouncedSearch] = useState('');
     const [activeFilters, setActiveFilters] = useState<Record<string, string[]>>({});
     const [sortKey, setSortKey] = useState<string | null>(null);
     const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
@@ -127,19 +132,50 @@ export const PlantMapDashboard: React.FC<PlantMapDashboardProps> = ({ refreshKey
         }
     }, [refreshKey, refetch]);
 
-    // Load flat plant list when entering table mode
+    const PAGE_SIZE = 500;
+
+    const tableQuery = useCallback((offset = 0) => ({
+        phases: activeFilters.phase?.length ? activeFilters.phase : undefined,
+        rooms: activeFilters.room?.length ? activeFilters.room : undefined,
+        strains: activeFilters.strain?.length ? activeFilters.strain : undefined,
+        q: debouncedSearch || undefined,
+        limit: PAGE_SIZE,
+        offset,
+    }), [activeFilters, debouncedSearch]);
+
+    // (Re)load the first page of the table whenever its filters change
     const loadPlantList = useCallback(async () => {
         setTableLoading(true);
-        const data = await apiService.getPlantsList();
-        setPlantList(data);
+        const { plants, total } = await apiService.getPlantsPage(tableQuery(0));
+        setPlantList(plants);
+        setPlantTotal(total);
         setTableLoading(false);
-    }, []);
+    }, [tableQuery]);
+
+    const loadMorePlants = useCallback(async () => {
+        setLoadingMore(true);
+        const { plants, total } = await apiService.getPlantsPage(tableQuery(plantList.length));
+        setPlantList(prev => [...prev, ...plants]);
+        setPlantTotal(total);
+        setLoadingMore(false);
+    }, [tableQuery, plantList.length]);
+
+    useEffect(() => {
+        const t = setTimeout(() => setDebouncedSearch(search.trim()), 300);
+        return () => clearTimeout(t);
+    }, [search]);
 
     useEffect(() => {
         if (viewMode === 'table') loadPlantList();
     }, [viewMode, loadPlantList]);
 
-    // Load rooms when needed (for "all" phase detection, schedule or map view)
+    // Strain filter options for the table come from the catalog, not from the loaded page
+    useEffect(() => {
+        if (viewMode !== 'table' || tableStrains.length) return;
+        apiService.getStrains().then(strains => setTableStrains(strains.map(s => s.name).sort())).catch(() => {});
+    }, [viewMode, tableStrains.length]);
+
+    // Load rooms when needed (for "all" phase detection, the table's room filter, schedule or map view)
     const loadRooms = useCallback(async () => {
         const rooms = await apiService.getRooms();
         setAllRooms(rooms as Array<{ id: string; name: string; room_type: string; layout_rows?: number | null; layout_cols?: number | null }>);
@@ -148,7 +184,7 @@ export const PlantMapDashboard: React.FC<PlantMapDashboardProps> = ({ refreshKey
 
     useEffect(() => {
         if (roomsLoaded) return;
-        if (activePhase !== 'all' && viewMode !== 'schedule' && viewMode !== 'calendar' && viewMode !== 'map') return;
+        if (activePhase !== 'all' && viewMode !== 'schedule' && viewMode !== 'calendar' && viewMode !== 'table' && viewMode !== 'map') return;
         loadRooms();
     }, [activePhase, viewMode, roomsLoaded, loadRooms]);
 
@@ -157,7 +193,7 @@ export const PlantMapDashboard: React.FC<PlantMapDashboardProps> = ({ refreshKey
         if ((viewMode !== 'schedule' && viewMode !== 'calendar') || scheduleLoaded) return;
         let cancelled = false;
         setScheduleLoading(true);
-        apiService.getPlantsList().then(plants => {
+        apiService.getPlantsSchedule().then(plants => {
             if (cancelled) return;
             setSchedulePlants(plants as PlantListItem[]);
             setScheduleLoaded(true);
@@ -235,11 +271,11 @@ export const PlantMapDashboard: React.FC<PlantMapDashboardProps> = ({ refreshKey
 
     // Shared filter definitions across card and table views
     const allStrains = viewMode === 'table'
-        ? [...new Set(plantList.map(p => p.strainName).filter(Boolean))].sort()
+        ? (tableStrains.length ? tableStrains : [...new Set(plantList.map(p => p.strainName).filter(Boolean))].sort())
         : [...new Set(rooms.flatMap(([, r]) => (r as any).strains || []))].sort();
 
     const allRoomNames = viewMode === 'table'
-        ? [...new Set(plantList.map(p => p.roomName).filter(Boolean))].sort()
+        ? (allRooms.length ? allRooms.map(r => r.name).sort() : [...new Set(plantList.map(p => p.roomName).filter(Boolean))].sort())
         : rooms.map(([name]) => name).sort();
 
     const phaseFilter: FilterDef = {
@@ -323,13 +359,14 @@ export const PlantMapDashboard: React.FC<PlantMapDashboardProps> = ({ refreshKey
                     activeFilters={activeFilters}
                     onFilterChange={(key, values) => {
                         setActiveFilters(prev => ({ ...prev, [key]: values }));
-                        // Drive phase data fetch from phase filter
-                        if (key === 'phase') {
+                        // Drive the card view's phase fetch from the phase filter; the
+                        // table filters server-side (and knows 'harvested', which the map does not)
+                        if (key === 'phase' && viewMode === 'cards') {
                             if (values.length === 1) handlePhaseChange(values[0] as PlantPhase);
                             else handlePhaseChange('all');
                         }
                     }}
-                    onClearFilters={() => { setActiveFilters({}); handlePhaseChange('all'); }}
+                    onClearFilters={() => { setActiveFilters({}); if (viewMode === 'cards') handlePhaseChange('all'); }}
                     trailing={
                         <ViewToggle mode={viewMode} onChange={setViewMode} showMap showSchedule showCalendar />
                     }
@@ -439,6 +476,19 @@ export const PlantMapDashboard: React.FC<PlantMapDashboardProps> = ({ refreshKey
                             sortDir={sortDir}
                             onSort={handleSort}
                         />
+                        {!tableLoading && plantTotal > 0 && (
+                            <div className="flex items-center justify-between gap-3 px-1 py-3 text-xs text-[var(--color-dolphin)]">
+                                <span>
+                                    Showing {plantList.length.toLocaleString()} of {plantTotal.toLocaleString()}
+                                    {activeFilters.phase?.includes('harvested') ? '' : ' · harvested plants hidden (use the Phase filter)'}
+                                </span>
+                                {plantList.length < plantTotal && (
+                                    <button className="btn-cancel text-xs px-3 py-1" onClick={() => void loadMorePlants()} disabled={loadingMore}>
+                                        {loadingMore ? 'Loading…' : `Load ${Math.min(PAGE_SIZE, plantTotal - plantList.length).toLocaleString()} more`}
+                                    </button>
+                                )}
+                            </div>
+                        )}
                     </div>
                 </>
             )}

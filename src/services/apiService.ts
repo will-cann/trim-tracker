@@ -1,4 +1,5 @@
 import type { RoomLayout, PlantHealthEvent, HotspotSummary } from '../types/plantMap';
+import type { MetrcSyncStartResponse, MetrcSyncStatus } from '../../shared/manifest/metrcSync';
 import type { TrimSession, CreateTrimSessionDTO, Trimmer, TrimmerProfile, ProposedAction, Harvest, CreateHarvestDTO, HarvestWasteType, HarvestAllocation, HarvestPlantWeight, HarvestBin, BinCureLog, CreateBinDTO, FloweringBatchGroup, Strain, License, SpeechMode, HumanTask, TeamRole, Tag, TagType, TagStats, TagSettings, Package, CreatePackageDTO, MetrcItem, PackageAdjustment, AdjustmentReason, ProductType, ProcessTemplate, StepSupplyRequirement, YieldAverage, BackwardPlan, PlanningSession, PlanTargetInput, StrainYieldOverride, ReportSpec, SavedReport, TaskViewSpec, SavedTaskView, SupplyPool, SupplyItem, SupplyLedgerEntry, SupplyChangeType, SupplyPoolSlug, ContactThread, ApiKey, ApiKeyScope, CreatedApiKey } from '../types/definitions';
 
 const API_BASE = '/.netlify/functions';
@@ -767,17 +768,58 @@ export const getPlantMap = async (phase: string): Promise<Record<string, any>> =
     }
 };
 
-export const getPlantsList = async (phase?: string): Promise<any[]> => {
+export interface PlantListQuery {
+    /** nursery | vegetative | flowering | harvested; default nursery + vegetative + flowering */
+    phases?: string[];
+    rooms?: string[];
+    strains?: string[];
+    /** matches label, strain or room */
+    q?: string;
+    limit?: number;
+    offset?: number;
+}
+
+const plantListUrl = (query: PlantListQuery & { group?: string }) => {
+    const params = new URLSearchParams();
+    if (query.phases?.length) params.set('phases', query.phases.join(','));
+    if (query.rooms?.length) params.set('rooms', query.rooms.join(','));
+    if (query.strains?.length) params.set('strains', query.strains.join(','));
+    if (query.q) params.set('q', query.q);
+    if (query.limit) params.set('limit', String(query.limit));
+    if (query.offset) params.set('offset', String(query.offset));
+    if (query.group) params.set('group', query.group);
+    const qs = params.toString();
+    return `${API_BASE}/get-plants-list${qs ? `?${qs}` : ''}`;
+};
+
+/** One page of plants (server-side filters; total matching count alongside). */
+export const getPlantsPage = async (query: PlantListQuery = {}): Promise<{ plants: any[]; total: number }> => {
     try {
-        const url = phase
-            ? `${API_BASE}/get-plants-list?phase=${encodeURIComponent(phase)}`
-            : `${API_BASE}/get-plants-list`;
-        const response = await fetchWithAuth(url);
+        const response = await fetchWithAuth(plantListUrl(query));
+        if (!response.ok) return { plants: [], total: 0 };
+        const plants = await response.json();
+        const total = parseInt(response.headers.get('X-Total-Count') ?? '', 10);
+        return { plants, total: Number.isFinite(total) ? total : plants.length };
+    } catch {
+        return { plants: [], total: 0 };
+    }
+};
+
+/** One row per room + strain + phase with counts and earliest dates — for the schedule and calendar. */
+export const getPlantsSchedule = async (): Promise<any[]> => {
+    try {
+        const response = await fetchWithAuth(plantListUrl({ phases: ['nursery', 'vegetative', 'flowering'], group: 'room_strain_phase' }));
         if (!response.ok) return [];
         return await response.json();
     } catch {
         return [];
     }
+};
+
+/** First page of plants in a phase (older callers). */
+export const getPlantsList = async (phase?: string): Promise<any[]> => {
+    const { plants } = await getPlantsPage(phase ? { phases: [phase] } : {});
+    return plants;
 };
 
 export const getRoomMap = async (phase: string, room: string): Promise<Record<string, any>> => {
@@ -1196,6 +1238,30 @@ export const getMetrcItems = async (licenseNumber?: string): Promise<MetrcItem[]
     const response = await fetchWithAuth(`${API_BASE}/get-metrc-items${qs ? `?${qs}` : ''}`);
     if (!response.ok) return [];
     return await response.json();
+};
+
+// ── Metrc sync (per-customer deploys only; see docs/metrc-sync.md) ───────────
+
+/** null when this deploy has no sync for the signed-in company (403/404), so Settings can hide the section. */
+export const getMetrcSyncStatus = async (): Promise<MetrcSyncStatus | null> => {
+    try {
+        const response = await fetchWithAuth(`${API_BASE}/metrc-sync-status`);
+        if (!response.ok) return null;
+        return await response.json();
+    } catch {
+        return null;
+    }
+};
+
+export const startMetrcSync = async (dryRun: boolean): Promise<MetrcSyncStartResponse> => {
+    const response = await fetchWithAuth(`${API_BASE}/metrc-sync-start`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ dryRun }),
+    });
+    const body = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(body.error || `Could not start sync (${response.status})`);
+    return body;
 };
 
 export const upsertMetrcItem = async (data: {
@@ -2093,6 +2159,8 @@ export const apiService = {
     getFloweringPlants,
     getPlantMap,
     getPlantsList,
+    getPlantsPage,
+    getPlantsSchedule,
     getRoomMap,
     getRooms,
     createRoom,
@@ -2130,6 +2198,9 @@ export const apiService = {
     // METRC Items
     getMetrcItems,
     upsertMetrcItem,
+    // Metrc sync
+    getMetrcSyncStatus,
+    startMetrcSync,
     // Package Adjustments
     createPackageAdjustment,
     getPackageAdjustments,
