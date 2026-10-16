@@ -1,14 +1,16 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Plus, Package, Pause, CheckCircle, Flower2 } from 'lucide-react';
+import { Plus, Package } from 'lucide-react';
 import type { Package as PackageType, PackageType as PkgType, CreatePackageDTO } from '../../types/definitions';
 import { apiService } from '../../services/apiService';
 import { PackageCard } from './PackageCard';
+import { PackagesSummary } from './PackagesSummary';
 import { CreatePackageModal } from './CreatePackageModal';
 import { PackageDetailModal } from './PackageDetailModal';
 import { useAuth } from '../../contexts/authContext';
 import { CardsSkeleton } from '../Skeleton';
-import { FilterToolbar, DataTable, ViewToggle, useViewMode, TypeChip, getTypeChipStyle, EmptyState, DashboardHeader, StatCard } from '../ui';
+import { FilterToolbar, DataTable, ViewToggle, useViewMode, TypeChip, getTypeChipStyle, EmptyState, DashboardHeader } from '../ui';
 import type { FilterDef, SortOption, Column } from '../ui';
+import { formatPackageQuantity } from './packageConstants';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -18,17 +20,7 @@ const typeLabel = (t: PkgType): string =>
 const formatDate = (d: string | null) =>
     d ? new Date(d).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) : '—';
 
-const formatWeight = (qty: number, unit?: string) => {
-    const u = unit || 'g';
-    if (u === 'g' || u === 'grams' || u === 'Grams') {
-        if (qty >= 1000) {
-            const kg = qty / 1000;
-            return `${kg.toLocaleString(undefined, { maximumFractionDigits: 2 })} kg`;
-        }
-        return `${qty.toLocaleString(undefined, { maximumFractionDigits: 2 })} g`;
-    }
-    return `${qty.toLocaleString(undefined, { maximumFractionDigits: 2 })} ${u}`;
-};
+const formatWeight = formatPackageQuantity;
 
 // ── Column definitions ───────────────────────────────────────────────────────
 
@@ -236,12 +228,6 @@ export const PackageDashboard: React.FC = () => {
         }
     };
 
-    // Stats
-    const activePackages = packages.filter(p => p.status === 'active');
-    const totalActiveWeight = activePackages.reduce((sum, p) => sum + p.quantity, 0);
-    const onHoldCount = packages.filter(p => p.status === 'on_hold').length;
-    const finishedCount = packages.filter(p => p.status === 'finished').length;
-
     const hasFilters = searchQuery || activeFilters.type.length > 0 || activeFilters.status.length > 0;
 
     return (
@@ -262,36 +248,6 @@ export const PackageDashboard: React.FC = () => {
                 }
             />
 
-            {/* Stats */}
-            <div className="dashboard-top-section">
-                <div className="stats-grid">
-                    <StatCard
-                        icon={<Package size={24} />}
-                        variant="flower"
-                        label="Active Packages"
-                        value={activePackages.length}
-                    />
-                    <StatCard
-                        icon={<Flower2 size={24} />}
-                        variant="flower"
-                        label="Active Weight"
-                        value={`${totalActiveWeight.toFixed(0)}g`}
-                    />
-                    <StatCard
-                        icon={<Pause size={24} />}
-                        variant="shake"
-                        label="On Hold"
-                        value={onHoldCount}
-                    />
-                    <StatCard
-                        icon={<CheckCircle size={24} />}
-                        variant="neutral"
-                        label="Finished"
-                        value={finishedCount}
-                    />
-                </div>
-            </div>
-
             {/* Search + Filters + Sort + Toggle + New Package */}
             <FilterToolbar
                 search={searchQuery}
@@ -309,6 +265,9 @@ export const PackageDashboard: React.FC = () => {
                     <ViewToggle mode={viewMode} onChange={setViewMode} />
                 }
             />
+
+            {/* Inventory at a glance (unfiltered) */}
+            {!loading && packages.length > 0 && <PackagesSummary packages={packages} />}
 
             {/* Content */}
             {loading ? (
@@ -335,7 +294,7 @@ export const PackageDashboard: React.FC = () => {
                     }
                 />
             ) : viewMode === 'table' ? (
-                <div className="mt-4">
+                <div>
                     <DataTable
                         columns={PACKAGE_COLUMNS}
                         data={sortedPackages}
@@ -347,7 +306,7 @@ export const PackageDashboard: React.FC = () => {
                     />
                 </div>
             ) : (
-                <div className="entry-grid">
+                <div className="pkg-grid">
                     {sortedPackages.map(pkg => (
                         <PackageCard
                             key={pkg.id}

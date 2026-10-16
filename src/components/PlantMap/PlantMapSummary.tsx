@@ -38,16 +38,16 @@ export const PlantMapSummary: React.FC<PlantMapSummaryProps> = ({ data }) => {
     const hiddenStrains = uniqueStrains.length - shownStrains.length;
 
     return (
-        <div className="plant-map-strip">
-            <div className="plant-map-strip-stats">
+        <div className="summary-strip">
+            <div className="summary-strip-stats">
                 <Stat value={rooms.length} label={rooms.length === 1 ? 'room' : 'rooms'} />
                 <Stat value={totalPlants.toLocaleString()} label="plants" />
                 <Stat value={uniqueStrains.length} label={uniqueStrains.length === 1 ? 'strain' : 'strains'} />
                 <Stat value={`${avgHealth}%`} label="avg health" color={avgHex} />
             </div>
 
-            <div className="plant-map-strip-attention">
-                <span className="plant-map-strip-label">
+            <div className="summary-strip-attention">
+                <span className="summary-strip-label">
                     <AlertTriangle size={12} />
                     Needs attention
                 </span>
@@ -59,7 +59,7 @@ export const PlantMapSummary: React.FC<PlantMapSummaryProps> = ({ data }) => {
                     return (
                         <span
                             key={room.name}
-                            className="plant-map-attention-chip"
+                            className="summary-strip-chip"
                             title={room.contaminants.map(c => contaminantLabel(c)).join(', ') || undefined}
                         >
                             <span className="data-table-dot" style={{ background: hex }} />
@@ -72,16 +72,16 @@ export const PlantMapSummary: React.FC<PlantMapSummaryProps> = ({ data }) => {
             </div>
 
             {uniqueStrains.length > 0 && (
-                <div className="plant-map-strip-strains">
-                    <span className="plant-map-strip-label">Strains</span>
+                <div className="summary-strip-detail">
+                    <span className="summary-strip-label">Strains</span>
                     {shownStrains.map(s => (
-                        <span key={s} className="plant-map-strain-chip">{s}</span>
+                        <span key={s} className="summary-strip-tag">{s}</span>
                     ))}
                     {(hiddenStrains > 0 || showAllStrains) && (
                         <button
                             type="button"
                             onClick={() => setShowAllStrains(v => !v)}
-                            className="plant-map-strain-chip plant-map-strain-chip--more"
+                            className="summary-strip-tag summary-strip-tag--more"
                         >
                             {showAllStrains ? 'Show fewer' : `+${hiddenStrains} more`}
                         </button>
@@ -93,8 +93,8 @@ export const PlantMapSummary: React.FC<PlantMapSummaryProps> = ({ data }) => {
 };
 
 const Stat: React.FC<{ value: React.ReactNode; label: string; color?: string }> = ({ value, label, color }) => (
-    <span className="plant-map-strip-stat">
-        <span className="plant-map-strip-stat-value tabular-nums" style={color ? { color } : undefined}>{value}</span>
-        <span className="plant-map-strip-stat-label">{label}</span>
+    <span className="summary-strip-stat">
+        <span className="summary-strip-stat-value tabular-nums" style={color ? { color } : undefined}>{value}</span>
+        <span className="summary-strip-stat-label">{label}</span>
     </span>
 );
