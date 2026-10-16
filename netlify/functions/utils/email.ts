@@ -62,13 +62,8 @@ export async function sendInviteEmail(opts: {
         });
         return { success: true };
     } catch (err: unknown) {
-        const message = err instanceof Error ? err.message : 'SendGrid send failed';
-        if (err && typeof err === 'object' && 'response' in err) {
-            const sgErr = err as { response?: { body?: unknown } };
-            console.error('SendGrid invite email failed:', message, JSON.stringify(sgErr.response?.body));
-        } else {
-            console.error('SendGrid invite email failed:', message);
-        }
+        const message = sendGridErrorMessage(err);
+        console.error('SendGrid invite email failed:', message, sendGridErrorBody(err));
         return { success: false, error: message };
     }
 }
@@ -136,13 +131,8 @@ export async function sendSupplierEmail(args: SupplierEmailArgs): Promise<Suppli
         });
         return { success: true, fromAddress: OUTREACH_FROM, replyToAddress, bodyHtml };
     } catch (err: unknown) {
-        const message = err instanceof Error ? err.message : 'SendGrid send failed';
-        if (err && typeof err === 'object' && 'response' in err) {
-            const sgErr = err as { response?: { body?: unknown } };
-            console.error('SendGrid supplier email failed:', message, JSON.stringify(sgErr.response?.body));
-        } else {
-            console.error('SendGrid supplier email failed:', message);
-        }
+        const message = sendGridErrorMessage(err);
+        console.error('SendGrid supplier email failed:', message, sendGridErrorBody(err));
         return { success: false, error: message, fromAddress: OUTREACH_FROM, replyToAddress, bodyHtml };
     }
 }
@@ -191,15 +181,30 @@ export async function sendManifestEmail(opts: {
         });
         return { success: true, fromAddress: FROM_EMAIL };
     } catch (err: unknown) {
-        const message = err instanceof Error ? err.message : 'SendGrid send failed';
-        if (err && typeof err === 'object' && 'response' in err) {
-            const sgErr = err as { response?: { body?: unknown } };
-            console.error('SendGrid manifest email failed:', message, JSON.stringify(sgErr.response?.body));
-        } else {
-            console.error('SendGrid manifest email failed:', message);
-        }
+        const message = sendGridErrorMessage(err);
+        console.error('SendGrid manifest email failed:', message, sendGridErrorBody(err));
         return { success: false, error: message, fromAddress: FROM_EMAIL };
     }
+}
+
+/**
+ * SendGrid's own reason for a rejected send. The client error's message is just
+ * the HTTP status text ("Forbidden", "Unauthorized"); the useful part, e.g.
+ * "The from address does not match a verified Sender Identity", is in
+ * response.body.errors[].message.
+ */
+export function sendGridErrorMessage(err: unknown): string {
+    const base = err instanceof Error ? err.message : 'SendGrid send failed';
+    const body = (err as { response?: { body?: { errors?: Array<{ message?: string; field?: string | null }> } } } | null)?.response?.body;
+    const reasons = (body?.errors ?? [])
+        .map(e => (e.field ? `${e.message} (${e.field})` : e.message))
+        .filter((m): m is string => !!m);
+    return reasons.length ? `${base}: ${reasons.join('; ')}` : base;
+}
+
+function sendGridErrorBody(err: unknown): string {
+    const body = (err as { response?: { body?: unknown } } | null)?.response?.body;
+    return body === undefined ? '' : JSON.stringify(body);
 }
 
 /**

@@ -40,7 +40,8 @@ export async function sendManifestEmail(args: SendEmailArgs): Promise<SendEmailR
 
   if (!res.ok) {
     const fallback = res.status === 404 ? 'Email endpoint not available on this server.' : `Send failed (${res.status}).`
-    return { ok: false, message: payload.error ?? fallback }
+    const message = payload.error ?? fallback
+    return { ok: false, message: payload.detail ? `${message}: ${payload.detail}` : message }
   }
   return { ok: true, to: payload.to ?? args.to }
 }
