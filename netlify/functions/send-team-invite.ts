@@ -1,7 +1,7 @@
 import { Handler } from '@netlify/functions';
 import { sql } from './utils/db';
 import { resolveContext, authorize } from './utils/auth';
-import { sendInvitation } from './utils/auth0mgmt';
+import { inviteTeamMember } from './utils/teamInvite';
 
 export const handler: Handler = async (event) => {
     if (event.httpMethod === 'OPTIONS') {
@@ -43,7 +43,7 @@ export const handler: Handler = async (event) => {
         }
 
         // Send Auth0 invitation
-        const result = await sendInvitation(profile.email, profile.name);
+        const result = await inviteTeamMember({ email: profile.email, name: profile.name, companyId: context.companyId, inviterUserId: context.userId });
 
         if (!result.success) {
             return {
@@ -68,6 +68,8 @@ export const handler: Handler = async (event) => {
                 success: true,
                 invitedAt: updated.rows[0].invited_at,
                 inviteUrl: result.inviteUrl || undefined,
+                emailed: result.emailed,
+                emailError: result.emailError,
             }),
         };
     } catch (error) {

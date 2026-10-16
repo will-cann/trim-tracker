@@ -1,7 +1,7 @@
 import { Handler } from '@netlify/functions';
 import { sql } from './utils/db';
 import { resolveContext, authorize } from './utils/auth';
-import { sendInvitation } from './utils/auth0mgmt';
+import { inviteTeamMember } from './utils/teamInvite';
 
 export const handler: Handler = async (event) => {
     if (event.httpMethod !== 'POST') {
@@ -48,7 +48,7 @@ export const handler: Handler = async (event) => {
             return { statusCode: 400, body: JSON.stringify({ error: 'This team member has already accepted their invitation.' }) };
         }
 
-        const result = await sendInvitation(profile.email, profile.name);
+        const result = await inviteTeamMember({ email: profile.email, name: profile.name, companyId: context.companyId, inviterUserId: context.userId });
 
         if (!result.success) {
             return {
@@ -60,7 +60,7 @@ export const handler: Handler = async (event) => {
         return {
             statusCode: 200,
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ success: true, email: profile.email }),
+            body: JSON.stringify({ success: true, email: profile.email, emailed: result.emailed, emailError: result.emailError }),
         };
     } catch (error) {
         console.error('Error sending invitation:', error);
