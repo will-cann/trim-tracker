@@ -20,6 +20,8 @@ const T3_BASE_URL = process.env.T3_API_URL || 'https://api.trackandtrace.tools';
 const PAGE_SIZE = 500;
 /** Metrc labels are 24 chars; ~40 OR'd label filters keeps URLs well under 8 KB. */
 const LABEL_FILTER_CHUNK = 40;
+/** One retry on a 5xx / dropped GET; T3 has to load Metrc pages and sometimes just needs a second. */
+const RETRY_DELAY_MS = 1500;
 
 export type QueryValue = string | number | boolean | undefined | null | Array<string | number>;
 export type Query = Record<string, QueryValue>;
@@ -69,8 +71,8 @@ function describeError(status: number, body: unknown): T3Error {
     const title = typeof o.title === 'string' ? o.title : undefined;
 
     let message: string;
-    if (status === 401) message = 'T3 rejected the secret key. Regenerate it at api.trackandtrace.tools/v2/pages/secret-key and update T3_API_KEY.';
-    else if (status === 402 || /t3\+|subscription/i.test(`${code} ${title} ${detail}`)) message = 'This T3 account needs an active T3+ subscription for Metrc data and transfer endpoints.';
+    if (status === 401) message = detail ?? 'T3 rejected the secret key. Regenerate it at api.trackandtrace.tools/v2/pages/secret-key and update T3_API_KEY.';
+    else if (status === 402 || /t3\+|subscription/i.test(`${code} ${title} ${detail}`)) message = detail ?? 'This T3 account needs an active T3+ subscription for Metrc data and transfer endpoints.';
     else if (status === 403) message = detail ?? 'The Metrc login behind the T3 key does not have access to that licence or action.';
     else if (status === 400) message = detail ?? title ?? 'T3 rejected the request.';
     else if (status >= 500) message = 'T3 or Metrc is having trouble right now. Try again in a moment.';
@@ -152,12 +154,28 @@ export async function t3Request<T>(
         });
     };
 
+    const attempt = async (): Promise<Response> => {
+        if (t3Mode() === 'sandbox') {
+            let res = await send({ Authorization: `Bearer ${await sandboxToken(apiKey)}` });
+            if (res.status === 401) res = await send({ Authorization: `Bearer ${await sandboxToken(apiKey, true)}` });
+            return res;
+        }
+        return send({ 'X-T3-API-Key': apiKey });
+    };
+
+    // T3 loads real Metrc pages; a 5xx or a dropped connection is usually a blip, so a GET gets one more try.
+    const isGet = (opts.method ?? 'GET') === 'GET';
     let res: Response;
-    if (t3Mode() === 'sandbox') {
-        res = await send({ Authorization: `Bearer ${await sandboxToken(apiKey)}` });
-        if (res.status === 401) res = await send({ Authorization: `Bearer ${await sandboxToken(apiKey, true)}` });
-    } else {
-        res = await send({ 'X-T3-API-Key': apiKey });
+    try {
+        res = await attempt();
+        if (res.status >= 500 && isGet) {
+            await new Promise(r => setTimeout(r, RETRY_DELAY_MS));
+            res = await attempt();
+        }
+    } catch (err) {
+        if (!isGet || !(err instanceof T3Error && err.code === 'UNREACHABLE')) throw err;
+        await new Promise(r => setTimeout(r, RETRY_DELAY_MS));
+        res = await attempt();
     }
 
     const json = await parseBody(res);
@@ -174,6 +192,8 @@ export interface T3WhoAmI {
     hasT3plus?: boolean;
     t3plusSubscriptionTier?: string | null;
     subscriptionStatus?: string | null;
+    /** 'reports' on the basic tier (only `/report` endpoints), 'full' on Team/Enterprise. */
+    t3plusApiAccessLevel?: string | null;
 }
 
 export const t3WhoAmI = () => t3Request<T3WhoAmI>('/v2/auth/whoami');
@@ -185,6 +205,14 @@ export const t3PackagePermissions = (licenseNumber: string) =>
     t3Request<string[]>('/v2/permissions', { query: { licenseNumber, view: 'packages' } });
 
 export const grantsAction = (permissions: string[], action: string) => permissions.some(p => p.split(':')[1] === action);
+
+/**
+ * Metrc permissions on the plants view for one licence, e.g. "plants/vegetative".
+ * A manufacturing licence has none, which is how the sync knows to skip its
+ * cultivation lists instead of getting 401s from pages Metrc won't show.
+ */
+export const t3PlantPermissions = (licenseNumber: string) =>
+    t3Request<string[]>('/v2/permissions', { query: { licenseNumber, view: 'plants' } });
 
 // ── Collections ────────────────────────────────────────────────────────────
 

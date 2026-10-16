@@ -314,8 +314,8 @@ const RunCounts: React.FC<{ run: MetrcSyncRun; licenses: string[] }> = ({ run, l
                             {(Object.keys(LIST_LABEL) as MetrcSyncList[]).map(list => {
                                 const c = run.counts[license]?.[list];
                                 return (
-                                    <td key={list} className="strain-cell-notes text-xs tabular-nums" title={c ? `${c.fetched} fetched · ${c.inserted} new · ${c.updated} updated · ${c.unchanged} unchanged${run.dryRun ? ' (dry run: nothing written)' : ''}` : 'not reached'}>
-                                        {c ? `${c.inserted + c.updated}/${c.fetched}` : '—'}
+                                    <td key={list} className="strain-cell-notes text-xs tabular-nums" title={c ? `${c.fetched} fetched · ${c.inserted} new · ${c.updated} updated · ${c.unchanged} unchanged${c.failed ? ` · ${c.failed} rejected by the database (see errors)` : ''}${run.dryRun ? ' (dry run: nothing written)' : ''}` : 'not reached, or not on this licence'}>
+                                        {c ? `${c.inserted + c.updated}/${c.fetched}${c.failed ? ` · ${c.failed} failed` : ''}` : '—'}
                                     </td>
                                 );
                             })}

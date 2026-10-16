@@ -29,6 +29,8 @@ export interface MetrcSyncListCounts {
   inserted: number
   updated: number
   unchanged: number
+  /** Rows the database rejected; the reasons are in the run's errors. */
+  failed?: number
 }
 
 /** counts[licence][list] */

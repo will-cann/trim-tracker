@@ -63,6 +63,7 @@ export const handler: Handler = async (event) => {
             hasT3plus: who.hasT3plus,
             subscriptionTier: who.t3plusSubscriptionTier ?? null,
             subscriptionStatus: who.subscriptionStatus ?? null,
+            apiAccessLevel: who.t3plusApiAccessLevel ?? null,
             licenses,
             error,
         };

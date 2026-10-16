@@ -67,6 +67,17 @@ before plants because a plant links to its batch and to the harvest it went into
 The background function budgets 13 of its 15 minutes. Lists it doesn't reach are recorded as
 `Out of time` and the run ends `partial`; the next run continues from the cursors.
 
+### Resilience
+
+- A T3 `5xx` or dropped connection on a GET is retried once after 1.5 s.
+- A batch the database rejects (one row tripping a constraint fails the whole statement) is
+  retried row by row; rows that still fail are counted as `failed` in the list's cell and the
+  first few reasons appear in the run's errors. The list still counts as pulled and its
+  cursor advances, so one odd record never blocks a list.
+- Before a licence's cultivation lists, the sync asks T3 for the login's permissions on the
+  plants view. Manufacturing and processing licences have none and are skipped quietly;
+  a 401/403 on a cultivation list is treated the same way rather than as an error.
+
 ### Matching and who wins
 
 - Packages match on **tag** (`packages.label`, unique per company since 067). Items on
@@ -98,8 +109,11 @@ The background function budgets 13 of its 15 minutes. Lists it doesn't reach are
   the batch link (by Metrc batch name) and the harvest link (by Metrc harvest id). Health,
   contaminants, target harvest date and tag stay NeuroCann's. Inactive plants are `destroyed`
   when Metrc has a destroyed date, else `harvested`. Metrc mother plants are not pulled.
-- Rooms created from Metrc locations are `general`; the plant map's nursery view only shows
-  rooms typed `nursery`, so set room types in Settings → Rooms once for the rooms that matter.
+- Rooms created from Metrc locations start as `general`. At the end of each real run, every
+  synced room still typed `general` is typed once from what Metrc put in it: mostly flowering
+  plants → `flower`, mostly veg plants → `veg`, only batches → `nursery`. Rooms holding only
+  packages stay `general`. A type set by hand afterwards is never changed. The plant map's
+  All view derives a room's phase from this type, so an untyped veg room would open empty.
 
 ### Value maps
 

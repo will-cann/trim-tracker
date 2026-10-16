@@ -1,5 +1,5 @@
 import type { T3Harvest, T3Item, T3Location, T3Package, T3Plant, T3PlantBatch, T3Strain } from './t3';
-import { isT3Configured, t3HarvestList, t3Items, t3Licenses, t3Locations, t3PackageList, t3PlantBatchList, t3PlantList, t3Strains, T3Error } from './t3';
+import { isT3Configured, t3HarvestList, t3Items, t3Licenses, t3Locations, t3PackageList, t3PlantBatchList, t3PlantList, t3PlantPermissions, t3Strains, T3Error } from './t3';
 import {
     conflictsFor, resolveSyncCompany, isCurrent, mapHarvest, mapItem, mapLocation, mapPackage, mapPlant, mapPlantBatch, mapStrain, MAX_REPORTED_CONFLICTS,
     sinceFor, SYNC_LISTS, T3_LIST_PATH, type HarvestRow, type PackageRow, type PlantBatchRow, type PlantRow, type ProductTypeSpec,
@@ -25,6 +25,8 @@ export interface SyncT3 {
     plantBatches(path: string, license: string, since?: Date): Promise<T3PlantBatch[]>;
     harvests(path: string, license: string, since?: Date): Promise<T3Harvest[]>;
     plants(path: string, license: string, since?: Date): Promise<T3Plant[]>;
+    /** Permissions on the plants view; empty when the licence has no cultivation. */
+    plantPermissions(license: string): Promise<string[]>;
 }
 
 export const liveT3: SyncT3 = {
@@ -36,6 +38,7 @@ export const liveT3: SyncT3 = {
     plantBatches: (path, license, since) => t3PlantBatchList(path, license, since),
     harvests: (path, license, since) => t3HarvestList(path, license, since),
     plants: (path, license, since) => t3PlantList(path, license, since),
+    plantPermissions: license => t3PlantPermissions(license),
 };
 
 /** The slice of MetrcSyncStore a run needs. */
@@ -49,11 +52,12 @@ export interface SyncStore {
     upsertRooms(companyId: string, rows: ReturnType<typeof mapLocation>[]): Promise<UpsertCounts>;
     metrcItemIds(companyId: string, license: string): Promise<Map<string, string>>;
     existingPackages(companyId: string, labels: string[]): Promise<Map<string, import('./metrcSync').ExistingPackage>>;
-    upsertPackages(companyId: string, rows: PackageRow[], itemIds: Map<string, string>): Promise<Omit<UpsertCounts, 'unchanged'>>;
+    upsertPackages(companyId: string, rows: PackageRow[], itemIds: Map<string, string>): Promise<UpsertCounts>;
     cultivationIds(companyId: string): Promise<CultivationIds>;
     upsertPlantBatches(companyId: string, rows: PlantBatchRow[], ids: CultivationIds): Promise<UpsertCounts>;
     upsertHarvests(companyId: string, rows: HarvestRow[]): Promise<UpsertCounts>;
     upsertPlants(companyId: string, rows: PlantRow[], ids: CultivationIds): Promise<UpsertCounts>;
+    classifySyncedRooms(companyId: string): Promise<number>;
     touchRun(runId: string, counts: MetrcSyncCounts, errors: MetrcSyncError[]): Promise<void>;
 }
 
@@ -69,13 +73,40 @@ export interface RunOptions {
     onlyLicenses?: string[];
 }
 
+/** T3 errors keep their code and status so the panel shows T3's reason, not a paraphrase. */
 const describe = (err: unknown): string => {
-    if (err instanceof T3Error) return err.message;
+    if (err instanceof T3Error) {
+        const tag = [err.code, err.status].filter(Boolean).join(' ');
+        const detail = err.detail && err.detail !== err.message ? ` — ${err.detail}` : '';
+        return `${err.message}${detail}${tag ? ` [${tag}]` : ''}`;
+    }
     if (err instanceof Error) return err.message;
     return String(err);
 };
 
 const nonNull = <T>(rows: Array<T | null>): T[] => rows.filter((r): r is T => r !== null);
+
+const isCultivationList = (list: MetrcSyncList) => list.startsWith('plantbatches/') || list.startsWith('harvests/') || list.startsWith('plants/');
+
+/**
+ * Whether the Metrc login sees any plants view on this licence. Manufacturing
+ * and processing licences have none, so their cultivation lists are skipped.
+ * If the probe itself fails, assume yes and let the lists speak for themselves.
+ */
+async function hasCultivation(t3: SyncT3, license: string): Promise<boolean> {
+    try {
+        const perms = await t3.plantPermissions(license);
+        return !Array.isArray(perms) || perms.some(p => /^plants\b/i.test(p));
+    } catch {
+        return true;
+    }
+}
+
+/** Metrc answers 401/403 for pages a licence doesn't have; on a cultivation list that just means "not here". */
+const notAvailableHere = (err: unknown) => err instanceof T3Error && (err.status === 401 || err.status === 403);
+
+/** Per-list counts plus the row failures the runner turns into run errors. */
+type ListResult = MetrcSyncListCounts & { failed: number; failures: string[] };
 
 export async function runMetrcSync(store: SyncStore, t3: SyncT3, opts: RunOptions): Promise<FinishRun> {
     const now = opts.now ?? (() => new Date());
@@ -103,7 +134,12 @@ export async function runMetrcSync(store: SyncStore, t3: SyncT3, opts: RunOption
 
     for (const license of licenses) {
         counts[license] = {};
+        let cultivation: boolean | null = null;
         for (const list of SYNC_LISTS) {
+            if (isCultivationList(list)) {
+                if (cultivation === null) cultivation = await hasCultivation(t3, license);
+                if (!cultivation) continue;
+            }
             if (now() >= opts.deadline) {
                 errors.push({ license, list, message: 'Out of time; this list will be picked up by the next run.' });
                 continue;
@@ -113,15 +149,28 @@ export async function runMetrcSync(store: SyncStore, t3: SyncT3, opts: RunOption
             const listStartedAt = now();
             try {
                 const c = await syncList(store, t3, opts, license, list, since, report);
-                counts[license][list] = c;
+                counts[license][list] = { fetched: c.fetched, inserted: c.inserted, updated: c.updated, unchanged: c.unchanged, failed: c.failed };
+                if (c.failed) {
+                    errors.push({ license, list, message: `${c.failed} row${c.failed === 1 ? '' : 's'} rejected by the database: ${c.failures.join(' | ')}` });
+                }
                 if (!opts.dryRun) await store.markListSuccess(opts.companyId, license, list, listStartedAt);
                 succeeded++;
             } catch (err) {
+                if (isCultivationList(list) && notAvailableHere(err)) continue;
                 const message = describe(err);
                 errors.push({ license, list, message });
                 if (!opts.dryRun) await store.markListError(opts.companyId, license, list, message);
             }
             await store.touchRun(opts.runId, counts, errors);
+        }
+    }
+
+    // Type synced rooms from their contents so the plant map groups them under the right phase.
+    if (!opts.dryRun && succeeded > 0) {
+        try {
+            await store.classifySyncedRooms(opts.companyId);
+        } catch (err) {
+            errors.push({ message: `Could not type synced rooms: ${describe(err)}` });
         }
     }
 
@@ -137,8 +186,8 @@ async function syncList(
     list: MetrcSyncList,
     since: Date | undefined,
     report: MetrcSyncReport,
-): Promise<MetrcSyncListCounts> {
-    const zero = (fetched: number): MetrcSyncListCounts => ({ fetched, inserted: 0, updated: 0, unchanged: fetched });
+): Promise<ListResult> {
+    const zero = (fetched: number): ListResult => ({ fetched, inserted: 0, updated: 0, unchanged: fetched, failed: 0, failures: [] });
 
     if (list === 'items') {
         const rows = nonNull((await t3.items(license, since)).map(i => mapItem(i, license)));
@@ -189,14 +238,14 @@ async function syncList(
     if (opts.dryRun) {
         // Report what a real run would do: new tags vs. rows it would update.
         const inserted = toWrite.filter(r => !existing.has(r.label)).length;
-        return { fetched: rows.length, inserted, updated: toWrite.length - inserted, unchanged };
+        return { fetched: rows.length, inserted, updated: toWrite.length - inserted, unchanged, failed: 0, failures: [] };
     }
-    if (!toWrite.length) return { fetched: rows.length, inserted: 0, updated: 0, unchanged };
+    if (!toWrite.length) return { ...zero(rows.length), unchanged };
 
     await store.ensureProductTypes(opts.companyId, toWrite.map(r => r.productType));
     const itemIds = await store.metrcItemIds(opts.companyId, license);
     const written = await store.upsertPackages(opts.companyId, toWrite, itemIds);
-    return { fetched: rows.length, ...written, unchanged };
+    return { fetched: rows.length, ...written, unchanged: unchanged + written.unchanged };
 }
 
 // ── Is this deploy a sync deploy? ──────────────────────────────────────────

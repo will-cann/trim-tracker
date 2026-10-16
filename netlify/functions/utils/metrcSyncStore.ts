@@ -32,7 +32,14 @@ export interface UpsertCounts {
     inserted: number;
     updated: number;
     unchanged: number;
+    /** Rows the database rejected even one at a time (constraint violations and the like). */
+    failed: number;
+    /** "<key>: <reason>" for the first few failures. */
+    failures: string[];
 }
+
+export const newCounts = (): UpsertCounts => ({ inserted: 0, updated: 0, unchanged: 0, failed: 0, failures: [] });
+const MAX_FAILURES_KEPT = 5;
 
 export interface FinishRun {
     status: MetrcSyncRunStatus;
@@ -197,9 +204,8 @@ export class MetrcSyncStore {
     }
 
     async upsertItems(companyId: string, rows: MetrcItemRow[]): Promise<UpsertCounts> {
-        const counts: UpsertCounts = { inserted: 0, updated: 0, unchanged: 0 };
-        for (const batch of chunk(dedupeBy(rows, r => `${r.license_number}::${r.name.toLowerCase()}`))) {
-            const { rows: written } = await this.db.query(
+        const counts = newCounts();
+        await this.writeBatches(dedupeBy(rows, r => `${r.license_number}::${r.name.toLowerCase()}`), r => `${r.license_number}::${r.name}`, counts, batch => this.db.query(
                 `INSERT INTO metrc_items (company_id, license_number, name, category, strain, unit_of_measure, package_type, metrc_id, metrc_last_modified, metrc_synced_at)
                  SELECT $1, u.license_number, u.name, u.category, u.strain, u.unit_of_measure, u.package_type, u.metrc_id, u.metrc_last_modified, NOW()
                    FROM UNNEST($2::text[], $3::text[], $4::text[], $5::text[], $6::text[], $7::text[], $8::bigint[], $9::timestamptz[])
@@ -222,17 +228,13 @@ export class MetrcSyncStore {
                     batch.map(r => r.license_number), batch.map(r => r.name), batch.map(r => r.category), batch.map(r => r.strain),
                     batch.map(r => r.unit_of_measure), batch.map(r => r.package_type), batch.map(r => r.metrc_id), batch.map(r => r.metrc_last_modified),
                 ],
-            );
-            tally(written, counts);
-            counts.unchanged += batch.length - written.length;
-        }
+        ));
         return counts;
     }
 
     async upsertStrains(companyId: string, rows: StrainRow[]): Promise<UpsertCounts> {
-        const counts: UpsertCounts = { inserted: 0, updated: 0, unchanged: 0 };
-        for (const batch of chunk(dedupeByLowerName(rows))) {
-            const { rows: written } = await this.db.query(
+        const counts = newCounts();
+        await this.writeBatches(dedupeByLowerName(rows), r => r.name, counts, batch => this.db.query(
                 `INSERT INTO strains (company_id, name, metrc_id, metrc_license, metrc_synced_at)
                  SELECT $1, u.name, u.metrc_id, u.metrc_license, NOW()
                    FROM UNNEST($2::text[], $3::bigint[], $4::text[]) AS u(name, metrc_id, metrc_license)
@@ -244,17 +246,13 @@ export class MetrcSyncStore {
                  WHERE (strains.metrc_id, strains.metrc_license) IS DISTINCT FROM (EXCLUDED.metrc_id, EXCLUDED.metrc_license)
                  RETURNING (xmax = 0) AS inserted`,
                 [companyId, batch.map(r => r.name), batch.map(r => r.metrc_id), batch.map(r => r.metrc_license)],
-            );
-            tally(written, counts);
-            counts.unchanged += batch.length - written.length;
-        }
+        ));
         return counts;
     }
 
     async upsertRooms(companyId: string, rows: RoomRow[]): Promise<UpsertCounts> {
-        const counts: UpsertCounts = { inserted: 0, updated: 0, unchanged: 0 };
-        for (const batch of chunk(dedupeByLowerName(rows))) {
-            const { rows: written } = await this.db.query(
+        const counts = newCounts();
+        await this.writeBatches(dedupeByLowerName(rows), r => r.name, counts, batch => this.db.query(
                 `INSERT INTO rooms (company_id, name, room_type, metrc_id, metrc_license, metrc_synced_at)
                  SELECT $1, u.name, 'general', u.metrc_id, u.metrc_license, NOW()
                    FROM UNNEST($2::text[], $3::bigint[], $4::text[]) AS u(name, metrc_id, metrc_license)
@@ -266,10 +264,7 @@ export class MetrcSyncStore {
                  WHERE (rooms.metrc_id, rooms.metrc_license) IS DISTINCT FROM (EXCLUDED.metrc_id, EXCLUDED.metrc_license)
                  RETURNING (xmax = 0) AS inserted`,
                 [companyId, batch.map(r => r.name), batch.map(r => r.metrc_id), batch.map(r => r.metrc_license)],
-            );
-            tally(written, counts);
-            counts.unchanged += batch.length - written.length;
-        }
+        ));
         return counts;
     }
 
@@ -293,9 +288,8 @@ export class MetrcSyncStore {
 
     /** Metrc immature plants → plant_batches, matched on name. Health, contaminants, tag and source plant stay NeuroCann's. */
     async upsertPlantBatches(companyId: string, rows: PlantBatchRow[], ids: CultivationIds): Promise<UpsertCounts> {
-        const counts: UpsertCounts = { inserted: 0, updated: 0, unchanged: 0 };
-        for (const batch of chunk(dedupeBy(rows, r => r.name.toLowerCase()))) {
-            const { rows: written } = await this.db.query(
+        const counts = newCounts();
+        await this.writeBatches(dedupeBy(rows, r => r.name.toLowerCase()), r => r.name, counts, batch => this.db.query(
                 `INSERT INTO plant_batches (
                     company_id, name, batch_type, strain_id, strain_name, room_id, untracked_count, tracked_count, planted_date,
                     metrc_id, metrc_license, metrc_last_modified, metrc_synced_at
@@ -327,10 +321,7 @@ export class MetrcSyncStore {
                     batch.map(r => (r.room_name ? ids.rooms.get(r.room_name.toLowerCase()) ?? null : null)), batch.map(r => r.untracked_count), batch.map(r => r.tracked_count),
                     batch.map(r => r.planted_date), batch.map(r => r.metrc_id), batch.map(r => r.metrc_license), batch.map(r => r.metrc_last_modified),
                 ],
-            );
-            tally(written, counts);
-            counts.unchanged += batch.length - written.length;
-        }
+        ));
         return counts;
     }
 
@@ -341,8 +332,8 @@ export class MetrcSyncStore {
      * own pipeline stage is kept, except a completed row Metrc reopens goes back to hanging.
      */
     async upsertHarvests(companyId: string, rows: HarvestRow[]): Promise<UpsertCounts> {
-        const counts: UpsertCounts = { inserted: 0, updated: 0, unchanged: 0 };
-        for (const batch of chunk(dedupeBy(rows, r => String(r.metrc_id)))) {
+        const counts = newCounts();
+        await this.writeBatches(dedupeBy(rows, r => String(r.metrc_id)), r => r.name, counts, async batch => {
             await this.db.query(
                 `UPDATE harvests h
                     SET metrc_id = u.metrc_id, metrc_license = u.metrc_license
@@ -351,7 +342,7 @@ export class MetrcSyncStore {
                     AND NOT EXISTS (SELECT 1 FROM harvests x WHERE x.company_id = $1 AND x.metrc_id = u.metrc_id)`,
                 [companyId, batch.map(r => r.name), batch.map(r => r.metrc_id), batch.map(r => r.metrc_license)],
             );
-            const { rows: written } = await this.db.query(
+            return this.db.query(
                 `INSERT INTO harvests (
                     company_id, created_by, batch_id, name, license_number, strain, plant_count, total_wet_weight, total_waste_weight,
                     drying_location, status, is_on_hold, harvest_start_date, harvest_end_date,
@@ -396,17 +387,14 @@ export class MetrcSyncStore {
                     batch.map(r => r.harvest_start_date), batch.map(r => r.harvest_end_date), batch.map(r => r.metrc_id), batch.map(r => r.metrc_license), batch.map(r => r.metrc_last_modified),
                 ],
             );
-            tally(written, counts);
-            counts.unchanged += batch.length - written.length;
-        }
+        });
         return counts;
     }
 
     /** Metrc tagged plants → plants, matched on tag. Health, contaminants, target harvest date and tag stay NeuroCann's. */
     async upsertPlants(companyId: string, rows: PlantRow[], ids: CultivationIds): Promise<UpsertCounts> {
-        const counts: UpsertCounts = { inserted: 0, updated: 0, unchanged: 0 };
-        for (const batch of chunk(dedupeBy(rows, r => r.label))) {
-            const { rows: written } = await this.db.query(
+        const counts = newCounts();
+        await this.writeBatches(dedupeBy(rows, r => r.label), r => r.label, counts, batch => this.db.query(
                 `INSERT INTO plants (
                     company_id, label, strain_id, strain_name, room_id, growth_phase, planted_date, vegetative_date, flowering_date,
                     harvested_date, destroyed_date, is_on_hold, plant_batch_id, harvest_id,
@@ -451,11 +439,40 @@ export class MetrcSyncStore {
                     batch.map(r => (r.metrc_harvest_id !== null ? ids.harvests.get(r.metrc_harvest_id) ?? null : null)),
                     batch.map(r => r.metrc_id), batch.map(r => r.metrc_license), batch.map(r => r.metrc_last_modified),
                 ],
-            );
-            tally(written, counts);
-            counts.unchanged += batch.length - written.length;
-        }
+        ));
         return counts;
+    }
+
+    /**
+     * Rooms created from Metrc locations start as 'general'. Once plants and
+     * batches have synced, type each still-general synced room from what Metrc
+     * put in it (mostly flowering plants → flower, veg → veg, only batches →
+     * nursery). Runs once per room: a type anyone sets afterwards is kept.
+     * Returns how many rooms were typed.
+     */
+    async classifySyncedRooms(companyId: string): Promise<number> {
+        const { rows } = await this.db.query(
+            `WITH stats AS (
+                SELECT r.id,
+                       (SELECT COUNT(*) FROM plants p WHERE p.room_id = r.id AND p.growth_phase = 'vegetative') AS veg,
+                       (SELECT COUNT(*) FROM plants p WHERE p.room_id = r.id AND p.growth_phase = 'flowering') AS flower,
+                       (SELECT COALESCE(SUM(pb.untracked_count + pb.tracked_count), 0) FROM plant_batches pb WHERE pb.room_id = r.id) AS nursery
+                  FROM rooms r
+                 WHERE r.company_id = $1 AND r.metrc_id IS NOT NULL AND r.room_type = 'general'
+             )
+             UPDATE rooms r
+                SET room_type = CASE
+                        WHEN s.flower > 0 AND s.flower >= s.veg AND s.flower >= s.nursery THEN 'flower'
+                        WHEN s.veg > 0 AND s.veg >= s.nursery THEN 'veg'
+                        ELSE 'nursery'
+                    END,
+                    updated_at = NOW()
+               FROM stats s
+              WHERE s.id = r.id AND (s.flower > 0 OR s.veg > 0 OR s.nursery > 0)
+              RETURNING r.id`,
+            [companyId],
+        );
+        return rows.length;
     }
 
     // ── Packages ───────────────────────────────────────────────────────────
@@ -479,10 +496,9 @@ export class MetrcSyncStore {
         return out;
     }
 
-    async upsertPackages(companyId: string, rows: PackageRow[], itemIds: Map<string, string>): Promise<Omit<UpsertCounts, 'unchanged'>> {
-        const counts = { inserted: 0, updated: 0 };
-        for (const batch of chunk(dedupeBy(rows, r => r.label))) {
-            const { rows: written } = await this.db.query(
+    async upsertPackages(companyId: string, rows: PackageRow[], itemIds: Map<string, string>): Promise<UpsertCounts> {
+        const counts = newCounts();
+        await this.writeBatches(dedupeBy(rows, r => r.label), r => r.label, counts, batch => this.db.query(
                 `INSERT INTO packages (
                     company_id, created_by, label, license_number, metrc_id, metrc_license, metrc_last_modified,
                     item_name, metrc_item_id, strain, package_type, quantity, unit, location, status,
@@ -542,10 +558,47 @@ export class MetrcSyncStore {
                     batch.map(r => r.is_production_batch), batch.map(r => r.is_trade_sample), batch.map(r => r.is_donation),
                     batch.map(r => JSON.stringify(r.source_package_labels)), batch.map(r => JSON.stringify(r.source_harvest_names)),
                 ],
-            );
-            tally(written, counts as UpsertCounts);
-        }
+            ));
         return counts;
+    }
+
+    /**
+     * Runs one upsert statement per batch of rows. When a batch is rejected
+     * (a constraint one row trips fails the whole statement), the rows are
+     * retried one at a time so a single odd record can't block a list; the
+     * ones that still fail are counted and the first few reasons kept.
+     */
+    private async writeBatches<T>(
+        rows: T[],
+        key: (row: T) => string,
+        counts: UpsertCounts,
+        exec: (batch: T[]) => Promise<{ rows: any[] }>,
+    ): Promise<void> {
+        const record = (written: any[], attempted: number) => {
+            tally(written, counts);
+            counts.unchanged += attempted - written.length;
+        };
+        const fail = (row: T, err: unknown) => {
+            counts.failed++;
+            if (counts.failures.length < MAX_FAILURES_KEPT) {
+                counts.failures.push(`${key(row)}: ${err instanceof Error ? err.message : String(err)}`);
+            }
+        };
+        for (const batch of chunk(rows)) {
+            try {
+                record((await exec(batch)).rows, batch.length);
+                continue;
+            } catch (err) {
+                if (batch.length === 1) { fail(batch[0], err); continue; }
+            }
+            for (const row of batch) {
+                try {
+                    record((await exec([row])).rows, 1);
+                } catch (err) {
+                    fail(row, err);
+                }
+            }
+        }
     }
 }
 
