@@ -2132,11 +2132,15 @@ IMPORTANT: If the user is correcting or updating a previous statement (e.g. "act
 
         userMessage += contextInfo.join('\n');
 
-        const apiKey = process.env.CLAUDE_API_KEY || process.env.ANTHROPIC_API_KEY;
+        const apiKey = (process.env.CLAUDE_API_KEY || process.env.ANTHROPIC_API_KEY || '').trim();
         if (!apiKey) {
             console.error('CLAUDE_API_KEY / ANTHROPIC_API_KEY not set');
             return { statusCode: 500, body: JSON.stringify({ error: 'AI service not configured' }) };
         }
+        // Which variable won, and a fingerprint that can be matched against the
+        // Console's key list without exposing the secret. Catches a stale
+        // CLAUDE_API_KEY shadowing a new ANTHROPIC_API_KEY, or a mangled paste.
+        console.log(`[ai-parse key] source=${process.env.CLAUDE_API_KEY ? 'CLAUDE_API_KEY' : 'ANTHROPIC_API_KEY'} prefix=${apiKey.slice(0, 14)} len=${apiKey.length}${/^sk-ant-/.test(apiKey) ? '' : ' (does not look like an Anthropic key)'}`);
 
         // Build multi-turn messages from history, or single message.
         // Content can be either a string (plain user/assistant turn) or an
