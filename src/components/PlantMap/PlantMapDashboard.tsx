@@ -381,8 +381,9 @@ export const PlantMapDashboard: React.FC<PlantMapDashboardProps> = ({ refreshKey
                             );
                         })()
                     ) : (
+                        <>
+                        <PlantMapSummary data={data!} />
                         <div className="plant-map-grid">
-                            <PlantMapSummary data={data!} />
                             {filteredRooms.map(([name, room]) => {
                                 // For expanded room in "all" view, derive phase from room type
                                 const rt = roomTypeByName.get(name) || '';
@@ -417,13 +418,14 @@ export const PlantMapDashboard: React.FC<PlantMapDashboardProps> = ({ refreshKey
                                 );
                             })}
                         </div>
+                        </>
                     )}
                 </>
             )}
 
             {viewMode === 'table' && (
                 <>
-                    <div className="mt-4">
+                    <div className="mt-3">
                         <DataTable
                             columns={PLANT_COLUMNS}
                             data={sortedPlants}
@@ -434,7 +436,7 @@ export const PlantMapDashboard: React.FC<PlantMapDashboardProps> = ({ refreshKey
                             onSort={handleSort}
                         />
                         {!tableLoading && plantTotal > 0 && (
-                            <div className="flex items-center justify-between gap-3 px-1 py-3 text-xs text-[var(--color-dolphin)]">
+                            <div className="flex items-center justify-between gap-3 px-1 py-2.5 text-xs text-[var(--detail-text)]">
                                 <span>
                                     Showing {plantList.length.toLocaleString()} of {plantTotal.toLocaleString()}
                                     {activeFilters.phase?.includes('harvested') ? '' : ' · harvested plants hidden (use the Phase filter)'}

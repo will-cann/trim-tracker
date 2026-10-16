@@ -91,9 +91,14 @@ export async function verifyToken(authHeader?: string, extraAudiences: string[] 
     }
 }
 
+/**
+ * Identity used when DEV_BYPASS_AUTH=true. Defaults to the seed admin from
+ * migrations/seed_dev_data.sql; DEV_BYPASS_COMPANY_ID / DEV_BYPASS_USER_ID
+ * point it at another company (e.g. a Metrc-synced facility on the dev branch).
+ */
 export const DEV_BYPASS_CONTEXT: AuthenticatedContext = {
-    userId: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
-    companyId: '11111111-1111-1111-1111-111111111111',
+    userId: process.env.DEV_BYPASS_USER_ID || 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
+    companyId: process.env.DEV_BYPASS_COMPANY_ID || '11111111-1111-1111-1111-111111111111',
     role: 'admin',
     departments: [],
 };

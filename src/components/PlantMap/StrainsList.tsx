@@ -1,12 +1,13 @@
 import React, { useState, useMemo, useCallback } from 'react';
-import { ChevronDown, ChevronUp } from 'lucide-react';
+import { ArrowUp, ArrowDown, Search, X } from 'lucide-react';
 import { CenteredSpinner } from '../Spinner';
 import { ErrorRetry } from '../ErrorRetry';
 import type { RoomMapData, PlantPhase } from '../../types/plantMap';
-import { getHealthColor, HEALTH_COLOR_MAP, abbreviateContaminants } from '../../types/plantMap';
+import { getHealthColor, HEALTH_COLOR_MAP, contaminantAbbrev, contaminantLabel, abbreviateContaminants } from '../../types/plantMap';
 import { DialogDrawer } from './DialogDrawer';
 import { PlantActionModal } from './PlantActionModal';
 import type { PlantActionType } from './PlantActionModal';
+import { shortDate } from './shortDate';
 
 interface StrainsListProps {
     data: RoomMapData | null;
@@ -31,6 +32,12 @@ const ACTION_TYPE_MAP: Record<string, PlantActionType | null> = {
     'create-packages': null,   // Future sprint
 };
 
+const daysSince = (iso: string | null): number | null => {
+    if (!iso) return null;
+    const days = Math.floor((Date.now() - new Date(iso).getTime()) / 86400000);
+    return days >= 0 ? days : null;
+};
+
 export const StrainsList: React.FC<StrainsListProps> = ({
     data,
     loading,
@@ -44,6 +51,7 @@ export const StrainsList: React.FC<StrainsListProps> = ({
     const [sortKey, setSortKey] = useState<SortKey>('strain');
     const [sortDir, setSortDir] = useState<SortDir>('asc');
     const [activeModal, setActiveModal] = useState<PlantActionType | null>(null);
+    const [filter, setFilter] = useState('');
 
     const rows = useMemo(() => {
         if (!data) return [];
@@ -69,7 +77,7 @@ export const StrainsList: React.FC<StrainsListProps> = ({
                     cmp = abbreviateContaminants(a.contamination).localeCompare(abbreviateContaminants(b.contamination));
                     break;
                 case 'plantedDate':
-                    cmp = a.plantedDate.localeCompare(b.plantedDate);
+                    cmp = (a.phaseDate || a.plantedDate).localeCompare(b.phaseDate || b.plantedDate);
                     break;
                 case 'harvestDate':
                     cmp = (a.harvestDate || '').localeCompare(b.harvestDate || '');
@@ -83,8 +91,15 @@ export const StrainsList: React.FC<StrainsListProps> = ({
         return sorted;
     }, [rows, sortKey, sortDir]);
 
+    // Large rooms (a nursery can hold 100+ batches) get a name filter
+    const query = filter.trim().toLowerCase();
+    const visibleRows = useMemo(
+        () => (query ? sortedRows.filter(r => r.strain.toLowerCase().includes(query)) : sortedRows),
+        [sortedRows, query],
+    );
+
     const totalSelected = selectedIds.size;
-    const allSelected = rows.length > 0 && selectedIds.size === rows.length;
+    const allSelected = visibleRows.length > 0 && visibleRows.every(r => selectedIds.has(r.id));
 
     const toggleSort = (key: SortKey) => {
         if (sortKey === key) {
@@ -105,24 +120,23 @@ export const StrainsList: React.FC<StrainsListProps> = ({
     };
 
     const toggleAll = () => {
-        if (allSelected) {
-            setSelectedIds(new Set());
-        } else {
-            setSelectedIds(new Set(rows.map(r => r.id)));
-        }
+        setSelectedIds(prev => {
+            const next = new Set(prev);
+            if (allSelected) visibleRows.forEach(r => next.delete(r.id));
+            else visibleRows.forEach(r => next.add(r.id));
+            return next;
+        });
     };
 
     const selectedGroups = useMemo(() => {
         return rows.filter(r => selectedIds.has(r.id));
     }, [rows, selectedIds]);
 
-    const entityType = rows[0]?.type;
-
     const handleAction = useCallback((actionKey: string) => {
         const modalType = ACTION_TYPE_MAP[actionKey];
         if (!modalType) return;
         setActiveModal(modalType);
-    }, [entityType]);
+    }, []);
 
     const handleModalSuccess = useCallback(() => {
         setActiveModal(null);
@@ -131,7 +145,7 @@ export const StrainsList: React.FC<StrainsListProps> = ({
     }, [onRevalidate]);
 
     if (loading) {
-        return <CenteredSpinner label="Loading strains…" height="h-full" />;
+        return <CenteredSpinner label="Loading strains…" height="py-10" />;
     }
 
     if (error) {
@@ -140,165 +154,199 @@ export const StrainsList: React.FC<StrainsListProps> = ({
 
     if (rows.length === 0) {
         return (
-            <div className="flex items-center justify-center h-full text-xs text-gray-400">
+            <div className="data-table-empty">
                 No strain data for this room.
             </div>
         );
     }
 
     // Each phase gets one milestone date column instead of a generic "Date"
-    const milestoneCol: { key: SortKey; label: string } | null =
-        phase === 'nursery'   ? { key: 'flipDate', label: 'Uppot' } :
-        phase === 'vegetative' ? { key: 'flipDate', label: 'Flip' } :
-        phase === 'flowering'  ? { key: 'harvestDate', label: 'Harvest' } :
+    const milestoneCol: { key: SortKey; label: string; color: string } | null =
+        phase === 'nursery'   ? { key: 'flipDate', label: 'Uppot', color: '#0E82DB' } :
+        phase === 'vegetative' ? { key: 'flipDate', label: 'Flip', color: '#0E82DB' } :
+        phase === 'flowering'  ? { key: 'harvestDate', label: 'Harvest', color: '#E0863A' } :
         null;
 
-    const columns: { key: SortKey; label: string; width: string }[] = [
-        { key: 'plantHealth', label: 'Health', width: 'w-16' },
-        { key: 'strain', label: 'Strain', width: 'flex-1' },
-        { key: 'totalPlants', label: 'Plants', width: 'w-14' },
-        { key: 'contamination', label: 'Contam.', width: 'w-20' },
-        { key: 'plantedDate', label: 'Days', width: 'w-14' },
-        ...(milestoneCol ? [{ key: milestoneCol.key, label: milestoneCol.label, width: 'w-20' }] : []),
+    const columns: { key: SortKey; label: string; align?: 'right'; className?: string }[] = [
+        { key: 'strain', label: 'Strain', className: 'strains-col-strain' },
+        { key: 'totalPlants', label: 'Plants', align: 'right', className: 'strains-col-num' },
+        { key: 'plantHealth', label: 'Health', align: 'right', className: 'strains-col-num' },
+        { key: 'contamination', label: 'Issues', className: 'strains-col-issues' },
+        { key: 'plantedDate', label: `Days in ${phaseLabel.toLowerCase()}`, align: 'right', className: 'strains-col-num' },
+        ...(milestoneCol ? [{ key: milestoneCol.key, label: milestoneCol.label, align: 'right' as const, className: 'strains-col-num' }] : []),
     ];
 
-    const SortIcon = ({ col }: { col: SortKey }) => {
-        if (sortKey !== col) return null;
-        return sortDir === 'asc'
-            ? <ChevronUp size={12} className="ml-0.5" />
-            : <ChevronDown size={12} className="ml-0.5" />;
-    };
+    const totalPlants = visibleRows.reduce((s, r) => s + r.totalPlants, 0);
+    const avgHealth = totalPlants ? Math.round(visibleRows.reduce((s, r) => s + r.plantHealth * r.totalPlants, 0) / totalPlants) : 100;
+    const avgHex = HEALTH_COLOR_MAP[getHealthColor(avgHealth)];
+    const allIssues = [...new Set(visibleRows.flatMap(r => r.contamination))];
+    const showFilter = rows.length > 8;
+    // Nursery rows are plant batches (several per strain); elsewhere one row per strain
+    const rowNoun = rows[0]?.type === 'plantbatches' ? 'batch' : 'strain';
+    const rowNouns = rowNoun === 'batch' ? 'batches' : 'strains';
 
     return (
         <>
-            <div className="flex h-full">
-                <div className="flex-1 flex flex-col min-w-0">
-                    {/* Header */}
-                    <div className="flex items-center justify-between px-3 py-2 border-b border-gray-100">
-                        <h4 className="text-xs font-semibold text-gray-700">
-                            Strains in {roomName}
-                        </h4>
-                        {totalSelected > 0 && (
-                            <span className="text-[10px] text-emerald-600 font-medium">
-                                {totalSelected} selected
-                            </span>
+            <DialogDrawer
+                isOpen={totalSelected > 0}
+                totalSelected={totalSelected}
+                phase={phase}
+                phaseLabel={phaseLabel}
+                selectedGroups={selectedGroups}
+                roomName={roomName}
+                onAction={handleAction}
+                onClearSelection={() => setSelectedIds(new Set())}
+            />
+
+            {showFilter && (
+                <div className="strains-toolbar">
+                    <label className="strains-filter">
+                        <Search size={13} />
+                        <input
+                            type="search"
+                            value={filter}
+                            onChange={e => setFilter(e.target.value)}
+                            placeholder={`Filter ${rows.length} ${rowNouns}…`}
+                            aria-label="Filter strains"
+                        />
+                        {filter && (
+                            <button type="button" onClick={() => setFilter('')} aria-label="Clear filter" className="strains-filter-clear">
+                                <X size={12} />
+                            </button>
                         )}
-                    </div>
-
-                    {/* Table */}
-                    <div className="flex-1 overflow-auto">
-                        <table className="w-full text-xs">
-                            <thead>
-                                <tr className="border-b border-gray-100">
-                                    <th className="w-8 px-2 py-2">
-                                        <input
-                                            type="checkbox"
-                                            checked={allSelected}
-                                            onChange={toggleAll}
-                                            className="rounded border-gray-300 text-emerald-500 focus:ring-emerald-500 h-3.5 w-3.5"
-                                        />
-                                    </th>
-                                    {columns.map(col => (
-                                        <th
-                                            key={col.key}
-                                            className={`px-2 py-2 text-left text-[10px] font-medium text-gray-400 uppercase tracking-wider cursor-pointer hover:text-gray-600 select-none ${col.width}`}
-                                            onClick={() => toggleSort(col.key)}
-                                        >
-                                            <span className="inline-flex items-center">
-                                                {col.label}
-                                                <SortIcon col={col.key} />
-                                            </span>
-                                        </th>
-                                    ))}
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {sortedRows.map(row => {
-                                    const hColor = getHealthColor(row.plantHealth);
-                                    const hHex = HEALTH_COLOR_MAP[hColor];
-                                    const contam = abbreviateContaminants(row.contamination);
-                                    const isSelected = selectedIds.has(row.id);
-                                    return (
-                                        <tr
-                                            key={row.id}
-                                            className={`border-b border-gray-50 cursor-pointer transition-colors ${
-                                                isSelected ? 'bg-emerald-50/50' : 'hover:bg-gray-50'
-                                            }`}
-                                            onClick={() => toggleRow(row.id)}
-                                        >
-                                            <td className="w-8 px-2 py-2">
-                                                <input
-                                                    type="checkbox"
-                                                    checked={isSelected}
-                                                    onChange={() => toggleRow(row.id)}
-                                                    onClick={e => e.stopPropagation()}
-                                                    className="rounded border-gray-300 text-emerald-500 focus:ring-emerald-500 h-3.5 w-3.5"
-                                                />
-                                            </td>
-                                            <td className="px-2 py-2 w-16">
-                                                <span className="font-semibold tabular-nums" style={{ color: hHex }}>
-                                                    {row.plantHealth}%
-                                                </span>
-                                            </td>
-                                            <td className="px-2 py-2 flex-1">
-                                                <span className="font-medium text-gray-900" title={row.strain}>
-                                                    {row.strain.length > 12 ? row.strain.slice(0, 12) + '…' : row.strain}
-                                                </span>
-                                            </td>
-                                            <td className="px-2 py-2 w-16 tabular-nums text-gray-700 font-medium">
-                                                {row.totalPlants}
-                                                {row.plannedCount ? (
-                                                    <span
-                                                        className="planned-badge"
-                                                        title={`${row.plannedCount} of ${row.totalPlants} planned for harvest`}
-                                                    >
-                                                        {row.plannedCount === row.totalPlants ? 'P' : `${row.plannedCount}P`}
-                                                    </span>
-                                                ) : null}
-                                            </td>
-                                            <td className="px-2 py-2 w-24 text-gray-500">
-                                                {contam}
-                                            </td>
-                                            <td className="px-2 py-2 w-14 tabular-nums text-gray-500">
-                                                {(() => {
-                                                    const d = row.phaseDate || row.plantedDate;
-                                                    if (!d) return '—';
-                                                    const days = Math.floor((Date.now() - new Date(d).getTime()) / 86400000);
-                                                    return days >= 0 ? days : '—';
-                                                })()}
-                                            </td>
-                                            {milestoneCol && (() => {
-                                                const val = milestoneCol.key === 'harvestDate' ? row.harvestDate : row.flipDate;
-                                                const color = phase === 'flowering' ? 'text-amber-600' : 'text-blue-500';
-                                                return (
-                                                    <td className="px-2 py-2 w-20 tabular-nums text-gray-500">
-                                                        {val
-                                                            ? <span className={color}>~{val.slice(5).replace('-', '/')}</span>
-                                                            : <span className="text-gray-300">—</span>
-                                                        }
-                                                    </td>
-                                                );
-                                            })()}
-                                        </tr>
-                                    );
-                                })}
-                            </tbody>
-                        </table>
-                    </div>
+                    </label>
+                    <span className="strains-toolbar-count tabular-nums">
+                        {query ? `${visibleRows.length} of ${rows.length} ${rowNouns}` : `${rows.length} ${rowNouns}`}
+                        {query && visibleRows.length === 0 ? ' · nothing matches' : ''}
+                    </span>
                 </div>
+            )}
 
-                {/* Dialog Drawer */}
-                <DialogDrawer
-                    isOpen={totalSelected > 0}
-                    totalSelected={totalSelected}
-                    phase={phase}
-                    phaseLabel={phaseLabel}
-                    selectedGroups={selectedGroups}
-                    roomName={roomName}
-                    onAction={handleAction}
-                    onClearSelection={() => setSelectedIds(new Set())}
-                />
-            </div>
+            <table className="strains-table">
+                <thead>
+                    <tr>
+                        <th className="strains-th strains-col-check">
+                            <input
+                                type="checkbox"
+                                checked={allSelected}
+                                onChange={toggleAll}
+                                aria-label="Select all strains"
+                                className="strains-checkbox"
+                            />
+                        </th>
+                        {columns.map(col => {
+                            const sorted = sortKey === col.key;
+                            return (
+                                <th
+                                    key={col.key}
+                                    className={`strains-th strains-th--sortable ${sorted ? 'strains-th--sorted' : ''} ${col.align === 'right' ? 'text-right' : 'text-left'} ${col.className ?? ''}`}
+                                    onClick={() => toggleSort(col.key)}
+                                    aria-sort={sorted ? (sortDir === 'asc' ? 'ascending' : 'descending') : undefined}
+                                >
+                                    <span className="strains-th-inner">
+                                        {col.label}
+                                        <span className="strains-sort-icon">
+                                            {sorted && sortDir === 'desc' ? <ArrowDown size={11} /> : <ArrowUp size={11} />}
+                                        </span>
+                                    </span>
+                                </th>
+                            );
+                        })}
+                    </tr>
+                </thead>
+                <tbody>
+                    {visibleRows.map(row => {
+                        const hHex = HEALTH_COLOR_MAP[getHealthColor(row.plantHealth)];
+                        const issues = [...new Set(row.contamination)];
+                        const isSelected = selectedIds.has(row.id);
+                        const days = daysSince(row.phaseDate || row.plantedDate);
+                        const milestone = milestoneCol
+                            ? (milestoneCol.key === 'harvestDate' ? row.harvestDate : row.flipDate)
+                            : null;
+                        return (
+                            <tr
+                                key={row.id}
+                                className={`strains-row ${isSelected ? 'strains-row--selected' : ''}`}
+                                onClick={() => toggleRow(row.id)}
+                                aria-selected={isSelected}
+                            >
+                                <td className="strains-td strains-col-check">
+                                    <input
+                                        type="checkbox"
+                                        checked={isSelected}
+                                        onChange={() => toggleRow(row.id)}
+                                        onClick={e => e.stopPropagation()}
+                                        aria-label={`Select ${row.strain}`}
+                                        className="strains-checkbox"
+                                    />
+                                </td>
+                                <td className="strains-td strains-col-strain">
+                                    <span className="strains-name" title={row.strain}>{row.strain}</span>
+                                    {row.plants.length > 1 && row.type === 'plantbatches' && (
+                                        <span className="strains-sub"> · {row.plants.length} batches</span>
+                                    )}
+                                </td>
+                                <td className="strains-td strains-col-num text-right tabular-nums font-semibold">
+                                    {row.totalPlants.toLocaleString()}
+                                    {row.plannedCount ? (
+                                        <span
+                                            className="planned-badge"
+                                            title={`${row.plannedCount} of ${row.totalPlants} planned for harvest`}
+                                        >
+                                            {row.plannedCount === row.totalPlants ? 'P' : `${row.plannedCount}P`}
+                                        </span>
+                                    ) : null}
+                                </td>
+                                <td className="strains-td strains-col-num text-right">
+                                    <span className="strains-health">
+                                        <span className="data-table-dot" style={{ background: hHex }} />
+                                        <span className="tabular-nums font-semibold" style={{ color: hHex }}>{row.plantHealth}%</span>
+                                    </span>
+                                </td>
+                                <td className="strains-td">
+                                    {issues.length === 0
+                                        ? <span className="strains-muted">—</span>
+                                        : issues.map(c => (
+                                            <span key={c} className="strains-issue" title={contaminantLabel(c)}>{contaminantAbbrev(c)}</span>
+                                        ))}
+                                </td>
+                                <td className="strains-td strains-col-num text-right tabular-nums">
+                                    {days == null ? <span className="strains-muted">—</span> : days}
+                                </td>
+                                {milestoneCol && (
+                                    <td className="strains-td strains-col-num text-right tabular-nums">
+                                        {milestone
+                                            ? <span style={{ color: milestoneCol.color, fontWeight: 600 }}>{shortDate(milestone)}</span>
+                                            : <span className="strains-muted">—</span>}
+                                    </td>
+                                )}
+                            </tr>
+                        );
+                    })}
+                </tbody>
+                <tfoot>
+                    <tr className="strains-total">
+                        <td className="strains-td" />
+                        <td className="strains-td strains-col-strain">
+                            {query ? `${visibleRows.length} of ${rows.length}` : rows.length} {rows.length === 1 ? rowNoun : rowNouns}
+                        </td>
+                        <td className="strains-td strains-col-num text-right tabular-nums">{totalPlants.toLocaleString()}</td>
+                        <td className="strains-td strains-col-num text-right">
+                            <span className="strains-health">
+                                <span className="data-table-dot" style={{ background: avgHex }} />
+                                <span className="tabular-nums" style={{ color: avgHex }}>{avgHealth}%</span>
+                            </span>
+                        </td>
+                        <td className="strains-td" colSpan={milestoneCol ? 3 : 2}>
+                            {allIssues.length === 0
+                                ? <span className="strains-muted">No issues reported</span>
+                                : allIssues.map(c => (
+                                    <span key={c} className="strains-issue" title={contaminantLabel(c)}>{contaminantAbbrev(c)}</span>
+                                ))}
+                        </td>
+                    </tr>
+                </tfoot>
+            </table>
 
             {/* Action Modal */}
             {activeModal && (

@@ -1,103 +1,100 @@
 import React, { useState } from 'react';
-import { TreePine, AlertTriangle } from 'lucide-react';
+import { AlertTriangle } from 'lucide-react';
 import type { PlantMapData } from '../../types/plantMap';
-import { getHealthColor, HEALTH_COLOR_MAP } from '../../types/plantMap';
-import { PlantHealthCode } from './PlantHealthCode';
+import { getHealthColor, HEALTH_COLOR_MAP, contaminantAbbrev, contaminantLabel } from '../../types/plantMap';
 
 interface PlantMapSummaryProps {
     data: PlantMapData;
 }
 
-/** Chips shown before the list collapses behind "+N more". */
-const STRAIN_CHIP_LIMIT = 18;
+/** Strain chips shown before the list collapses behind "+N more". */
+const STRAIN_CHIP_LIMIT = 10;
+/** Rooms listed under "Needs attention". */
+const ATTENTION_LIMIT = 4;
 
+/**
+ * One-line facility summary that sits above the room grid: headline counts,
+ * the rooms that need attention, and the strain mix. Replaces the former
+ * tall "Facility Overview" card so every room card fits on the first screen.
+ */
 export const PlantMapSummary: React.FC<PlantMapSummaryProps> = ({ data }) => {
     const [showAllStrains, setShowAllStrains] = useState(false);
     const rooms = Object.entries(data);
 
     const totalPlants = rooms.reduce((sum, [, r]) => sum + r.totalPlants, 0);
-    const uniqueStrains = [...new Set(rooms.flatMap(([, r]) => r.strains))];
+    const uniqueStrains = [...new Set(rooms.flatMap(([, r]) => r.strains))].sort();
+    const avgHealth = totalPlants
+        ? Math.round(rooms.reduce((sum, [, r]) => sum + r.plantHealth * r.totalPlants, 0) / totalPlants)
+        : 100;
+    const avgHex = HEALTH_COLOR_MAP[getHealthColor(avgHealth)];
 
-    const leastHealthy = rooms
-        .map(([name, r]) => ({ name, health: r.plantHealth }))
+    const needsAttention = rooms
+        .filter(([, r]) => r.plantHealth < 100 || r.contaminants.length > 0)
+        .map(([name, r]) => ({ name, health: r.plantHealth, contaminants: [...new Set(r.contaminants)] }))
         .sort((a, b) => a.health - b.health)
-        .slice(0, 3);
+        .slice(0, ATTENTION_LIMIT);
+
+    const shownStrains = showAllStrains ? uniqueStrains : uniqueStrains.slice(0, STRAIN_CHIP_LIMIT);
+    const hiddenStrains = uniqueStrains.length - shownStrains.length;
 
     return (
-        <div className="plant-map-summary">
-            <div className="flex items-center gap-2 mb-5">
-                <div className="w-8 h-8 rounded-lg bg-emerald-50 flex items-center justify-center">
-                    <TreePine size={16} className="text-emerald-600" />
-                </div>
-                <h3 className="text-sm font-semibold text-gray-900">Facility Overview</h3>
+        <div className="summary-strip">
+            <div className="summary-strip-stats">
+                <Stat value={rooms.length} label={rooms.length === 1 ? 'room' : 'rooms'} />
+                <Stat value={totalPlants.toLocaleString()} label="plants" />
+                <Stat value={uniqueStrains.length} label={uniqueStrains.length === 1 ? 'strain' : 'strains'} />
+                <Stat value={`${avgHealth}%`} label="avg health" color={avgHex} />
             </div>
 
-            <div className="space-y-4 mb-6">
-                <div className="flex items-center justify-between">
-                    <span className="text-xs text-gray-500">Rooms</span>
-                    <span className="text-sm font-semibold text-gray-900 tabular-nums">{rooms.length}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                    <span className="text-xs text-gray-500">Total Plants</span>
-                    <span className="text-sm font-semibold text-gray-900 tabular-nums">{totalPlants.toLocaleString()}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                    <span className="text-xs text-gray-500">Unique Strains</span>
-                    <span className="text-sm font-semibold text-gray-900 tabular-nums">{uniqueStrains.length}</span>
-                </div>
+            <div className="summary-strip-attention">
+                <span className="summary-strip-label">
+                    <AlertTriangle size={12} />
+                    Needs attention
+                </span>
+                {needsAttention.length === 0 ? (
+                    <span className="text-xs text-gray-500">All rooms healthy</span>
+                ) : needsAttention.map(room => {
+                    const hex = HEALTH_COLOR_MAP[getHealthColor(room.health)];
+                    const issues = room.contaminants.map(c => contaminantAbbrev(c)).join(', ');
+                    return (
+                        <span
+                            key={room.name}
+                            className="summary-strip-chip"
+                            title={room.contaminants.map(c => contaminantLabel(c)).join(', ') || undefined}
+                        >
+                            <span className="data-table-dot" style={{ background: hex }} />
+                            <span className="font-semibold text-gray-900">{room.name}</span>
+                            <span className="tabular-nums font-semibold" style={{ color: hex }}>{room.health}%</span>
+                            {issues && <span className="text-gray-500">{issues}</span>}
+                        </span>
+                    );
+                })}
             </div>
 
-            {leastHealthy.length > 0 && (
-                <div className="mb-6">
-                    <h4 className="text-xs font-medium text-gray-400 uppercase tracking-wider mb-2 flex items-center gap-1.5">
-                        <AlertTriangle size={11} />
-                        Needs Attention
-                    </h4>
-                    <div className="space-y-2">
-                        {leastHealthy.map(room => (
-                            <div key={room.name} className="flex items-center justify-between py-1.5">
-                                <span className="text-xs text-gray-700 truncate mr-2">{room.name}</span>
-                                <div className="flex items-center gap-2">
-                                    <PlantHealthCode health={room.health} />
-                                    <span
-                                        className="text-xs font-semibold tabular-nums"
-                                        style={{ color: HEALTH_COLOR_MAP[getHealthColor(room.health)] }}
-                                    >
-                                        {room.health}%
-                                    </span>
-                                </div>
-                            </div>
-                        ))}
-                    </div>
+            {uniqueStrains.length > 0 && (
+                <div className="summary-strip-detail">
+                    <span className="summary-strip-label">Strains</span>
+                    {shownStrains.map(s => (
+                        <span key={s} className="summary-strip-tag">{s}</span>
+                    ))}
+                    {(hiddenStrains > 0 || showAllStrains) && (
+                        <button
+                            type="button"
+                            onClick={() => setShowAllStrains(v => !v)}
+                            className="summary-strip-tag summary-strip-tag--more"
+                        >
+                            {showAllStrains ? 'Show fewer' : `+${hiddenStrains} more`}
+                        </button>
+                    )}
                 </div>
             )}
-
-            {uniqueStrains.length > 0 && (() => {
-                const sorted = [...uniqueStrains].sort();
-                const shown = showAllStrains ? sorted : sorted.slice(0, STRAIN_CHIP_LIMIT);
-                const hidden = sorted.length - shown.length;
-                return (
-                    <div>
-                        <h4 className="text-xs font-medium text-gray-400 uppercase tracking-wider mb-2">Strains</h4>
-                        <div className="flex flex-wrap gap-1.5">
-                            {shown.map(s => (
-                                <span key={s} className="px-2 py-0.5 text-[11px] font-medium bg-gray-100 text-gray-600 rounded-full">
-                                    {s}
-                                </span>
-                            ))}
-                            {(hidden > 0 || showAllStrains) && (
-                                <button
-                                    type="button"
-                                    onClick={() => setShowAllStrains(v => !v)}
-                                    className="px-2 py-0.5 text-[11px] font-medium text-emerald-700 bg-emerald-50 rounded-full hover:bg-emerald-100"
-                                >
-                                    {showAllStrains ? 'Show fewer' : `+${hidden} more`}
-                                </button>
-                            )}
-                        </div>
-                    </div>
-                );
-            })()}
         </div>
     );
 };
+
+const Stat: React.FC<{ value: React.ReactNode; label: string; color?: string }> = ({ value, label, color }) => (
+    <span className="summary-strip-stat">
+        <span className="summary-strip-stat-value tabular-nums" style={color ? { color } : undefined}>{value}</span>
+        <span className="summary-strip-stat-label">{label}</span>
+    </span>
+);

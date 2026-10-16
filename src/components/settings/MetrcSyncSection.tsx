@@ -1,17 +1,26 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { AlertTriangle, CheckCircle2, Cloud, Loader2, RefreshCw, Search } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, Cloud, Loader2, RefreshCw, Search, SkipForward } from 'lucide-react';
 import { apiService } from '../../services/apiService';
-import type { MetrcSyncList, MetrcSyncRun, MetrcSyncStatus } from '../../../shared/manifest/metrcSync';
+import type { MetrcSyncError, MetrcSyncList, MetrcSyncListCounts, MetrcSyncRun, MetrcSyncStatus } from '../../../shared/manifest/metrcSync';
 
 /**
  * Settings → Metrc Sync. Shown only on a deploy that syncs Metrc into this
- * company (see docs/metrc-sync.md): last run, per-licence counts, errors,
- * each list's cursor, and Sync now / Dry run for directors and admins.
+ * company (see docs/metrc-sync.md): what NeuroCann holds from Metrc, the last
+ * run's counts per list and licence, each list's cursor, run history, and
+ * Sync now / Dry run for directors and admins.
  */
 
 interface Props {
     initialStatus: MetrcSyncStatus;
 }
+
+const LIST_ORDER: MetrcSyncList[] = [
+    'items', 'strains', 'locations',
+    'packages/active', 'packages/intransit', 'packages/inactive',
+    'plantbatches/active', 'plantbatches/inactive',
+    'harvests/active', 'harvests/inactive',
+    'plants/vegetative', 'plants/flowering', 'plants/inactive',
+];
 
 const LIST_LABEL: Record<MetrcSyncList, string> = {
     items: 'Items',
@@ -29,6 +38,8 @@ const LIST_LABEL: Record<MetrcSyncList, string> = {
     'plants/inactive': 'Harvested/destroyed plants',
 };
 
+const listLabel = (list: string) => LIST_LABEL[list as MetrcSyncList] ?? list;
+
 const RUN_LABEL: Record<MetrcSyncRun['status'], string> = {
     queued: 'Queued',
     running: 'Running',
@@ -38,10 +49,32 @@ const RUN_LABEL: Record<MetrcSyncRun['status'], string> = {
     skipped: 'Skipped',
 };
 
+const RUN_COLOR: Record<MetrcSyncRun['status'], string> = {
+    queued: '#959595',
+    running: '#1C9EFF',
+    succeeded: '#3BB570',
+    partial: '#E0863A',
+    failed: '#DF5B59',
+    skipped: '#959595',
+};
+
 const POLL_MS = 5000;
 
 const fmtTime = (iso: string | null | undefined) =>
     iso ? new Date(iso).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : '—';
+
+const fmtExact = (iso: string | null | undefined) =>
+    iso ? new Date(iso).toLocaleString() : '';
+
+/** "just now", "16 min ago", "3 h ago", "2 d ago". */
+const ago = (iso: string | null | undefined): string => {
+    if (!iso) return '—';
+    const s = Math.max(0, (Date.now() - new Date(iso).getTime()) / 1000);
+    if (s < 60) return 'just now';
+    if (s < 3600) return `${Math.round(s / 60)} min ago`;
+    if (s < 86400) return `${Math.round(s / 3600)} h ago`;
+    return `${Math.round(s / 86400)} d ago`;
+};
 
 const duration = (run: MetrcSyncRun) => {
     if (!run.startedAt) return null;
@@ -52,11 +85,75 @@ const duration = (run: MetrcSyncRun) => {
 
 const isActive = (run: MetrcSyncRun | null) => run?.status === 'queued' || run?.status === 'running';
 
-const runTone = (status: MetrcSyncRun['status']) =>
-    status === 'succeeded' ? 'text-[var(--color-flower)]'
-        : status === 'failed' ? 'text-[var(--color-waste)]'
-            : status === 'partial' ? 'text-[#FA9E52]'
-                : 'text-[var(--color-dolphin)]';
+const StatusIcon: React.FC<{ status: MetrcSyncRun['status']; size?: number }> = ({ status, size = 14 }) => {
+    const color = RUN_COLOR[status];
+    if (status === 'queued' || status === 'running') return <Loader2 size={size} className="animate-spin" style={{ color }} />;
+    if (status === 'succeeded') return <CheckCircle2 size={size} style={{ color }} />;
+    if (status === 'skipped') return <SkipForward size={size} style={{ color }} />;
+    return <AlertTriangle size={size} style={{ color }} />;
+};
+
+const RunStatus: React.FC<{ run: MetrcSyncRun }> = ({ run }) => (
+    <span className="sync-status" style={{ color: RUN_COLOR[run.status] }}>
+        <StatusIcon status={run.status} />
+        {RUN_LABEL[run.status]}
+        {run.dryRun && <span className="sync-tag">dry run</span>}
+    </span>
+);
+
+/**
+ * One failing credential or outage hits every list on a licence, so the same
+ * message repeats a dozen times. Group by message and list where it struck.
+ */
+const groupErrors = (errors: MetrcSyncError[]) => {
+    const groups = new Map<string, Map<string, string[]>>();
+    for (const e of errors) {
+        if (!groups.has(e.message)) groups.set(e.message, new Map());
+        const byLicense = groups.get(e.message)!;
+        const lic = e.license ?? '';
+        if (!byLicense.has(lic)) byLicense.set(lic, []);
+        if (e.list) byLicense.get(lic)!.push(listLabel(e.list));
+    }
+    return [...groups.entries()].map(([message, byLicense]) => ({
+        message,
+        where: [...byLicense.entries()].map(([license, lists]) => ({ license, lists })),
+    }));
+};
+
+const ErrorGroups: React.FC<{ errors: MetrcSyncError[]; className?: string }> = ({ errors, className }) => {
+    if (!errors.length) return null;
+    return (
+        <ul className={`sync-error-list ${className ?? ''}`}>
+            {groupErrors(errors).map(g => (
+                <li key={g.message}>
+                    <div className="sync-error-message">{g.message}</div>
+                    <div className="sync-error-where-list">
+                        {g.where.map(w => (
+                            <span key={w.license} className="sync-error-where-group">
+                                {w.license && <span className="sync-error-where">{w.license}</span>}
+                                {w.lists.length > 0 && <span className="sync-muted">{w.lists.join(', ')}</span>}
+                            </span>
+                        ))}
+                    </div>
+                </li>
+            ))}
+        </ul>
+    );
+};
+
+const runTotals = (run: MetrcSyncRun) => {
+    const out = { fetched: 0, inserted: 0, updated: 0, failed: 0 };
+    for (const lists of Object.values(run.counts)) {
+        for (const c of Object.values(lists)) {
+            if (!c) continue;
+            out.fetched += c.fetched;
+            out.inserted += c.inserted;
+            out.updated += c.updated;
+            out.failed += c.failed ?? 0;
+        }
+    }
+    return out;
+};
 
 export const MetrcSyncSection: React.FC<Props> = ({ initialStatus }) => {
     const [status, setStatus] = useState<MetrcSyncStatus>(initialStatus);
@@ -99,15 +196,17 @@ export const MetrcSyncSection: React.FC<Props> = ({ initialStatus }) => {
         ...status.lists.map(l => l.license),
         ...Object.keys(last?.counts ?? {}),
     ])).sort();
+    const lastSuccess = status.recentRuns.find(r => !r.dryRun && (r.status === 'succeeded' || r.status === 'partial'));
+    const t = status.totals;
 
     return (
-        <div>
+        <div className="metrc-sync">
             <div className="settings-section-header">
                 <div>
                     <h3 className="settings-section-title">Metrc Sync</h3>
                     <p className="settings-section-desc">
-                        Items, strains, locations, packages, plant batches, harvests and plants are mirrored from Metrc through T3 every 15 minutes
-                        ({status.mode === 'read-only' ? 'read-only' : status.mode} connection). Metrc owns what it tracks; plant health, notes and tasks stay here.
+                        Mirrored from Metrc through T3 every 15 minutes ({status.mode === 'read-only' ? 'read-only' : status.mode} connection).
+                        Metrc owns what it tracks; plant health, notes and tasks stay here.
                     </p>
                 </div>
                 <div className="flex gap-2">
@@ -128,19 +227,35 @@ export const MetrcSyncSection: React.FC<Props> = ({ initialStatus }) => {
             </div>
 
             {message && (
-                <div className={`settings-add-form ${message.tone === 'error' ? '!border-[var(--color-waste)]' : '!border-[#3BB570] !bg-[rgba(59,181,112,0.06)]'}`}>
-                    <p className="text-sm">{message.text}</p>
+                <div className={`sync-message ${message.tone === 'error' ? 'sync-message--error' : 'sync-message--ok'}`}>
+                    {message.text}
                 </div>
             )}
 
-            {/* Totals */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mb-4">
-                {([['Packages', status.totals.packages], ['Plants', status.totals.plants], ['Plant batches', status.totals.plantBatches], ['Harvests', status.totals.harvests], ['Items', status.totals.items], ['Strains', status.totals.strains], ['Rooms', status.totals.rooms]] as const).map(([label, n]) => (
-                    <div key={label} className="settings-add-form !mb-0">
-                        <div className="text-xs text-[var(--color-dolphin)]">{label} from Metrc</div>
-                        <div className="text-xl font-semibold tabular-nums">{n.toLocaleString()}</div>
-                    </div>
-                ))}
+            {/* What NeuroCann holds from Metrc, and when it last moved */}
+            <div className="summary-strip">
+                <div className="summary-strip-stats">
+                    <span className="summary-strip-label">From Metrc</span>
+                    <Stat value={t.packages} label="packages" />
+                    <Stat value={t.plants} label="plants" />
+                    <Stat value={t.plantBatches} label="batches" />
+                    <Stat value={t.harvests} label="harvests" />
+                    <Stat value={t.items} label="items" />
+                    <Stat value={t.strains} label="strains" />
+                    <Stat value={t.rooms} label="rooms" />
+                </div>
+                <div className="summary-strip-attention">
+                    <span className="summary-strip-label">Last sync</span>
+                    {lastSuccess ? (
+                        <span className="summary-strip-chip" title={fmtExact(lastSuccess.finishedAt ?? lastSuccess.startedAt)}>
+                            <span className="data-table-dot" style={{ background: RUN_COLOR[lastSuccess.status] }} />
+                            <span className="font-semibold">{ago(lastSuccess.finishedAt ?? lastSuccess.startedAt)}</span>
+                            <span className="text-gray-500">{RUN_LABEL[lastSuccess.status].toLowerCase()} · {lastSuccess.trigger === 'manual' ? 'manual' : 'scheduled'}</span>
+                        </span>
+                    ) : (
+                        <span className="text-xs text-gray-500">never</span>
+                    )}
+                </div>
             </div>
 
             {/* Last run */}
@@ -149,180 +264,239 @@ export const MetrcSyncSection: React.FC<Props> = ({ initialStatus }) => {
                     No sync has run yet. {status.canRun ? 'Start with a dry run to see what Metrc would change, then Sync now.' : 'A director or admin can start one.'}
                 </div>
             ) : (
-                <div className="settings-add-form">
-                    <div className="flex items-center justify-between gap-2 flex-wrap">
-                        <div className="flex items-center gap-2 text-sm">
-                            {isActive(last) ? <Loader2 size={16} className="animate-spin text-[var(--color-dolphin)]" />
-                                : last.status === 'succeeded' ? <CheckCircle2 size={16} className="text-[var(--color-flower)]" />
-                                    : <AlertTriangle size={16} className={runTone(last.status)} />}
-                            <span className={`font-semibold ${runTone(last.status)}`}>{RUN_LABEL[last.status]}</span>
-                            {last.dryRun && <span className="text-xs text-[var(--color-dolphin)]">dry run</span>}
-                            <span className="text-xs text-[var(--color-dolphin)]">
-                                {last.trigger === 'manual' ? `started by ${last.startedByName ?? 'a user'}` : 'scheduled'} · {fmtTime(last.startedAt ?? last.queuedAt)}
-                                {duration(last) ? ` · ${duration(last)}` : ''}
-                            </span>
-                        </div>
+                <section className="sync-panel">
+                    <div className="sync-panel-head">
+                        <RunStatus run={last} />
+                        <span className="sync-panel-meta" title={fmtExact(last.startedAt ?? last.queuedAt)}>
+                            {last.trigger === 'manual' ? `started by ${last.startedByName ?? 'a user'}` : 'scheduled'}
+                            {' · '}{fmtTime(last.startedAt ?? last.queuedAt)} ({ago(last.startedAt ?? last.queuedAt)})
+                            {duration(last) ? ` · ${duration(last)}` : ''}
+                        </span>
+                        <RunTotals run={last} />
                     </div>
-                    {last.error && <p className="text-sm text-[var(--color-waste)] mt-2">{last.error}</p>}
+                    {last.error && <p className="sync-error-text">{last.error}</p>}
                     <RunCounts run={last} licenses={licenses} />
-                    {last.errors.length > 0 && (
-                        <ul className="mt-2 space-y-1 text-xs text-[var(--color-waste)]">
-                            {last.errors.map((e, i) => (
-                                <li key={i}>{e.license ? `${e.license} · ` : ''}{e.list ? `${LIST_LABEL[e.list as MetrcSyncList] ?? e.list}: ` : ''}{e.message}</li>
-                            ))}
-                        </ul>
-                    )}
+                    <ErrorGroups errors={last.errors} />
                     {last.report && (
-                        <div className="mt-3 text-sm">
+                        <div className="sync-report">
                             <p>
-                                <span className="font-medium">{last.report.tagMatches}</span> Metrc package{last.report.tagMatches === 1 ? '' : 's'} match{last.report.tagMatches === 1 ? 'es' : ''} a tag entered by hand here
+                                <span className="font-bold tabular-nums">{last.report.tagMatches}</span> Metrc package{last.report.tagMatches === 1 ? '' : 's'} match{last.report.tagMatches === 1 ? 'es' : ''} a tag entered by hand here
                                 {last.report.conflicts.length > 0 ? `; ${last.report.conflicts.length}${last.report.conflictsTruncated ? '+' : ''} would change:` : '.'}
                             </p>
                             {last.report.conflicts.length > 0 && (
-                                <div className="settings-table-wrap mt-2">
-                                    <table className="strain-table">
-                                        <thead>
-                                            <tr>
-                                                <th className="strain-th">Tag</th>
-                                                <th className="strain-th">Licence</th>
-                                                <th className="strain-th">Metrc would set</th>
+                                <table className="sync-table">
+                                    <thead>
+                                        <tr>
+                                            <th className="sync-th">Tag</th>
+                                            <th className="sync-th">Licence</th>
+                                            <th className="sync-th">Metrc would set</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {last.report.conflicts.map(c => (
+                                            <tr key={c.label} className="sync-row">
+                                                <td className="sync-td"><span className="license-number">{c.label}</span></td>
+                                                <td className="sync-td sync-muted">{c.license}</td>
+                                                <td className="sync-td sync-wrap">{c.changes.join(' · ')}</td>
                                             </tr>
-                                        </thead>
-                                        <tbody>
-                                            {last.report.conflicts.map(c => (
-                                                <tr key={c.label} className="strain-row">
-                                                    <td className="strain-cell-name"><span className="license-number">{c.label}</span></td>
-                                                    <td className="strain-cell-notes">{c.license}</td>
-                                                    <td className="strain-cell-notes text-xs">{c.changes.join(' · ')}</td>
-                                                </tr>
-                                            ))}
-                                        </tbody>
-                                    </table>
-                                </div>
+                                        ))}
+                                    </tbody>
+                                </table>
                             )}
                         </div>
                     )}
-                </div>
+                </section>
             )}
 
-            {/* Per-list state */}
+            {/* Per-list cursors */}
             {status.lists.length > 0 && (
-                <div className="settings-table-wrap">
-                    <table className="strain-table">
-                        <thead>
-                            <tr>
-                                <th className="strain-th strain-th-name">Licence</th>
-                                <th className="strain-th">List</th>
-                                <th className="strain-th strain-th-days">Last success</th>
-                                <th className="strain-th strain-th-days">Pulls changes since</th>
-                                <th className="strain-th strain-th-notes">Last error</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {status.lists.map(l => (
-                                <tr key={`${l.license}-${l.list}`} className="strain-row">
-                                    <td className="strain-cell-name"><span className="license-number">{l.license}</span></td>
-                                    <td className="strain-cell-notes">{LIST_LABEL[l.list as MetrcSyncList] ?? l.list}</td>
-                                    <td className="strain-cell-days text-xs">{fmtTime(l.lastSuccessAt)}</td>
-                                    <td className="strain-cell-days text-xs">{l.cursor ? fmtTime(l.cursor) : 'full pull'}</td>
-                                    <td className="strain-cell-notes text-xs text-[var(--color-waste)]">{l.lastError ?? ''}</td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
-                </div>
+                <section className="sync-panel">
+                    <div className="sync-panel-head">
+                        <h4 className="sync-panel-title">Cursors</h4>
+                        <span className="sync-panel-meta">When each list last pulled cleanly. A list that errored keeps its cursor, so nothing is skipped.</span>
+                    </div>
+                    <CursorMatrix status={status} licenses={licenses} />
+                </section>
             )}
 
             {/* History */}
             {status.recentRuns.length > 1 && (
-                <div className="mt-4">
-                    <h4 className="text-sm font-semibold mb-2">Recent runs</h4>
-                    <div className="settings-table-wrap">
-                        <table className="strain-table">
-                            <thead>
-                                <tr>
-                                    <th className="strain-th strain-th-days">When</th>
-                                    <th className="strain-th">Result</th>
-                                    <th className="strain-th">Trigger</th>
-                                    <th className="strain-th strain-th-notes">Packages written</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {status.recentRuns.slice(1).map(run => {
-                                    const written = sumPackages(run);
-                                    return (
-                                        <React.Fragment key={run.id}>
-                                            <tr className="strain-row" style={{ cursor: run.errors.length ? 'pointer' : undefined }} onClick={() => setOpenRunId(openRunId === run.id ? null : run.id)}>
-                                                <td className="strain-cell-days text-xs">{fmtTime(run.startedAt ?? run.queuedAt)}</td>
-                                                <td className={`strain-cell-notes text-xs font-medium ${runTone(run.status)}`}>{RUN_LABEL[run.status]}{run.dryRun ? ' (dry run)' : ''}</td>
-                                                <td className="strain-cell-notes text-xs">{run.trigger === 'manual' ? run.startedByName ?? 'manual' : 'schedule'}</td>
-                                                <td className="strain-cell-notes text-xs tabular-nums">{written === null ? '—' : `${written.inserted} new · ${written.updated} updated · ${written.unchanged} unchanged`}{run.errors.length ? ` · ${run.errors.length} error${run.errors.length === 1 ? '' : 's'}` : ''}</td>
-                                            </tr>
-                                            {openRunId === run.id && (run.errors.length > 0 || run.error) && (
-                                                <tr className="strain-row">
-                                                    <td colSpan={4} className="strain-cell-notes text-xs text-[var(--color-waste)]">
-                                                        {run.error && <div>{run.error}</div>}
-                                                        {run.errors.map((e, i) => <div key={i}>{e.license ? `${e.license} · ` : ''}{e.list ?? ''}: {e.message}</div>)}
-                                                    </td>
-                                                </tr>
-                                            )}
-                                        </React.Fragment>
-                                    );
-                                })}
-                            </tbody>
-                        </table>
+                <section className="sync-panel">
+                    <div className="sync-panel-head">
+                        <h4 className="sync-panel-title">Recent runs</h4>
+                        <span className="sync-panel-meta">Click a run with errors to see them.</span>
                     </div>
-                </div>
+                    <table className="sync-table">
+                        <thead>
+                            <tr>
+                                <th className="sync-th">When</th>
+                                <th className="sync-th">Result</th>
+                                <th className="sync-th">Trigger</th>
+                                <th className="sync-th sync-num">Took</th>
+                                <th className="sync-th sync-num">Fetched</th>
+                                <th className="sync-th sync-num">New</th>
+                                <th className="sync-th sync-num">Updated</th>
+                                <th className="sync-th sync-num">Failed</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {status.recentRuns.slice(1).map(run => {
+                                const tot = runTotals(run);
+                                const hasErrors = run.errors.length > 0 || Boolean(run.error);
+                                const open = openRunId === run.id;
+                                return (
+                                    <React.Fragment key={run.id}>
+                                        <tr
+                                            className={`sync-row ${hasErrors ? 'sync-row--clickable' : ''}`}
+                                            onClick={() => hasErrors && setOpenRunId(open ? null : run.id)}
+                                            title={hasErrors ? (open ? 'Hide errors' : 'Show errors') : undefined}
+                                        >
+                                            <td className="sync-td" title={fmtExact(run.startedAt ?? run.queuedAt)}>{fmtTime(run.startedAt ?? run.queuedAt)}</td>
+                                            <td className="sync-td"><RunStatus run={run} /></td>
+                                            <td className="sync-td sync-muted">{run.trigger === 'manual' ? run.startedByName ?? 'manual' : 'schedule'}</td>
+                                            <td className="sync-td sync-num sync-muted">{duration(run) ?? '—'}</td>
+                                            <td className="sync-td sync-num">{tot.fetched ? tot.fetched.toLocaleString() : <span className="sync-muted">—</span>}</td>
+                                            <td className="sync-td sync-num">{tot.inserted ? tot.inserted.toLocaleString() : <span className="sync-muted">0</span>}</td>
+                                            <td className="sync-td sync-num">{tot.updated ? tot.updated.toLocaleString() : <span className="sync-muted">0</span>}</td>
+                                            <td className="sync-td sync-num">
+                                                {tot.failed || run.errors.length
+                                                    ? <span className="sync-fail">{tot.failed || run.errors.length}</span>
+                                                    : <span className="sync-muted">0</span>}
+                                            </td>
+                                        </tr>
+                                        {open && hasErrors && (
+                                            <tr className="sync-row">
+                                                <td colSpan={8} className="sync-td sync-wrap">
+                                                    <ErrorGroups
+                                                        className="sync-error-list--inline"
+                                                        errors={[...(run.error ? [{ message: run.error }] : []), ...run.errors]}
+                                                    />
+                                                </td>
+                                            </tr>
+                                        )}
+                                    </React.Fragment>
+                                );
+                            })}
+                        </tbody>
+                    </table>
+                </section>
             )}
         </div>
     );
 };
 
-function sumPackages(run: MetrcSyncRun) {
-    let any = false;
-    const out = { inserted: 0, updated: 0, unchanged: 0 };
-    for (const lists of Object.values(run.counts)) {
-        for (const [list, c] of Object.entries(lists)) {
-            if (!list.startsWith('packages/') || !c) continue;
-            any = true;
-            out.inserted += c.inserted;
-            out.updated += c.updated;
-            out.unchanged += c.unchanged;
-        }
-    }
-    return any ? out : null;
-}
+const Stat: React.FC<{ value: number; label: string }> = ({ value, label }) => (
+    <span className="summary-strip-stat">
+        <span className="summary-strip-stat-value tabular-nums" style={value === 0 ? { color: '#959595' } : undefined}>{value.toLocaleString()}</span>
+        <span className="summary-strip-stat-label">{label}</span>
+    </span>
+);
 
+const RunTotals: React.FC<{ run: MetrcSyncRun }> = ({ run }) => {
+    const tot = runTotals(run);
+    if (!tot.fetched) return null;
+    return (
+        <span className="sync-panel-totals tabular-nums">
+            <span><b>{tot.fetched.toLocaleString()}</b> fetched</span>
+            <span><b>{tot.inserted.toLocaleString()}</b> new</span>
+            <span><b>{tot.updated.toLocaleString()}</b> updated</span>
+            {tot.failed > 0 && <span className="sync-fail"><b>{tot.failed.toLocaleString()}</b> failed</span>}
+            {run.dryRun && <span className="sync-muted">nothing written</span>}
+        </span>
+    );
+};
+
+/** Lists down, licences across: "changed / fetched" per cell. */
 const RunCounts: React.FC<{ run: MetrcSyncRun; licenses: string[] }> = ({ run, licenses }) => {
     const shown = licenses.filter(l => run.counts[l]);
     if (!shown.length) return null;
+    const lists = LIST_ORDER.filter(list => shown.some(l => run.counts[l]?.[list]));
+    const extra = Object.keys(run.counts[shown[0]] ?? {}).filter(l => !LIST_ORDER.includes(l as MetrcSyncList));
+    const rows = [...lists, ...extra];
     return (
-        <div className="settings-table-wrap mt-3">
-            <table className="strain-table">
-                <thead>
-                    <tr>
-                        <th className="strain-th strain-th-name">Licence</th>
-                        {(Object.keys(LIST_LABEL) as MetrcSyncList[]).map(list => (
-                            <th key={list} className="strain-th text-xs">{LIST_LABEL[list]}</th>
-                        ))}
+        <table className="sync-table sync-matrix">
+            <thead>
+                <tr>
+                    <th className="sync-th">List</th>
+                    {shown.map(license => <th key={license} className="sync-th sync-num"><span className="license-number">{license}</span></th>)}
+                </tr>
+            </thead>
+            <tbody>
+                {rows.map(list => (
+                    <tr key={list} className="sync-row">
+                        <td className="sync-td">{listLabel(list)}</td>
+                        {shown.map(license => <CountCell key={license} c={run.counts[license]?.[list as MetrcSyncList]} dryRun={run.dryRun} />)}
                     </tr>
-                </thead>
-                <tbody>
-                    {shown.map(license => (
-                        <tr key={license} className="strain-row">
-                            <td className="strain-cell-name"><span className="license-number">{license}</span></td>
-                            {(Object.keys(LIST_LABEL) as MetrcSyncList[]).map(list => {
-                                const c = run.counts[license]?.[list];
-                                return (
-                                    <td key={list} className="strain-cell-notes text-xs tabular-nums" title={c ? `${c.fetched} fetched · ${c.inserted} new · ${c.updated} updated · ${c.unchanged} unchanged${c.failed ? ` · ${c.failed} rejected by the database (see errors)` : ''}${run.dryRun ? ' (dry run: nothing written)' : ''}` : 'not reached, or not on this licence'}>
-                                        {c ? `${c.inserted + c.updated}/${c.fetched}${c.failed ? ` · ${c.failed} failed` : ''}` : '—'}
-                                    </td>
-                                );
-                            })}
-                        </tr>
-                    ))}
-                </tbody>
-            </table>
-        </div>
+                ))}
+            </tbody>
+        </table>
+    );
+};
+
+const CountCell: React.FC<{ c: MetrcSyncListCounts | undefined; dryRun: boolean }> = ({ c, dryRun }) => {
+    if (!c) return <td className="sync-td sync-num sync-muted" title="Not reached, or not on this licence">—</td>;
+    const changed = c.inserted + c.updated;
+    const title = `${c.fetched} fetched · ${c.inserted} new · ${c.updated} updated · ${c.unchanged} unchanged`
+        + (c.failed ? ` · ${c.failed} rejected by the database (see errors)` : '')
+        + (dryRun ? ' (dry run: nothing written)' : '');
+    return (
+        <td className="sync-td sync-num tabular-nums" title={title}>
+            <span className={changed ? 'font-bold' : 'sync-muted'}>{changed.toLocaleString()}</span>
+            <span className="sync-muted"> / {c.fetched.toLocaleString()}</span>
+            {c.failed ? <span className="sync-fail"> · {c.failed} failed</span> : null}
+        </td>
+    );
+};
+
+/** Lists down, licences across: when each list last pulled cleanly, and any standing error. */
+const CursorMatrix: React.FC<{ status: MetrcSyncStatus; licenses: string[] }> = ({ status, licenses }) => {
+    const byKey = new Map(status.lists.map(l => [`${l.license}\u0000${l.list}`, l]));
+    const lists = [
+        ...LIST_ORDER.filter(list => status.lists.some(l => l.list === list)),
+        ...Array.from(new Set(status.lists.map(l => l.list))).filter(l => !LIST_ORDER.includes(l as MetrcSyncList)),
+    ];
+    const shown = licenses.filter(lic => status.lists.some(l => l.license === lic));
+    const standingErrors: MetrcSyncError[] = status.lists
+        .filter(l => l.lastError)
+        .map(l => ({ license: l.license, list: l.list, message: l.lastError! }));
+    return (
+        <>
+        <table className="sync-table sync-matrix">
+            <thead>
+                <tr>
+                    <th className="sync-th">List</th>
+                    {shown.map(license => <th key={license} className="sync-th"><span className="license-number">{license}</span></th>)}
+                </tr>
+            </thead>
+            <tbody>
+                {lists.map(list => (
+                    <tr key={list} className="sync-row">
+                        <td className="sync-td">{listLabel(list)}</td>
+                        {shown.map(license => {
+                            const s = byKey.get(`${license}\u0000${list}`);
+                            if (!s) return <td key={license} className="sync-td sync-muted">—</td>;
+                            const errored = Boolean(s.lastError);
+                            const title = [
+                                s.lastSuccessAt ? `Last success ${fmtExact(s.lastSuccessAt)}` : 'Never succeeded',
+                                s.cursor ? `Next pull takes changes since ${fmtExact(s.cursor)}` : 'Next pull is a full pull',
+                                s.lastError ? `Error ${fmtExact(s.lastErrorAt)}: ${s.lastError}` : '',
+                            ].filter(Boolean).join('\n');
+                            return (
+                                <td key={license} className="sync-td" title={title}>
+                                    <span className="sync-cursor">
+                                        <span className="data-table-dot" style={{ background: errored ? '#DF5B59' : s.lastSuccessAt ? '#3BB570' : '#C0C0C0' }} />
+                                        <span className={errored ? 'sync-fail' : undefined}>{ago(s.lastSuccessAt)}</span>
+                                        {!s.cursor && <span className="sync-tag">full pull</span>}
+                                        {errored && <span className="sync-tag sync-tag--error">error</span>}
+                                    </span>
+                                </td>
+                            );
+                        })}
+                    </tr>
+                ))}
+            </tbody>
+        </table>
+        <ErrorGroups errors={standingErrors} />
+        </>
     );
 };
