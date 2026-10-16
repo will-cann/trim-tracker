@@ -6,7 +6,7 @@
  */
 import type { T3Mode } from './t3'
 
-/** The T3 lists phase 1 mirrors, in the order they are pulled per licence. */
+/** The T3 lists the sync mirrors, in the order they are pulled per licence. */
 export type MetrcSyncList =
   | 'items'
   | 'strains'
@@ -14,6 +14,13 @@ export type MetrcSyncList =
   | 'packages/active'
   | 'packages/intransit'
   | 'packages/inactive'
+  | 'plantbatches/active'
+  | 'plantbatches/inactive'
+  | 'harvests/active'
+  | 'harvests/inactive'
+  | 'plants/vegetative'
+  | 'plants/flowering'
+  | 'plants/inactive'
 
 export type MetrcSyncRunStatus = 'queued' | 'running' | 'succeeded' | 'partial' | 'failed' | 'skipped'
 
@@ -89,7 +96,7 @@ export interface MetrcSyncStatus {
   recentRuns: MetrcSyncRun[]
   lists: MetrcSyncListState[]
   /** Number of synced rows currently in NeuroCann for this company. */
-  totals: { items: number; strains: number; rooms: number; packages: number }
+  totals: { items: number; strains: number; rooms: number; packages: number; plantBatches: number; harvests: number; plants: number }
 }
 
 export interface MetrcSyncStartRequest {

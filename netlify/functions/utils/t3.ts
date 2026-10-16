@@ -327,6 +327,86 @@ export const t3Strains = (licenseNumber: string) =>
 export const t3Locations = (licenseNumber: string) =>
     t3Collection<T3Location>('/v2/locations/active', { licenseNumber, collectionMask: LOCATION_MASK }, SYNC_MAX_PAGES);
 
+/** GET /v2/plantbatches/active|inactive — Metrc's immature plants (NeuroCann nursery batches). */
+export interface T3PlantBatch {
+    id: number;
+    name: string;
+    plantBatchTypeName?: string | null;
+    locationName?: string | null;
+    strainName?: string | null;
+    untrackedCount?: number;
+    trackedCount?: number;
+    packagedCount?: number;
+    destroyedCount?: number;
+    harvestedCount?: number;
+    plantedDate?: string | null;
+    isOnHold?: boolean;
+    lastModified?: string | null;
+}
+
+/** GET /v2/harvests/active|inactive */
+export interface T3Harvest {
+    id: number;
+    name: string;
+    harvestTypeName?: string | null;
+    sourceStrainNames?: string | null;
+    dryingLocationName?: string | null;
+    currentWeight?: number;
+    totalWasteWeight?: number;
+    totalWetWeight?: number;
+    plantCount?: number;
+    unitOfWeightAbbreviation?: string | null;
+    isOnHold?: boolean;
+    harvestStartDate?: string | null;
+    isFinished?: boolean;
+    finishedDate?: string | null;
+    lastModified?: string | null;
+}
+
+/** GET /v2/plants/vegetative|flowering|inactive — tagged plants. */
+export interface T3Plant {
+    id: number;
+    label: string;
+    stateName?: string | null;
+    growthPhaseName?: string | null;
+    plantBatchName?: string | null;
+    plantBatchId?: number | null;
+    strainName?: string | null;
+    locationName?: string | null;
+    harvestId?: number | null;
+    harvestedDate?: string | null;
+    isOnHold?: boolean;
+    plantedDate?: string | null;
+    vegetativeDate?: string | null;
+    floweringDate?: string | null;
+    destroyedDate?: string | null;
+    lastModified?: string | null;
+}
+
+const PLANT_BATCH_MASK = [
+    'id', 'name', 'plantBatchTypeName', 'locationName', 'strainName', 'untrackedCount', 'trackedCount',
+    'packagedCount', 'destroyedCount', 'harvestedCount', 'plantedDate', 'isOnHold', 'lastModified',
+].join(',');
+const HARVEST_MASK = [
+    'id', 'name', 'harvestTypeName', 'sourceStrainNames', 'dryingLocationName', 'currentWeight', 'totalWasteWeight',
+    'totalWetWeight', 'plantCount', 'unitOfWeightAbbreviation', 'isOnHold', 'harvestStartDate', 'isFinished', 'finishedDate', 'lastModified',
+].join(',');
+const PLANT_MASK = [
+    'id', 'label', 'stateName', 'growthPhaseName', 'plantBatchName', 'plantBatchId', 'strainName', 'locationName',
+    'harvestId', 'harvestedDate', 'isOnHold', 'plantedDate', 'vegetativeDate', 'floweringDate', 'destroyedDate', 'lastModified',
+].join(',');
+
+const sinceFilter = (since?: Date) => (since ? `lastModified__gte:${since.toISOString()}` : undefined);
+
+export const t3PlantBatchList = (path: string, licenseNumber: string, since?: Date) =>
+    t3Collection<T3PlantBatch>(path, { licenseNumber, filter: sinceFilter(since), collectionMask: PLANT_BATCH_MASK }, SYNC_MAX_PAGES);
+
+export const t3HarvestList = (path: string, licenseNumber: string, since?: Date) =>
+    t3Collection<T3Harvest>(path, { licenseNumber, filter: sinceFilter(since), collectionMask: HARVEST_MASK }, SYNC_MAX_PAGES);
+
+export const t3PlantList = (path: string, licenseNumber: string, since?: Date) =>
+    t3Collection<T3Plant>(path, { licenseNumber, filter: sinceFilter(since), collectionMask: PLANT_MASK }, SYNC_MAX_PAGES);
+
 const PACKAGE_MASK = [
     'id', 'label', 'licenseNumber', 'quantity', 'unitOfMeasureAbbreviation',
     'item.name', 'item.productCategoryName', 'item.strainName', 'item.unitWeight', 'item.unitWeightUnitOfMeasureAbbreviation',

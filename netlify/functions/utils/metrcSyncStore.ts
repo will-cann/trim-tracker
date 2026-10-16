@@ -1,4 +1,4 @@
-import type { ExistingPackage, MetrcItemRow, PackageRow, ProductTypeSpec, RoomRow, StrainRow } from './metrcSync';
+import type { ExistingPackage, HarvestRow, MetrcItemRow, PackageRow, PlantBatchRow, PlantRow, ProductTypeSpec, RoomRow, StrainRow } from './metrcSync';
 import type { MetrcSyncCounts, MetrcSyncError, MetrcSyncList, MetrcSyncReport, MetrcSyncRunStatus } from '../../../shared/manifest/metrcSync';
 
 /**
@@ -273,6 +273,191 @@ export class MetrcSyncStore {
         return counts;
     }
 
+    // ── Cultivation (phase 2) ──────────────────────────────────────────────
+
+    async cultivationIds(companyId: string): Promise<CultivationIds> {
+        const [strains, rooms, batches, harvests] = await Promise.all([
+            this.db.query(`SELECT id, name FROM strains WHERE company_id = $1`, [companyId]),
+            this.db.query(`SELECT id, name FROM rooms WHERE company_id = $1`, [companyId]),
+            this.db.query(`SELECT id, name FROM plant_batches WHERE company_id = $1`, [companyId]),
+            this.db.query(`SELECT id, metrc_id FROM harvests WHERE company_id = $1 AND metrc_id IS NOT NULL`, [companyId]),
+        ]);
+        const byLowerName = (rows: any[]) => new Map<string, string>(rows.map(r => [String(r.name).toLowerCase(), r.id as string]));
+        return {
+            strains: byLowerName(strains.rows),
+            rooms: byLowerName(rooms.rows),
+            plantBatches: byLowerName(batches.rows),
+            harvests: new Map<number, string>(harvests.rows.map(r => [Number(r.metrc_id), r.id as string])),
+        };
+    }
+
+    /** Metrc immature plants → plant_batches, matched on name. Health, contaminants, tag and source plant stay NeuroCann's. */
+    async upsertPlantBatches(companyId: string, rows: PlantBatchRow[], ids: CultivationIds): Promise<UpsertCounts> {
+        const counts: UpsertCounts = { inserted: 0, updated: 0, unchanged: 0 };
+        for (const batch of chunk(dedupeBy(rows, r => r.name.toLowerCase()))) {
+            const { rows: written } = await this.db.query(
+                `INSERT INTO plant_batches (
+                    company_id, name, batch_type, strain_id, strain_name, room_id, untracked_count, tracked_count, planted_date,
+                    metrc_id, metrc_license, metrc_last_modified, metrc_synced_at
+                 )
+                 SELECT $1, u.name, u.batch_type, u.strain_id::uuid, u.strain_name, u.room_id::uuid, u.untracked_count, u.tracked_count, u.planted_date,
+                        u.metrc_id, u.metrc_license, u.metrc_last_modified, NOW()
+                   FROM UNNEST($2::text[], $3::text[], $4::text[], $5::text[], $6::text[], $7::int[], $8::int[], $9::date[], $10::bigint[], $11::text[], $12::timestamptz[])
+                     AS u(name, batch_type, strain_id, strain_name, room_id, untracked_count, tracked_count, planted_date, metrc_id, metrc_license, metrc_last_modified)
+                 ON CONFLICT (company_id, name) DO UPDATE SET
+                    batch_type = COALESCE(EXCLUDED.batch_type, plant_batches.batch_type),
+                    strain_id = COALESCE(EXCLUDED.strain_id, plant_batches.strain_id),
+                    strain_name = EXCLUDED.strain_name,
+                    room_id = COALESCE(EXCLUDED.room_id, plant_batches.room_id),
+                    untracked_count = EXCLUDED.untracked_count,
+                    tracked_count = EXCLUDED.tracked_count,
+                    planted_date = COALESCE(EXCLUDED.planted_date, plant_batches.planted_date),
+                    metrc_id = EXCLUDED.metrc_id,
+                    metrc_license = EXCLUDED.metrc_license,
+                    metrc_last_modified = EXCLUDED.metrc_last_modified,
+                    metrc_synced_at = NOW(),
+                    updated_at = NOW()
+                 WHERE (plant_batches.metrc_id, plant_batches.metrc_last_modified, plant_batches.strain_name, plant_batches.room_id, plant_batches.untracked_count, plant_batches.tracked_count)
+                       IS DISTINCT FROM
+                       (EXCLUDED.metrc_id, EXCLUDED.metrc_last_modified, EXCLUDED.strain_name, COALESCE(EXCLUDED.room_id, plant_batches.room_id), EXCLUDED.untracked_count, EXCLUDED.tracked_count)
+                 RETURNING (xmax = 0) AS inserted`,
+                [
+                    companyId,
+                    batch.map(r => r.name), batch.map(r => r.batch_type), batch.map(r => ids.strains.get(r.strain_name.toLowerCase()) ?? null), batch.map(r => r.strain_name),
+                    batch.map(r => (r.room_name ? ids.rooms.get(r.room_name.toLowerCase()) ?? null : null)), batch.map(r => r.untracked_count), batch.map(r => r.tracked_count),
+                    batch.map(r => r.planted_date), batch.map(r => r.metrc_id), batch.map(r => r.metrc_license), batch.map(r => r.metrc_last_modified),
+                ],
+            );
+            tally(written, counts);
+            counts.unchanged += batch.length - written.length;
+        }
+        return counts;
+    }
+
+    /**
+     * Metrc harvests → harvests, matched on Metrc id. A hand-entered harvest with
+     * the same name (and no Metrc id yet) is linked first so it isn't duplicated.
+     * Metrc only knows active/finished: finished always wins; otherwise NeuroCann's
+     * own pipeline stage is kept, except a completed row Metrc reopens goes back to hanging.
+     */
+    async upsertHarvests(companyId: string, rows: HarvestRow[]): Promise<UpsertCounts> {
+        const counts: UpsertCounts = { inserted: 0, updated: 0, unchanged: 0 };
+        for (const batch of chunk(dedupeBy(rows, r => String(r.metrc_id)))) {
+            await this.db.query(
+                `UPDATE harvests h
+                    SET metrc_id = u.metrc_id, metrc_license = u.metrc_license
+                   FROM UNNEST($2::text[], $3::bigint[], $4::text[]) AS u(name, metrc_id, metrc_license)
+                  WHERE h.company_id = $1 AND h.metrc_id IS NULL AND LOWER(h.name) = LOWER(u.name)
+                    AND NOT EXISTS (SELECT 1 FROM harvests x WHERE x.company_id = $1 AND x.metrc_id = u.metrc_id)`,
+                [companyId, batch.map(r => r.name), batch.map(r => r.metrc_id), batch.map(r => r.metrc_license)],
+            );
+            const { rows: written } = await this.db.query(
+                `INSERT INTO harvests (
+                    company_id, created_by, batch_id, name, license_number, strain, plant_count, total_wet_weight, total_waste_weight,
+                    drying_location, status, is_on_hold, harvest_start_date, harvest_end_date,
+                    metrc_id, metrc_license, metrc_last_modified, metrc_synced_at
+                 )
+                 SELECT $1, NULL, u.name, u.name, u.license_number, u.strain, u.plant_count, u.total_wet_weight, u.total_waste_weight,
+                        u.drying_location, u.status, u.is_on_hold, u.harvest_start_date, u.harvest_end_date,
+                        u.metrc_id, u.metrc_license, u.metrc_last_modified, NOW()
+                   FROM UNNEST($2::text[], $3::text[], $4::text[], $5::int[], $6::numeric[], $7::numeric[], $8::text[], $9::text[], $10::boolean[],
+                               $11::timestamptz[], $12::timestamptz[], $13::bigint[], $14::text[], $15::timestamptz[])
+                     AS u(name, license_number, strain, plant_count, total_wet_weight, total_waste_weight, drying_location, status, is_on_hold,
+                          harvest_start_date, harvest_end_date, metrc_id, metrc_license, metrc_last_modified)
+                 ON CONFLICT (company_id, metrc_id) WHERE metrc_id IS NOT NULL DO UPDATE SET
+                    name = EXCLUDED.name,
+                    license_number = EXCLUDED.license_number,
+                    strain = EXCLUDED.strain,
+                    plant_count = EXCLUDED.plant_count,
+                    total_wet_weight = EXCLUDED.total_wet_weight,
+                    total_waste_weight = EXCLUDED.total_waste_weight,
+                    drying_location = COALESCE(EXCLUDED.drying_location, harvests.drying_location),
+                    status = CASE
+                        WHEN EXCLUDED.status = 'completed' THEN 'completed'
+                        WHEN harvests.status = 'completed' THEN 'hanging'
+                        ELSE harvests.status
+                    END,
+                    is_on_hold = EXCLUDED.is_on_hold,
+                    harvest_start_date = COALESCE(EXCLUDED.harvest_start_date, harvests.harvest_start_date),
+                    harvest_end_date = COALESCE(EXCLUDED.harvest_end_date, harvests.harvest_end_date),
+                    metrc_license = EXCLUDED.metrc_license,
+                    metrc_last_modified = EXCLUDED.metrc_last_modified,
+                    metrc_synced_at = NOW(),
+                    updated_at = NOW()
+                 WHERE (harvests.metrc_last_modified, harvests.name, harvests.plant_count, harvests.total_wet_weight, harvests.total_waste_weight, harvests.is_on_hold)
+                       IS DISTINCT FROM
+                       (EXCLUDED.metrc_last_modified, EXCLUDED.name, EXCLUDED.plant_count, EXCLUDED.total_wet_weight, EXCLUDED.total_waste_weight, EXCLUDED.is_on_hold)
+                    OR (EXCLUDED.status = 'completed') <> (harvests.status = 'completed')
+                 RETURNING (xmax = 0) AS inserted`,
+                [
+                    companyId,
+                    batch.map(r => r.name), batch.map(r => r.license_number), batch.map(r => r.strain), batch.map(r => r.plant_count),
+                    batch.map(r => r.total_wet_weight), batch.map(r => r.total_waste_weight), batch.map(r => r.drying_location), batch.map(r => r.status), batch.map(r => r.is_on_hold),
+                    batch.map(r => r.harvest_start_date), batch.map(r => r.harvest_end_date), batch.map(r => r.metrc_id), batch.map(r => r.metrc_license), batch.map(r => r.metrc_last_modified),
+                ],
+            );
+            tally(written, counts);
+            counts.unchanged += batch.length - written.length;
+        }
+        return counts;
+    }
+
+    /** Metrc tagged plants → plants, matched on tag. Health, contaminants, target harvest date and tag stay NeuroCann's. */
+    async upsertPlants(companyId: string, rows: PlantRow[], ids: CultivationIds): Promise<UpsertCounts> {
+        const counts: UpsertCounts = { inserted: 0, updated: 0, unchanged: 0 };
+        for (const batch of chunk(dedupeBy(rows, r => r.label))) {
+            const { rows: written } = await this.db.query(
+                `INSERT INTO plants (
+                    company_id, label, strain_id, strain_name, room_id, growth_phase, planted_date, vegetative_date, flowering_date,
+                    harvested_date, destroyed_date, is_on_hold, plant_batch_id, harvest_id,
+                    metrc_id, metrc_license, metrc_last_modified, metrc_synced_at
+                 )
+                 SELECT $1, u.label, u.strain_id::uuid, u.strain_name, u.room_id::uuid, u.growth_phase, u.planted_date, u.vegetative_date, u.flowering_date,
+                        u.harvested_date, u.destroyed_date, u.is_on_hold, u.plant_batch_id::uuid, u.harvest_id::uuid,
+                        u.metrc_id, u.metrc_license, u.metrc_last_modified, NOW()
+                   FROM UNNEST($2::text[], $3::text[], $4::text[], $5::text[], $6::text[], $7::date[], $8::date[], $9::date[],
+                               $10::date[], $11::date[], $12::boolean[], $13::text[], $14::text[], $15::bigint[], $16::text[], $17::timestamptz[])
+                     AS u(label, strain_id, strain_name, room_id, growth_phase, planted_date, vegetative_date, flowering_date,
+                          harvested_date, destroyed_date, is_on_hold, plant_batch_id, harvest_id, metrc_id, metrc_license, metrc_last_modified)
+                 ON CONFLICT (company_id, label) DO UPDATE SET
+                    strain_id = COALESCE(EXCLUDED.strain_id, plants.strain_id),
+                    strain_name = EXCLUDED.strain_name,
+                    room_id = COALESCE(EXCLUDED.room_id, plants.room_id),
+                    growth_phase = EXCLUDED.growth_phase,
+                    planted_date = COALESCE(EXCLUDED.planted_date, plants.planted_date),
+                    vegetative_date = COALESCE(EXCLUDED.vegetative_date, plants.vegetative_date),
+                    flowering_date = COALESCE(EXCLUDED.flowering_date, plants.flowering_date),
+                    harvested_date = COALESCE(EXCLUDED.harvested_date, plants.harvested_date),
+                    destroyed_date = EXCLUDED.destroyed_date,
+                    is_on_hold = EXCLUDED.is_on_hold,
+                    plant_batch_id = COALESCE(EXCLUDED.plant_batch_id, plants.plant_batch_id),
+                    harvest_id = COALESCE(EXCLUDED.harvest_id, plants.harvest_id),
+                    metrc_id = EXCLUDED.metrc_id,
+                    metrc_license = EXCLUDED.metrc_license,
+                    metrc_last_modified = EXCLUDED.metrc_last_modified,
+                    metrc_synced_at = NOW(),
+                    updated_at = NOW()
+                 WHERE (plants.metrc_id, plants.metrc_last_modified, plants.growth_phase, plants.strain_name, plants.room_id, plants.is_on_hold, plants.harvest_id)
+                       IS DISTINCT FROM
+                       (EXCLUDED.metrc_id, EXCLUDED.metrc_last_modified, EXCLUDED.growth_phase, EXCLUDED.strain_name, COALESCE(EXCLUDED.room_id, plants.room_id), EXCLUDED.is_on_hold, COALESCE(EXCLUDED.harvest_id, plants.harvest_id))
+                 RETURNING (xmax = 0) AS inserted`,
+                [
+                    companyId,
+                    batch.map(r => r.label), batch.map(r => ids.strains.get(r.strain_name.toLowerCase()) ?? null), batch.map(r => r.strain_name),
+                    batch.map(r => (r.room_name ? ids.rooms.get(r.room_name.toLowerCase()) ?? null : null)), batch.map(r => r.growth_phase),
+                    batch.map(r => r.planted_date), batch.map(r => r.vegetative_date), batch.map(r => r.flowering_date),
+                    batch.map(r => r.harvested_date), batch.map(r => r.destroyed_date), batch.map(r => r.is_on_hold),
+                    batch.map(r => (r.plant_batch_name ? ids.plantBatches.get(r.plant_batch_name.toLowerCase()) ?? null : null)),
+                    batch.map(r => (r.metrc_harvest_id !== null ? ids.harvests.get(r.metrc_harvest_id) ?? null : null)),
+                    batch.map(r => r.metrc_id), batch.map(r => r.metrc_license), batch.map(r => r.metrc_last_modified),
+                ],
+            );
+            tally(written, counts);
+            counts.unchanged += batch.length - written.length;
+        }
+        return counts;
+    }
+
     // ── Packages ───────────────────────────────────────────────────────────
 
     /** metrc_items.name → id for one licence, to link packages to their item row. */
@@ -366,6 +551,18 @@ export class MetrcSyncStore {
 
 
 export const stateKey = (license: string, list: string) => `${license}::${list}`;
+
+/** What the cultivation upserts need to turn Metrc names into NeuroCann ids. */
+export interface CultivationIds {
+    /** lower-cased strain name → strains.id */
+    strains: Map<string, string>;
+    /** lower-cased room name → rooms.id */
+    rooms: Map<string, string>;
+    /** lower-cased plant batch name → plant_batches.id */
+    plantBatches: Map<string, string>;
+    /** Metrc harvest id → harvests.id */
+    harvests: Map<number, string>;
+}
 
 /** Metrc can list the same name on several licences; the strains/rooms tables key on name per company. */
 function dedupeByLowerName<T extends { name: string }>(rows: T[]): T[] {

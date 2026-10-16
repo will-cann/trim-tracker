@@ -117,7 +117,8 @@ qty, parent lot, lab state) against the pick list and attached invoice, and
 On a deploy with `T3_API_KEY` and exactly one company in `MANIFEST_COMPANY_IDS`, Metrc is
 mirrored into that company: `cron-metrc-sync` (every 15 min) queues a `metrc_sync_runs` row and
 POSTs its id to `metrc-sync-background` (Netlify background function, 15-min limit), which pulls
-items, strains, locations and packages per licence through `utils/t3.ts` and upserts them.
+items, strains, locations, packages, plant batches, harvests and plants per licence through
+`utils/t3.ts` and upserts them.
 Pure mapping and conflict rules live in `utils/metrcSync.ts` (tested without I/O), batched SQL in
 `utils/metrcSyncStore.ts`, orchestration in `utils/metrcSyncRunner.ts`. Metrc-owned columns are
 named explicitly in the upserts; NeuroCann-owned data (notes, contaminants, harvest links, trim

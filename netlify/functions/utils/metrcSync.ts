@@ -1,4 +1,4 @@
-import type { T3Item, T3Location, T3Package, T3Strain } from './t3';
+import type { T3Harvest, T3Item, T3Location, T3Package, T3Plant, T3PlantBatch, T3Strain } from './t3';
 import { splitLabels } from './t3Transfer';
 import type { MetrcSyncConflict, MetrcSyncList } from '../../../shared/manifest/metrcSync';
 
@@ -31,7 +31,18 @@ export function resolveSyncCompany(allowlist: string | undefined): SyncCompany {
 
 // ── Which lists, since when ────────────────────────────────────────────────
 
-export const SYNC_LISTS: readonly MetrcSyncList[] = ['items', 'strains', 'locations', 'packages/active', 'packages/intransit', 'packages/inactive'];
+/**
+ * Dependency order: reference lists first, then packages, then cultivation —
+ * batches before harvests before plants, because a plant links to its batch
+ * and to the harvest it went into.
+ */
+export const SYNC_LISTS: readonly MetrcSyncList[] = [
+    'items', 'strains', 'locations',
+    'packages/active', 'packages/intransit', 'packages/inactive',
+    'plantbatches/active', 'plantbatches/inactive',
+    'harvests/active', 'harvests/inactive',
+    'plants/vegetative', 'plants/flowering', 'plants/inactive',
+];
 
 export const T3_LIST_PATH: Record<MetrcSyncList, string> = {
     items: '/v2/items',
@@ -40,6 +51,13 @@ export const T3_LIST_PATH: Record<MetrcSyncList, string> = {
     'packages/active': '/v2/packages/active',
     'packages/intransit': '/v2/packages/intransit',
     'packages/inactive': '/v2/packages/inactive',
+    'plantbatches/active': '/v2/plantbatches/active',
+    'plantbatches/inactive': '/v2/plantbatches/inactive',
+    'harvests/active': '/v2/harvests/active',
+    'harvests/inactive': '/v2/harvests/inactive',
+    'plants/vegetative': '/v2/plants/vegetative',
+    'plants/flowering': '/v2/plants/flowering',
+    'plants/inactive': '/v2/plants/inactive',
 };
 
 /** Re-read this much before the cursor; upserts make the overlap harmless. */
@@ -47,16 +65,19 @@ export const CURSOR_OVERLAP_MS = 10 * 60 * 1000;
 /** A first run only needs recently finished packages. */
 export const FIRST_RUN_INACTIVE_DAYS = 90;
 
-const INCREMENTAL: ReadonlySet<MetrcSyncList> = new Set(['items', 'packages/active', 'packages/intransit', 'packages/inactive']);
+/** Everything but strains and locations carries lastModified in T3. */
+const FULL_ONLY: ReadonlySet<MetrcSyncList> = new Set(['strains', 'locations']);
 
 /**
  * The `lastModified >= since` bound for one list, or undefined for a full pull.
  * Strains and locations have no lastModified in T3, so they are always full.
+ * Inactive lists (finished packages, destroyed/harvested plants, finished
+ * harvests and batches) go back 90 days on a first run instead of forever.
  */
 export function sinceFor(list: MetrcSyncList, cursor: Date | null, now: Date): Date | undefined {
-    if (!INCREMENTAL.has(list)) return undefined;
+    if (FULL_ONLY.has(list)) return undefined;
     if (cursor) return new Date(cursor.getTime() - CURSOR_OVERLAP_MS);
-    if (list === 'packages/inactive') return new Date(now.getTime() - FIRST_RUN_INACTIVE_DAYS * 24 * 60 * 60 * 1000);
+    if (list.endsWith('/inactive')) return new Date(now.getTime() - FIRST_RUN_INACTIVE_DAYS * 24 * 60 * 60 * 1000);
     return undefined;
 }
 
@@ -263,6 +284,154 @@ export function mapPackage(p: T3Package, license: string, list: MetrcSyncList): 
         source_package_labels: splitLabels(p.sourcePackageLabels),
         source_harvest_names: (p.sourceHarvestNames ?? '').split(',').map(s => s.trim()).filter(Boolean),
         productType,
+    };
+}
+
+// ── Cultivation (phase 2) ──────────────────────────────────────────────────
+
+export type BatchType = 'clone' | 'seed' | 'tissue_culture';
+export type PlantPhase = 'vegetative' | 'flowering' | 'harvested' | 'destroyed';
+/** NeuroCann's pipeline values after migration 037; Metrc only knows active and finished. */
+export type HarvestStatus = 'hanging' | 'completed';
+
+export interface PlantBatchRow {
+    name: string;
+    batch_type: BatchType | null;
+    strain_name: string;
+    /** Metrc location name, resolved to rooms.id by the store. */
+    room_name: string | null;
+    untracked_count: number;
+    tracked_count: number;
+    planted_date: Date | null;
+    metrc_id: number;
+    metrc_license: string;
+    metrc_last_modified: Date | null;
+}
+
+export interface HarvestRow {
+    name: string;
+    license_number: string;
+    strain: string;
+    plant_count: number;
+    total_wet_weight: number;
+    total_waste_weight: number;
+    drying_location: string | null;
+    status: HarvestStatus;
+    is_on_hold: boolean;
+    harvest_start_date: Date | null;
+    harvest_end_date: Date | null;
+    metrc_id: number;
+    metrc_license: string;
+    metrc_last_modified: Date | null;
+}
+
+export interface PlantRow {
+    label: string;
+    strain_name: string;
+    room_name: string | null;
+    growth_phase: PlantPhase;
+    planted_date: Date | null;
+    vegetative_date: Date | null;
+    flowering_date: Date | null;
+    harvested_date: Date | null;
+    destroyed_date: Date | null;
+    is_on_hold: boolean;
+    /** Metrc batch name → plant_batches.id, resolved by the store. */
+    plant_batch_name: string | null;
+    /** Metrc harvest id → harvests.id (by metrc_id), resolved by the store. */
+    metrc_harvest_id: number | null;
+    metrc_id: number;
+    metrc_license: string;
+    metrc_last_modified: Date | null;
+}
+
+export function mapBatchType(raw: string | null | undefined): BatchType | null {
+    const s = (raw ?? '').toLowerCase();
+    if (/clone/.test(s)) return 'clone';
+    if (/seed/.test(s)) return 'seed';
+    if (/tissue/.test(s)) return 'tissue_culture';
+    return null;
+}
+
+export function mapPlantBatch(b: T3PlantBatch, license: string): PlantBatchRow | null {
+    const name = clean(b.name);
+    if (!name || !Number.isFinite(b.id)) return null;
+    const count = (n: number | undefined) => (typeof n === 'number' && Number.isFinite(n) ? Math.max(0, Math.trunc(n)) : 0);
+    return {
+        name,
+        batch_type: mapBatchType(b.plantBatchTypeName),
+        strain_name: clean(b.strainName) ?? 'Unknown',
+        room_name: clean(b.locationName),
+        untracked_count: count(b.untrackedCount),
+        tracked_count: count(b.trackedCount),
+        planted_date: toDate(b.plantedDate),
+        metrc_id: b.id,
+        metrc_license: license,
+        metrc_last_modified: toDate(b.lastModified),
+    };
+}
+
+/** Metrc active → hanging (drying); finished → completed. NeuroCann's own stages are handled in the upsert. */
+export function mapHarvestStatus(h: T3Harvest, list: MetrcSyncList): HarvestStatus {
+    return h.isFinished || list === 'harvests/inactive' ? 'completed' : 'hanging';
+}
+
+export function mapHarvest(h: T3Harvest, license: string, list: MetrcSyncList): HarvestRow | null {
+    const name = clean(h.name);
+    if (!name || !Number.isFinite(h.id)) return null;
+    const weight = (n: number | undefined) => (typeof n === 'number' && Number.isFinite(n) ? Math.max(0, n) : 0);
+    const status = mapHarvestStatus(h, list);
+    const strains = (h.sourceStrainNames ?? '').split(',').map(s => s.trim()).filter(Boolean);
+    return {
+        name,
+        license_number: license,
+        strain: strains.length === 1 ? strains[0] : strains.length > 1 ? strains.join(', ') : 'Unknown',
+        plant_count: typeof h.plantCount === 'number' ? Math.max(0, Math.trunc(h.plantCount)) : 0,
+        total_wet_weight: weight(h.totalWetWeight),
+        total_waste_weight: weight(h.totalWasteWeight),
+        drying_location: clean(h.dryingLocationName),
+        status,
+        is_on_hold: Boolean(h.isOnHold),
+        harvest_start_date: toDate(h.harvestStartDate),
+        harvest_end_date: status === 'completed' ? toDate(h.finishedDate) ?? toDate(h.lastModified) : null,
+        metrc_id: h.id,
+        metrc_license: license,
+        metrc_last_modified: toDate(h.lastModified),
+    };
+}
+
+/**
+ * Growth phase from Metrc's own label when it is one NeuroCann has, else from
+ * the list the plant came off. Inactive plants are destroyed when Metrc has a
+ * destroyed date and harvested otherwise.
+ */
+export function mapPlantPhase(p: T3Plant, list: MetrcSyncList): PlantPhase {
+    if (list === 'plants/inactive') return p.destroyedDate ? 'destroyed' : 'harvested';
+    const g = (p.growthPhaseName ?? '').toLowerCase();
+    if (g === 'vegetative' || g === 'flowering') return g;
+    return list === 'plants/flowering' ? 'flowering' : 'vegetative';
+}
+
+export function mapPlant(p: T3Plant, license: string, list: MetrcSyncList): PlantRow | null {
+    const label = clean(p.label)?.toUpperCase() ?? null;
+    if (!label || !Number.isFinite(p.id)) return null;
+    const phase = mapPlantPhase(p, list);
+    return {
+        label,
+        strain_name: clean(p.strainName) ?? 'Unknown',
+        room_name: clean(p.locationName),
+        growth_phase: phase,
+        planted_date: toDate(p.plantedDate),
+        vegetative_date: toDate(p.vegetativeDate),
+        flowering_date: toDate(p.floweringDate),
+        harvested_date: phase === 'harvested' ? toDate(p.harvestedDate) ?? toDate(p.lastModified) : toDate(p.harvestedDate),
+        destroyed_date: phase === 'destroyed' ? toDate(p.destroyedDate) ?? toDate(p.lastModified) : null,
+        is_on_hold: Boolean(p.isOnHold),
+        plant_batch_name: clean(p.plantBatchName),
+        metrc_harvest_id: typeof p.harvestId === 'number' && p.harvestId > 0 ? p.harvestId : null,
+        metrc_id: p.id,
+        metrc_license: license,
+        metrc_last_modified: toDate(p.lastModified),
     };
 }
 

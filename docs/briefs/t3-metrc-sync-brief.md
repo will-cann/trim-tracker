@@ -1,8 +1,8 @@
 # Handoff Brief: Sync Metrc data into NeuroCann via T3
 
-Status as of 2026-10-16: **phase 1 built** (migration 067, `netlify/functions/metrc-sync-*.ts`,
+Status as of 2026-10-16: **phases 1 and 2 built** (migrations 067/068, `netlify/functions/metrc-sync-*.ts`,
 `utils/metrcSync*.ts`, Settings → Metrc Sync) — see `docs/metrc-sync.md` for how it runs and what
-is left before the first real run. Phases 2 and 3 not started. Read with `docs/manifest-t3.md`
+is left before the first real run. Phase 3 not started. Read with `docs/manifest-t3.md`
 (how the T3 connection works) and `docs/handoff-proper-manifest.md` (the Proper deploy).
 
 ## Goal
