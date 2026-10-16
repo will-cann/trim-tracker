@@ -190,6 +190,28 @@ export class MetrcSyncStore {
 
     // ── Reference data ─────────────────────────────────────────────────────
 
+    /**
+     * The licences the T3 login can see become the company's facility licences
+     * (Settings → Licenses, the setup checklist, harvest and session forms).
+     * Existing rows keep any label someone typed; new rows take Metrc's name.
+     */
+    async upsertLicenses(companyId: string, licenses: Array<{ licenseNumber: string; licenseName?: string | null }>): Promise<number> {
+        const rows = licenses.filter(l => l.licenseNumber?.trim());
+        if (!rows.length) return 0;
+        const { rows: written } = await this.db.query(
+            `INSERT INTO licenses (company_id, license_number, label)
+             SELECT $1, u.license_number, u.label
+               FROM UNNEST($2::text[], $3::text[]) AS u(license_number, label)
+             ON CONFLICT (company_id, LOWER(license_number)) DO UPDATE SET
+                label = COALESCE(licenses.label, EXCLUDED.label),
+                updated_at = NOW()
+             WHERE licenses.label IS NULL AND EXCLUDED.label IS NOT NULL
+             RETURNING id`,
+            [companyId, rows.map(l => l.licenseNumber.trim()), rows.map(l => l.licenseName?.trim() || null)],
+        );
+        return written.length;
+    }
+
     async ensureProductTypes(companyId: string, specs: ProductTypeSpec[]): Promise<void> {
         const byName = new Map<string, ProductTypeSpec>();
         for (const s of specs) if (!byName.has(s.name)) byName.set(s.name, s);

@@ -45,6 +45,12 @@ Before claiming, the function fails any run still `running` after 20 minutes (a
 background function can't live that long, so it died), which is what stops a killed
 lambda from wedging the sync.
 
+### Licences
+
+The licences the T3 login can see are written to the company's `licenses` table on every
+real run (new rows take Metrc's facility name as the label; a label typed by hand is kept),
+so Settings → Licenses, the setup checklist and the harvest/session forms see them.
+
 ### Order and cursors
 
 Per licence, in this order so later lists can link to earlier ones:

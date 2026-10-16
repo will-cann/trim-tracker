@@ -32,7 +32,7 @@ function fakeT3(over: Partial<SyncT3> = {}): SyncT3 & { calls: string[] } {
     const calls: string[] = [];
     return {
         calls,
-        licenses: async () => [{ licenseNumber: 'MAN000020' }],
+        licenses: async () => [{ licenseNumber: 'MAN000020', licenseName: '5150 Processing LLC' }],
         items: async (license, since) => { calls.push(`items ${license} ${since?.toISOString() ?? 'full'}`); return [{ id: 5, name: 'Pre-Roll 1g', productCategoryName: 'Pre-Roll', quantityTypeName: 'CountBased' }]; },
         strains: async license => { calls.push(`strains ${license}`); return [{ id: 7, name: 'Gelato' }]; },
         locations: async license => { calls.push(`locations ${license}`); return [{ id: 3, name: 'Vault A' }]; },
@@ -56,6 +56,7 @@ function fakeStore(opts: { states?: Map<string, ListState>; existing?: ExistingP
         listStates: async () => opts.states ?? new Map(),
         markListSuccess: async (_c, license, list, cursor) => { successes.push([license, list, cursor]); },
         markListError: async (_c, license, list, message) => { failures.push([license, list, message]); },
+        upsertLicenses: vi.fn(async () => 1),
         ensureProductTypes: vi.fn(async () => {}),
         upsertItems: vi.fn(async (_c, rows) => ({ ...newCounts(), inserted: rows.length })),
         upsertStrains: vi.fn(async (_c, rows) => ({ ...newCounts(), inserted: rows.length })),
@@ -102,6 +103,7 @@ describe('runMetrcSync', () => {
         expect(result.counts.MAN000020['packages/active']).toEqual({ fetched: 2, inserted: 2, updated: 0, unchanged: 0, failed: 0 });
         expect(result.report).toBeNull();
         expect(store.classifySyncedRooms).toHaveBeenCalledWith(COMPANY);
+        expect(store.upsertLicenses).toHaveBeenCalledWith(COMPANY, [{ licenseNumber: 'MAN000020', licenseName: '5150 Processing LLC' }]);
     });
 
     it('uses each list cursor minus the overlap, and only advances cursors for lists that succeeded', async () => {
@@ -151,6 +153,7 @@ describe('runMetrcSync', () => {
         expect(store.upsertStrains).not.toHaveBeenCalled();
         expect(store.upsertRooms).not.toHaveBeenCalled();
         expect(store.classifySyncedRooms).not.toHaveBeenCalled();
+        expect(store.upsertLicenses).not.toHaveBeenCalled();
         expect(store.upsertPlants).not.toHaveBeenCalled();
         expect(store.upsertHarvests).not.toHaveBeenCalled();
         expect(store.upsertPlantBatches).not.toHaveBeenCalled();

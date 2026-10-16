@@ -46,6 +46,7 @@ export interface SyncStore {
     listStates(companyId: string): Promise<Map<string, ListState>>;
     markListSuccess(companyId: string, license: string, list: MetrcSyncList, cursor: Date): Promise<void>;
     markListError(companyId: string, license: string, list: MetrcSyncList, message: string): Promise<void>;
+    upsertLicenses(companyId: string, licenses: Array<{ licenseNumber: string; licenseName?: string | null }>): Promise<number>;
     ensureProductTypes(companyId: string, specs: ProductTypeSpec[]): Promise<void>;
     upsertItems(companyId: string, rows: ReturnType<typeof mapItem>[]): Promise<UpsertCounts>;
     upsertStrains(companyId: string, rows: ReturnType<typeof mapStrain>[]): Promise<UpsertCounts>;
@@ -117,7 +118,16 @@ export async function runMetrcSync(store: SyncStore, t3: SyncT3, opts: RunOption
 
     let licenses: string[];
     try {
-        licenses = (await t3.licenses()).map(l => l.licenseNumber).filter(Boolean);
+        const seen = (await t3.licenses()).filter(l => l.licenseNumber);
+        licenses = seen.map(l => l.licenseNumber);
+        // The licences themselves are facility data too: Settings → Licenses and the setup checklist read them.
+        if (!opts.dryRun && seen.length) {
+            try {
+                await store.upsertLicenses(opts.companyId, seen);
+            } catch (err) {
+                errors.push({ message: `Could not record licences: ${describe(err)}` });
+            }
+        }
     } catch (err) {
         return { status: 'failed', counts, errors, report: opts.dryRun ? report : null, error: `Could not list licences from T3: ${describe(err)}` };
     }
