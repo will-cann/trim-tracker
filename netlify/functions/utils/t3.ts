@@ -70,7 +70,7 @@ function describeError(status: number, body: unknown): T3Error {
 
     let message: string;
     if (status === 401) message = 'T3 rejected the secret key. Regenerate it at api.trackandtrace.tools/v2/pages/secret-key and update T3_API_KEY.';
-    else if (status === 402 || /t3\+|subscription/i.test(`${code} ${title} ${detail}`)) message = 'This T3 account needs an active T3+ subscription for Metrc data and transfer endpoints.';
+    else if (status === 402 || /t3\+|subscription/i.test(`${code} ${title} ${detail}`)) message = detail ?? 'This T3 account needs an active T3+ subscription for Metrc data and transfer endpoints.';
     else if (status === 403) message = detail ?? 'The Metrc login behind the T3 key does not have access to that licence or action.';
     else if (status === 400) message = detail ?? title ?? 'T3 rejected the request.';
     else if (status >= 500) message = 'T3 or Metrc is having trouble right now. Try again in a moment.';
@@ -174,6 +174,8 @@ export interface T3WhoAmI {
     hasT3plus?: boolean;
     t3plusSubscriptionTier?: string | null;
     subscriptionStatus?: string | null;
+    /** 'reports' on the basic tier (only `/report` endpoints), 'full' on Team/Enterprise. */
+    t3plusApiAccessLevel?: string | null;
 }
 
 export const t3WhoAmI = () => t3Request<T3WhoAmI>('/v2/auth/whoami');

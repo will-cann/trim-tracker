@@ -69,8 +69,13 @@ export interface RunOptions {
     onlyLicenses?: string[];
 }
 
+/** T3 errors keep their code and status so the panel shows T3's reason, not a paraphrase. */
 const describe = (err: unknown): string => {
-    if (err instanceof T3Error) return err.message;
+    if (err instanceof T3Error) {
+        const tag = [err.code, err.status].filter(Boolean).join(' ');
+        const detail = err.detail && err.detail !== err.message ? ` — ${err.detail}` : '';
+        return `${err.message}${detail}${tag ? ` [${tag}]` : ''}`;
+    }
     if (err instanceof Error) return err.message;
     return String(err);
 };

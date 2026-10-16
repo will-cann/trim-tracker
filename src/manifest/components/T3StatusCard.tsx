@@ -72,6 +72,7 @@ export function T3StatusCard() {
           <p className="text-xs text-gray-500">
             T3+ {s.hasT3plus ? `active${s.subscriptionTier ? ` (${s.subscriptionTier})` : ''}` : 'missing'}
             {s.subscriptionStatus && s.subscriptionStatus !== 'active' ? ` · subscription ${s.subscriptionStatus}` : ''}
+            {s.apiAccessLevel ? ` · API access: ${s.apiAccessLevel}` : ''}
           </p>
           <p className="text-xs text-gray-500">{MODE_HINT[s.mode]}</p>
           {s.error && <Notice tone="amber">{s.error}</Notice>}

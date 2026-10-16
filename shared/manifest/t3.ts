@@ -33,6 +33,8 @@ export interface T3Status {
   hasT3plus?: boolean
   subscriptionTier?: string | null
   subscriptionStatus?: string | null
+  /** 'reports' (basic tier: report endpoints only) or 'full'. */
+  apiAccessLevel?: string | null
   licenses?: T3License[]
   error?: string
 }
