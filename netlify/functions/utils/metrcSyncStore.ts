@@ -443,6 +443,38 @@ export class MetrcSyncStore {
         return counts;
     }
 
+    /**
+     * Rooms created from Metrc locations start as 'general'. Once plants and
+     * batches have synced, type each still-general synced room from what Metrc
+     * put in it (mostly flowering plants → flower, veg → veg, only batches →
+     * nursery). Runs once per room: a type anyone sets afterwards is kept.
+     * Returns how many rooms were typed.
+     */
+    async classifySyncedRooms(companyId: string): Promise<number> {
+        const { rows } = await this.db.query(
+            `WITH stats AS (
+                SELECT r.id,
+                       (SELECT COUNT(*) FROM plants p WHERE p.room_id = r.id AND p.growth_phase = 'vegetative') AS veg,
+                       (SELECT COUNT(*) FROM plants p WHERE p.room_id = r.id AND p.growth_phase = 'flowering') AS flower,
+                       (SELECT COALESCE(SUM(pb.untracked_count + pb.tracked_count), 0) FROM plant_batches pb WHERE pb.room_id = r.id) AS nursery
+                  FROM rooms r
+                 WHERE r.company_id = $1 AND r.metrc_id IS NOT NULL AND r.room_type = 'general'
+             )
+             UPDATE rooms r
+                SET room_type = CASE
+                        WHEN s.flower > 0 AND s.flower >= s.veg AND s.flower >= s.nursery THEN 'flower'
+                        WHEN s.veg > 0 AND s.veg >= s.nursery THEN 'veg'
+                        ELSE 'nursery'
+                    END,
+                    updated_at = NOW()
+               FROM stats s
+              WHERE s.id = r.id AND (s.flower > 0 OR s.veg > 0 OR s.nursery > 0)
+              RETURNING r.id`,
+            [companyId],
+        );
+        return rows.length;
+    }
+
     // ── Packages ───────────────────────────────────────────────────────────
 
     /** metrc_items.name → id for one licence, to link packages to their item row. */

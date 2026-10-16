@@ -57,6 +57,7 @@ export interface SyncStore {
     upsertPlantBatches(companyId: string, rows: PlantBatchRow[], ids: CultivationIds): Promise<UpsertCounts>;
     upsertHarvests(companyId: string, rows: HarvestRow[]): Promise<UpsertCounts>;
     upsertPlants(companyId: string, rows: PlantRow[], ids: CultivationIds): Promise<UpsertCounts>;
+    classifySyncedRooms(companyId: string): Promise<number>;
     touchRun(runId: string, counts: MetrcSyncCounts, errors: MetrcSyncError[]): Promise<void>;
 }
 
@@ -161,6 +162,15 @@ export async function runMetrcSync(store: SyncStore, t3: SyncT3, opts: RunOption
                 if (!opts.dryRun) await store.markListError(opts.companyId, license, list, message);
             }
             await store.touchRun(opts.runId, counts, errors);
+        }
+    }
+
+    // Type synced rooms from their contents so the plant map groups them under the right phase.
+    if (!opts.dryRun && succeeded > 0) {
+        try {
+            await store.classifySyncedRooms(opts.companyId);
+        } catch (err) {
+            errors.push({ message: `Could not type synced rooms: ${describe(err)}` });
         }
     }
 

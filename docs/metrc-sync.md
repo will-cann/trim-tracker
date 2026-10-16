@@ -109,8 +109,11 @@ The background function budgets 13 of its 15 minutes. Lists it doesn't reach are
   the batch link (by Metrc batch name) and the harvest link (by Metrc harvest id). Health,
   contaminants, target harvest date and tag stay NeuroCann's. Inactive plants are `destroyed`
   when Metrc has a destroyed date, else `harvested`. Metrc mother plants are not pulled.
-- Rooms created from Metrc locations are `general`; the plant map's nursery view only shows
-  rooms typed `nursery`, so set room types in Settings → Rooms once for the rooms that matter.
+- Rooms created from Metrc locations start as `general`. At the end of each real run, every
+  synced room still typed `general` is typed once from what Metrc put in it: mostly flowering
+  plants → `flower`, mostly veg plants → `veg`, only batches → `nursery`. Rooms holding only
+  packages stay `general`. A type set by hand afterwards is never changed. The plant map's
+  All view derives a room's phase from this type, so an untyped veg room would open empty.
 
 ### Value maps
 

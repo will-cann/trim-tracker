@@ -67,6 +67,7 @@ function fakeStore(opts: { states?: Map<string, ListState>; existing?: ExistingP
         upsertPlantBatches: vi.fn(async (_c, rows) => ({ ...newCounts(), inserted: rows.length })),
         upsertHarvests: vi.fn(async (_c, rows) => ({ ...newCounts(), inserted: rows.length })),
         upsertPlants: vi.fn(async (_c, rows) => ({ ...newCounts(), inserted: rows.length })),
+        classifySyncedRooms: vi.fn(async () => 0),
         touchRun: vi.fn(async () => {}),
     };
     return { store, written, successes, failures };
@@ -100,6 +101,7 @@ describe('runMetrcSync', () => {
         expect(failures).toEqual([]);
         expect(result.counts.MAN000020['packages/active']).toEqual({ fetched: 2, inserted: 2, updated: 0, unchanged: 0, failed: 0 });
         expect(result.report).toBeNull();
+        expect(store.classifySyncedRooms).toHaveBeenCalledWith(COMPANY);
     });
 
     it('uses each list cursor minus the overlap, and only advances cursors for lists that succeeded', async () => {
@@ -148,6 +150,7 @@ describe('runMetrcSync', () => {
         expect(store.upsertItems).not.toHaveBeenCalled();
         expect(store.upsertStrains).not.toHaveBeenCalled();
         expect(store.upsertRooms).not.toHaveBeenCalled();
+        expect(store.classifySyncedRooms).not.toHaveBeenCalled();
         expect(store.upsertPlants).not.toHaveBeenCalled();
         expect(store.upsertHarvests).not.toHaveBeenCalled();
         expect(store.upsertPlantBatches).not.toHaveBeenCalled();
