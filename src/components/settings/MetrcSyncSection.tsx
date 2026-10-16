@@ -20,6 +20,13 @@ const LIST_LABEL: Record<MetrcSyncList, string> = {
     'packages/active': 'Active packages',
     'packages/intransit': 'In-transit packages',
     'packages/inactive': 'Finished packages',
+    'plantbatches/active': 'Plant batches',
+    'plantbatches/inactive': 'Finished batches',
+    'harvests/active': 'Harvests',
+    'harvests/inactive': 'Finished harvests',
+    'plants/vegetative': 'Veg plants',
+    'plants/flowering': 'Flowering plants',
+    'plants/inactive': 'Harvested/destroyed plants',
 };
 
 const RUN_LABEL: Record<MetrcSyncRun['status'], string> = {
@@ -99,7 +106,7 @@ export const MetrcSyncSection: React.FC<Props> = ({ initialStatus }) => {
                 <div>
                     <h3 className="settings-section-title">Metrc Sync</h3>
                     <p className="settings-section-desc">
-                        Items, strains, locations and packages are mirrored from Metrc through T3 every 15 minutes
+                        Items, strains, locations, packages, plant batches, harvests and plants are mirrored from Metrc through T3 every 15 minutes
                         ({status.mode === 'read-only' ? 'read-only' : status.mode} connection). Metrc owns what it tracks; plant health, notes and tasks stay here.
                     </p>
                 </div>
@@ -128,7 +135,7 @@ export const MetrcSyncSection: React.FC<Props> = ({ initialStatus }) => {
 
             {/* Totals */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mb-4">
-                {([['Packages', status.totals.packages], ['Items', status.totals.items], ['Strains', status.totals.strains], ['Rooms', status.totals.rooms]] as const).map(([label, n]) => (
+                {([['Packages', status.totals.packages], ['Plants', status.totals.plants], ['Plant batches', status.totals.plantBatches], ['Harvests', status.totals.harvests], ['Items', status.totals.items], ['Strains', status.totals.strains], ['Rooms', status.totals.rooms]] as const).map(([label, n]) => (
                     <div key={label} className="settings-add-form !mb-0">
                         <div className="text-xs text-[var(--color-dolphin)]">{label} from Metrc</div>
                         <div className="text-xl font-semibold tabular-nums">{n.toLocaleString()}</div>

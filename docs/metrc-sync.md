@@ -1,8 +1,8 @@
 # Metrc → NeuroCann sync (via T3)
 
-Phase 1 of `docs/briefs/t3-metrc-sync-brief.md`: on a per-customer deploy, NeuroCann
-mirrors Metrc's **items, strains, locations and packages** for every licence the T3
-login can see. Plants, plant batches and harvests (phase 2) and writes back to Metrc
+Phases 1 and 2 of `docs/briefs/t3-metrc-sync-brief.md`: on a per-customer deploy,
+NeuroCann mirrors Metrc's **items, strains, locations, packages, plant batches,
+harvests and plants** for every licence the T3 login can see. Writes back to Metrc
 (phase 3) are not built.
 
 Read `docs/manifest-t3.md` first for what T3 is and how the key and `T3_MODE` work.
@@ -35,7 +35,7 @@ company id (not Brian's existing neurocann.app team). Confirm the id in Settings
 | `utils/metrcSync.ts` | Pure rules: which lists, since when, Metrc row → NeuroCann row, lab state / status / product-type maps, change detection and the conflict report. Unit-tested with no I/O. |
 | `utils/metrcSyncStore.ts` | Batched upserts over one pooled client (200 rows per statement). Metrc-owned columns are named explicitly in every `SET`. |
 | `utils/metrcSyncRunner.ts` | Orchestration with T3 and the store injected. |
-| `migrations/067_metrc_sync.sql` | Schema below. |
+| `migrations/067_metrc_sync.sql`, `068_metrc_sync_phase2.sql` | Schema below. |
 
 ### One run at a time
 
@@ -48,12 +48,16 @@ lambda from wedging the sync.
 ### Order and cursors
 
 Per licence, in this order so later lists can link to earlier ones:
-`items` → `strains` → `locations` → `packages/active` → `packages/intransit` → `packages/inactive`.
+`items` → `strains` → `locations` → `packages/active` → `packages/intransit` → `packages/inactive`
+→ `plantbatches/active` → `plantbatches/inactive` → `harvests/active` → `harvests/inactive`
+→ `plants/vegetative` → `plants/flowering` → `plants/inactive`. Batches come before harvests
+before plants because a plant links to its batch and to the harvest it went into.
 
-- `items` and the package lists are incremental: `filter=lastModified__gte:<cursor − 10 min>`.
+- Every list except `strains` and `locations` is incremental: `filter=lastModified__gte:<cursor − 10 min>`.
   The 10-minute overlap re-reads a few rows every run; upserts make that harmless.
 - `strains` and `locations` have no `lastModified` in T3 and are always a full pull (they are small).
-- With no cursor yet, `packages/inactive` pulls the last 90 days; the others pull everything.
+- With no cursor yet, every `…/inactive` list (finished packages, finished batches and
+  harvests, harvested/destroyed plants) pulls the last 90 days; the others pull everything.
 - The cursor for a list is the time that list's pull started, stored in `metrc_sync_state`,
   and it is only written when the list finished cleanly. A failed list keeps its old cursor
   and is retried next run; its error is on the row and in the run.
@@ -78,6 +82,24 @@ The background function budgets 13 of its 15 minutes. Lists it doesn't reach are
   `finished` when the inactive list says so.
 - Rows whose Metrc id, `lastModified` and Metrc-owned columns already match are skipped
   (`unchanged` in the counts), so a quiet 15 minutes writes nothing.
+
+### Cultivation (phase 2)
+
+- **Plant batches** match on name (`plant_batches` is unique per company on name). Metrc owns
+  strain, room, untracked/tracked counts, planted date and batch type; health, contaminants,
+  tag and source plant stay NeuroCann's.
+- **Harvests** match on Metrc id. A hand-entered harvest with the same name and no Metrc id is
+  linked first so it is not duplicated. Metrc owns name, licence, strain(s), plant count, wet and
+  waste weight, drying location, hold and dates. Metrc only knows active and finished, so
+  **finished always wins** (`completed`); otherwise NeuroCann's own pipeline stage
+  (`cutting`, `submitted`, `hanging`, `bucking`) is kept, and a `completed` row Metrc reopens
+  goes back to `hanging`. New rows start as `hanging`. Synced harvests have no `created_by` (068).
+- **Plants** match on tag. Metrc owns strain, room, growth phase, the phase dates, hold,
+  the batch link (by Metrc batch name) and the harvest link (by Metrc harvest id). Health,
+  contaminants, target harvest date and tag stay NeuroCann's. Inactive plants are `destroyed`
+  when Metrc has a destroyed date, else `harvested`. Metrc mother plants are not pulled.
+- Rooms created from Metrc locations are `general`; the plant map's nursery view only shows
+  rooms typed `nursery`, so set room types in Settings → Rooms once for the rooms that matter.
 
 ### Value maps
 
@@ -111,15 +133,17 @@ hand-entered rows. Run a dry run on the Proper site before the first real sync.
   `metrc_lab_state`, `status` may be `in_transit`, `created_by` nullable (synced rows have no author).
 - `strains`, `rooms`, `plants`, `plant_batches`, `harvests`: `metrc_id`, `metrc_license`,
   `metrc_last_modified`, `metrc_synced_at`. `metrc_items`: `metrc_last_modified`.
+- 068: `harvests.created_by` nullable; partial unique indexes on `(company_id, metrc_id)` for
+  harvests (their upsert key), plants and plant batches.
 - `metrc_sync_state` (cursor per company/licence/list) and `metrc_sync_runs` (status, counts,
   errors, report, started_by). Partial unique index: one running run per company.
 
 ```bash
 node scripts/run-migration.mjs migrations/067_metrc_sync.sql           # dev branch
+node scripts/run-migration.mjs migrations/068_metrc_sync_phase2.sql
 node scripts/run-migration.mjs --prod migrations/067_metrc_sync.sql    # prod, per CLAUDE.md
+node scripts/run-migration.mjs --prod migrations/068_metrc_sync_phase2.sql
 ```
-
-`harvests.created_by` is still NOT NULL; phase 2 handles it with the harvest sync.
 
 ## Settings → Metrc Sync
 

@@ -39,6 +39,9 @@ function fakeT3(over: Partial<SyncT3> = {}): SyncT3 & { calls: string[] } {
             calls.push(`${path} ${license} ${since?.toISOString() ?? 'full'}`);
             return path.endsWith('/active') ? [t3pkg({}), t3pkg({ id: 2, label: TAG_B, quantity: 4 })] : [];
         },
+        plantBatches: async (path, license, since) => { calls.push(`${path} ${license} ${since?.toISOString() ?? 'full'}`); return path.endsWith('/active') ? [{ id: 11, name: 'Gelato 9/1', plantBatchTypeName: 'Clone', strainName: 'Gelato', locationName: 'Nursery', untrackedCount: 40, trackedCount: 0 }] : []; },
+        harvests: async (path, license, since) => { calls.push(`${path} ${license} ${since?.toISOString() ?? 'full'}`); return path.endsWith('/active') ? [{ id: 21, name: 'Gelato 2026-09-20', sourceStrainNames: 'Gelato', plantCount: 12, totalWetWeight: 9000 }] : []; },
+        plants: async (path, license, since) => { calls.push(`${path} ${license} ${since?.toISOString() ?? 'full'}`); return path.endsWith('/flowering') ? [{ id: 31, label: '1A40C0300000B55000200001', growthPhaseName: 'Flowering', strainName: 'Gelato', locationName: 'Flower 2', plantBatchName: 'Gelato 9/1' }] : []; },
         ...over,
     };
 }
@@ -58,6 +61,10 @@ function fakeStore(opts: { states?: Map<string, ListState>; existing?: ExistingP
         metrcItemIds: async () => new Map([['pre-roll 1g', 'item-uuid']]),
         existingPackages: async (_c, labels) => new Map((opts.existing ?? []).filter(e => labels.includes(e.label)).map(e => [e.label, e])),
         upsertPackages: vi.fn(async (_c, rows) => { written.push(rows); return { inserted: rows.length, updated: 0 }; }),
+        cultivationIds: vi.fn(async () => ({ strains: new Map(), rooms: new Map(), plantBatches: new Map(), harvests: new Map() })),
+        upsertPlantBatches: vi.fn(async (_c, rows) => ({ inserted: rows.length, updated: 0, unchanged: 0 })),
+        upsertHarvests: vi.fn(async (_c, rows) => ({ inserted: rows.length, updated: 0, unchanged: 0 })),
+        upsertPlants: vi.fn(async (_c, rows) => ({ inserted: rows.length, updated: 0, unchanged: 0 })),
         touchRun: vi.fn(async () => {}),
     };
     return { store, written, successes, failures };
@@ -72,13 +79,22 @@ describe('runMetrcSync', () => {
         const result = await runMetrcSync(store, t3, { companyId: COMPANY, runId: RUN, dryRun: false, deadline: farDeadline });
 
         expect(result.status).toBe('succeeded');
-        expect(t3.calls.map(c => c.split(' ')[0])).toEqual(['items', 'strains', 'locations', '/v2/packages/active', '/v2/packages/intransit', '/v2/packages/inactive']);
+        expect(t3.calls.map(c => c.split(' ')[0])).toEqual([
+            'items', 'strains', 'locations', '/v2/packages/active', '/v2/packages/intransit', '/v2/packages/inactive',
+            '/v2/plantbatches/active', '/v2/plantbatches/inactive', '/v2/harvests/active', '/v2/harvests/inactive',
+            '/v2/plants/vegetative', '/v2/plants/flowering', '/v2/plants/inactive',
+        ]);
         // first run: full pulls, except inactive packages which go back 90 days
         expect(t3.calls[0]).toMatch(/items MAN000020 full/);
         expect(t3.calls[3]).toMatch(/active MAN000020 full/);
         expect(t3.calls[5]).not.toMatch(/full$/);
         expect(written.flat().map(r => r.label)).toEqual([TAG_A, TAG_B]);
-        expect(successes.map(s => s[1])).toEqual(['items', 'strains', 'locations', 'packages/active', 'packages/intransit', 'packages/inactive']);
+        expect(successes.map(s => s[1])).toEqual([
+            'items', 'strains', 'locations', 'packages/active', 'packages/intransit', 'packages/inactive',
+            'plantbatches/active', 'plantbatches/inactive', 'harvests/active', 'harvests/inactive', 'plants/vegetative', 'plants/flowering', 'plants/inactive',
+        ]);
+        expect(result.counts.MAN000020['plants/flowering']).toEqual({ fetched: 1, inserted: 1, updated: 0, unchanged: 0 });
+        expect(result.counts.MAN000020['harvests/active']).toEqual({ fetched: 1, inserted: 1, updated: 0, unchanged: 0 });
         expect(failures).toEqual([]);
         expect(result.counts.MAN000020['packages/active']).toEqual({ fetched: 2, inserted: 2, updated: 0, unchanged: 0 });
         expect(result.report).toBeNull();
@@ -130,6 +146,9 @@ describe('runMetrcSync', () => {
         expect(store.upsertItems).not.toHaveBeenCalled();
         expect(store.upsertStrains).not.toHaveBeenCalled();
         expect(store.upsertRooms).not.toHaveBeenCalled();
+        expect(store.upsertPlants).not.toHaveBeenCalled();
+        expect(store.upsertHarvests).not.toHaveBeenCalled();
+        expect(store.upsertPlantBatches).not.toHaveBeenCalled();
         expect(store.ensureProductTypes).not.toHaveBeenCalled();
         expect(successes).toEqual([]);
         expect(failures).toEqual([]);
@@ -147,9 +166,9 @@ describe('runMetrcSync', () => {
 
         expect(result.status).toBe('partial');
         expect(successes.length).toBeGreaterThan(0);
-        expect(successes.length).toBeLessThan(6);
+        expect(successes.length).toBeLessThan(13);
         expect(result.errors.every(e => /Out of time/.test(e.message))).toBe(true);
-        expect(result.errors.length + successes.length).toBe(6);
+        expect(result.errors.length + successes.length).toBe(13);
     });
 
     it('fails outright when T3 cannot list licences', async () => {

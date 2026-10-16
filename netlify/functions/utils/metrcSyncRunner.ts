@@ -1,10 +1,10 @@
-import type { T3Item, T3Location, T3Package, T3Strain } from './t3';
-import { isT3Configured, t3Items, t3Licenses, t3Locations, t3PackageList, t3Strains, T3Error } from './t3';
+import type { T3Harvest, T3Item, T3Location, T3Package, T3Plant, T3PlantBatch, T3Strain } from './t3';
+import { isT3Configured, t3HarvestList, t3Items, t3Licenses, t3Locations, t3PackageList, t3PlantBatchList, t3PlantList, t3Strains, T3Error } from './t3';
 import {
-    conflictsFor, resolveSyncCompany, isCurrent, mapItem, mapLocation, mapPackage, mapStrain, MAX_REPORTED_CONFLICTS,
-    sinceFor, SYNC_LISTS, T3_LIST_PATH, type PackageRow, type ProductTypeSpec,
+    conflictsFor, resolveSyncCompany, isCurrent, mapHarvest, mapItem, mapLocation, mapPackage, mapPlant, mapPlantBatch, mapStrain, MAX_REPORTED_CONFLICTS,
+    sinceFor, SYNC_LISTS, T3_LIST_PATH, type HarvestRow, type PackageRow, type PlantBatchRow, type PlantRow, type ProductTypeSpec,
 } from './metrcSync';
-import type { FinishRun, ListState, UpsertCounts } from './metrcSyncStore';
+import type { CultivationIds, FinishRun, ListState, UpsertCounts } from './metrcSyncStore';
 import { stateKey } from './metrcSyncStore';
 import type { MetrcSyncCounts, MetrcSyncError, MetrcSyncList, MetrcSyncListCounts, MetrcSyncReport } from '../../../shared/manifest/metrcSync';
 
@@ -22,6 +22,9 @@ export interface SyncT3 {
     strains(license: string): Promise<T3Strain[]>;
     locations(license: string): Promise<T3Location[]>;
     packages(path: string, license: string, since?: Date): Promise<T3Package[]>;
+    plantBatches(path: string, license: string, since?: Date): Promise<T3PlantBatch[]>;
+    harvests(path: string, license: string, since?: Date): Promise<T3Harvest[]>;
+    plants(path: string, license: string, since?: Date): Promise<T3Plant[]>;
 }
 
 export const liveT3: SyncT3 = {
@@ -30,6 +33,9 @@ export const liveT3: SyncT3 = {
     strains: license => t3Strains(license),
     locations: license => t3Locations(license),
     packages: (path, license, since) => t3PackageList(path, license, since),
+    plantBatches: (path, license, since) => t3PlantBatchList(path, license, since),
+    harvests: (path, license, since) => t3HarvestList(path, license, since),
+    plants: (path, license, since) => t3PlantList(path, license, since),
 };
 
 /** The slice of MetrcSyncStore a run needs. */
@@ -44,6 +50,10 @@ export interface SyncStore {
     metrcItemIds(companyId: string, license: string): Promise<Map<string, string>>;
     existingPackages(companyId: string, labels: string[]): Promise<Map<string, import('./metrcSync').ExistingPackage>>;
     upsertPackages(companyId: string, rows: PackageRow[], itemIds: Map<string, string>): Promise<Omit<UpsertCounts, 'unchanged'>>;
+    cultivationIds(companyId: string): Promise<CultivationIds>;
+    upsertPlantBatches(companyId: string, rows: PlantBatchRow[], ids: CultivationIds): Promise<UpsertCounts>;
+    upsertHarvests(companyId: string, rows: HarvestRow[]): Promise<UpsertCounts>;
+    upsertPlants(companyId: string, rows: PlantRow[], ids: CultivationIds): Promise<UpsertCounts>;
     touchRun(runId: string, counts: MetrcSyncCounts, errors: MetrcSyncError[]): Promise<void>;
 }
 
@@ -145,6 +155,22 @@ async function syncList(
         const rows = nonNull((await t3.locations(license)).map(l => mapLocation(l, license)));
         if (opts.dryRun) return zero(rows.length);
         return { fetched: rows.length, ...(await store.upsertRooms(opts.companyId, rows)) };
+    }
+
+    if (list.startsWith('plantbatches/')) {
+        const rows = nonNull((await t3.plantBatches(T3_LIST_PATH[list], license, since)).map(b => mapPlantBatch(b, license)));
+        if (opts.dryRun || !rows.length) return zero(rows.length);
+        return { fetched: rows.length, ...(await store.upsertPlantBatches(opts.companyId, rows, await store.cultivationIds(opts.companyId))) };
+    }
+    if (list.startsWith('harvests/')) {
+        const rows = nonNull((await t3.harvests(T3_LIST_PATH[list], license, since)).map(h => mapHarvest(h, license, list)));
+        if (opts.dryRun || !rows.length) return zero(rows.length);
+        return { fetched: rows.length, ...(await store.upsertHarvests(opts.companyId, rows)) };
+    }
+    if (list.startsWith('plants/')) {
+        const rows = nonNull((await t3.plants(T3_LIST_PATH[list], license, since)).map(p => mapPlant(p, license, list)));
+        if (opts.dryRun || !rows.length) return zero(rows.length);
+        return { fetched: rows.length, ...(await store.upsertPlants(opts.companyId, rows, await store.cultivationIds(opts.companyId))) };
     }
 
     const rows = nonNull((await t3.packages(T3_LIST_PATH[list], license, since)).map(p => mapPackage(p, license, list)));

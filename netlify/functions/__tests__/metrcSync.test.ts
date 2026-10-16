@@ -6,7 +6,7 @@
  */
 import { describe, it, expect } from 'vitest';
 import {
-    conflictsFor, CURSOR_OVERLAP_MS, isCurrent, mapItem, mapLabState, mapLocation, mapPackage, mapPackageStatus, mapStrain,
+    conflictsFor, CURSOR_OVERLAP_MS, isCurrent, mapBatchType, mapHarvest, mapItem, mapLabState, mapLocation, mapPackage, mapPackageStatus, mapPlant, mapPlantBatch, mapPlantPhase, mapStrain,
     packageChanges, productTypeForCategory, resolveSyncCompany, sinceFor, SYNC_LISTS, T3_LIST_PATH, type ExistingPackage,
 } from '../utils/metrcSync';
 import type { T3Package } from '../utils/t3';
@@ -61,13 +61,24 @@ describe('sinceFor', () => {
         const since = sinceFor('packages/inactive', null, NOW)!;
         expect(Math.round((NOW.getTime() - since.getTime()) / 86_400_000)).toBe(90);
     });
+    it('treats every inactive list the same on a first run', () => {
+        for (const list of ['plants/inactive', 'harvests/inactive', 'plantbatches/inactive'] as const) {
+            expect(Math.round((NOW.getTime() - sinceFor(list, null, NOW)!.getTime()) / 86_400_000)).toBe(90);
+        }
+        expect(sinceFor('plants/vegetative', null, NOW)).toBeUndefined();
+    });
     it('never filters strains or locations (T3 has no lastModified on them)', () => {
         const cursor = new Date('2026-10-16T11:00:00Z');
         expect(sinceFor('strains', cursor, NOW)).toBeUndefined();
         expect(sinceFor('locations', cursor, NOW)).toBeUndefined();
     });
     it('pulls lists in dependency order against the paths the T3 spec lists', () => {
-        expect(SYNC_LISTS).toEqual(['items', 'strains', 'locations', 'packages/active', 'packages/intransit', 'packages/inactive']);
+        expect(SYNC_LISTS).toEqual([
+            'items', 'strains', 'locations', 'packages/active', 'packages/intransit', 'packages/inactive',
+            'plantbatches/active', 'plantbatches/inactive', 'harvests/active', 'harvests/inactive', 'plants/vegetative', 'plants/flowering', 'plants/inactive',
+        ]);
+        expect(T3_LIST_PATH['plants/vegetative']).toBe('/v2/plants/vegetative');
+        expect(T3_LIST_PATH['harvests/inactive']).toBe('/v2/harvests/inactive');
         expect(T3_LIST_PATH.items).toBe('/v2/items');
         expect(T3_LIST_PATH.locations).toBe('/v2/locations/active');
         expect(T3_LIST_PATH['packages/intransit']).toBe('/v2/packages/intransit');
@@ -173,6 +184,49 @@ describe('mapItem / mapStrain / mapLocation', () => {
         expect(mapStrain({ id: 7, name: 'Gelato' }, 'CUL000030')).toEqual({ name: 'Gelato', metrc_id: 7, metrc_license: 'CUL000030' });
         expect(mapLocation({ id: 3, name: 'Flower 2' }, 'CUL000030')).toEqual({ name: 'Flower 2', metrc_id: 3, metrc_license: 'CUL000030' });
         expect(mapStrain({ id: 7, name: '' }, 'L')).toBeNull();
+    });
+});
+
+describe('cultivation mappers (phase 2)', () => {
+    it('maps a plant batch to a nursery batch row', () => {
+        const row = mapPlantBatch({ id: 11, name: ' Gelato 9/1 ', plantBatchTypeName: 'Clone', strainName: 'Gelato', locationName: 'Nursery', untrackedCount: 40, trackedCount: 2, plantedDate: '2026-09-01T00:00:00Z', lastModified: '2026-10-01T12:00:00Z' }, 'CUL000030')!;
+        expect(row).toMatchObject({ name: 'Gelato 9/1', batch_type: 'clone', strain_name: 'Gelato', room_name: 'Nursery', untracked_count: 40, tracked_count: 2, metrc_id: 11, metrc_license: 'CUL000030' });
+        expect(row.planted_date?.toISOString()).toBe('2026-09-01T00:00:00.000Z');
+        expect(mapBatchType('Seed')).toBe('seed');
+        expect(mapBatchType('Tissue Culture')).toBe('tissue_culture');
+        expect(mapBatchType('Plant')).toBeNull();
+        expect(mapPlantBatch({ id: 1, name: '' }, 'L')).toBeNull();
+    });
+
+    it('maps harvests: active → hanging, finished → completed, strains joined', () => {
+        const active = mapHarvest({ id: 21, name: 'Gelato 2026-09-20', sourceStrainNames: 'Gelato', dryingLocationName: 'Dry 1', plantCount: 12, totalWetWeight: 9000.5, totalWasteWeight: 120, harvestStartDate: '2026-09-20T00:00:00Z', lastModified: '2026-09-21T00:00:00Z' }, 'CUL000030', 'harvests/active')!;
+        expect(active).toMatchObject({ name: 'Gelato 2026-09-20', license_number: 'CUL000030', strain: 'Gelato', plant_count: 12, total_wet_weight: 9000.5, total_waste_weight: 120, drying_location: 'Dry 1', status: 'hanging', harvest_end_date: null, metrc_id: 21 });
+        const done = mapHarvest({ id: 22, name: 'Mixed 9/1', sourceStrainNames: 'Gelato, Runtz', isFinished: true, finishedDate: '2026-10-05T00:00:00Z' }, 'CUL000030', 'harvests/active')!;
+        expect(done.status).toBe('completed');
+        expect(done.strain).toBe('Gelato, Runtz');
+        expect(done.harvest_end_date?.toISOString()).toBe('2026-10-05T00:00:00.000Z');
+        expect(mapHarvest({ id: 23, name: 'Old', lastModified: '2026-08-01T00:00:00Z' }, 'CUL000030', 'harvests/inactive')!.status).toBe('completed');
+        expect(mapHarvest({ id: 24, name: 'No strain' }, 'L', 'harvests/active')!.strain).toBe('Unknown');
+    });
+
+    it('maps plant phase from Metrc or from the list, and inactive plants by destroyed date', () => {
+        expect(mapPlantPhase({ id: 1, label: 'X', growthPhaseName: 'Flowering' }, 'plants/vegetative')).toBe('flowering');
+        expect(mapPlantPhase({ id: 1, label: 'X', growthPhaseName: 'Mother' }, 'plants/vegetative')).toBe('vegetative');
+        expect(mapPlantPhase({ id: 1, label: 'X' }, 'plants/flowering')).toBe('flowering');
+        expect(mapPlantPhase({ id: 1, label: 'X', destroyedDate: '2026-10-01' }, 'plants/inactive')).toBe('destroyed');
+        expect(mapPlantPhase({ id: 1, label: 'X', harvestedDate: '2026-10-01' }, 'plants/inactive')).toBe('harvested');
+    });
+
+    it('maps a plant with its batch and harvest links', () => {
+        const row = mapPlant({ id: 31, label: '1a40c0300000b55000200001', growthPhaseName: 'Flowering', strainName: 'Gelato', locationName: 'Flower 2', plantBatchName: 'Gelato 9/1', harvestId: 0, plantedDate: '2026-09-01', vegetativeDate: '2026-09-15', floweringDate: '2026-10-01', isOnHold: false, lastModified: '2026-10-02T00:00:00Z' }, 'CUL000030', 'plants/flowering')!;
+        expect(row).toMatchObject({ label: '1A40C0300000B55000200001', strain_name: 'Gelato', room_name: 'Flower 2', growth_phase: 'flowering', plant_batch_name: 'Gelato 9/1', metrc_harvest_id: null, destroyed_date: null, metrc_id: 31 });
+        expect(row.flowering_date?.toISOString().slice(0, 10)).toBe('2026-10-01');
+        const harvested = mapPlant({ id: 32, label: TAG, harvestId: 21, harvestedDate: '2026-10-10', lastModified: '2026-10-10T00:00:00Z' }, 'CUL000030', 'plants/inactive')!;
+        expect(harvested).toMatchObject({ growth_phase: 'harvested', metrc_harvest_id: 21 });
+        expect(harvested.harvested_date?.toISOString().slice(0, 10)).toBe('2026-10-10');
+        const destroyed = mapPlant({ id: 33, label: TAG, destroyedDate: '2026-10-11', lastModified: '2026-10-11T00:00:00Z' }, 'CUL000030', 'plants/inactive')!;
+        expect(destroyed.growth_phase).toBe('destroyed');
+        expect(destroyed.destroyed_date?.toISOString().slice(0, 10)).toBe('2026-10-11');
     });
 });
 

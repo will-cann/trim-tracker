@@ -41,7 +41,7 @@ export const handler: Handler = async (event) => {
             lastRun: null,
             recentRuns: [],
             lists: [],
-            totals: { items: 0, strains: 0, rooms: 0, packages: 0 },
+            totals: { items: 0, strains: 0, rooms: 0, packages: 0, plantBatches: 0, harvests: 0, plants: 0 },
         };
         if (!enabled) return json(200, base);
 
@@ -66,7 +66,10 @@ export const handler: Handler = async (event) => {
                     (SELECT COUNT(*)::int FROM metrc_items WHERE company_id = ${ctx.companyId} AND metrc_id IS NOT NULL) AS items,
                     (SELECT COUNT(*)::int FROM strains WHERE company_id = ${ctx.companyId} AND metrc_id IS NOT NULL) AS strains,
                     (SELECT COUNT(*)::int FROM rooms WHERE company_id = ${ctx.companyId} AND metrc_id IS NOT NULL) AS rooms,
-                    (SELECT COUNT(*)::int FROM packages WHERE company_id = ${ctx.companyId} AND metrc_id IS NOT NULL) AS packages
+                    (SELECT COUNT(*)::int FROM packages WHERE company_id = ${ctx.companyId} AND metrc_id IS NOT NULL) AS packages,
+                    (SELECT COUNT(*)::int FROM plant_batches WHERE company_id = ${ctx.companyId} AND metrc_id IS NOT NULL) AS plant_batches,
+                    (SELECT COUNT(*)::int FROM harvests WHERE company_id = ${ctx.companyId} AND metrc_id IS NOT NULL) AS harvests,
+                    (SELECT COUNT(*)::int FROM plants WHERE company_id = ${ctx.companyId} AND metrc_id IS NOT NULL) AS plants
             `,
         ]);
 
@@ -99,7 +102,7 @@ export const handler: Handler = async (event) => {
             lastRun: recentRuns[0] ?? null,
             recentRuns,
             lists,
-            totals: { items: t.items ?? 0, strains: t.strains ?? 0, rooms: t.rooms ?? 0, packages: t.packages ?? 0 },
+            totals: { items: t.items ?? 0, strains: t.strains ?? 0, rooms: t.rooms ?? 0, packages: t.packages ?? 0, plantBatches: t.plant_batches ?? 0, harvests: t.harvests ?? 0, plants: t.plants ?? 0 },
         };
         return json(200, body);
     } catch (error) {
