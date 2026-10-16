@@ -117,6 +117,9 @@ export async function sendInvitation(
                     connection: 'Username-Password-Authentication',
                     password: crypto.randomUUID() + 'Aa1!', // random, they'll reset via ticket
                     email_verified: false,
+                    // Our invite (the password ticket) verifies the email; Auth0's own
+                    // "verify your email" message would arrive first and confuse people.
+                    verify_email: false,
                 }),
             });
 

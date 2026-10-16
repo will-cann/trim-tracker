@@ -50,7 +50,7 @@ describe('sendInvitation', () => {
         const r = await sendInvitation(' NFedoronko@ProperBrands.com ', 'Nick Fedoronko');
         expect(r.success).toBe(true);
         expect(calls.find(c => c.url.includes('users-by-email'))!.url).toContain('email=nfedoronko%40properbrands.com');
-        expect(calls.find(c => c.url.endsWith('/api/v2/users'))!.body!.email).toBe('nfedoronko@properbrands.com');
+        expect(calls.find(c => c.url.endsWith('/api/v2/users'))!.body).toMatchObject({ email: 'nfedoronko@properbrands.com', verify_email: false });
     });
 
     it('invites an existing login regardless of the case it was typed in', async () => {
