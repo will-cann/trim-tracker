@@ -6,7 +6,7 @@
  */
 import { describe, it, expect } from 'vitest';
 import {
-    conflictsFor, CURSOR_OVERLAP_MS, isCurrent, mapBatchType, mapHarvest, mapItem, mapLabState, mapLocation, mapPackage, mapPackageStatus, mapPlant, mapPlantBatch, mapPlantPhase, mapStrain,
+    conflictsFor, CURSOR_OVERLAP_MS, fit, harvestStrainLabel, isCurrent, mapBatchType, mapHarvest, mapItem, mapLabState, mapLocation, mapPackage, mapPackageStatus, mapPlant, mapPlantBatch, mapPlantPhase, mapStrain,
     packageChanges, productTypeForCategory, resolveSyncCompany, sinceFor, SYNC_LISTS, T3_LIST_PATH, type ExistingPackage,
 } from '../utils/metrcSync';
 import type { T3Package } from '../utils/t3';
@@ -207,6 +207,22 @@ describe('cultivation mappers (phase 2)', () => {
         expect(done.harvest_end_date?.toISOString()).toBe('2026-10-05T00:00:00.000Z');
         expect(mapHarvest({ id: 23, name: 'Old', lastModified: '2026-08-01T00:00:00Z' }, 'CUL000030', 'harvests/inactive')!.status).toBe('completed');
         expect(mapHarvest({ id: 24, name: 'No strain' }, 'L', 'harvests/active')!.strain).toBe('Unknown');
+    });
+
+    it('keeps every text value inside the 255-character columns', () => {
+        const many = Array.from({ length: 40 }, (_, i) => `Strain Number ${i + 1} Long Name`);
+        expect(harvestStrainLabel(many)).toBe('Strain Number 1 Long Name +39 more');
+        expect(harvestStrainLabel(['Gelato', 'Runtz'])).toBe('Gelato, Runtz');
+        expect(fit('x'.repeat(300)).length).toBe(255);
+        const long = 'L'.repeat(400);
+        const h = mapHarvest({ id: 25, name: long, dryingLocationName: long, sourceStrainNames: many.join(', ') }, 'L', 'harvests/active')!;
+        expect(h.name.length).toBe(255);
+        expect(h.drying_location!.length).toBe(255);
+        expect(h.strain.length).toBeLessThanOrEqual(255);
+        const p = mapPackage({ id: 1, label: TAG, item: { name: long, strainName: long }, locationName: long, unitOfMeasureName: 'Fluid Ounces (imperial)' }, 'L', 'packages/active')!;
+        expect(p.item_name!.length).toBe(255);
+        expect(p.strain.length).toBe(255);
+        expect(p.unit.length).toBeLessThanOrEqual(20);
     });
 
     it('maps plant phase from Metrc or from the list, and inactive plants by destroyed date', () => {

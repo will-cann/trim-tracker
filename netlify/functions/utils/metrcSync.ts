@@ -167,10 +167,27 @@ const toDate = (iso: string | null | undefined): Date | null => {
     return Number.isNaN(d.getTime()) ? null : d;
 };
 
+/** Most text columns the sync writes are VARCHAR(255); Metrc names can run longer. */
+export const VARCHAR_MAX = 255;
+export const fit = (s: string, max = VARCHAR_MAX): string => (s.length > max ? `${s.slice(0, max - 1)}…` : s);
+
 const clean = (s: string | null | undefined): string | null => {
     const t = (s ?? '').trim();
-    return t ? t : null;
+    return t ? fit(t) : null;
 };
+
+/**
+ * A harvest's strain column holds one name, or "A, B, C" for a multi-strain
+ * harvest; when that would not fit, name the first and count the rest.
+ */
+export function harvestStrainLabel(names: string[]): string {
+    const list = names.map(n => n.trim()).filter(Boolean);
+    if (list.length === 0) return 'Unknown';
+    if (list.length === 1) return fit(list[0]);
+    const joined = list.join(', ');
+    if (joined.length <= VARCHAR_MAX) return joined;
+    return fit(`${list[0]} +${list.length - 1} more`);
+}
 
 // ── Row shapes (Metrc-owned columns only) ──────────────────────────────────
 
@@ -271,7 +288,7 @@ export function mapPackage(p: T3Package, license: string, list: MetrcSyncList): 
         strain: clean(item?.strainName) ?? '',
         package_type: productType.name,
         quantity,
-        unit,
+        unit: fit(unit, 20),
         location: clean(p.locationName),
         status,
         lab_testing_state: mapLabState(p.labTestingStateName),
@@ -282,7 +299,7 @@ export function mapPackage(p: T3Package, license: string, list: MetrcSyncList): 
         is_trade_sample: Boolean(p.isTradeSample),
         is_donation: Boolean(p.isDonation),
         source_package_labels: splitLabels(p.sourcePackageLabels),
-        source_harvest_names: (p.sourceHarvestNames ?? '').split(',').map(s => s.trim()).filter(Boolean),
+        source_harvest_names: (p.sourceHarvestNames ?? '').split(',').map(s => s.trim()).filter(Boolean).map(s => fit(s)),
         productType,
     };
 }
@@ -381,11 +398,10 @@ export function mapHarvest(h: T3Harvest, license: string, list: MetrcSyncList): 
     if (!name || !Number.isFinite(h.id)) return null;
     const weight = (n: number | undefined) => (typeof n === 'number' && Number.isFinite(n) ? Math.max(0, n) : 0);
     const status = mapHarvestStatus(h, list);
-    const strains = (h.sourceStrainNames ?? '').split(',').map(s => s.trim()).filter(Boolean);
     return {
         name,
         license_number: license,
-        strain: strains.length === 1 ? strains[0] : strains.length > 1 ? strains.join(', ') : 'Unknown',
+        strain: harvestStrainLabel((h.sourceStrainNames ?? '').split(',')),
         plant_count: typeof h.plantCount === 'number' ? Math.max(0, Math.trunc(h.plantCount)) : 0,
         total_wet_weight: weight(h.totalWetWeight),
         total_waste_weight: weight(h.totalWasteWeight),
