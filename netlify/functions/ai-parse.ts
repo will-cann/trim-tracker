@@ -3,6 +3,8 @@ import { resolveContext } from './utils/auth';
 import { sql } from './utils/db';
 import { checkRateLimit } from './utils/rateLimit';
 import { withSentry, captureError } from './utils/sentry';
+import { normalizeContaminant } from '../../shared/plantMap/health';
+import { buildHotspotSummary, buildRoomLayout } from './utils/plantMap';
 
 const ANTHROPIC_API_URL = 'https://api.anthropic.com/v1/messages';
 
@@ -222,6 +224,7 @@ The application can automate these operations:
 - **Harvest Bins**: Physical containers created during the buck & bin phase. Bins hold one strain from one harvest. Lifecycle: curing → ready → in_trim → completed. Bins need regular burping/aeration during curing (the schedule varies by strain and conditions). When ready, bins are sent to the trim team.
 - **Plants (unified tool)**: Use the \`plants\` tool for all plant operations — create plantings, move between rooms, change growth phase, update health, destroy. The tool has a single \`action\` field that discriminates. Plant health is tracked per **(strain, room, entity)** — all plants of the same strain in the same room share one health value and contaminants list, matching how cultivators reason about plant groups. Don't try to express per-plant health; update the group. For scheduled plantings ("next week we're starting 50 Gelato clones"), set \`plannedFor\` on the create action to produce a scheduled human task instead of an immediate commit.
 - **Fuzzy plant references**: The plant map is NOT pushed into context — call \`find_plants\` with a query before acting on any plant reference. Pass (strainName, roomName, phase, contaminants) as filters, then use the returned IDs in a subsequent \`plants\` call. This applies in both interactive and ambient modes.
+- **Plant mapping / bud rot hot spots**: Rooms can have a bench grid (rows × columns) and each plant a cell (row/col, 1-indexed when people say "bench 2, fourth from the left"). Individual observations go through \`plants\` with action=log_issue — one issue key (e.g. botrytis for "bud rot", "grey mold", "mold on the cola"), a severity 1–5 (1 trace, 3 moderate, 5 critical), optional note, and optionally the cell. This is per-PLANT (unlike update_health, which is per group) and feeds the hot-spot map and the move planner, so prefer log_issue whenever the user describes a specific sick plant or a specific spot. Use \`find_hotspots\` to answer "where is the bud rot", "which rooms/strains keep getting PM", or "what should I move" — pass roomId/roomName to get that room's move plan (cull / isolate / relocate / inspect with target cells). Plants are sorted into benches by feed program, flower length and stretch; those live on the strain (Settings → Strains).
 - **Convert to Trim**: Convert a flower harvest allocation or a ready bin into a trim entry for processing.
 - **Strains**: Create new strains or remove existing ones from the system.
 - **Licenses**: Add, rename, or remove facility license numbers.
@@ -730,6 +733,7 @@ Actions (pick one via the \`action\` field):
 - change_phase: Change the growth phase of individual plants (vegetative → flowering → harvested → destroyed). Only works on individual plants, not batches. May optionally also move rooms via targetRoomName.
 - update_health: Update health score (0-100) and/or contaminants for plants/batches. Plant health is tracked per (strain, room, entity) — all plants of the same strain in the same room share one health record, matching how cultivators reason about plant groups. Identify by (strainName, sourceRoomName).
 - destroy: Destroy/remove plants or plant batches from the system. Requires identification.
+- log_issue: Log a per-plant health observation (bud rot = botrytis, PM = powdery_mildew, mites, etc.) with a severity 1–5, optional note and optional grid cell. Only for individual plants. Use this instead of update_health when the user describes a specific plant or spot — it's what the hot-spot map and the move planner are built from.
 
 Identification model (same across all non-create actions):
 - Preferred: plantBatchIds[] or plantIds[] when the IDs are known from context
@@ -739,7 +743,7 @@ Identification model (same across all non-create actions):
             properties: {
                 action: {
                     type: 'string',
-                    enum: ['create', 'move', 'change_phase', 'update_health', 'destroy'],
+                    enum: ['create', 'move', 'change_phase', 'update_health', 'destroy', 'log_issue'],
                     description: 'Which plant operation to perform.',
                 },
                 entity: {
@@ -826,7 +830,30 @@ Identification model (same across all non-create actions):
                 },
                 note: {
                     type: 'string',
-                    description: 'For update_health: optional note about the observation.',
+                    description: 'For update_health / log_issue: optional note about the observation.',
+                },
+
+                // ── log_issue specific ──
+                issue: {
+                    type: 'string',
+                    enum: ['spider_mites', 'thrips', 'whiteflies', 'aphids', 'fungus_gnats', 'powdery_mildew', 'botrytis', 'fusarium', 'verticillium', 'tobacco_mosaic_virus', 'root_aphids', 'hops_latent_viroid', 'nutrient_deficiency', 'other'],
+                    description: 'For log_issue: the single issue observed. "bud rot", "grey mold", "mold in the cola" → botrytis. "PM" → powdery_mildew.',
+                },
+                severity: {
+                    type: 'number',
+                    description: 'For log_issue: 1 trace, 2 minor, 3 moderate (default), 4 severe, 5 critical. "a little" → 2, "bad" / "took the whole cola" → 4–5.',
+                },
+                row: {
+                    type: 'number',
+                    description: 'For log_issue: 0-indexed grid row (bench) if the user names a spot. "bench 2" → 1.',
+                },
+                col: {
+                    type: 'number',
+                    description: 'For log_issue: 0-indexed grid column if the user names a spot. "fourth from the left" → 3.',
+                },
+                observedAt: {
+                    type: 'string',
+                    description: 'For log_issue: ISO date the issue was seen, if not today.',
                 },
             },
             required: ['action'],
@@ -855,6 +882,21 @@ Returns: { plants: [...], batches: [...], totalMatches } — max 20 results. Nar
                 maxHealth: { type: 'number', description: 'Only include plants with health <= this value.' },
                 entity: { type: 'string', enum: ['plant', 'batch'], description: 'Filter by entity type.' },
                 limit: { type: 'number', description: 'Max results to return (default 20, max 50).' },
+            },
+        },
+    },
+    {
+        name: 'find_hotspots',
+        description: `Where and on what the bud rot (or another spreading issue) is. Returns, per room: active issue count, count in the window, and the hottest grid cells; per strain: plants affected vs plants flowered (incidence). Pass roomId or roomName to also get that room's move plan — cull / isolate / relocate / inspect suggestions with source and destination cells — which you can turn into tasks or \`plants\` action=move calls. Use for "where's the bud rot", "which strain keeps rotting", "what should I move out of flower 1", "any hot spots before we flip".
+
+Returns: { windowDays, contaminant, rooms: [...], strains: [...], totals, plan?: { suggestions: [...], avoidCells: [...], summary } }`,
+        input_schema: {
+            type: 'object' as const,
+            properties: {
+                contaminant: { type: 'string', description: 'Issue key (default botrytis). Use "all" for every spreading issue.' },
+                days: { type: 'number', description: 'Look-back window in days (default 90). 0 = all time.' },
+                roomId: { type: 'string', description: 'Room to get a move plan for (preferred when known).' },
+                roomName: { type: 'string', description: 'Room name (fuzzy) to get a move plan for.' },
             },
         },
     },
@@ -2938,6 +2980,40 @@ IMPORTANT: If the user is correcting or updating a previous statement (e.g. "act
                     });
                 }
 
+                if (name === 'find_hotspots') {
+                    const rawC = typeof lookupInput.contaminant === 'string' ? lookupInput.contaminant : 'botrytis';
+                    const contaminant = rawC === 'all' ? null : (normalizeContaminant(rawC) ?? 'botrytis');
+                    const rawDays = typeof lookupInput.days === 'number' ? lookupInput.days : 90;
+                    const days = rawDays > 0 ? Math.round(rawDays) : null;
+                    const summary = await buildHotspotSummary(authContext.companyId, { days, contaminant });
+
+                    let roomId = typeof lookupInput.roomId === 'string' ? lookupInput.roomId : null;
+                    if (!roomId && typeof lookupInput.roomName === 'string' && lookupInput.roomName.trim()) {
+                        const roomLike = `%${lookupInput.roomName.toLowerCase()}%`;
+                        const { rows } = await sql`
+                            SELECT id FROM rooms WHERE company_id = ${authContext.companyId} AND LOWER(name) LIKE ${roomLike}
+                            ORDER BY name LIMIT 1
+                        `;
+                        roomId = rows[0]?.id ?? null;
+                    }
+                    let plan: unknown = undefined;
+                    if (roomId) {
+                        const layout = await buildRoomLayout(authContext.companyId, roomId);
+                        if (layout) {
+                            plan = {
+                                ...layout.plan,
+                                roomName: layout.room.name,
+                                hasLayout: !!(layout.room.layoutRows && layout.room.layoutCols),
+                                suggestions: layout.plan.suggestions.map(s => ({
+                                    ...s,
+                                    from: s.from ? { ...s.from, cellLabel: `R${s.from.row + 1}·${s.from.col + 1}` } : null,
+                                    to: s.to ? { ...s.to, cellLabel: `R${s.to.row + 1}·${s.to.col + 1}` } : null,
+                                })),
+                            };
+                        }
+                    }
+                    return lookupOk({ ...summary, plan });
+                }
                 return lookupErr(`unknown lookup tool: ${name}`);
             } catch (err) {
                 console.error(`runLookup[${name}] failed:`, err);
@@ -2950,6 +3026,7 @@ IMPORTANT: If the user is correcting or updating a previous statement (e.g. "act
         // is mutation — only names listed here are read-only.
         const READONLY_TOOLS = new Set([
             'find_plants',
+            'find_hotspots',
             'find_packages',
             'find_human_tasks',
             'find_bins',
@@ -3589,6 +3666,26 @@ IMPORTANT: If the user is correcting or updating a previous statement (e.g. "act
                                         targetRoomName: input.targetRoomName,
                                         strain: input.strainName,
                                         sourceRoomName: input.sourceRoomName,
+                                    },
+                                });
+                                break;
+                            }
+                            case 'log_issue': {
+                                const issueKey = typeof input.issue === 'string' ? normalizeContaminant(input.issue)
+                                    : Array.isArray(input.contaminants) && input.contaminants[0] ? normalizeContaminant(String(input.contaminants[0])) : null;
+                                if (!issueKey) break;
+                                actions.push({
+                                    type: 'log_plant_health_event',
+                                    data: {
+                                        plantIds: input.plantIds || [],
+                                        roomName: input.sourceRoomName || input.roomName,
+                                        strain: input.strainName,
+                                        contaminant: issueKey,
+                                        severity: typeof input.severity === 'number' ? Math.min(5, Math.max(1, Math.round(input.severity))) : 3,
+                                        note: input.note || '',
+                                        row: Number.isInteger(input.row) ? input.row : undefined,
+                                        col: Number.isInteger(input.col) ? input.col : undefined,
+                                        observedAt: typeof input.observedAt === 'string' ? input.observedAt : undefined,
                                     },
                                 });
                                 break;

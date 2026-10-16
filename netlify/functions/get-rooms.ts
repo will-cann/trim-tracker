@@ -19,7 +19,7 @@ export const handler: Handler = async (event) => {
         let result;
         if (detail && roomType) {
             result = await sql`
-                SELECT r.id, r.name, r.room_type, r.capacity, r.square_footage, r.notes,
+                SELECT r.id, r.name, r.room_type, r.capacity, r.square_footage, r.notes, r.layout_rows, r.layout_cols,
                     COALESCE(json_agg(
                         json_build_object(
                             'id', e.id,
@@ -37,7 +37,7 @@ export const handler: Handler = async (event) => {
             `;
         } else if (detail) {
             result = await sql`
-                SELECT r.id, r.name, r.room_type, r.capacity, r.square_footage, r.notes,
+                SELECT r.id, r.name, r.room_type, r.capacity, r.square_footage, r.notes, r.layout_rows, r.layout_cols,
                     COALESCE(json_agg(
                         json_build_object(
                             'id', e.id,
@@ -55,7 +55,7 @@ export const handler: Handler = async (event) => {
             `;
         } else if (roomType) {
             result = await sql`
-                SELECT id, name, room_type, capacity, square_footage, notes
+                SELECT id, name, room_type, capacity, square_footage, notes, layout_rows, layout_cols
                 FROM rooms
                 WHERE company_id = ${context.companyId}
                     AND room_type = ${roomType}
@@ -63,7 +63,7 @@ export const handler: Handler = async (event) => {
             `;
         } else {
             result = await sql`
-                SELECT id, name, room_type, capacity, square_footage, notes
+                SELECT id, name, room_type, capacity, square_footage, notes, layout_rows, layout_cols
                 FROM rooms
                 WHERE company_id = ${context.companyId}
                 ORDER BY name

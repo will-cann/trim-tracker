@@ -1,3 +1,4 @@
+import type { RoomLayout, PlantHealthEvent, HotspotSummary } from '../types/plantMap';
 import type { TrimSession, CreateTrimSessionDTO, Trimmer, TrimmerProfile, ProposedAction, Harvest, CreateHarvestDTO, HarvestWasteType, HarvestAllocation, HarvestPlantWeight, HarvestBin, BinCureLog, CreateBinDTO, FloweringBatchGroup, Strain, License, SpeechMode, HumanTask, TeamRole, Tag, TagType, TagStats, TagSettings, Package, CreatePackageDTO, MetrcItem, PackageAdjustment, AdjustmentReason, ProductType, ProcessTemplate, StepSupplyRequirement, YieldAverage, BackwardPlan, PlanningSession, PlanTargetInput, StrainYieldOverride, ReportSpec, SavedReport, TaskViewSpec, SavedTaskView, SupplyPool, SupplyItem, SupplyLedgerEntry, SupplyChangeType, SupplyPoolSlug, ContactThread, ApiKey, ApiKeyScope, CreatedApiKey } from '../types/definitions';
 
 const API_BASE = '/.netlify/functions';
@@ -791,7 +792,7 @@ export const getRoomMap = async (phase: string, room: string): Promise<Record<st
     }
 };
 
-export const getRooms = async (roomType?: string, detail?: boolean): Promise<Array<{ id: string; name: string; room_type: string; capacity: number; square_footage?: number; notes?: string; equipment?: any[] }>> => {
+export const getRooms = async (roomType?: string, detail?: boolean): Promise<Array<{ id: string; name: string; room_type: string; capacity: number; square_footage?: number; notes?: string; layout_rows?: number | null; layout_cols?: number | null; equipment?: any[] }>> => {
     try {
         const params = new URLSearchParams();
         if (roomType) params.set('type', roomType);
@@ -806,7 +807,7 @@ export const getRooms = async (roomType?: string, detail?: boolean): Promise<Arr
     }
 };
 
-export const createRoom = async (data: { name: string; roomType?: string; capacity?: number; squareFootage?: number; notes?: string }): Promise<any> => {
+export const createRoom = async (data: { name: string; roomType?: string; capacity?: number; squareFootage?: number; notes?: string; layoutRows?: number; layoutCols?: number }): Promise<any> => {
     const response = await fetchWithAuth(`${API_BASE}/manage-room`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -819,7 +820,7 @@ export const createRoom = async (data: { name: string; roomType?: string; capaci
     return response.json();
 };
 
-export const updateRoom = async (id: string, updates: { name?: string; roomType?: string; capacity?: number | null; squareFootage?: number | null; notes?: string | null }): Promise<any> => {
+export const updateRoom = async (id: string, updates: { name?: string; roomType?: string; capacity?: number | null; squareFootage?: number | null; notes?: string | null; layoutRows?: number | null; layoutCols?: number | null }): Promise<any> => {
     const response = await fetchWithAuth(`${API_BASE}/manage-room`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
@@ -867,6 +868,7 @@ export const executePlantAction = async (payload: {
     action: string;
     plantIds: string[];
     entityType: 'plants' | 'plantbatches';
+    placements?: Array<{ plantId: string; row: number; col: number }>;
     targetPhase?: string;
     targetRoomId?: string;
     targetHarvestDate?: string;
@@ -883,6 +885,95 @@ export const executePlantAction = async (payload: {
         const err = await response.json().catch(() => ({ error: 'Action failed' }));
         throw new Error(err.error);
     }
+    return await response.json();
+};
+
+// ── Plant mapping: grid positions, health events, hot spots ──
+
+export const getRoomLayout = async (roomId: string): Promise<RoomLayout> => {
+    const response = await fetchWithAuth(`${API_BASE}/get-room-layout?roomId=${encodeURIComponent(roomId)}`);
+    if (!response.ok) {
+        const err = await response.json().catch(() => ({ error: 'Failed to load room layout' }));
+        throw new Error(err.error || 'Failed to load room layout');
+    }
+    return await response.json();
+};
+
+export const setPlantPositions = async (payload: {
+    roomId?: string;
+    placements?: Array<{ plantId: string; row: number; col: number }>;
+    clearPlantIds?: string[];
+}): Promise<{ success: boolean; placed: number; cleared: number; bumped: string[] }> => {
+    const response = await fetchWithAuth(`${API_BASE}/set-plant-positions`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+    });
+    if (!response.ok) {
+        const err = await response.json().catch(() => ({ error: 'Failed to place plants' }));
+        throw new Error(err.error || 'Failed to place plants');
+    }
+    return await response.json();
+};
+
+export const logPlantHealthEvent = async (payload: {
+    plantIds: string[];
+    contaminant: string;
+    severity?: number;
+    note?: string;
+    observedAt?: string;
+    row?: number;
+    col?: number;
+}): Promise<{ success: boolean; created: PlantHealthEvent[]; affected: number }> => {
+    const response = await fetchWithAuth(`${API_BASE}/plant-health-events`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+    });
+    if (!response.ok) {
+        const err = await response.json().catch(() => ({ error: 'Failed to log plant health event' }));
+        throw new Error(err.error || 'Failed to log plant health event');
+    }
+    return await response.json();
+};
+
+export const resolvePlantHealthEvents = async (payload: {
+    eventIds?: string[];
+    plantIds?: string[];
+    contaminant?: string;
+}): Promise<{ success: boolean; resolved: PlantHealthEvent[]; affected: number }> => {
+    const response = await fetchWithAuth(`${API_BASE}/plant-health-events`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+    });
+    if (!response.ok) {
+        const err = await response.json().catch(() => ({ error: 'Failed to resolve plant health event' }));
+        throw new Error(err.error || 'Failed to resolve plant health event');
+    }
+    return await response.json();
+};
+
+export const getPlantHealthEvents = async (filters: {
+    roomId?: string; plantId?: string; contaminant?: string; status?: 'active' | 'resolved'; days?: number; limit?: number;
+} = {}): Promise<PlantHealthEvent[]> => {
+    const params = new URLSearchParams();
+    for (const [k, v] of Object.entries(filters)) {
+        if (v !== undefined && v !== null && v !== '') params.set(k, String(v));
+    }
+    const qs = params.toString();
+    const response = await fetchWithAuth(`${API_BASE}/plant-health-events${qs ? `?${qs}` : ''}`);
+    if (!response.ok) throw new Error('Failed to load plant health events');
+    return await response.json();
+};
+
+export const getHotspots = async (opts: { days?: number | 'all'; contaminant?: string } = {}): Promise<HotspotSummary> => {
+    const params = new URLSearchParams();
+    if (opts.days !== undefined) params.set('days', String(opts.days));
+    if (opts.contaminant) params.set('contaminant', opts.contaminant);
+    const qs = params.toString();
+    const response = await fetchWithAuth(`${API_BASE}/get-hotspots${qs ? `?${qs}` : ''}`);
+    if (!response.ok) throw new Error('Failed to load hot spots');
     return await response.json();
 };
 
@@ -2012,6 +2103,12 @@ export const apiService = {
     deleteRoomEquipment,
     executePlantAction,
     createPlanting,
+    getRoomLayout,
+    setPlantPositions,
+    logPlantHealthEvent,
+    resolvePlantHealthEvents,
+    getPlantHealthEvents,
+    getHotspots,
     // Tags
     getTags,
     importTags,

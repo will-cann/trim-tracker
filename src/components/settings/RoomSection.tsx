@@ -43,6 +43,9 @@ export const RoomSection: React.FC<RoomSectionProps> = ({ rooms, loading, onRelo
         if (field === 'capacity' || field === 'squareFootage') {
             const num = parseFloat(raw);
             value = (!raw || isNaN(num) || num <= 0) ? null : num;
+        } else if (field === 'layoutRows' || field === 'layoutCols') {
+            const num = parseInt(raw, 10);
+            value = (!raw || isNaN(num) || num <= 0) ? null : Math.min(60, num);
         } else {
             value = raw.trim() || null;
         }
@@ -134,6 +137,8 @@ export const RoomSection: React.FC<RoomSectionProps> = ({ rooms, loading, onRelo
                                 <th className="strain-th strain-th-days">Type</th>
                                 <th className="strain-th strain-th-days">Capacity</th>
                                 <th className="strain-th strain-th-days">Sq Ft</th>
+                                <th className="strain-th strain-th-days" title="Benches / tables (map rows)">Rows</th>
+                                <th className="strain-th strain-th-days" title="Positions per bench (map columns)">Cols</th>
                                 <th className="strain-th strain-th-notes">Notes</th>
                                 <th className="strain-th" style={{ width: 40 }}></th>
                             </tr>
@@ -183,6 +188,20 @@ export const RoomSection: React.FC<RoomSectionProps> = ({ rooms, loading, onRelo
                                                 className="strain-days-input"
                                             />
                                         </td>
+                                        <td className="strain-cell-days">
+                                            <input type="number" defaultValue={room.layoutRows ?? ''} placeholder="—" min={1} max={60}
+                                                onBlur={e => handleUpdateRoom(room.id, 'layoutRows', e.target.value)}
+                                                onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
+                                                className="strain-days-input"
+                                            />
+                                        </td>
+                                        <td className="strain-cell-days">
+                                            <input type="number" defaultValue={room.layoutCols ?? ''} placeholder="—" min={1} max={60}
+                                                onBlur={e => handleUpdateRoom(room.id, 'layoutCols', e.target.value)}
+                                                onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
+                                                className="strain-days-input"
+                                            />
+                                        </td>
                                         <td className="strain-cell-notes">
                                             <input type="text" defaultValue={room.notes ?? ''} placeholder="Add notes..."
                                                 onBlur={e => handleUpdateRoom(room.id, 'notes', e.target.value)}
@@ -199,7 +218,7 @@ export const RoomSection: React.FC<RoomSectionProps> = ({ rooms, loading, onRelo
                                     </tr>
                                     {expandedRoomId === room.id && (
                                         <tr>
-                                            <td colSpan={7} className="px-5 py-3 bg-[#F9FAFB]">
+                                            <td colSpan={9} className="px-5 py-3 bg-[#F9FAFB]">
                                                 <div className="flex items-center justify-between mb-2">
                                                     <span className="text-xs font-medium uppercase tracking-wider text-[#959595]">
                                                         Equipment ({room.equipment?.length || 0})

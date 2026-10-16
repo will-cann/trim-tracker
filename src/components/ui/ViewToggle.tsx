@@ -1,7 +1,7 @@
 import React from 'react';
-import { LayoutGrid, List, GanttChart, CalendarDays, Columns3 } from 'lucide-react';
+import { LayoutGrid, List, GanttChart, CalendarDays, Columns3, Grid3x3 } from 'lucide-react';
 
-export type ViewMode = 'cards' | 'table' | 'schedule' | 'calendar' | 'kanban';
+export type ViewMode = 'cards' | 'table' | 'schedule' | 'calendar' | 'kanban' | 'map';
 
 interface ViewToggleProps {
     mode: ViewMode;
@@ -9,11 +9,22 @@ interface ViewToggleProps {
     showSchedule?: boolean;
     showCalendar?: boolean;
     showKanban?: boolean;
+    /** Room grid / hot-spot map (plant map only). */
+    showMap?: boolean;
 }
 
-export const ViewToggle: React.FC<ViewToggleProps> = ({ mode, onChange, showSchedule, showCalendar, showKanban }) => {
+export const ViewToggle: React.FC<ViewToggleProps> = ({ mode, onChange, showSchedule, showCalendar, showKanban, showMap }) => {
     return (
         <div className="view-toggle">
+            {showMap && (
+                <button
+                    onClick={() => onChange('map')}
+                    className={`view-toggle-btn ${mode === 'map' ? 'active' : ''}`}
+                    title="Room map"
+                >
+                    <Grid3x3 size={15} />
+                </button>
+            )}
             {showKanban && (
                 <button
                     onClick={() => onChange('kanban')}
@@ -64,7 +75,7 @@ export function useViewMode(viewKey: string, defaultMode: ViewMode = 'cards'): [
     const storageKey = `viewMode_${viewKey}`;
     const [mode, setModeState] = React.useState<ViewMode>(() => {
         const saved = sessionStorage.getItem(storageKey);
-        return saved === 'cards' || saved === 'table' || saved === 'schedule' || saved === 'calendar' || saved === 'kanban' ? saved : defaultMode;
+        return saved === 'cards' || saved === 'table' || saved === 'schedule' || saved === 'calendar' || saved === 'kanban' || saved === 'map' ? saved : defaultMode;
     });
 
     const setMode = React.useCallback((newMode: ViewMode) => {

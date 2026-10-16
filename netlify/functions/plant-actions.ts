@@ -15,6 +15,8 @@ interface ActionPayload {
     uppotCount?: number;        // nursery → veg: how many plants to keep (rest culled)
     // change-room
     targetRoomId?: string;
+    /** Optional grid cells in the target room (from the move planner). */
+    placements?: Array<{ plantId: string; row: number; col: number }>;
     // plant-health
     health?: number;
     contaminants?: string[];
@@ -172,12 +174,16 @@ export const handler: Handler = async (event) => {
                 }
 
                 // ── Individual plants: phase change queries ──
+                // A grid position belongs to a room: moving rooms clears it.
+                const clearPos = !!targetRoomId;
                 if (targetPhase === 'vegetative') {
                     await sql`
                         UPDATE plants
                         SET growth_phase = 'vegetative',
                             vegetative_date = NOW(),
-                            room_id = COALESCE(${targetRoomId || null}::uuid, room_id)
+                            room_id = COALESCE(${targetRoomId || null}::uuid, room_id),
+                            position_row = CASE WHEN ${clearPos} THEN NULL ELSE position_row END,
+                            position_col = CASE WHEN ${clearPos} THEN NULL ELSE position_col END
                         WHERE id = ANY(${plantIds}::uuid[]) AND company_id = ${context.companyId}
                     `;
                 } else if (targetPhase === 'flowering') {
@@ -186,7 +192,9 @@ export const handler: Handler = async (event) => {
                         SET growth_phase = 'flowering',
                             flowering_date = NOW(),
                             target_harvest_date = COALESCE(${harvestDate}::date, target_harvest_date),
-                            room_id = COALESCE(${targetRoomId || null}::uuid, room_id)
+                            room_id = COALESCE(${targetRoomId || null}::uuid, room_id),
+                            position_row = CASE WHEN ${clearPos} THEN NULL ELSE position_row END,
+                            position_col = CASE WHEN ${clearPos} THEN NULL ELSE position_col END
                         WHERE id = ANY(${plantIds}::uuid[]) AND company_id = ${context.companyId}
                     `;
                 } else if (targetPhase === 'harvested') {
@@ -321,10 +329,30 @@ export const handler: Handler = async (event) => {
                 }
 
                 if (isPlants) {
+                    // Positions are per-room, so a move clears them unless the
+                    // caller supplied cells in the destination grid.
                     await sql`
-                        UPDATE plants SET room_id = ${targetRoomId}
+                        UPDATE plants SET room_id = ${targetRoomId}, position_row = NULL, position_col = NULL
                         WHERE id = ANY(${plantIds}::uuid[]) AND company_id = ${context.companyId}
                     `;
+                    const placements = (payload.placements ?? []).filter(p =>
+                        plantIds.includes(p.plantId) && Number.isInteger(p.row) && Number.isInteger(p.col) && p.row >= 0 && p.col >= 0);
+                    for (const p of placements) {
+                        // Bump whoever is on the cell, then take it. Out-of-grid cells are ignored.
+                        await sql`
+                            UPDATE plants SET position_row = NULL, position_col = NULL
+                            WHERE company_id = ${context.companyId} AND room_id = ${targetRoomId}
+                              AND position_row = ${p.row} AND position_col = ${p.col}
+                              AND growth_phase IN ('vegetative', 'flowering') AND id != ${p.plantId}::uuid
+                        `;
+                        await sql`
+                            UPDATE plants p SET position_row = ${p.row}, position_col = ${p.col}
+                            FROM rooms r
+                            WHERE p.id = ${p.plantId}::uuid AND p.company_id = ${context.companyId}
+                              AND r.id = p.room_id
+                              AND r.layout_rows > ${p.row} AND r.layout_cols > ${p.col}
+                        `;
+                    }
                 } else {
                     await sql`
                         UPDATE plant_batches SET room_id = ${targetRoomId}

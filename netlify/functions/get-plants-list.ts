@@ -30,10 +30,16 @@ export const handler: Handler = async (event) => {
                 p.flowering_date::text,
                 p.target_harvest_date::text,
                 t.tag_number,
+                p.position_row,
+                p.position_col,
+                s.feed_profile,
+                s.default_flowering_days,
+                s.stretch_trait,
                 p.created_at
             FROM plants p
             LEFT JOIN rooms r ON r.id = p.room_id
             LEFT JOIN tags t ON t.assigned_to_plant_id = p.id AND t.status = 'assigned'
+            LEFT JOIN strains s ON s.company_id = p.company_id AND LOWER(s.name) = LOWER(p.strain_name)
             WHERE p.company_id = ${context.companyId}
               AND p.growth_phase != 'destroyed'
               AND (${phase}::text IS NULL OR p.growth_phase = ${phase})
@@ -58,9 +64,15 @@ export const handler: Handler = async (event) => {
                     NULL::text AS target_harvest_date,
                     NULL::text AS tag_number,
                     (pb.untracked_count + pb.tracked_count) AS batch_count,
+                    NULL::int AS position_row,
+                    NULL::int AS position_col,
+                    s.feed_profile,
+                    s.default_flowering_days,
+                    s.stretch_trait,
                     pb.created_at
                 FROM plant_batches pb
                 LEFT JOIN rooms r ON r.id = pb.room_id
+                LEFT JOIN strains s ON s.company_id = pb.company_id AND LOWER(s.name) = LOWER(pb.strain_name)
                 WHERE pb.company_id = ${context.companyId}
                 ORDER BY pb.created_at DESC
             `;
@@ -82,6 +94,11 @@ export const handler: Handler = async (event) => {
                 targetHarvestDate: r.target_harvest_date,
                 tagNumber: r.tag_number,
                 batchCount: null,
+                row: r.position_row,
+                col: r.position_col,
+                feedProfile: r.feed_profile || null,
+                floweringDays: r.default_flowering_days || null,
+                stretchTrait: r.stretch_trait || null,
                 createdAt: r.created_at,
             })),
             ...batchRows.map((r: any) => ({
@@ -98,6 +115,11 @@ export const handler: Handler = async (event) => {
                 targetHarvestDate: null,
                 tagNumber: null,
                 batchCount: r.batch_count,
+                row: null,
+                col: null,
+                feedProfile: r.feed_profile || null,
+                floweringDays: r.default_flowering_days || null,
+                stretchTrait: r.stretch_trait || null,
                 createdAt: r.created_at,
             })),
         ];
