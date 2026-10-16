@@ -48,10 +48,18 @@ async function getMgmtToken(): Promise<string> {
  * Send an invitation to join the app via Auth0.
  * Creates a password change ticket that acts as an invite link.
  */
-export async function sendInvitation(email: string, name?: string): Promise<{ success: boolean; error?: string; inviteUrl?: string }> {
+export async function sendInvitation(
+    rawEmail: string,
+    name?: string,
+    /** Where to send them after they set the password (e.g. https://proper.neurocann.app). */
+    resultUrl?: string,
+): Promise<{ success: boolean; error?: string; inviteUrl?: string }> {
     if (!AUTH0_DOMAIN || !AUTH0_CLIENT_ID) {
         return { success: false, error: 'Auth0 not configured' };
     }
+    // Auth0 stores emails lowercased and users-by-email matches exactly, so
+    // "NFedoronko@..." would miss the existing "nfedoronko@..." and then 409 on create.
+    const email = rawEmail.trim().toLowerCase();
 
     // Rewrite the ticket URL's hostname from the tenant domain to the custom
     // domain so invite links show login.neurocann.app instead of dev-*.auth0.com.
@@ -68,84 +76,70 @@ export async function sendInvitation(email: string, name?: string): Promise<{ su
 
     try {
         const token = await getMgmtToken();
+        const headers = { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' };
 
-        // First, check if user already exists in Auth0
-        const searchRes = await fetch(
-            `https://${AUTH0_TENANT_DOMAIN}/api/v2/users-by-email?email=${encodeURIComponent(email)}`,
-            { headers: { Authorization: `Bearer ${token}` } },
-        );
+        const findUserId = async (): Promise<string | null> => {
+            const res = await fetch(
+                `https://${AUTH0_TENANT_DOMAIN}/api/v2/users-by-email?email=${encodeURIComponent(email)}`,
+                { headers },
+            );
+            const users = await res.json();
+            return Array.isArray(users) && users.length > 0 ? users[0].user_id : null;
+        };
 
-        const existingUsers = await searchRes.json();
-
-        if (Array.isArray(existingUsers) && existingUsers.length > 0) {
-            // User already exists — generate a fresh invite link (doesn't void previous ones)
-            const existingUser = existingUsers[0];
-            const ticketRes = await fetch(`https://${AUTH0_TENANT_DOMAIN}/api/v2/tickets/password-change`, {
+        // A password-change ticket is the invite link. With result_url the user lands
+        // on that site after setting the password; Auth0 won't take it together with
+        // client_id, and client_id alone only redirects if the application has a
+        // Login URI configured, otherwise the flow ends on Auth0's confirmation page.
+        const createTicket = async (userId: string): Promise<Response> =>
+            fetch(`https://${AUTH0_TENANT_DOMAIN}/api/v2/tickets/password-change`, {
                 method: 'POST',
-                headers: {
-                    Authorization: `Bearer ${token}`,
-                    'Content-Type': 'application/json',
-                },
+                headers,
                 body: JSON.stringify({
-                    user_id: existingUser.user_id,
-                    client_id: AUTH0_CLIENT_ID,
+                    user_id: userId,
+                    ...(resultUrl ? { result_url: resultUrl } : { client_id: AUTH0_CLIENT_ID }),
                     mark_email_as_verified: true,
                     ttl_sec: 604800, // 7 days
                 }),
             });
 
-            if (!ticketRes.ok) {
-                // Ticket failed but user exists — they can still log in normally
-                return { success: true };
+        let userId = await findUserId();
+        let isNew = false;
+
+        if (!userId) {
+            // Create the user in Auth0 with a random password (they'll reset it via invite)
+            const createRes = await fetch(`https://${AUTH0_TENANT_DOMAIN}/api/v2/users`, {
+                method: 'POST',
+                headers,
+                body: JSON.stringify({
+                    email,
+                    name: name || email.split('@')[0],
+                    connection: 'Username-Password-Authentication',
+                    password: crypto.randomUUID() + 'Aa1!', // random, they'll reset via ticket
+                    email_verified: false,
+                }),
+            });
+
+            if (createRes.status === 409) {
+                // Exists after all (e.g. created between lookup and create): invite that login.
+                userId = await findUserId();
+            } else if (!createRes.ok) {
+                const err = await createRes.text();
+                console.error('Failed to create Auth0 user:', err);
+                return { success: false, error: 'Failed to create user account' };
+            } else {
+                userId = (await createRes.json()).user_id;
+                isNew = true;
             }
-
-            const ticket = await ticketRes.json();
-            return { success: true, inviteUrl: rewriteTicketUrl(ticket.ticket) };
+            if (!userId) return { success: false, error: 'Failed to create user account' };
         }
 
-        // Create the user in Auth0 with a random password (they'll reset it via invite)
-        const createRes = await fetch(`https://${AUTH0_TENANT_DOMAIN}/api/v2/users`, {
-            method: 'POST',
-            headers: {
-                Authorization: `Bearer ${token}`,
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                email,
-                name: name || email.split('@')[0],
-                connection: 'Username-Password-Authentication',
-                password: crypto.randomUUID() + 'Aa1!', // random, they'll reset via ticket
-                email_verified: false,
-            }),
-        });
-
-        if (!createRes.ok) {
-            const err = await createRes.text();
-            console.error('Failed to create Auth0 user:', err);
-            return { success: false, error: 'Failed to create user account' };
-        }
-
-        const newUser = await createRes.json();
-
-        // Send a password change ticket (acts as the invite link)
-        const ticketRes = await fetch(`https://${AUTH0_TENANT_DOMAIN}/api/v2/tickets/password-change`, {
-            method: 'POST',
-            headers: {
-                Authorization: `Bearer ${token}`,
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                user_id: newUser.user_id,
-                client_id: AUTH0_CLIENT_ID,
-                mark_email_as_verified: true,
-                ttl_sec: 604800, // 7 days
-            }),
-        });
-
+        const ticketRes = await createTicket(userId);
         if (!ticketRes.ok) {
             const err = await ticketRes.text();
             console.error('Failed to create invite ticket:', err);
-            return { success: false, error: 'Failed to send invitation' };
+            // An existing login can still sign in normally without a fresh link.
+            return isNew ? { success: false, error: 'Failed to send invitation' } : { success: true };
         }
 
         const ticket = await ticketRes.json();

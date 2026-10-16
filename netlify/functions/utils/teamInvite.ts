@@ -23,7 +23,9 @@ export async function inviteTeamMember(opts: {
     companyId: string;
     inviterUserId: string;
 }): Promise<TeamInviteResult> {
-    const result = await sendInvitation(opts.email, opts.name);
+    const appUrl = process.env.APP_PUBLIC_URL?.replace(/\/+$/, '') || undefined;
+    // After setting the password, land on the site they were invited to.
+    const result = await sendInvitation(opts.email, opts.name, appUrl);
     if (!result.success) return { success: false, error: result.error, emailed: false };
     if (!result.inviteUrl) return { success: true, emailed: false };
 
@@ -42,7 +44,6 @@ export async function inviteTeamMember(opts: {
         console.warn('Invite email: could not look up company/inviter names', err);
     }
 
-    const appUrl = process.env.APP_PUBLIC_URL?.replace(/\/+$/, '') || undefined;
     const sent = await sendInviteEmail({
         to: opts.email,
         inviteUrl: result.inviteUrl,
