@@ -91,9 +91,15 @@ export async function verifyToken(authHeader?: string, extraAudiences: string[] 
     }
 }
 
+/**
+ * Who the dev bypass acts as. Defaults to the seed admin and seed company;
+ * DEV_BYPASS_COMPANY_ID / DEV_BYPASS_USER_ID point it at another tenant on a
+ * dev database (e.g. a Neon branch copied from production) so the UI can be
+ * worked on against real-shaped data. Only read when DEV_BYPASS_AUTH=true.
+ */
 export const DEV_BYPASS_CONTEXT: AuthenticatedContext = {
-    userId: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
-    companyId: '11111111-1111-1111-1111-111111111111',
+    userId: process.env.DEV_BYPASS_USER_ID || 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
+    companyId: process.env.DEV_BYPASS_COMPANY_ID || '11111111-1111-1111-1111-111111111111',
     role: 'admin',
     departments: [],
 };
