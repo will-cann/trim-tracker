@@ -20,6 +20,7 @@ beforeEach(() => {
     sql.mockResolvedValue({ rows: [{ company_name: 'Proper Cannabis', inviter_name: 'Will Parkhurst' }] });
     process.env.APP_PUBLIC_URL = 'https://proper.neurocann.app';
     delete process.env.VITE_MANIFEST_DEPLOY_NAME;
+    delete process.env.APP_CONTACT_EMAIL;
 });
 
 describe('inviteTeamMember', () => {
@@ -37,6 +38,8 @@ describe('inviteTeamMember', () => {
             inviterName: 'Will Parkhurst',
             companyName: 'Proper Cannabis',
             appUrl: 'https://proper.neurocann.app',
+            pickerUrl: undefined,
+            replyTo: undefined,
         });
     });
 
@@ -71,6 +74,22 @@ describe('inviteTeamMember', () => {
 
         expect((await inviteTeamMember(base)).emailed).toBe(true);
         expect(sendInviteEmail.mock.calls[0][0]).toMatchObject({ companyName: undefined, inviterName: undefined });
+    });
+});
+
+it('adds the picker section and reply-to on a picker deploy', async () => {
+    process.env.VITE_MANIFEST_DEPLOY_NAME = 'Proper Cannabis';
+    process.env.APP_CONTACT_EMAIL = 'will@neurocann.app';
+    process.env.APP_PUBLIC_URL = 'https://proper.neurocann.app/';
+    sendInvitation.mockResolvedValue({ success: true, inviteUrl: 'https://x/t' });
+    sendInviteEmail.mockResolvedValue({ success: true });
+
+    await inviteTeamMember(base);
+
+    expect(sendInviteEmail.mock.calls[0][0]).toMatchObject({
+        appUrl: 'https://proper.neurocann.app',
+        pickerUrl: 'https://proper.neurocann.app/manifest',
+        replyTo: 'will@neurocann.app',
     });
 });
 

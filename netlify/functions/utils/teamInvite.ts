@@ -42,13 +42,17 @@ export async function inviteTeamMember(opts: {
         console.warn('Invite email: could not look up company/inviter names', err);
     }
 
+    const appUrl = process.env.APP_PUBLIC_URL?.replace(/\/+$/, '') || undefined;
     const sent = await sendInviteEmail({
         to: opts.email,
         inviteUrl: result.inviteUrl,
         memberName: opts.name,
         inviterName,
         companyName,
-        appUrl: process.env.APP_PUBLIC_URL,
+        appUrl,
+        // Deploys set up for the manifest picker (e.g. Proper) introduce it.
+        pickerUrl: appUrl && process.env.VITE_MANIFEST_DEPLOY_NAME ? `${appUrl}/manifest` : undefined,
+        replyTo: process.env.APP_CONTACT_EMAIL || undefined,
     });
     return {
         success: true,
