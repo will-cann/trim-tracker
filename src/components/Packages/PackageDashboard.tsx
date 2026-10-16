@@ -141,6 +141,7 @@ export const PackageDashboard: React.FC = () => {
         options: [
             { value: 'active', label: 'Active', dot: 'bg-[#3BB570]' },
             { value: 'on_hold', label: 'On Hold', dot: 'bg-[#FA9E52]' },
+            { value: 'in_transit', label: 'In Transit', dot: 'bg-[#5B8DEF]' },
             { value: 'finished', label: 'Finished', dot: 'bg-[#C0C0C0]' },
         ],
     };

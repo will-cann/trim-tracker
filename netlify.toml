@@ -31,6 +31,12 @@
 [functions."cron-supplier-reminders"]
   schedule = "0 14 * * *"
 
+# Metrc → NeuroCann sync via T3 (docs/metrc-sync.md). The cron only queues a run and
+# hands it to metrc-sync-background (a Netlify background function, 15-minute limit),
+# which does the pulling. No-op on deploys without T3_API_KEY + one allowlisted company.
+[functions."cron-metrc-sync"]
+  schedule = "*/15 * * * *"
+
 # Standalone mobile picker (Auth0 sign-in, returns to /manifest) — must precede the SPA catch-all
 [[redirects]]
   from = "/manifest"
