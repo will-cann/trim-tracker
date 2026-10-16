@@ -1,7 +1,7 @@
 import { Handler } from '@netlify/functions';
 import { sql } from './utils/db';
 import { resolveContext, authorize } from './utils/auth';
-import { sendInvitation } from './utils/auth0mgmt';
+import { inviteTeamMember } from './utils/teamInvite';
 
 export const handler: Handler = async (event) => {
     if (event.httpMethod !== 'POST') {
@@ -48,10 +48,14 @@ export const handler: Handler = async (event) => {
         let invited = false;
         let inviteUrl: string | undefined;
         let inviteError: string | undefined;
+        let emailed = false;
+        let emailError: string | undefined;
         if (email) {
-            const result = await sendInvitation(email, name);
+            const result = await inviteTeamMember({ email, name, companyId: context.companyId, inviterUserId: context.userId });
             invited = result.success;
             inviteUrl = result.inviteUrl;
+            emailed = result.emailed;
+            emailError = result.emailError;
             if (result.success) {
                 await sql`
                     UPDATE trimmer_profiles
@@ -81,6 +85,8 @@ export const handler: Handler = async (event) => {
                 invited,
                 inviteUrl,
                 inviteError,
+                emailed,
+                emailError,
             }),
         };
     } catch (error) {

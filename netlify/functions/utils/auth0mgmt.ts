@@ -149,7 +149,7 @@ export async function sendInvitation(email: string, name?: string): Promise<{ su
         }
 
         const ticket = await ticketRes.json();
-        return { success: true, inviteUrl: ticket.ticket };
+        return { success: true, inviteUrl: rewriteTicketUrl(ticket.ticket) };
     } catch (error) {
         console.error('Error sending invitation:', error);
         const notConfigured = error instanceof Error && /not configured/.test(error.message);

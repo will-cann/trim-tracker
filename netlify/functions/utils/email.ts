@@ -27,6 +27,8 @@ export async function sendInviteEmail(opts: {
     inviterName?: string;
     memberName?: string;
     companyName?: string;
+    /** Where to sign in once the password is set, e.g. https://proper.neurocann.app */
+    appUrl?: string;
 }): Promise<{ success: boolean; error?: string }> {
     if (isStubMode()) {
         console.log('[email:stub] sendInviteEmail', { to: opts.to, inviteUrl: opts.inviteUrl });
@@ -38,7 +40,7 @@ export async function sendInviteEmail(opts: {
         return { success: false, error: 'SendGrid not configured' };
     }
 
-    const { to, inviteUrl, inviterName, memberName, companyName } = opts;
+    const { to, inviteUrl, inviterName, memberName, companyName, appUrl } = opts;
     const greeting = memberName || to.split('@')[0];
     const invitedBy = inviterName ? ` ${inviterName} has` : ' You have been';
     const company = companyName || 'your team';
@@ -53,8 +55,9 @@ export async function sendInviteEmail(opts: {
                 '',
                 `${invitedBy} invited you to join ${company} on neurocann.`,
                 '',
-                `Accept your invite: ${inviteUrl}`,
+                `Set your password: ${inviteUrl}`,
                 '',
+                ...(appUrl ? [`Then sign in at ${appUrl} with ${to}.`, ''] : []),
                 'This link expires in 7 days.',
                 '',
                 '-- neurocann',

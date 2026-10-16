@@ -231,7 +231,7 @@ const MemberRow = ({
 }: {
     profile: TrimmerProfile;
     onUpdate: (id: string, updates: Partial<TrimmerProfile>) => Promise<void>;
-    onSendInvite: (id: string) => Promise<string | undefined>;
+    onSendInvite: (id: string) => Promise<InviteOutcome>;
     onDelete: (id: string) => Promise<void>;
 }) => {
     const [showActions, setShowActions] = useState(false);
@@ -239,6 +239,7 @@ const MemberRow = ({
     const [inviteError, setInviteError] = useState<string | null>(null);
     const [confirmDelete, setConfirmDelete] = useState(false);
     const [inviteUrl, setInviteUrl] = useState<string | null>(null);
+    const [inviteOutcome, setInviteOutcome] = useState<InviteOutcome>({});
     const [copied, setCopied] = useState(false);
     const isInactive = profile.status === 'inactive';
 
@@ -246,8 +247,9 @@ const MemberRow = ({
         setInviting(true);
         setInviteError(null);
         try {
-            const url = await onSendInvite(profile.id);
-            if (url) setInviteUrl(url);
+            const outcome = await onSendInvite(profile.id);
+            setInviteOutcome(outcome);
+            if (outcome.inviteUrl) setInviteUrl(outcome.inviteUrl);
         } catch (err) {
             setInviteError(err instanceof Error ? err.message : 'Failed to send invite');
             setTimeout(() => setInviteError(null), 10000);
@@ -444,8 +446,9 @@ const MemberRow = ({
                             }
                         >
                             <div className="space-y-3">
+                                <InviteDeliveryNote email={profile.email} emailed={inviteOutcome.emailed} emailError={inviteOutcome.emailError} />
                                 <p className="text-sm text-gray-600">
-                                    Share this link with <strong>{profile.name}</strong> to let them set up their account. The link expires in 7 days.
+                                    The link lets <strong>{profile.name}</strong> set their password. It expires in 7 days.
                                 </p>
                                 <div
                                     onClick={handleCopyLink}
@@ -464,6 +467,22 @@ const MemberRow = ({
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
+interface InviteOutcome {
+    inviteUrl?: string;
+    emailed?: boolean;
+    emailError?: string;
+}
+
+/** What happened to the invite email, for the link dialogs. */
+const InviteDeliveryNote = ({ email, emailed, emailError }: { email?: string | null; emailed?: boolean; emailError?: string }) =>
+    emailed ? (
+        <p className="text-sm text-[#2a8a54]">Invite emailed to <strong>{email}</strong>. You can also share the link below.</p>
+    ) : (
+        <p className="text-sm text-[#c07428]">
+            The invite email was not sent{emailError ? ` (${emailError})` : ''}. Share the link below with them yourself.
+        </p>
+    );
+
 // ── Add Member Modal ────────────────────────────────────────────────────────
 
 const AddMemberModal = ({
@@ -471,7 +490,7 @@ const AddMemberModal = ({
     onSubmit,
 }: {
     onClose: () => void;
-    onSubmit: (name: string, role: TeamRole, email?: string, departments?: Department[]) => Promise<{ inviteUrl?: string; inviteError?: string }>;
+    onSubmit: (name: string, role: TeamRole, email?: string, departments?: Department[]) => Promise<InviteOutcome & { inviteError?: string }>;
 }) => {
     const [name, setName] = useState('');
     const [role, setRole] = useState<TeamRole>('technician');
@@ -479,6 +498,7 @@ const AddMemberModal = ({
     const [departments, setDepartments] = useState<Department[]>([]);
     const [saving, setSaving] = useState(false);
     const [inviteUrl, setInviteUrl] = useState<string | null>(null);
+    const [inviteOutcome, setInviteOutcome] = useState<InviteOutcome>({});
     const [inviteError, setInviteError] = useState<string | null>(null);
     const [copied, setCopied] = useState(false);
     const nameRef = useRef<HTMLInputElement>(null);
@@ -494,6 +514,7 @@ const AddMemberModal = ({
             const depts = showDepartments(role) ? departments : [];
             const result = await onSubmit(name.trim(), role, email.trim() || undefined, depts);
             if (result.inviteUrl) {
+                setInviteOutcome(result);
                 setInviteUrl(result.inviteUrl);
             } else if (result.inviteError) {
                 setInviteError(result.inviteError);
@@ -541,7 +562,7 @@ const AddMemberModal = ({
     if (inviteUrl) {
         return (
             <Modal
-                title="Invite Sent"
+                title={inviteOutcome.emailed ? 'Invite Sent' : 'Invite Link'}
                 contentClassName="creation-modal"
                 titleIcon={<Mail size={20} className="text-emerald-500" />}
                 onClose={onClose}
@@ -556,8 +577,9 @@ const AddMemberModal = ({
             >
                 <div className="space-y-3">
                     <p className="text-sm text-gray-600">
-                        <strong>{name}</strong> has been added as <strong>{ROLE_LABELS[role]}</strong>. Share this link to let them set up their account. The link expires in 7 days.
+                        <strong>{name}</strong> has been added as <strong>{ROLE_LABELS[role]}</strong>. The link lets them set their password and expires in 7 days.
                     </p>
+                    <InviteDeliveryNote email={email.trim()} emailed={inviteOutcome.emailed} emailError={inviteOutcome.emailError} />
                     <div
                         onClick={handleCopyLink}
                         className="text-xs text-gray-500 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2.5 break-all cursor-pointer hover:bg-gray-100 transition-colors select-all"
@@ -806,10 +828,10 @@ export const TeamDashboard: React.FC<TeamDashboardProps> = ({ profiles, onReload
     };
 
     // ── Actions ─────────────────────────────────────────────────────────────
-    const handleAdd = async (name: string, role: TeamRole, email?: string, depts?: Department[]): Promise<{ inviteUrl?: string; inviteError?: string }> => {
+    const handleAdd = async (name: string, role: TeamRole, email?: string, depts?: Department[]): Promise<InviteOutcome & { inviteError?: string }> => {
         const result = await apiService.addTrimmerProfile(name, role, email, depts);
         onReload();
-        return { inviteUrl: result.inviteUrl, inviteError: result.inviteError };
+        return { inviteUrl: result.inviteUrl, inviteError: result.inviteError, emailed: result.emailed, emailError: result.emailError };
     };
 
     const handleUpdate = async (id: string, updates: Partial<TrimmerProfile>) => {
@@ -817,10 +839,10 @@ export const TeamDashboard: React.FC<TeamDashboardProps> = ({ profiles, onReload
         onReload();
     };
 
-    const handleSendInvite = async (id: string): Promise<string | undefined> => {
+    const handleSendInvite = async (id: string): Promise<InviteOutcome> => {
         const result = await apiService.sendTeamInvite(id);
         onReload();
-        return result.inviteUrl;
+        return { inviteUrl: result.inviteUrl, emailed: result.emailed, emailError: result.emailError };
     };
 
     const handleDelete = async (id: string) => {

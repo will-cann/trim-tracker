@@ -129,7 +129,7 @@ export const getTrimmerProfiles = async (): Promise<TrimmerProfile[]> => {
     return await response.json();
 };
 
-export const addTrimmerProfile = async (name: string, role?: TeamRole, email?: string, departments?: string[]): Promise<TrimmerProfile & { invited?: boolean; inviteUrl?: string; inviteError?: string }> => {
+export const addTrimmerProfile = async (name: string, role?: TeamRole, email?: string, departments?: string[]): Promise<TrimmerProfile & { invited?: boolean; inviteUrl?: string; inviteError?: string; emailed?: boolean; emailError?: string }> => {
     const response = await fetchWithAuth(`${API_BASE}/add-trimmer-profile`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -157,7 +157,7 @@ export const deleteTrimmerProfile = async (id: string): Promise<TrimmerProfile[]
     return await getTrimmerProfiles();
 };
 
-export const sendTeamInvite = async (profileId: string): Promise<{ success: boolean; invitedAt: string; inviteUrl?: string }> => {
+export const sendTeamInvite = async (profileId: string): Promise<{ success: boolean; invitedAt: string; inviteUrl?: string; emailed?: boolean; emailError?: string }> => {
     const response = await fetchWithAuth(`${API_BASE}/send-team-invite`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
