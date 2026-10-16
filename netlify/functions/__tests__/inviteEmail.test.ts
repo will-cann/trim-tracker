@@ -13,13 +13,19 @@ const args = {
 describe('renderInviteEmail', () => {
     it('names the company, the inviter, the link and where to sign in', () => {
         const { subject, text, html } = renderInviteEmail(args);
-        expect(subject).toBe("You're invited to Proper Cannabis on NeuroCann");
+        expect(subject).toBe("You're invited to Proper Cannabis on neurocann");
         expect(text).toContain('Hi Jacob,');
-        expect(text).toContain('Will Parkhurst added you to Proper Cannabis on NeuroCann.');
+        expect(text).toContain('Will Parkhurst added you to Proper Cannabis on neurocann.');
         expect(text).toContain(`Set your password: ${args.inviteUrl}`);
         expect(text).toContain('Sign in at https://proper.neurocann.app with jmodrusic@properbrands.com.');
         expect(html).toContain('href="https://login.neurocann.app/u/reset-verify?ticket=abc&amp;x=1"');
         expect(html).toContain('src="https://proper.neurocann.app/logo.png"');
+    });
+
+    it('writes the brand lowercase, neuro green and cann black', () => {
+        const { subject, text, html } = renderInviteEmail(args);
+        for (const s of [subject, text, html]) expect(s).not.toMatch(/NeuroCann/);
+        expect(html).toContain('<span style="color:#3BB570;">neuro</span><span style="color:#111111;">cann</span>');
     });
 
     it('only describes the picker when given its URL', () => {
@@ -32,14 +38,14 @@ describe('renderInviteEmail', () => {
 
     it('escapes names in the HTML', () => {
         const { html } = renderInviteEmail({ ...args, inviterName: '<b>x</b>', companyName: 'A & B' });
-        expect(html).toContain('&lt;b&gt;x&lt;/b&gt; added you to A &amp; B');
+        expect(html).toContain('&lt;b&gt;x&lt;/b&gt; added you to A &amp; B on');
         expect(html).not.toContain('<b>x</b>');
     });
 
     it('falls back sensibly without names or app URL', () => {
         const { text, html } = renderInviteEmail({ to: 'nick@x.com', inviteUrl: 'https://x/t' });
         expect(text).toContain('Hi nick,');
-        expect(text).toContain("You've been added to your team on NeuroCann.");
+        expect(text).toContain("You've been added to your team on neurocann.");
         expect(text).not.toContain('Sign in at');
         expect(html).not.toContain('<img');
     });

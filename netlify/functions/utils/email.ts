@@ -39,6 +39,11 @@ const BRAND = '#3BB570';
 const INK = '#1f2937';
 const MUTED = '#6b7280';
 
+/** Brand name: always lowercase; in HTML "neuro" is brand green, "cann" black. */
+const BRAND_NAME = 'neurocann';
+const wordmark = (size = 'inherit') =>
+    `<span style="font-weight:900;letter-spacing:-0.02em;font-size:${size};white-space:nowrap;"><span style="color:${BRAND};">neuro</span><span style="color:#111111;">cann</span></span>`;
+
 function esc(s: string): string {
     return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
@@ -52,10 +57,9 @@ export function renderInviteEmail(opts: InviteEmailArgs): { subject: string; tex
     const { to, inviteUrl, inviterName, memberName, companyName, appUrl, pickerUrl } = opts;
     const firstName = (memberName || to.split('@')[0]).trim().split(/\s+/)[0];
     const company = companyName || 'your team';
-    const intro = inviterName
-        ? `${inviterName} added you to ${company} on NeuroCann.`
-        : `You've been added to ${company} on NeuroCann.`;
-    const subject = `You're invited to ${company} on NeuroCann`;
+    const introLead = inviterName ? `${inviterName} added you to ${company} on` : `You've been added to ${company} on`;
+    const intro = `${introLead} ${BRAND_NAME}.`;
+    const subject = `You're invited to ${company} on ${BRAND_NAME}`;
 
     const pickerPoints = [
         'Load the Apex pick list. Lines come up in vault walk order.',
@@ -81,10 +85,10 @@ export function renderInviteEmail(opts: InviteEmailArgs): { subject: string; tex
             : []),
         'The password link expires in 7 days. Reply to this email if anything goes wrong.',
         '',
-        '-- NeuroCann',
+        `-- ${BRAND_NAME}`,
     ].join('\n');
 
-    const logo = appUrl ? `<img src="${esc(appUrl)}/logo.png" width="40" height="40" alt="NeuroCann" style="display:block;border:0;width:40px;height:40px;" />` : '';
+    const logo = appUrl ? `<img src="${esc(appUrl)}/logo.png" width="40" height="40" alt="" style="display:block;border:0;width:40px;height:40px;" />` : '';
     const button = (href: string, label: string) =>
         `<table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr><td style="border-radius:8px;background:${BRAND};">` +
         `<a href="${esc(href)}" style="display:inline-block;padding:12px 22px;font-size:15px;font-weight:600;color:#ffffff;text-decoration:none;border-radius:8px;">${esc(label)}</a>` +
@@ -109,11 +113,16 @@ export function renderInviteEmail(opts: InviteEmailArgs): { subject: string; tex
   <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#f3f4f6;padding:24px 12px;">
     <tr><td align="center">
       <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:560px;background:#ffffff;border-radius:12px;">
-        <tr><td style="padding:28px 32px 8px;">${logo}</td></tr>
+        <tr><td style="padding:28px 32px 8px;">
+          <table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr>
+            ${logo ? `<td style="padding-right:10px;vertical-align:middle;">${logo}</td>` : ''}
+            <td style="vertical-align:middle;">${wordmark('22px')}</td>
+          </tr></table>
+        </td></tr>
         <tr><td style="padding:8px 32px 0;">
-          <h1 style="margin:0 0 16px;font-size:22px;line-height:1.3;color:${INK};">${esc(subject)}</h1>
+          <h1 style="margin:0 0 16px;font-size:22px;line-height:1.3;color:${INK};">You're invited to ${esc(company)} on ${wordmark()}</h1>
           ${p(`Hi ${esc(firstName)},`)}
-          ${p(esc(intro))}
+          ${p(`${esc(introLead)} ${wordmark()}.`)}
           ${p('<strong>1.</strong> Set your password:', 'margin-bottom:10px;')}
           ${button(inviteUrl, 'Set your password')}
           <div style="height:16px;"></div>
@@ -124,7 +133,7 @@ export function renderInviteEmail(opts: InviteEmailArgs): { subject: string; tex
           <p style="margin:0;font-size:13px;line-height:1.5;color:${MUTED};">The password link expires in 7 days. Reply to this email if anything goes wrong.</p>
         </td></tr>
       </table>
-      <p style="margin:16px 0 0;font-size:12px;color:${MUTED};">NeuroCann</p>
+      <p style="margin:16px 0 0;font-size:13px;">${wordmark()}</p>
     </td></tr>
   </table>
 </body></html>`;
