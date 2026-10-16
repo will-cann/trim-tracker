@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { TreePine, AlertTriangle } from 'lucide-react';
 import type { PlantMapData } from '../../types/plantMap';
 import { getHealthColor, HEALTH_COLOR_MAP } from '../../types/plantMap';
@@ -8,7 +8,11 @@ interface PlantMapSummaryProps {
     data: PlantMapData;
 }
 
+/** Chips shown before the list collapses behind "+N more". */
+const STRAIN_CHIP_LIMIT = 18;
+
 export const PlantMapSummary: React.FC<PlantMapSummaryProps> = ({ data }) => {
+    const [showAllStrains, setShowAllStrains] = useState(false);
     const rooms = Object.entries(data);
 
     const totalPlants = rooms.reduce((sum, [, r]) => sum + r.totalPlants, 0);
@@ -43,21 +47,8 @@ export const PlantMapSummary: React.FC<PlantMapSummaryProps> = ({ data }) => {
                 </div>
             </div>
 
-            {uniqueStrains.length > 0 && (
-                <div className="mb-6">
-                    <h4 className="text-xs font-medium text-gray-400 uppercase tracking-wider mb-2">Strains</h4>
-                    <div className="flex flex-wrap gap-1.5">
-                        {uniqueStrains.sort().map(s => (
-                            <span key={s} className="px-2 py-0.5 text-[11px] font-medium bg-gray-100 text-gray-600 rounded-full">
-                                {s}
-                            </span>
-                        ))}
-                    </div>
-                </div>
-            )}
-
             {leastHealthy.length > 0 && (
-                <div>
+                <div className="mb-6">
                     <h4 className="text-xs font-medium text-gray-400 uppercase tracking-wider mb-2 flex items-center gap-1.5">
                         <AlertTriangle size={11} />
                         Needs Attention
@@ -80,6 +71,33 @@ export const PlantMapSummary: React.FC<PlantMapSummaryProps> = ({ data }) => {
                     </div>
                 </div>
             )}
+
+            {uniqueStrains.length > 0 && (() => {
+                const sorted = [...uniqueStrains].sort();
+                const shown = showAllStrains ? sorted : sorted.slice(0, STRAIN_CHIP_LIMIT);
+                const hidden = sorted.length - shown.length;
+                return (
+                    <div>
+                        <h4 className="text-xs font-medium text-gray-400 uppercase tracking-wider mb-2">Strains</h4>
+                        <div className="flex flex-wrap gap-1.5">
+                            {shown.map(s => (
+                                <span key={s} className="px-2 py-0.5 text-[11px] font-medium bg-gray-100 text-gray-600 rounded-full">
+                                    {s}
+                                </span>
+                            ))}
+                            {(hidden > 0 || showAllStrains) && (
+                                <button
+                                    type="button"
+                                    onClick={() => setShowAllStrains(v => !v)}
+                                    className="px-2 py-0.5 text-[11px] font-medium text-emerald-700 bg-emerald-50 rounded-full hover:bg-emerald-100"
+                                >
+                                    {showAllStrains ? 'Show fewer' : `+${hidden} more`}
+                                </button>
+                            )}
+                        </div>
+                    </div>
+                );
+            })()}
         </div>
     );
 };
