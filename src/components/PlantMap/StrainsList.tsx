@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useCallback } from 'react';
-import { ArrowUp, ArrowDown } from 'lucide-react';
+import { ArrowUp, ArrowDown, Search, X } from 'lucide-react';
 import { CenteredSpinner } from '../Spinner';
 import { ErrorRetry } from '../ErrorRetry';
 import type { RoomMapData, PlantPhase } from '../../types/plantMap';
@@ -51,6 +51,7 @@ export const StrainsList: React.FC<StrainsListProps> = ({
     const [sortKey, setSortKey] = useState<SortKey>('strain');
     const [sortDir, setSortDir] = useState<SortDir>('asc');
     const [activeModal, setActiveModal] = useState<PlantActionType | null>(null);
+    const [filter, setFilter] = useState('');
 
     const rows = useMemo(() => {
         if (!data) return [];
@@ -90,8 +91,15 @@ export const StrainsList: React.FC<StrainsListProps> = ({
         return sorted;
     }, [rows, sortKey, sortDir]);
 
+    // Large rooms (a nursery can hold 100+ batches) get a name filter
+    const query = filter.trim().toLowerCase();
+    const visibleRows = useMemo(
+        () => (query ? sortedRows.filter(r => r.strain.toLowerCase().includes(query)) : sortedRows),
+        [sortedRows, query],
+    );
+
     const totalSelected = selectedIds.size;
-    const allSelected = rows.length > 0 && selectedIds.size === rows.length;
+    const allSelected = visibleRows.length > 0 && visibleRows.every(r => selectedIds.has(r.id));
 
     const toggleSort = (key: SortKey) => {
         if (sortKey === key) {
@@ -112,11 +120,12 @@ export const StrainsList: React.FC<StrainsListProps> = ({
     };
 
     const toggleAll = () => {
-        if (allSelected) {
-            setSelectedIds(new Set());
-        } else {
-            setSelectedIds(new Set(rows.map(r => r.id)));
-        }
+        setSelectedIds(prev => {
+            const next = new Set(prev);
+            if (allSelected) visibleRows.forEach(r => next.delete(r.id));
+            else visibleRows.forEach(r => next.add(r.id));
+            return next;
+        });
     };
 
     const selectedGroups = useMemo(() => {
@@ -167,10 +176,14 @@ export const StrainsList: React.FC<StrainsListProps> = ({
         ...(milestoneCol ? [{ key: milestoneCol.key, label: milestoneCol.label, align: 'right' as const, className: 'strains-col-num' }] : []),
     ];
 
-    const totalPlants = rows.reduce((s, r) => s + r.totalPlants, 0);
-    const avgHealth = totalPlants ? Math.round(rows.reduce((s, r) => s + r.plantHealth * r.totalPlants, 0) / totalPlants) : 100;
+    const totalPlants = visibleRows.reduce((s, r) => s + r.totalPlants, 0);
+    const avgHealth = totalPlants ? Math.round(visibleRows.reduce((s, r) => s + r.plantHealth * r.totalPlants, 0) / totalPlants) : 100;
     const avgHex = HEALTH_COLOR_MAP[getHealthColor(avgHealth)];
-    const allIssues = [...new Set(rows.flatMap(r => r.contamination))];
+    const allIssues = [...new Set(visibleRows.flatMap(r => r.contamination))];
+    const showFilter = rows.length > 8;
+    // Nursery rows are plant batches (several per strain); elsewhere one row per strain
+    const rowNoun = rows[0]?.type === 'plantbatches' ? 'batch' : 'strain';
+    const rowNouns = rowNoun === 'batch' ? 'batches' : 'strains';
 
     return (
         <>
@@ -184,6 +197,30 @@ export const StrainsList: React.FC<StrainsListProps> = ({
                 onAction={handleAction}
                 onClearSelection={() => setSelectedIds(new Set())}
             />
+
+            {showFilter && (
+                <div className="strains-toolbar">
+                    <label className="strains-filter">
+                        <Search size={13} />
+                        <input
+                            type="search"
+                            value={filter}
+                            onChange={e => setFilter(e.target.value)}
+                            placeholder={`Filter ${rows.length} ${rowNouns}…`}
+                            aria-label="Filter strains"
+                        />
+                        {filter && (
+                            <button type="button" onClick={() => setFilter('')} aria-label="Clear filter" className="strains-filter-clear">
+                                <X size={12} />
+                            </button>
+                        )}
+                    </label>
+                    <span className="strains-toolbar-count tabular-nums">
+                        {query ? `${visibleRows.length} of ${rows.length} ${rowNouns}` : `${rows.length} ${rowNouns}`}
+                        {query && visibleRows.length === 0 ? ' · nothing matches' : ''}
+                    </span>
+                </div>
+            )}
 
             <table className="strains-table">
                 <thead>
@@ -218,7 +255,7 @@ export const StrainsList: React.FC<StrainsListProps> = ({
                     </tr>
                 </thead>
                 <tbody>
-                    {sortedRows.map(row => {
+                    {visibleRows.map(row => {
                         const hHex = HEALTH_COLOR_MAP[getHealthColor(row.plantHealth)];
                         const issues = [...new Set(row.contamination)];
                         const isSelected = selectedIds.has(row.id);
@@ -290,7 +327,9 @@ export const StrainsList: React.FC<StrainsListProps> = ({
                 <tfoot>
                     <tr className="strains-total">
                         <td className="strains-td" />
-                        <td className="strains-td strains-col-strain">{rows.length} strain{rows.length !== 1 ? 's' : ''}</td>
+                        <td className="strains-td strains-col-strain">
+                            {query ? `${visibleRows.length} of ${rows.length}` : rows.length} {rows.length === 1 ? rowNoun : rowNouns}
+                        </td>
                         <td className="strains-td strains-col-num text-right tabular-nums">{totalPlants.toLocaleString()}</td>
                         <td className="strains-td strains-col-num text-right">
                             <span className="strains-health">

@@ -2,7 +2,7 @@ import React from 'react';
 import { Cloud, Tag } from 'lucide-react';
 import type { Package } from '../../types/definitions';
 import { TypeChip } from '../ui';
-import { LAB_LABEL, LAB_CLASS, LAB_ICON, formatPackageQuantity } from './packageConstants';
+import { LAB_LABEL, LAB_CLASS, LAB_ICON, formatPackageQuantity, packageTitle, itemDisplayName } from './packageConstants';
 
 interface PackageCardProps {
     pkg: Package;
@@ -37,16 +37,16 @@ export const PackageCard: React.FC<PackageCardProps> = ({ pkg, onClick }) => {
             <div className="pkg-card-head">
                 <h3 className="pkg-card-label" title={pkg.label}>{pkg.label}</h3>
                 {pkg.status !== 'active' && <TypeChip palette="packageStatus" value={pkg.status} />}
-                {pkg.metrcId != null && (
-                    <span className="pkg-card-metrc" title="Mirrored from Metrc. Quantity, status, item, location and lab state come from Metrc.">
-                        <Cloud size={11} /> Metrc
-                    </span>
-                )}
             </div>
 
             {/* What and how much */}
             <div className="pkg-card-line">
-                <span className="pkg-card-strain" title={pkg.strain}>{pkg.strain || '—'}</span>
+                <span
+                    className="pkg-card-strain"
+                    title={pkg.strain && pkg.itemName ? `${pkg.strain} · ${itemDisplayName(pkg.itemName)}` : packageTitle(pkg)}
+                >
+                    {packageTitle(pkg)}
+                </span>
                 <span className="pkg-card-qty tabular-nums">{formatPackageQuantity(pkg.quantity, pkg.unit)}</span>
                 <TypeChip palette="packageType" value={pkg.packageType} />
             </div>
@@ -77,6 +77,11 @@ export const PackageCard: React.FC<PackageCardProps> = ({ pkg, onClick }) => {
                     <span className="pkg-card-foot-item pkg-card-tag tabular-nums" title={`Tag ${pkg.tagNumber}`}>
                         <Tag size={11} />
                         {pkg.tagNumber}
+                    </span>
+                )}
+                {pkg.metrcId != null && (
+                    <span className="pkg-card-metrc" title="Mirrored from Metrc. Quantity, status, item, location and lab state come from Metrc.">
+                        <Cloud size={11} /> Metrc
                     </span>
                 )}
             </div>

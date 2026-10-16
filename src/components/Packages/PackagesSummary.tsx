@@ -92,7 +92,7 @@ export const PackagesSummary: React.FC<PackagesSummaryProps> = ({ packages }) =>
                     {typeRows.map(([type, b]) => (
                         <span key={type} className="summary-strip-chip summary-strip-chip--plain">
                             <TypeChip palette="packageType" value={type} />
-                            <span className="font-semibold tabular-nums">{b.count}</span>
+                            <span className="font-semibold tabular-nums">{b.count.toLocaleString()}</span>
                             <span className="text-gray-500 tabular-nums">{bucketQuantity(b)}</span>
                         </span>
                     ))}
@@ -108,7 +108,7 @@ const Stat: React.FC<{ value: React.ReactNode; label: string; color?: string; mu
             className="summary-strip-stat-value tabular-nums"
             style={color ? { color } : muted ? { color: '#737373' } : undefined}
         >
-            {value}
+            {typeof value === 'number' ? value.toLocaleString() : value}
         </span>
         <span className="summary-strip-stat-label">{label}</span>
     </span>

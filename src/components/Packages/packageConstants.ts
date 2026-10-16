@@ -47,13 +47,24 @@ export const isGramUnit = (unit?: string): boolean => {
 export const formatPackageQuantity = (qty: number, unit?: string): string => {
     if (isGramUnit(unit)) {
         if (qty >= 1000) {
-            return `${(qty / 1000).toLocaleString(undefined, { maximumFractionDigits: 2 })} kg`;
+            return `${(qty / 1000).toLocaleString(undefined, { maximumFractionDigits: qty >= 100000 ? 1 : 2 })} kg`;
         }
         return `${qty.toLocaleString(undefined, { maximumFractionDigits: 2 })} g`;
     }
     const u = (unit || '').toLowerCase() === 'each' ? 'ea' : unit;
     return `${qty.toLocaleString(undefined, { maximumFractionDigits: 2 })} ${u}`;
 };
+
+/**
+ * Metrc item names arrive as "M00001350209: Proper - Sauce+ - 1g"; drop the
+ * item id so the name reads as a name.
+ */
+export const itemDisplayName = (itemName?: string | null): string =>
+    (itemName ?? '').replace(/^M\d+:\s*/, '').trim();
+
+/** What to call a package: its strain, else its (Metrc) item name. */
+export const packageTitle = (pkg: { strain?: string | null; itemName?: string | null }): string =>
+    pkg.strain?.trim() || itemDisplayName(pkg.itemName) || '—';
 
 export interface EditFields {
     wasteWeight: number;

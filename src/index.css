@@ -7297,15 +7297,42 @@ select.field-input {
   white-space: normal;
 }
 
+.sync-error-list li + li {
+  margin-top: 6px;
+}
+
+.sync-error-message {
+  white-space: normal;
+}
+
+.sync-error-where-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 14px;
+  margin-top: 2px;
+  font-size: 0.6875rem;
+  white-space: normal;
+}
+
+.sync-error-where-group {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 5px;
+}
+
 .sync-error-where {
   display: inline-block;
-  margin-right: 6px;
   padding: 0 5px;
   border-radius: 4px;
   background: rgba(223, 91, 89, 0.1);
   color: #9E3533;
   font-weight: 700;
   font-size: 0.6875rem;
+}
+
+.sync-tag--error {
+  background: rgba(223, 91, 89, 0.12);
+  color: #9E3533;
 }
 
 .sync-report {
@@ -9502,7 +9529,7 @@ select.settings-inline-input {
   border: 1px solid var(--border-color);
   border-left-width: 3px;
   border-radius: 8px;
-  overflow: hidden;
+  /* No overflow clipping: the strain table's header sticks to the top of the page scroll. */
   animation: expandRoom 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
@@ -9524,6 +9551,7 @@ select.settings-inline-input {
   gap: 6px 14px;
   padding: 8px 12px 8px 14px;
   border-bottom: 1px solid #F1F1F1;
+  border-radius: 7px 7px 0 0;
 }
 
 .expanded-room-name {
@@ -9566,7 +9594,74 @@ select.settings-inline-input {
   display: flex;
   flex-direction: column;
   flex: 1;
-  overflow-x: auto;
+}
+
+@media (max-width: 900px) {
+  .expanded-room-body {
+    overflow-x: auto;
+  }
+}
+
+/* Filter row for rooms with many strains */
+.strains-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 6px 10px;
+  border-bottom: 1px solid #F1F1F1;
+  background: white;
+}
+
+.strains-filter {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  width: 260px;
+  max-width: 100%;
+  padding: 3px 8px;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  background: white;
+  color: #959595;
+}
+
+.strains-filter:focus-within {
+  border-color: #3BB570;
+  box-shadow: 0 0 0 2px rgba(59, 181, 112, 0.15);
+}
+
+.strains-filter input {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  outline: none;
+  background: transparent;
+  font-size: 0.8125rem;
+  color: #1A1A1A;
+}
+
+.strains-filter input::-webkit-search-cancel-button {
+  display: none;
+}
+
+.strains-filter-clear {
+  display: inline-flex;
+  border: none;
+  background: transparent;
+  color: #959595;
+  cursor: pointer;
+  padding: 0;
+}
+
+.strains-toolbar-count {
+  font-size: 0.75rem;
+  color: #737373;
+}
+
+.strains-table thead .strains-th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
 }
 
 /* Strain table inside an expanded room */
@@ -9821,7 +9916,7 @@ select.settings-inline-input {
   flex: 1 1 auto;
   min-width: 0;
   margin: 0;
-  font-size: 0.9375rem;
+  font-size: 0.875rem;
   font-weight: 700;
   color: #1A1A1A;
   letter-spacing: -0.005em;
@@ -9835,9 +9930,24 @@ select.settings-inline-input {
   display: inline-flex;
   align-items: center;
   gap: 3px;
+  margin-left: auto;
   font-size: 0.6875rem;
   color: #959595;
   white-space: nowrap;
+}
+
+.pkg-card-tag + .pkg-card-metrc {
+  margin-left: 0;
+}
+
+/* Single-line cell with a cap, full value in the title */
+.cell-ellipsis {
+  display: inline-block;
+  max-width: 100%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  vertical-align: bottom;
 }
 
 .pkg-card-line {
@@ -9873,10 +9983,16 @@ select.settings-inline-input {
 }
 
 .pkg-card-meta-item {
+  flex: 0 0 auto;
   min-width: 0;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+/* The location (first item) gives way; licence and date stay whole. */
+.pkg-card-meta-item:first-child {
+  flex: 0 1 auto;
 }
 
 .pkg-card-meta-item + .pkg-card-meta-item::before {
@@ -9926,6 +10042,16 @@ select.settings-inline-input {
   margin-left: auto;
   color: #737373;
   font-weight: 500;
+}
+
+.pkg-more {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 4px;
+  font-size: 0.75rem;
+  color: var(--detail-text);
 }
 
 /* ── DashboardHeader nav-button (used in Reports date-range nav) ──────── */

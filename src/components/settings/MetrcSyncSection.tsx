@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { AlertTriangle, CheckCircle2, Cloud, Loader2, RefreshCw, Search, SkipForward } from 'lucide-react';
 import { apiService } from '../../services/apiService';
-import type { MetrcSyncList, MetrcSyncListCounts, MetrcSyncRun, MetrcSyncStatus } from '../../../shared/manifest/metrcSync';
+import type { MetrcSyncError, MetrcSyncList, MetrcSyncListCounts, MetrcSyncRun, MetrcSyncStatus } from '../../../shared/manifest/metrcSync';
 
 /**
  * Settings → Metrc Sync. Shown only on a deploy that syncs Metrc into this
@@ -100,6 +100,46 @@ const RunStatus: React.FC<{ run: MetrcSyncRun }> = ({ run }) => (
         {run.dryRun && <span className="sync-tag">dry run</span>}
     </span>
 );
+
+/**
+ * One failing credential or outage hits every list on a licence, so the same
+ * message repeats a dozen times. Group by message and list where it struck.
+ */
+const groupErrors = (errors: MetrcSyncError[]) => {
+    const groups = new Map<string, Map<string, string[]>>();
+    for (const e of errors) {
+        if (!groups.has(e.message)) groups.set(e.message, new Map());
+        const byLicense = groups.get(e.message)!;
+        const lic = e.license ?? '';
+        if (!byLicense.has(lic)) byLicense.set(lic, []);
+        if (e.list) byLicense.get(lic)!.push(listLabel(e.list));
+    }
+    return [...groups.entries()].map(([message, byLicense]) => ({
+        message,
+        where: [...byLicense.entries()].map(([license, lists]) => ({ license, lists })),
+    }));
+};
+
+const ErrorGroups: React.FC<{ errors: MetrcSyncError[]; className?: string }> = ({ errors, className }) => {
+    if (!errors.length) return null;
+    return (
+        <ul className={`sync-error-list ${className ?? ''}`}>
+            {groupErrors(errors).map(g => (
+                <li key={g.message}>
+                    <div className="sync-error-message">{g.message}</div>
+                    <div className="sync-error-where-list">
+                        {g.where.map(w => (
+                            <span key={w.license} className="sync-error-where-group">
+                                {w.license && <span className="sync-error-where">{w.license}</span>}
+                                {w.lists.length > 0 && <span className="sync-muted">{w.lists.join(', ')}</span>}
+                            </span>
+                        ))}
+                    </div>
+                </li>
+            ))}
+        </ul>
+    );
+};
 
 const runTotals = (run: MetrcSyncRun) => {
     const out = { fetched: 0, inserted: 0, updated: 0, failed: 0 };
@@ -236,17 +276,7 @@ export const MetrcSyncSection: React.FC<Props> = ({ initialStatus }) => {
                     </div>
                     {last.error && <p className="sync-error-text">{last.error}</p>}
                     <RunCounts run={last} licenses={licenses} />
-                    {last.errors.length > 0 && (
-                        <ul className="sync-error-list">
-                            {last.errors.map((e, i) => (
-                                <li key={i}>
-                                    {e.license && <span className="sync-error-where">{e.license}</span>}
-                                    {e.list && <span className="sync-error-where">{listLabel(e.list)}</span>}
-                                    {e.message}
-                                </li>
-                            ))}
-                        </ul>
-                    )}
+                    <ErrorGroups errors={last.errors} />
                     {last.report && (
                         <div className="sync-report">
                             <p>
@@ -336,17 +366,11 @@ export const MetrcSyncSection: React.FC<Props> = ({ initialStatus }) => {
                                         </tr>
                                         {open && hasErrors && (
                                             <tr className="sync-row">
-                                                <td colSpan={8} className="sync-td">
-                                                    <ul className="sync-error-list sync-error-list--inline">
-                                                        {run.error && <li>{run.error}</li>}
-                                                        {run.errors.map((e, i) => (
-                                                            <li key={i}>
-                                                                {e.license && <span className="sync-error-where">{e.license}</span>}
-                                                                {e.list && <span className="sync-error-where">{listLabel(e.list)}</span>}
-                                                                {e.message}
-                                                            </li>
-                                                        ))}
-                                                    </ul>
+                                                <td colSpan={8} className="sync-td sync-wrap">
+                                                    <ErrorGroups
+                                                        className="sync-error-list--inline"
+                                                        errors={[...(run.error ? [{ message: run.error }] : []), ...run.errors]}
+                                                    />
                                                 </td>
                                             </tr>
                                         )}
@@ -432,7 +456,11 @@ const CursorMatrix: React.FC<{ status: MetrcSyncStatus; licenses: string[] }> = 
         ...Array.from(new Set(status.lists.map(l => l.list))).filter(l => !LIST_ORDER.includes(l as MetrcSyncList)),
     ];
     const shown = licenses.filter(lic => status.lists.some(l => l.license === lic));
+    const standingErrors: MetrcSyncError[] = status.lists
+        .filter(l => l.lastError)
+        .map(l => ({ license: l.license, list: l.list, message: l.lastError! }));
     return (
+        <>
         <table className="sync-table sync-matrix">
             <thead>
                 <tr>
@@ -459,8 +487,8 @@ const CursorMatrix: React.FC<{ status: MetrcSyncStatus; licenses: string[] }> = 
                                         <span className="data-table-dot" style={{ background: errored ? '#DF5B59' : s.lastSuccessAt ? '#3BB570' : '#C0C0C0' }} />
                                         <span className={errored ? 'sync-fail' : undefined}>{ago(s.lastSuccessAt)}</span>
                                         {!s.cursor && <span className="sync-tag">full pull</span>}
+                                        {errored && <span className="sync-tag sync-tag--error">error</span>}
                                     </span>
-                                    {s.lastError && <div className="sync-cursor-error">{s.lastError}</div>}
                                 </td>
                             );
                         })}
@@ -468,5 +496,7 @@ const CursorMatrix: React.FC<{ status: MetrcSyncStatus; licenses: string[] }> = 
                 ))}
             </tbody>
         </table>
+        <ErrorGroups errors={standingErrors} />
+        </>
     );
 };

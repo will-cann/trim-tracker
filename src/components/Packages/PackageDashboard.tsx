@@ -10,7 +10,7 @@ import { useAuth } from '../../contexts/authContext';
 import { CardsSkeleton } from '../Skeleton';
 import { FilterToolbar, DataTable, ViewToggle, useViewMode, TypeChip, getTypeChipStyle, EmptyState, DashboardHeader } from '../ui';
 import type { FilterDef, SortOption, Column } from '../ui';
-import { formatPackageQuantity } from './packageConstants';
+import { formatPackageQuantity, packageTitle } from './packageConstants';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -37,7 +37,10 @@ const PACKAGE_COLUMNS: Column<PackageType>[] = [
         key: 'packageType', label: 'Type', sortable: true, width: 130,
         render: (r) => <TypeChip palette="packageType" value={r.packageType} />,
     },
-    { key: 'strain', label: 'Strain', sortable: true },
+    {
+        key: 'strain', label: 'Strain / Item', sortable: true,
+        render: (r) => <span className="cell-ellipsis" style={{ maxWidth: '34ch' }} title={r.itemName || r.strain || undefined}>{packageTitle(r)}</span>,
+    },
     {
         key: 'quantity', label: 'Weight', sortable: true, width: 100, align: 'right',
         render: (r) => (
@@ -62,11 +65,11 @@ const PACKAGE_COLUMNS: Column<PackageType>[] = [
     },
     {
         key: 'location', label: 'Location', sortable: true,
-        render: (r) => <span style={{ color: '#959595' }}>{r.location || '—'}</span>,
+        render: (r) => <span className="cell-ellipsis" style={{ color: '#959595', maxWidth: '22ch' }} title={r.location || undefined}>{r.location || '—'}</span>,
     },
     {
-        key: 'packagedDate', label: 'Packaged', sortable: true, width: 120,
-        render: (r) => <span style={{ color: '#959595' }}>{formatDate(r.packagedDate)}</span>,
+        key: 'packagedDate', label: 'Packaged', sortable: true, width: 110,
+        render: (r) => <span style={{ color: '#959595', whiteSpace: 'nowrap' }}>{formatDate(r.packagedDate)}</span>,
     },
 ];
 
@@ -83,6 +86,12 @@ export const PackageDashboard: React.FC = () => {
     const [sortField, setSortField] = useState<string | null>(null);
     const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
     const [viewMode, setViewMode] = useViewMode('packages');
+
+    // A Metrc-synced facility can hold tens of thousands of packages; render
+    // them in slices so the page stays responsive.
+    const PAGE = 150;
+    const [visibleCount, setVisibleCount] = useState(PAGE);
+    useEffect(() => { setVisibleCount(PAGE); }, [searchQuery, activeFilters, sortField, sortDir, viewMode]);
 
     const loadPackages = useCallback(async () => {
         setLoading(true);
@@ -185,7 +194,7 @@ export const PackageDashboard: React.FC = () => {
             switch (sortField) {
                 case 'tag': cmp = (a.label || '').localeCompare(b.label || ''); break;
                 case 'quantity': cmp = a.quantity - b.quantity; break;
-                case 'strain': cmp = (a.strain || '').localeCompare(b.strain || ''); break;
+                case 'strain': cmp = packageTitle(a).localeCompare(packageTitle(b)); break;
                 case 'type': cmp = a.packageType.localeCompare(b.packageType); break;
                 case 'licenseNumber': cmp = (a.licenseNumber || '').localeCompare(b.licenseNumber || ''); break;
             }
@@ -229,6 +238,16 @@ export const PackageDashboard: React.FC = () => {
     };
 
     const hasFilters = searchQuery || activeFilters.type.length > 0 || activeFilters.status.length > 0;
+    const visiblePackages = sortedPackages.slice(0, visibleCount);
+    const remaining = sortedPackages.length - visiblePackages.length;
+    const showMore = remaining > 0 && (
+        <div className="pkg-more">
+            <span>Showing {visiblePackages.length.toLocaleString()} of {sortedPackages.length.toLocaleString()}</span>
+            <button type="button" className="btn-cancel text-xs px-3 py-1" onClick={() => setVisibleCount(c => c + PAGE * 2)}>
+                Show {Math.min(PAGE * 2, remaining).toLocaleString()} more
+            </button>
+        </div>
+    );
 
     return (
         <div className="dashboard">
@@ -297,24 +316,28 @@ export const PackageDashboard: React.FC = () => {
                 <div>
                     <DataTable
                         columns={PACKAGE_COLUMNS}
-                        data={sortedPackages}
+                        data={visiblePackages}
                         emptyMessage={hasFilters ? 'No packages match your filters.' : 'Create packages from completed trim entries to track your finished inventory.'}
                         sortKey={sortField === 'tag' ? 'label' : sortField === 'type' ? 'packageType' : sortField}
                         sortDir={sortDir}
                         onSort={handleTableSort}
                         onRowClick={(pkg) => setSelectedPackage(pkg)}
                     />
+                    {showMore}
                 </div>
             ) : (
-                <div className="pkg-grid">
-                    {sortedPackages.map(pkg => (
-                        <PackageCard
-                            key={pkg.id}
-                            pkg={pkg}
-                            onClick={() => setSelectedPackage(pkg)}
-                        />
-                    ))}
-                </div>
+                <>
+                    <div className="pkg-grid">
+                        {visiblePackages.map(pkg => (
+                            <PackageCard
+                                key={pkg.id}
+                                pkg={pkg}
+                                onClick={() => setSelectedPackage(pkg)}
+                            />
+                        ))}
+                    </div>
+                    {showMore}
+                </>
             )}
 
             {showCreateModal && (
