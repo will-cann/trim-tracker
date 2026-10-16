@@ -67,6 +67,17 @@ before plants because a plant links to its batch and to the harvest it went into
 The background function budgets 13 of its 15 minutes. Lists it doesn't reach are recorded as
 `Out of time` and the run ends `partial`; the next run continues from the cursors.
 
+### Resilience
+
+- A T3 `5xx` or dropped connection on a GET is retried once after 1.5 s.
+- A batch the database rejects (one row tripping a constraint fails the whole statement) is
+  retried row by row; rows that still fail are counted as `failed` in the list's cell and the
+  first few reasons appear in the run's errors. The list still counts as pulled and its
+  cursor advances, so one odd record never blocks a list.
+- Before a licence's cultivation lists, the sync asks T3 for the login's permissions on the
+  plants view. Manufacturing and processing licences have none and are skipped quietly;
+  a 401/403 on a cultivation list is treated the same way rather than as an error.
+
 ### Matching and who wins
 
 - Packages match on **tag** (`packages.label`, unique per company since 067). Items on

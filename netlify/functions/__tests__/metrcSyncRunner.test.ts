@@ -7,7 +7,8 @@
  */
 import { describe, it, expect, vi } from 'vitest';
 import { runMetrcSync, type SyncStore, type SyncT3 } from '../utils/metrcSyncRunner';
-import { MetrcSyncStore, stateKey, type ListState, type Queryable } from '../utils/metrcSyncStore';
+import { MetrcSyncStore, newCounts, stateKey, type ListState, type Queryable } from '../utils/metrcSyncStore';
+import { T3Error } from '../utils/t3';
 import type { ExistingPackage, PackageRow } from '../utils/metrcSync';
 import type { T3Package } from '../utils/t3';
 
@@ -42,6 +43,7 @@ function fakeT3(over: Partial<SyncT3> = {}): SyncT3 & { calls: string[] } {
         plantBatches: async (path, license, since) => { calls.push(`${path} ${license} ${since?.toISOString() ?? 'full'}`); return path.endsWith('/active') ? [{ id: 11, name: 'Gelato 9/1', plantBatchTypeName: 'Clone', strainName: 'Gelato', locationName: 'Nursery', untrackedCount: 40, trackedCount: 0 }] : []; },
         harvests: async (path, license, since) => { calls.push(`${path} ${license} ${since?.toISOString() ?? 'full'}`); return path.endsWith('/active') ? [{ id: 21, name: 'Gelato 2026-09-20', sourceStrainNames: 'Gelato', plantCount: 12, totalWetWeight: 9000 }] : []; },
         plants: async (path, license, since) => { calls.push(`${path} ${license} ${since?.toISOString() ?? 'full'}`); return path.endsWith('/flowering') ? [{ id: 31, label: '1A40C0300000B55000200001', growthPhaseName: 'Flowering', strainName: 'Gelato', locationName: 'Flower 2', plantBatchName: 'Gelato 9/1' }] : []; },
+        plantPermissions: async () => ['plants/vegetative', 'plants/flowering'],
         ...over,
     };
 }
@@ -55,16 +57,16 @@ function fakeStore(opts: { states?: Map<string, ListState>; existing?: ExistingP
         markListSuccess: async (_c, license, list, cursor) => { successes.push([license, list, cursor]); },
         markListError: async (_c, license, list, message) => { failures.push([license, list, message]); },
         ensureProductTypes: vi.fn(async () => {}),
-        upsertItems: vi.fn(async (_c, rows) => ({ inserted: rows.length, updated: 0, unchanged: 0 })),
-        upsertStrains: vi.fn(async (_c, rows) => ({ inserted: rows.length, updated: 0, unchanged: 0 })),
-        upsertRooms: vi.fn(async (_c, rows) => ({ inserted: rows.length, updated: 0, unchanged: 0 })),
+        upsertItems: vi.fn(async (_c, rows) => ({ ...newCounts(), inserted: rows.length })),
+        upsertStrains: vi.fn(async (_c, rows) => ({ ...newCounts(), inserted: rows.length })),
+        upsertRooms: vi.fn(async (_c, rows) => ({ ...newCounts(), inserted: rows.length })),
         metrcItemIds: async () => new Map([['pre-roll 1g', 'item-uuid']]),
         existingPackages: async (_c, labels) => new Map((opts.existing ?? []).filter(e => labels.includes(e.label)).map(e => [e.label, e])),
-        upsertPackages: vi.fn(async (_c, rows) => { written.push(rows); return { inserted: rows.length, updated: 0 }; }),
+        upsertPackages: vi.fn(async (_c, rows) => { written.push(rows); return { ...newCounts(), inserted: rows.length }; }),
         cultivationIds: vi.fn(async () => ({ strains: new Map(), rooms: new Map(), plantBatches: new Map(), harvests: new Map() })),
-        upsertPlantBatches: vi.fn(async (_c, rows) => ({ inserted: rows.length, updated: 0, unchanged: 0 })),
-        upsertHarvests: vi.fn(async (_c, rows) => ({ inserted: rows.length, updated: 0, unchanged: 0 })),
-        upsertPlants: vi.fn(async (_c, rows) => ({ inserted: rows.length, updated: 0, unchanged: 0 })),
+        upsertPlantBatches: vi.fn(async (_c, rows) => ({ ...newCounts(), inserted: rows.length })),
+        upsertHarvests: vi.fn(async (_c, rows) => ({ ...newCounts(), inserted: rows.length })),
+        upsertPlants: vi.fn(async (_c, rows) => ({ ...newCounts(), inserted: rows.length })),
         touchRun: vi.fn(async () => {}),
     };
     return { store, written, successes, failures };
@@ -93,10 +95,10 @@ describe('runMetrcSync', () => {
             'items', 'strains', 'locations', 'packages/active', 'packages/intransit', 'packages/inactive',
             'plantbatches/active', 'plantbatches/inactive', 'harvests/active', 'harvests/inactive', 'plants/vegetative', 'plants/flowering', 'plants/inactive',
         ]);
-        expect(result.counts.MAN000020['plants/flowering']).toEqual({ fetched: 1, inserted: 1, updated: 0, unchanged: 0 });
-        expect(result.counts.MAN000020['harvests/active']).toEqual({ fetched: 1, inserted: 1, updated: 0, unchanged: 0 });
+        expect(result.counts.MAN000020['plants/flowering']).toEqual({ fetched: 1, inserted: 1, updated: 0, unchanged: 0, failed: 0 });
+        expect(result.counts.MAN000020['harvests/active']).toEqual({ fetched: 1, inserted: 1, updated: 0, unchanged: 0, failed: 0 });
         expect(failures).toEqual([]);
-        expect(result.counts.MAN000020['packages/active']).toEqual({ fetched: 2, inserted: 2, updated: 0, unchanged: 0 });
+        expect(result.counts.MAN000020['packages/active']).toEqual({ fetched: 2, inserted: 2, updated: 0, unchanged: 0, failed: 0 });
         expect(result.report).toBeNull();
     });
 
@@ -129,7 +131,7 @@ describe('runMetrcSync', () => {
         const result = await runMetrcSync(store, fakeT3(), { companyId: COMPANY, runId: RUN, dryRun: false, deadline: farDeadline });
 
         expect(written.flat().map(r => r.label)).toEqual([TAG_B]);
-        expect(result.counts.MAN000020['packages/active']).toEqual({ fetched: 2, inserted: 1, updated: 0, unchanged: 1 });
+        expect(result.counts.MAN000020['packages/active']).toEqual({ fetched: 2, inserted: 1, updated: 0, unchanged: 1, failed: 0 });
         expect(result.report).toEqual({ tagMatches: 1, conflicts: [{ license: 'MAN000020', label: TAG_B, changes: ['quantity: 3 → 4'] }], conflictsTruncated: false });
     });
 
@@ -153,7 +155,7 @@ describe('runMetrcSync', () => {
         expect(successes).toEqual([]);
         expect(failures).toEqual([]);
         // what a real run would do: TAG_A exists by hand (update), TAG_B is new (insert)
-        expect(result.counts.MAN000020['packages/active']).toEqual({ fetched: 2, inserted: 1, updated: 1, unchanged: 0 });
+        expect(result.counts.MAN000020['packages/active']).toEqual({ fetched: 2, inserted: 1, updated: 1, unchanged: 0, failed: 0 });
         expect(result.report).toMatchObject({ tagMatches: 1, conflicts: [{ label: TAG_A, changes: ['quantity: 9 → 10'] }] });
     });
 
@@ -176,6 +178,39 @@ describe('runMetrcSync', () => {
         const result = await runMetrcSync(store, fakeT3({ licenses: async () => { throw new Error('401'); } }), { companyId: COMPANY, runId: RUN, dryRun: false, deadline: farDeadline });
         expect(result.status).toBe('failed');
         expect(result.error).toMatch(/Could not list licences/);
+    });
+
+    it('skips the cultivation lists on a licence whose Metrc login has no plants view', async () => {
+        const t3 = fakeT3({ plantPermissions: async () => ['packages/active'] });
+        const { store, successes } = fakeStore();
+        const result = await runMetrcSync(store, t3, { companyId: COMPANY, runId: RUN, dryRun: false, deadline: farDeadline });
+        expect(result.status).toBe('succeeded');
+        expect(t3.calls.some(c => c.includes('/plants/') || c.includes('/harvests/') || c.includes('/plantbatches/'))).toBe(false);
+        expect(successes.map(s => s[1])).toEqual(['items', 'strains', 'locations', 'packages/active', 'packages/intransit', 'packages/inactive']);
+        expect(result.counts.MAN000020['plants/flowering']).toBeUndefined();
+    });
+
+    it('treats a 401/403 on a cultivation list as "not on this licence", not an error', async () => {
+        const t3 = fakeT3({
+            plantPermissions: async () => { throw new Error('probe unavailable'); },
+            plants: async () => { throw new T3Error('Metrc login page', 401); },
+        });
+        const { store, failures } = fakeStore();
+        const result = await runMetrcSync(store, t3, { companyId: COMPANY, runId: RUN, dryRun: false, deadline: farDeadline });
+        expect(result.status).toBe('succeeded');
+        expect(result.errors).toEqual([]);
+        expect(failures).toEqual([]);
+        expect(result.counts.MAN000020['plants/vegetative']).toBeUndefined();
+    });
+
+    it('reports rows the database rejected as run errors but still advances the cursor', async () => {
+        const { store, successes } = fakeStore();
+        (store.upsertPackages as ReturnType<typeof vi.fn>).mockImplementationOnce(async () => ({ ...newCounts(), inserted: 1, failed: 1, failures: [`${TAG_B}: violates check constraint "packages_quantity_check"`] }));
+        const result = await runMetrcSync(store, fakeT3(), { companyId: COMPANY, runId: RUN, dryRun: false, deadline: farDeadline });
+        expect(result.status).toBe('partial');
+        expect(result.errors).toEqual([{ license: 'MAN000020', list: 'packages/active', message: expect.stringContaining('1 row rejected by the database') }]);
+        expect(result.counts.MAN000020['packages/active']).toMatchObject({ inserted: 1, failed: 1 });
+        expect(successes.map(s => s[1])).toContain('packages/active');
     });
 
     it('can be restricted to one licence', async () => {
@@ -211,6 +246,24 @@ describe('MetrcSyncStore run lock', () => {
     it('returns null, not a claim, when the row is not queued', async () => {
         const q = db(async () => ({ rows: [] }));
         expect(await new MetrcSyncStore(q).claimQueuedRun(RUN, COMPANY)).toBeNull();
+    });
+
+    it('retries a rejected batch row by row and keeps the reasons for the rows that still fail', async () => {
+        const seen: number[] = [];
+        const q = db(async (_text, params) => {
+            const names = (params?.[1] as string[]) ?? [];
+            seen.push(names.length);
+            if (names.length > 1) throw new Error('violates check constraint');
+            if (names[0] === 'Bad Strain') throw new Error('violates check constraint "strains_name_check"');
+            return { rows: [{ inserted: true }] };
+        });
+        const counts = await new MetrcSyncStore(q).upsertStrains(COMPANY, [
+            { name: 'Gelato', metrc_id: 1, metrc_license: 'L' },
+            { name: 'Bad Strain', metrc_id: 2, metrc_license: 'L' },
+            { name: 'Runtz', metrc_id: 3, metrc_license: 'L' },
+        ]);
+        expect(seen).toEqual([3, 1, 1, 1]);
+        expect(counts).toEqual({ inserted: 2, updated: 0, unchanged: 0, failed: 1, failures: ['Bad Strain: violates check constraint "strains_name_check"'] });
     });
 
     it('rethrows anything that is not a unique violation', async () => {
