@@ -1,4 +1,4 @@
-import { useEffect, type ReactNode } from 'react'
+import { useEffect, useRef, type ReactNode } from 'react'
 import { Auth0Provider, useAuth0 } from '@auth0/auth0-react'
 import { Loader2, LogIn } from 'lucide-react'
 import { Button, Card, Notice } from './components/ui'
@@ -6,10 +6,12 @@ import { DEPLOY_NAME, ManifestAuthContext as Ctx } from './lib/authContext'
 import { setTokenProvider } from './lib/authToken'
 
 /**
- * Sign-in for the manifest picker. Same Auth0 application as the main UI, but
- * the picker lives at /manifest in its own bundle, so it has its own provider:
- * callbacks return to /manifest and tokens are cached in localStorage so a
- * reload on a phone mid-pick doesn't bounce through Auth0 again.
+ * Sign-in for the manifest picker. Same Auth0 application (and so the same
+ * login session) as the main app; the picker lives at /manifest in its own
+ * bundle, so it has its own provider: callbacks return to /manifest and tokens
+ * are cached in localStorage so a reload on a phone mid-pick doesn't bounce
+ * through Auth0 again. Signed out, it goes straight to the standard login page
+ * rather than showing a sign-in screen of its own.
  *
  * The Netlify functions decide who may actually use the picker
  * (MANIFEST_COMPANY_IDS); this just gets a token.
@@ -38,6 +40,15 @@ function Frame({ children }: { children: ReactNode }) {
 
 function Auth0Bridge({ children }: { children: ReactNode }) {
   const { isLoading, isAuthenticated, user, error, loginWithRedirect, logout, getAccessTokenSilently } = useAuth0()
+  const redirected = useRef(false)
+
+  // Signed out → the standard login page. Not after an Auth0 error, so a
+  // misconfigured tenant shows the error instead of looping through login.
+  useEffect(() => {
+    if (isLoading || isAuthenticated || error || redirected.current) return
+    redirected.current = true
+    void loginWithRedirect({ appState: { returnTo: '/manifest' } })
+  }, [isLoading, isAuthenticated, error, loginWithRedirect])
 
   useEffect(() => {
     if (!isAuthenticated) return
@@ -50,7 +61,7 @@ function Auth0Bridge({ children }: { children: ReactNode }) {
     })
   }, [isAuthenticated, getAccessTokenSilently])
 
-  if (isLoading) {
+  if (isLoading || (!isAuthenticated && !error)) {
     return (
       <Frame>
         <p className="text-sm text-gray-500 flex items-center justify-center gap-2">

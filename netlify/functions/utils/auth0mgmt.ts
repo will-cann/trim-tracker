@@ -152,6 +152,12 @@ export async function sendInvitation(email: string, name?: string): Promise<{ su
         return { success: true, inviteUrl: ticket.ticket };
     } catch (error) {
         console.error('Error sending invitation:', error);
-        return { success: false, error: 'Failed to send invitation' };
+        const notConfigured = error instanceof Error && /not configured/.test(error.message);
+        return {
+            success: false,
+            error: notConfigured
+                ? "Invites aren't set up on this site (Auth0 Management API credentials missing)"
+                : 'Failed to send invitation',
+        };
     }
 }
