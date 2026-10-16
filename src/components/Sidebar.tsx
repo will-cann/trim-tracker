@@ -1,5 +1,5 @@
 import React from 'react';
-import { BarChart3, Sprout, LogOut, User as UserIcon, Scissors, Settings, ClipboardList, Map, Package, FlaskConical, BookOpen, ShoppingCart, Warehouse } from 'lucide-react';
+import { BarChart3, Sprout, LogOut, User as UserIcon, Scissors, Settings, ClipboardList, Map, Package, FlaskConical, BookOpen, ShoppingCart, Warehouse, ScanBarcode } from 'lucide-react';
 import { ff } from '../utils/featureFlags';
 import { useAuth } from '../contexts/authContext';
 import logo from '../assets/logo.png';
@@ -54,6 +54,13 @@ function canSeeNavItem(
 
     return true;
 }
+
+/**
+ * The manifest picker (/manifest) is a separate page with the same login. Only
+ * deploys set up for it (VITE_MANIFEST_DEPLOY_NAME, e.g. proper.neurocann.app)
+ * link to it; elsewhere its functions refuse every company.
+ */
+const SHOW_MANIFEST_PICKER = Boolean(import.meta.env.VITE_MANIFEST_DEPLOY_NAME);
 
 const navItems: NavItem[] = [
     { view: 'plant-map', icon: (color) => <Map size={18} color={color} />, label: 'Plants', dept: ['cultivation'] },
@@ -115,6 +122,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         </button>
                     );
                 })}
+                {SHOW_MANIFEST_PICKER && (
+                    <a className="sidebar-rail-btn" href="/manifest" title="Manifest picker">
+                        <ScanBarcode size={18} color="#959595" />
+                        <span className="sidebar-label">Manifest</span>
+                    </a>
+                )}
             </div>
 
             {/* Bottom: settings, user, logout */}
