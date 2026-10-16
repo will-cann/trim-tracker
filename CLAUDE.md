@@ -82,7 +82,18 @@ PostgreSQL on Neon. Multi-tenant via `company_id` on all tables. 24+ migrations 
 ### Type System (`src/types/`)
 
 - `definitions.ts` — All shared frontend types (entities, DTOs, enums, AI/chat types)
-- `plantMap.ts` — Plant map module types, health system, contamination constants, room entities
+- `plantMap.ts` — Plant map module types (room layout, health events, hot-spot summary), room entities. Re-exports the contaminant catalog and planner from `shared/plantMap/`.
+
+### Plant mapping (`src/components/PlantMap/`, `shared/plantMap/`)
+
+The plant map has four views: cards (rooms), table (sortable by feed, flower length, stretch, cell), schedule/calendar, and **map** (`RoomLayoutView.tsx`). The map view is where bud rot gets mapped:
+
+- **Grid:** `rooms.layout_rows/layout_cols` define benches × positions; `plants.position_row/position_col` (0-indexed, unique per live plant per room). Set via Settings → Rooms, the map's setup card, or `manage-room.ts`. `set-plant-positions.ts` places/swaps in one transaction; `plant-actions.ts` clears positions on room moves unless `placements` are passed.
+- **Health events:** `plant_health_events` (migration 067) is the per-plant observation log — contaminant key, severity 1–5, note, and a snapshot of room + cell + flowering day. `plant-health-events.ts` (POST log / PATCH resolve / GET list) keeps `plants.contaminants` and `plant_health` in step. `plants.contaminants` stays the *current* state the AI's `find_plants` reads; the events table is history.
+- **Hot spots:** `shared/plantMap/hotspots.ts` `scoreHotspots()` turns events into a per-cell 0–1 risk surface (severity × recency decay with a floor for active events, plus neighbour bleed). History survives harvests, so a wet corner shows up across cycles. `get-hotspots.ts` is the facility roll-up (per room, per strain incidence).
+- **Move planner:** `shared/plantMap/movePlanner.ts` `planMoves()` → cull / isolate / relocate / inspect suggestions with destination cells (sibling rooms allowed), plus cells to leave empty at the next flip. Served by `get-room-layout.ts`; the UI applies moves directly or creates human tasks with `place_plants` / `destroy_plants` `onCompleteAction`s.
+- **Cohort sorting:** `shared/plantMap/cohorts.ts` groups plants by feed (`strains.feed_profile`), flower length (`default_flowering_days`) and stretch (`stretch_trait`) and `proposeLayout()` fills benches row-major by cohort, skipping hot cells while there's room.
+- **AI:** `plants` tool action `log_issue` → `log_plant_health_event`; read-only `find_hotspots` returns the roll-up plus a room's move plan. Both builders live in `netlify/functions/utils/plantMap.ts`.
 
 ### Email / CRM
 

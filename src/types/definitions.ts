@@ -327,6 +327,8 @@ export interface Strain {
   // extraction_logs, aggregated at query time.
   phenotype: Phenotype | null;
   terpeneTags: TerpeneTag[] | null;
+  /** Feed program (e.g. "Heavy", "Jacks 3-2-1"). Plants are grouped by exact value on the plant map. */
+  feedProfile: string | null;
   harvestCount: number;
   sessionCount: number;
   createdAt: string;
@@ -950,7 +952,8 @@ export type ProposedActionType =
   | 'import_tags' | 'assign_tag' | 'auto_assign_tags'
   | 'create_package' | 'update_package' | 'finish_package' | 'delete_package'
   | 'record_extraction' | 'start_extraction_run' | 'amend_extraction_run_inputs' | 'cancel_extraction_run'
-  | 'find_plants_result'
+  | 'find_plants_result' | 'find_hotspots_result'
+  | 'log_plant_health_event' | 'place_plants'
   | 'create_room' | 'update_room' | 'delete_room'
   | 'record_plant_weight' | 'flag_contamination' | 'submit_harvest_batch' | 'approve_harvest_day'
   | 'create_vendor' | 'update_vendor' | 'delete_vendor'

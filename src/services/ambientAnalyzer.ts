@@ -66,6 +66,9 @@ function actionLabel(action: ProposedAction): string {
             return `Amend run${d.runName ? ` — ${d.runName}` : ''} (+${added || '…'} input${added === 1 ? '' : 's'})`;
         }
         case 'cancel_extraction_run': return `Cancel run${d.runName ? ` — ${d.runName}` : ''}`;
+        case 'log_plant_health_event': return `Log ${d.contaminant ? String(d.contaminant).replace(/_/g, ' ') : 'issue'}${d.strain ? ` — ${d.strain}` : ''}`;
+        case 'place_plants': return `Place plants${d.roomName ? ` — ${d.roomName}` : ''}`;
+        case 'find_hotspots_result': return `Hot spots — ${d.totals?.active ?? 0} active`;
         case 'find_plants_result': {
             const total = d.totalMatches ?? 0;
             return `Find plants — ${total} match${total === 1 ? '' : 'es'}`;

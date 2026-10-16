@@ -142,6 +142,7 @@ type StrainUpdates = {
     notes?: string | null;
     phenotype?: Phenotype | null;
     terpeneTags?: TerpeneTag[] | null;
+    feedProfile?: string | null;
 };
 
 const StrainRow = ({ strain, onUpdate, onDelete, onOpenYields }: {
@@ -207,6 +208,19 @@ const StrainRow = ({ strain, onUpdate, onDelete, onOpenYields }: {
                         <option key={o.value} value={o.value}>{o.label}</option>
                     ))}
                 </select>
+            </td>
+            <td className="strain-cell-days">
+                <input
+                    type="text"
+                    list="strain-feed-profiles"
+                    defaultValue={strain.feedProfile ?? ''}
+                    placeholder="—"
+                    title="Feed program — plants with the same value share a bench on the map"
+                    onBlur={e => onUpdate({ feedProfile: e.target.value.trim() || null })}
+                    onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
+                    className="strain-days-input"
+                    style={{ width: 90, textAlign: 'left' }}
+                />
             </td>
             <td className="strain-cell-notes">
                 <input

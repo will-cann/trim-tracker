@@ -39,6 +39,7 @@ export const handler: Handler = async (event) => {
             notes,
             phenotype,
             terpeneTags,
+            feedProfile,
         } = body;
 
         if (!name?.trim()) {
@@ -54,6 +55,10 @@ export const handler: Handler = async (event) => {
             : null;
 
         const notesVal = typeof notes === 'string' ? notes : undefined;
+        // Feed program: free text, grouped by exact value on the plant map. `null`/'' clears it.
+        const feedVal: string | null | undefined = feedProfile === undefined
+            ? undefined
+            : (feedProfile === null || String(feedProfile).trim() === '' ? null : String(feedProfile).trim().slice(0, 60));
         const validStretch = ['low', 'medium', 'high'];
         const stretchVal = validStretch.includes(stretchTrait) ? stretchTrait : undefined;
 
@@ -88,12 +93,12 @@ export const handler: Handler = async (event) => {
             INSERT INTO strains (
                 company_id, name,
                 default_flowering_days, default_veg_days, stretch_trait, notes,
-                phenotype, terpene_tags
+                phenotype, terpene_tags, feed_profile
             )
             VALUES (
                 ${context.companyId}, ${trimmedName},
                 ${floweringDays}, ${vegDays}, ${stretchVal ?? null}, ${notesVal ?? null},
-                ${phenotypeVal ?? null}, ${terpeneTagsVal ?? null}
+                ${phenotypeVal ?? null}, ${terpeneTagsVal ?? null}, ${feedVal ?? null}
             )
             ON CONFLICT (company_id, LOWER(name)) DO UPDATE SET
                 default_flowering_days = COALESCE(${floweringDays}, strains.default_flowering_days),
@@ -102,9 +107,10 @@ export const handler: Handler = async (event) => {
                 notes = CASE WHEN ${notesVal !== undefined} THEN ${notesVal ?? null} ELSE strains.notes END,
                 phenotype = CASE WHEN ${phenotypeVal !== undefined} THEN ${phenotypeVal ?? null} ELSE strains.phenotype END,
                 terpene_tags = CASE WHEN ${terpeneTagsVal !== undefined} THEN ${terpeneTagsVal ?? null}::text[] ELSE strains.terpene_tags END,
+                feed_profile = CASE WHEN ${feedVal !== undefined} THEN ${feedVal ?? null} ELSE strains.feed_profile END,
                 updated_at = NOW()
             RETURNING id, name, default_flowering_days, default_veg_days, stretch_trait, notes,
-                      phenotype, terpene_tags,
+                      phenotype, terpene_tags, feed_profile,
                       created_at, updated_at
         `;
 
@@ -122,6 +128,7 @@ export const handler: Handler = async (event) => {
                 notes: strain.notes || null,
                 phenotype: strain.phenotype || null,
                 terpeneTags: strain.terpene_tags || null,
+                feedProfile: strain.feed_profile || null,
                 createdAt: strain.created_at,
                 updatedAt: strain.updated_at,
             }),

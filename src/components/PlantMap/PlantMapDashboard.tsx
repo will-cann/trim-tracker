@@ -15,6 +15,7 @@ import { apiService } from '../../services/apiService';
 import ResourceTimeline from '../ui/ResourceTimeline';
 import ResourceCalendar from '../ui/ResourceCalendar';
 import { buildCultivationSchedule } from './cultivationScheduleAdapter';
+import { RoomLayoutView } from './RoomLayoutView';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -62,7 +63,28 @@ const PLANT_COLUMNS: Column<any>[] = [
         key: 'targetHarvestDate', label: 'Target Harvest', sortable: true, width: 120,
         render: (r) => <span style={{ color: '#959595' }}>{formatDate(r.targetHarvestDate)}</span>,
     },
+    // Cohort traits (per strain) — sort by these to see who should share a bench.
+    {
+        key: 'feedProfile', label: 'Feed', sortable: true, width: 100,
+        render: (r) => r.feedProfile ? <span>{r.feedProfile}</span> : <span style={{ color: '#C0C0C0' }}>—</span>,
+    },
+    {
+        key: 'floweringDays', label: 'Flower', sortable: true, width: 80, align: 'center',
+        render: (r) => r.floweringDays ? <span style={{ fontVariantNumeric: 'tabular-nums' }}>{r.floweringDays}d</span> : <span style={{ color: '#C0C0C0' }}>—</span>,
+    },
+    {
+        key: 'stretchTrait', label: 'Stretch', sortable: true, width: 90,
+        render: (r) => r.stretchTrait ? <span style={{ textTransform: 'capitalize' }}>{r.stretchTrait}</span> : <span style={{ color: '#C0C0C0' }}>—</span>,
+    },
+    {
+        key: 'cell', label: 'Cell', sortable: true, width: 80, align: 'center',
+        render: (r) => r.row != null && r.col != null
+            ? <span style={{ fontVariantNumeric: 'tabular-nums' }}>R{r.row + 1}·{r.col + 1}</span>
+            : <span style={{ color: '#C0C0C0' }}>—</span>,
+    },
 ];
+
+const STRETCH_RANK: Record<string, number> = { low: 0, medium: 1, high: 2 };
 
 
 // ── Main Component ──────────────────────────────────────────────────────────
@@ -92,7 +114,7 @@ export const PlantMapDashboard: React.FC<PlantMapDashboardProps> = ({ refreshKey
     const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
 
     // Rooms list (shared between schedule and "all" phase detection)
-    const [allRooms, setAllRooms] = useState<Array<{ id: string; name: string; room_type: string }>>([]);
+    const [allRooms, setAllRooms] = useState<Array<{ id: string; name: string; room_type: string; layout_rows?: number | null; layout_cols?: number | null }>>([]);
     const [roomsLoaded, setRoomsLoaded] = useState(false);
 
     // Schedule mode state
@@ -153,15 +175,18 @@ export const PlantMapDashboard: React.FC<PlantMapDashboardProps> = ({ refreshKey
         apiService.getStrains().then(strains => setTableStrains(strains.map(s => s.name).sort())).catch(() => {});
     }, [viewMode, tableStrains.length]);
 
-    // Load rooms when needed (for "all" phase detection, the table's room filter, or schedule view)
+    // Load rooms when needed (for "all" phase detection, the table's room filter, schedule or map view)
+    const loadRooms = useCallback(async () => {
+        const rooms = await apiService.getRooms();
+        setAllRooms(rooms as Array<{ id: string; name: string; room_type: string; layout_rows?: number | null; layout_cols?: number | null }>);
+        setRoomsLoaded(true);
+    }, []);
+
     useEffect(() => {
         if (roomsLoaded) return;
-        if (activePhase !== 'all' && viewMode !== 'schedule' && viewMode !== 'calendar' && viewMode !== 'table') return;
-        apiService.getRooms().then(rooms => {
-            setAllRooms(rooms as Array<{ id: string; name: string; room_type: string }>);
-            setRoomsLoaded(true);
-        });
-    }, [activePhase, viewMode, roomsLoaded]);
+        if (activePhase !== 'all' && viewMode !== 'schedule' && viewMode !== 'calendar' && viewMode !== 'table' && viewMode !== 'map') return;
+        loadRooms();
+    }, [activePhase, viewMode, roomsLoaded, loadRooms]);
 
     // Load schedule data lazily
     useEffect(() => {
@@ -284,8 +309,12 @@ export const PlantMapDashboard: React.FC<PlantMapDashboardProps> = ({ refreshKey
 
     const sortedPlants = [...filteredPlants].sort((a, b) => {
         if (!sortKey) return 0;
-        let aVal = sortKey === 'phaseDate' ? phaseDate(a) : a[sortKey];
-        let bVal = sortKey === 'phaseDate' ? phaseDate(b) : b[sortKey];
+        const pick = (r: any) => sortKey === 'phaseDate' ? phaseDate(r)
+            : sortKey === 'stretchTrait' ? (r.stretchTrait ? STRETCH_RANK[r.stretchTrait] : null)
+            : sortKey === 'cell' ? (r.row != null && r.col != null ? r.row * 1000 + r.col : null)
+            : r[sortKey];
+        const aVal = pick(a);
+        const bVal = pick(b);
         if (aVal == null) return 1;
         if (bVal == null) return -1;
         if (typeof aVal === 'number' && typeof bVal === 'number') {
@@ -325,7 +354,7 @@ export const PlantMapDashboard: React.FC<PlantMapDashboardProps> = ({ refreshKey
             <FilterToolbar
                     search={search}
                     onSearchChange={setSearch}
-                    searchPlaceholder={viewMode === 'cards' ? 'Search rooms...' : 'Search plants...'}
+                    searchPlaceholder={viewMode === 'cards' ? 'Search rooms...' : viewMode === 'map' ? 'Search (cards & table)...' : 'Search plants...'}
                     filters={[phaseFilter, strainFilter, roomFilter]}
                     activeFilters={activeFilters}
                     onFilterChange={(key, values) => {
@@ -339,7 +368,7 @@ export const PlantMapDashboard: React.FC<PlantMapDashboardProps> = ({ refreshKey
                     }}
                     onClearFilters={() => { setActiveFilters({}); if (viewMode === 'cards') handlePhaseChange('all'); }}
                     trailing={
-                        <ViewToggle mode={viewMode} onChange={setViewMode} showSchedule showCalendar />
+                        <ViewToggle mode={viewMode} onChange={setViewMode} showMap showSchedule showCalendar />
                     }
                 />
 
@@ -419,6 +448,20 @@ export const PlantMapDashboard: React.FC<PlantMapDashboardProps> = ({ refreshKey
                         </div>
                     )}
                 </>
+            )}
+
+            {viewMode === 'map' && (
+                <div className="mt-3">
+                    {!roomsLoaded ? (
+                        <div className="data-table-empty">Loading rooms...</div>
+                    ) : (
+                        <RoomLayoutView
+                            rooms={allRooms}
+                            refreshKey={refreshKey}
+                            onChanged={() => { refetch(); loadRooms(); if (plantList.length) loadPlantList(); }}
+                        />
+                    )}
+                </div>
             )}
 
             {viewMode === 'table' && (
