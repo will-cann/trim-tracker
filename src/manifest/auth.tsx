@@ -1,6 +1,6 @@
-import { useEffect, useRef, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { Auth0Provider, useAuth0 } from '@auth0/auth0-react'
-import { Loader2, LogIn } from 'lucide-react'
+import { Loader2, LogIn, LogOut } from 'lucide-react'
 import { Button, Card, Notice } from './components/ui'
 import { DEPLOY_NAME, ManifestAuthContext as Ctx } from './lib/authContext'
 import { setTokenProvider } from './lib/authToken'
@@ -41,6 +41,20 @@ function Frame({ children }: { children: ReactNode }) {
 function Auth0Bridge({ children }: { children: ReactNode }) {
   const { isLoading, isAuthenticated, user, error, loginWithRedirect, logout, getAccessTokenSilently } = useAuth0()
   const redirected = useRef(false)
+  const [slow, setSlow] = useState(false)
+  useEffect(() => {
+    const t = setTimeout(() => setSlow(true), 5000)
+    return () => clearTimeout(t)
+  }, [])
+  const signOut = () => {
+    try {
+      // Drop the picker's cached Auth0 tokens too (cacheLocation: localstorage)
+      Object.keys(localStorage).filter((k) => k.startsWith('@@auth0spajs@@')).forEach((k) => localStorage.removeItem(k))
+    } catch {
+      /* storage unavailable */
+    }
+    void logout({ logoutParams: { returnTo: returnTo() } })
+  }
 
   // Signed out → the standard login page. Not after an Auth0 error, so a
   // misconfigured tenant shows the error instead of looping through login.
@@ -67,6 +81,11 @@ function Auth0Bridge({ children }: { children: ReactNode }) {
         <p className="text-sm text-gray-500 flex items-center justify-center gap-2">
           <Loader2 className="h-4 w-4 animate-spin" /> Signing in…
         </p>
+        {slow && (
+          <Button block variant="secondary" onClick={signOut}>
+            <LogOut className="h-5 w-5" /> Stuck? Sign out and start over
+          </Button>
+        )}
       </Frame>
     )
   }
@@ -79,6 +98,9 @@ function Auth0Bridge({ children }: { children: ReactNode }) {
         <Button block onClick={() => void loginWithRedirect({ appState: { returnTo: '/manifest' } })}>
           <LogIn className="h-5 w-5" /> Sign in
         </Button>
+        <Button block variant="secondary" onClick={() => void loginWithRedirect({ appState: { returnTo: '/manifest' }, authorizationParams: { prompt: 'login' } })}>
+          Use a different account
+        </Button>
       </Frame>
     )
   }
@@ -87,7 +109,7 @@ function Auth0Bridge({ children }: { children: ReactNode }) {
     <Ctx.Provider
       value={{
         email: user?.email ?? null,
-        logout: () => void logout({ logoutParams: { returnTo: returnTo() } }),
+        logout: signOut,
       }}
     >
       {children}

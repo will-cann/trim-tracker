@@ -16,8 +16,9 @@ interface User {
 interface AuthContextType {
     user: User | null;
     loading: boolean;
-    login: () => void;
     logout: () => void;
+    /** Sign in; `switchAccount` forces Auth0 to ask for credentials instead of reusing its session. */
+    login: (opts?: { switchAccount?: boolean }) => void;
     getToken: () => Promise<string | null>;
 }
 
@@ -43,7 +44,7 @@ const DevBypassProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
             user,
             loading: false,
             login: () => console.log('Dev bypass: login skipped'),
-            logout: () => console.log('Dev bypass: logout skipped'),
+            logout: () => { window.location.assign('/'); },
             getToken: async () => 'dev-bypass-token',
         }}>
             {children}
@@ -65,13 +66,25 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     const [dbRole, setDbRole] = React.useState<string | undefined>();
     const [dbDepartments, setDbDepartments] = React.useState<string[]>([]);
 
-    const login = () => {
-        loginWithRedirect();
+    const login = (opts?: { switchAccount?: boolean }) => {
+        loginWithRedirect(opts?.switchAccount ? { authorizationParams: { prompt: 'login' } } : undefined);
     };
 
     const logout = () => {
+        apiService.setAuthToken(null);
         auth0Logout({ logoutParams: { returnTo: window.location.origin } });
     };
+
+    // Escape hatch: visiting /logout signs out of Auth0 (clearing its single
+    // sign-on session, which is what keeps signing you back in as the same
+    // account) and returns to the home page. Works even when the UI is stuck
+    // on a loading screen with no button to reach.
+    useEffect(() => {
+        if (window.location.pathname === '/logout' && !isLoading) {
+            apiService.setAuthToken(null);
+            auth0Logout({ logoutParams: { returnTo: window.location.origin } });
+        }
+    }, [isLoading, auth0Logout]);
 
     const getToken = async (): Promise<string | null> => {
         try {

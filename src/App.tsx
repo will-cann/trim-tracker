@@ -51,6 +51,33 @@ const VIEW_SCREEN_CONTEXT: Record<ViewType, string> = {
   'tag-list': 'Tag Browser — browsing and searching all plant and batch tags',
 };
 
+
+/**
+ * Loading splash for auth and first data load. After a few seconds it offers
+ * a way out, because a wedged Auth0 session (wrong account, expired token the
+ * SDK can't refresh) otherwise leaves nothing on screen to click.
+ */
+function AuthLoadingScreen() {
+  const { logout } = useAuth();
+  const [slow, setSlow] = useState(false);
+  useEffect(() => {
+    const t = setTimeout(() => setSlow(true), 5000);
+    return () => clearTimeout(t);
+  }, []);
+  return (
+    <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center gap-5">
+      <img src={logo} alt="" className="w-8 h-8 object-contain opacity-40 animate-pulse" />
+      <p className="text-xs text-gray-300 tracking-wide">Loading</p>
+      {slow && (
+        <div className="text-center text-xs text-gray-400 space-y-2">
+          <p>Taking longer than it should.</p>
+          <button onClick={logout} className="underline hover:text-gray-600">Sign out and start over</button>
+        </div>
+      )}
+    </div>
+  );
+};
+
 function AppContent() {
   const { user, loading: authLoading } = useAuth();
   const publicRoute = matchPublicRoute(usePathname());
@@ -183,10 +210,7 @@ function AppContent() {
 
   if (authLoading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center gap-5">
-        <img src={logo} alt="" className="w-8 h-8 object-contain opacity-40 animate-pulse" />
-        <p className="text-xs text-gray-300 tracking-wide">Loading</p>
-      </div>
+      <AuthLoadingScreen />
     );
   }
 
@@ -293,12 +317,7 @@ function AppContent() {
   };
 
   if (loading) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center gap-5">
-        <img src={logo} alt="" className="w-8 h-8 object-contain opacity-40 animate-pulse" />
-        <p className="text-xs text-gray-300 tracking-wide">Loading</p>
-      </div>
-    );
+    return <AuthLoadingScreen />;
   }
 
   return (
