@@ -79,6 +79,9 @@ async function consumeAnthropicStream(
         toolInputJson?: string;
     }
     let current: InFlightBlock | null = null;
+    // An `error` event ends the stream with no content; without this the
+    // caller would see an empty reply and never learn why.
+    let streamError: string | null = null;
 
     let buffer = '';
 
@@ -147,6 +150,11 @@ async function consumeAnthropicStream(
                 // Terminal event — nothing to do; the reader loop will exit
                 // once the stream closes.
                 break;
+            case 'error': {
+                const e = (data.error || {}) as Record<string, unknown>;
+                streamError = `${e.type || 'error'}: ${e.message || dataJson}`;
+                break;
+            }
         }
     };
 
@@ -186,6 +194,10 @@ async function consumeAnthropicStream(
     // Flush any residual bytes.
     buffer += decoder.decode();
     parseBufferedEvents();
+
+    if (streamError) {
+        throw new Error(`Anthropic stream error — ${streamError}`);
+    }
 
     return {
         content: content.filter(Boolean),
@@ -3020,6 +3032,7 @@ IMPORTANT: If the user is correcting or updating a previous statement (e.g. "act
         // leading text (e.g. "I'll look that up.| Strain | ...") which breaks
         // markdown table rendering for the common lookup → table pattern.
         let lastTextTurn: number | undefined = undefined;
+        let lastResponse: ParsedAnthropicResponse | undefined;
 
         for (let turn = 0; turn < MAX_AGENT_TURNS; turn++) {
             // Paragraph separator between text-producing turns. Fires BEFORE
@@ -3069,6 +3082,7 @@ IMPORTANT: If the user is correcting or updating a previous statement (e.g. "act
             }
 
             response = await consumeAnthropicStream(apiResponse, onTextDelta);
+            lastResponse = response;
 
             // Per-turn cache usage log. Turn 0 mirrors pre-PR-2 single-shot
             // behavior; turns 1+ show how the growing messages array affects
@@ -4221,6 +4235,16 @@ IMPORTANT: If the user is correcting or updating a previous statement (e.g. "act
 
         if (!assistantMessage && actions.length > 0) {
             assistantMessage = `I've prepared ${actions.length} action${actions.length > 1 ? 's' : ''} for you to review.`;
+        } else if (!assistantMessage && toolResults.length === 0) {
+            // The model answered with no text and no tool calls. Say so rather
+            // than returning a blank bubble, and log enough to see why.
+            const r = lastResponse;
+            console.warn(`[ai-parse] empty reply: model=${model} stop_reason=${r?.stop_reason ?? 'none'} blocks=${(r?.content ?? []).map(b => b.type).join(',') || 'none'}`);
+            assistantMessage = r?.stop_reason === 'refusal'
+                ? "I can't help with that request."
+                : r?.stop_reason === 'max_tokens'
+                    ? 'That reply ran out of room before it started. Try asking for less at once.'
+                    : `I didn't get a reply from the model${r?.stop_reason ? ` (stop reason: ${r.stop_reason})` : ''}. Please try again in a moment.`;
         }
         }; // end runAgentLoop
 
@@ -4296,9 +4320,10 @@ IMPORTANT: If the user is correcting or updating a previous statement (e.g. "act
     } catch (error) {
         console.error('Error in ai-parse:', error);
         captureError(error, { function: 'ai-parse' });
+        const detail = error instanceof Error ? error.message : undefined;
         return {
             statusCode: 500,
-            body: JSON.stringify({ error: 'Failed to parse input' }),
+            body: JSON.stringify({ error: 'Failed to parse input', detail }),
         };
     }
 });
