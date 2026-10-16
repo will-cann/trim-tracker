@@ -1,8 +1,8 @@
 import React from 'react';
-import { KeyRound, Leaf, LayoutGrid, Tag, Users, Wrench, Package, Plug } from 'lucide-react';
+import { KeyRound, Leaf, LayoutGrid, Tag, Users, Wrench, Package, Plug, Cloud } from 'lucide-react';
 import { ff } from '../../utils/featureFlags';
 
-export type SettingsSection = 'licenses' | 'strains' | 'rooms' | 'tags' | 'equipment' | 'products' | 'team' | 'llm-plugin';
+export type SettingsSection = 'licenses' | 'strains' | 'rooms' | 'tags' | 'equipment' | 'products' | 'team' | 'llm-plugin' | 'metrc-sync';
 
 interface SettingsNavProps {
     active: SettingsSection;
@@ -13,6 +13,8 @@ interface SettingsNavProps {
         rooms: number;
         team: number;
     };
+    /** Sections that do not apply to this deploy/company (e.g. Metrc sync on a site without T3). */
+    hidden?: SettingsSection[];
 }
 
 const NAV_ITEMS: { id: SettingsSection; label: string; icon: React.ElementType; countKey?: keyof SettingsNavProps['counts']; flag?: boolean }[] = [
@@ -24,15 +26,17 @@ const NAV_ITEMS: { id: SettingsSection; label: string; icon: React.ElementType; 
     { id: 'products', label: 'Product Catalog', icon: Package },
     { id: 'team', label: 'Team', icon: Users, countKey: 'team' },
     { id: 'llm-plugin', label: 'LLM Plugin', icon: Plug },
+    { id: 'metrc-sync', label: 'Metrc Sync', icon: Cloud },
 ];
 
-export const SettingsNav: React.FC<SettingsNavProps> = ({ active, onChange, counts }) => {
+export const SettingsNav: React.FC<SettingsNavProps> = ({ active, onChange, counts, hidden = [] }) => {
+    const items = NAV_ITEMS.filter(n => n.flag !== false && !hidden.includes(n.id));
     return (
         <>
             {/* Desktop sidebar */}
             <nav className="settings-nav">
                 <div className="settings-nav-list">
-                    {NAV_ITEMS.filter(n => n.flag !== false).map(item => {
+                    {items.map(item => {
                         const Icon = item.icon;
                         const count = item.countKey ? counts[item.countKey] : undefined;
                         return (
@@ -54,7 +58,7 @@ export const SettingsNav: React.FC<SettingsNavProps> = ({ active, onChange, coun
 
             {/* Mobile pill bar */}
             <div className="settings-pills">
-                {NAV_ITEMS.filter(n => n.flag !== false).map(item => {
+                {items.map(item => {
                     const Icon = item.icon;
                     return (
                         <button

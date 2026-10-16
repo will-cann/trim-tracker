@@ -80,6 +80,7 @@ const PLANT_PHASE: Record<string, TypeChipStyle> = {
 const PACKAGE_STATUS: Record<string, TypeChipStyle> = {
     active:   { ...TINT.chameleon, icon: <CheckCircle2 size={11} />, label: 'Active' },
     on_hold:  { ...TINT.lion,      icon: <Clock size={11} />,        label: 'On Hold' },
+    in_transit: { ...TINT.macaw,   icon: <Truck size={11} />,        label: 'In Transit' },
     finished: { ...TINT.rhino,     icon: <CheckCircle2 size={11} />, label: 'Finished' },
     archived: { ...TINT.rhino,     icon: <CheckCircle2 size={11} />, label: 'Archived' },
 };

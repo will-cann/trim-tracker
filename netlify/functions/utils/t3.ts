@@ -215,24 +215,117 @@ export interface T3Package {
     quantity?: number;
     unitOfMeasureAbbreviation?: string;
     unitOfMeasureName?: string;
+    unitOfMeasureQuantityType?: string;
     item?: {
+        id?: number;
         name?: string;
         productCategoryName?: string;
         strainName?: string | null;
         unitWeight?: number | null;
         unitWeightUnitOfMeasureAbbreviation?: string | null;
         unitOfMeasureName?: string;
+        quantityTypeName?: string;
     } | null;
     sourcePackageLabels?: string | null;
+    sourceHarvestNames?: string | null;
     productionBatchNumber?: string | null;
     labTestingStateName?: string;
     isOnHold?: boolean;
     isInTransit?: boolean;
     isFinished?: boolean;
     isTestingSample?: boolean;
+    isProductionBatch?: boolean;
+    isTradeSample?: boolean;
+    isDonation?: boolean;
     packagedDate?: string | null;
+    finishedDate?: string | null;
+    lastModified?: string | null;
     locationName?: string | null;
+    note?: string | null;
 }
+
+// ── Sync lists (Metrc → NeuroCann mirror; see utils/metrcSync.ts) ──────────
+
+/** GET /v2/items — the licence's registered product items. */
+export interface T3Item {
+    id: number;
+    name: string;
+    productCategoryName?: string;
+    productCategoryTypeName?: string;
+    quantityTypeName?: string;
+    unitOfMeasureName?: string;
+    strainName?: string | null;
+    unitWeight?: number | null;
+    unitWeightUnitOfMeasureAbbreviation?: string | null;
+    isUsed?: boolean;
+    isArchived?: boolean;
+    lastModified?: string | null;
+}
+
+/** GET /v2/strains */
+export interface T3Strain {
+    id: number;
+    name: string;
+    testingStatus?: string;
+    isUsed?: boolean;
+    isArchived?: boolean;
+}
+
+/** GET /v2/locations/active */
+export interface T3Location {
+    id: number;
+    name: string;
+    locationTypeName?: string;
+    forPlants?: boolean;
+    forPlantBatches?: boolean;
+    forHarvests?: boolean;
+    forPackages?: boolean;
+    isArchived?: boolean;
+}
+
+const ITEM_MASK = [
+    'id', 'name', 'productCategoryName', 'productCategoryTypeName', 'quantityTypeName', 'unitOfMeasureName',
+    'strainName', 'unitWeight', 'unitWeightUnitOfMeasureAbbreviation', 'isUsed', 'isArchived', 'lastModified',
+].join(',');
+const STRAIN_MASK = 'id,name,testingStatus,isUsed,isArchived';
+const LOCATION_MASK = 'id,name,locationTypeName,forPlants,forPlantBatches,forHarvests,forPackages,isArchived';
+const SYNC_PACKAGE_MASK = [
+    'id', 'label', 'licenseNumber', 'quantity', 'unitOfMeasureAbbreviation', 'unitOfMeasureName', 'unitOfMeasureQuantityType',
+    'item.id', 'item.name', 'item.productCategoryName', 'item.strainName', 'item.unitWeight', 'item.unitWeightUnitOfMeasureAbbreviation',
+    'item.unitOfMeasureName', 'item.quantityTypeName',
+    'sourcePackageLabels', 'sourceHarvestNames', 'productionBatchNumber', 'labTestingStateName',
+    'isOnHold', 'isInTransit', 'isFinished', 'isTestingSample', 'isProductionBatch', 'isTradeSample', 'isDonation',
+    'packagedDate', 'finishedDate', 'lastModified', 'locationName', 'note',
+].join(',');
+
+/** A first full pull across a busy licence can run past 20 pages of 500. */
+const SYNC_MAX_PAGES = 60;
+
+/**
+ * One package list (`/v2/packages/active|onhold|intransit|inactive`) for a
+ * licence, optionally only rows Metrc modified at or after `since`
+ * (`lastModified__gte:<ISO8601>`, a datetime filter per the T3 spec).
+ */
+export const t3PackageList = (path: string, licenseNumber: string, since?: Date) =>
+    t3Collection<T3Package>(path, {
+        licenseNumber,
+        filter: since ? `lastModified__gte:${since.toISOString()}` : undefined,
+        collectionMask: SYNC_PACKAGE_MASK,
+    }, SYNC_MAX_PAGES);
+
+export const t3Items = (licenseNumber: string, since?: Date) =>
+    t3Collection<T3Item>('/v2/items', {
+        licenseNumber,
+        filter: since ? `lastModified__gte:${since.toISOString()}` : undefined,
+        collectionMask: ITEM_MASK,
+    }, SYNC_MAX_PAGES);
+
+/** Strains and locations carry no lastModified in T3, so they are always a full pull. */
+export const t3Strains = (licenseNumber: string) =>
+    t3Collection<T3Strain>('/v2/strains', { licenseNumber, collectionMask: STRAIN_MASK }, SYNC_MAX_PAGES);
+
+export const t3Locations = (licenseNumber: string) =>
+    t3Collection<T3Location>('/v2/locations/active', { licenseNumber, collectionMask: LOCATION_MASK }, SYNC_MAX_PAGES);
 
 const PACKAGE_MASK = [
     'id', 'label', 'licenseNumber', 'quantity', 'unitOfMeasureAbbreviation',

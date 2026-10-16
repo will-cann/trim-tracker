@@ -48,6 +48,9 @@ export const PackageDetailModal: React.FC<PackageDetailModalProps> = ({
     const [assigningTag, setAssigningTag] = useState(false);
 
     const isEditable = pkg.status === 'active' || pkg.status === 'on_hold';
+    /** Mirrored from Metrc: status, quantity, item, location and lab state are read-only here. */
+    const isMetrc = pkg.metrcId != null;
+    const metrcHint = 'Comes from Metrc; change it in Metrc and it will sync here.';
     const canDelete = userRole === 'admin' || userRole === 'director';
 
     const loadAvailableTags = useCallback(async () => {
@@ -118,9 +121,11 @@ export const PackageDetailModal: React.FC<PackageDetailModalProps> = ({
         try {
             const updates: Record<string, any> = {};
             if (localFields.wasteWeight !== pkg.wasteWeight) updates.wasteWeight = localFields.wasteWeight;
-            if ((localFields.location || '') !== (pkg.location || '')) updates.location = localFields.location || null;
-            if (localFields.labTestingState !== pkg.labTestingState) updates.labTestingState = localFields.labTestingState;
-            if ((localFields.itemName || '') !== (pkg.itemName || '')) updates.itemName = localFields.itemName || null;
+            if (!isMetrc) {
+                if ((localFields.location || '') !== (pkg.location || '')) updates.location = localFields.location || null;
+                if (localFields.labTestingState !== pkg.labTestingState) updates.labTestingState = localFields.labTestingState;
+                if ((localFields.itemName || '') !== (pkg.itemName || '')) updates.itemName = localFields.itemName || null;
+            }
             if ((localFields.notes || '') !== (pkg.notes || '')) updates.notes = localFields.notes || null;
             if (Object.keys(updates).length > 0) {
                 await onUpdate(pkg.id, updates);
@@ -189,6 +194,11 @@ export const PackageDetailModal: React.FC<PackageDetailModalProps> = ({
             <span>{pkg.label}</span>
             <TypeChip palette="packageStatus" value={pkg.status} />
             <TypeChip palette="packageType" value={pkg.packageType} />
+            {isMetrc && (
+                <span className="inline-flex items-center gap-1 text-xs font-normal text-[var(--color-dolphin)]" title={`Mirrored from Metrc (${pkg.metrcLicense ?? pkg.licenseNumber}). ${metrcHint}`}>
+                    <Cloud size={12} /> Metrc
+                </span>
+            )}
         </div>
     );
 
@@ -228,7 +238,7 @@ export const PackageDetailModal: React.FC<PackageDetailModalProps> = ({
                                 Edit
                             </button>
                         )}
-                        {!isEditing && pkg.status !== 'archived' && (
+                        {!isEditing && !isMetrc && pkg.status !== 'archived' && (
                             <>
                                 {pkg.status === 'active' && (
                                     <>
@@ -505,6 +515,8 @@ export const PackageDetailModal: React.FC<PackageDetailModalProps> = ({
                                 className="field-input text-sm flex-1"
                                 value={localFields.location}
                                 onChange={e => updateField('location', e.target.value)}
+                                disabled={isMetrc}
+                                title={isMetrc ? metrcHint : undefined}
                             >
                                 <option value="">Select room...</option>
                                 {rooms.map(r => (
@@ -532,6 +544,8 @@ export const PackageDetailModal: React.FC<PackageDetailModalProps> = ({
                                             type="button"
                                             onClick={() => updateField('labTestingState', opt.value)}
                                             className={`chip ${localFields.labTestingState === opt.value ? 'chip-active' : ''}`}
+                                            disabled={isMetrc}
+                                            title={isMetrc ? `${metrcHint}${pkg.metrcLabState ? ` Metrc state: ${pkg.metrcLabState}.` : ''}` : undefined}
                                         >
                                             {opt.label}
                                         </button>
@@ -559,6 +573,8 @@ export const PackageDetailModal: React.FC<PackageDetailModalProps> = ({
                                 value={localFields.itemName}
                                 onChange={e => updateField('itemName', e.target.value)}
                                 placeholder="Enter item name"
+                                disabled={isMetrc}
+                                title={isMetrc ? metrcHint : undefined}
                             />
                         </div>
                     ) : pkg.itemName ? (

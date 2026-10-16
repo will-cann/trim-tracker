@@ -13,6 +13,8 @@ import { TeamSettingsSection } from './TeamSettingsSection';
 import { EquipmentSection } from './EquipmentSection';
 import { ProductTypeSection } from './ProductTypeSection';
 import { LlmPluginSection } from './LlmPluginSection';
+import { MetrcSyncSection } from './MetrcSyncSection';
+import type { MetrcSyncStatus } from '../../../shared/manifest/metrcSync';
 
 interface SettingsPanelProps {
     onViewChange?: (view: any) => void;
@@ -31,6 +33,8 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ onViewChange }) =>
         requireBatchTag: false, autoTagPrefix: 'PLT', autoTagCounter: 0,
     });
     const [rooms, setRooms] = useState<Room[]>([]);
+    // null = this deploy does not sync Metrc into this company; the section is hidden.
+    const [metrcSync, setMetrcSync] = useState<MetrcSyncStatus | null>(null);
 
     // Delete confirmation
     const [deleteTarget, setDeleteTarget] = useState<{
@@ -79,10 +83,16 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ onViewChange }) =>
         })));
     }, []);
 
+    const loadMetrcSync = useCallback(async () => {
+        const status = await apiService.getMetrcSyncStatus();
+        setMetrcSync(status && status.enabled ? status : null);
+        return status;
+    }, []);
+
     useEffect(() => {
-        Promise.all([loadLicenses(), loadStrains(), loadProfiles(), loadTagSettings(), loadRooms()])
+        Promise.all([loadLicenses(), loadStrains(), loadProfiles(), loadTagSettings(), loadRooms(), loadMetrcSync()])
             .finally(() => setLoading(false));
-    }, [loadLicenses, loadStrains, loadProfiles, loadTagSettings, loadRooms]);
+    }, [loadLicenses, loadStrains, loadProfiles, loadTagSettings, loadRooms, loadMetrcSync]);
 
     const handleSaveTagSettings = async (updates: Partial<TagSettings>) => {
         const newSettings = await apiService.updateTagSettings({ ...tagSettings, ...updates });
@@ -163,6 +173,8 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ onViewChange }) =>
                 );
             case 'llm-plugin':
                 return <LlmPluginSection />;
+            case 'metrc-sync':
+                return metrcSync ? <MetrcSyncSection initialStatus={metrcSync} /> : null;
         }
     };
 
@@ -192,6 +204,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ onViewChange }) =>
                             rooms: rooms.length,
                             team: profiles.filter(p => p.status === 'active').length,
                         }}
+                        hidden={metrcSync ? [] : ['metrc-sync']}
                     />
                 </aside>
 

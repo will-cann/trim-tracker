@@ -1,4 +1,5 @@
 import React from 'react';
+import { Cloud } from 'lucide-react';
 import type { Package } from '../../types/definitions';
 import { TypeChip } from '../ui';
 import { LAB_LABEL, LAB_CLASS, LAB_ICON } from './packageConstants';
@@ -7,6 +8,12 @@ interface PackageCardProps {
     pkg: Package;
     onClick: () => void;
 }
+
+const formatQuantity = (qty: number, unit?: string) => {
+    const u = (unit || 'g').toLowerCase();
+    if (u === 'g' || u === 'grams') return `${qty.toFixed(0)}g`;
+    return `${qty.toLocaleString(undefined, { maximumFractionDigits: 2 })} ${u === 'each' ? 'ea' : unit}`;
+};
 
 export const PackageCard: React.FC<PackageCardProps> = ({ pkg, onClick }) => {
     const statusBorderClass =
@@ -26,11 +33,16 @@ export const PackageCard: React.FC<PackageCardProps> = ({ pkg, onClick }) => {
                         <div className="title-with-badge">
                             <h3>{pkg.label}</h3>
                             <TypeChip palette="packageStatus" value={pkg.status} />
+                            {pkg.metrcId != null && (
+                                <span className="inline-flex items-center gap-1 text-[11px] text-[var(--color-dolphin)]" title="Mirrored from Metrc. Quantity, status, item, location and lab state come from Metrc.">
+                                    <Cloud size={11} /> Metrc
+                                </span>
+                            )}
                         </div>
                         <div className="trim-card-subtitle">
                             <span className="strain-name">{pkg.strain}</span>
                             <span className="separator">&bull;</span>
-                            <span>{pkg.quantity.toFixed(0)}g</span>
+                            <span>{formatQuantity(pkg.quantity, pkg.unit)}</span>
                             <span className="separator">&bull;</span>
                             <TypeChip palette="packageType" value={pkg.packageType} />
                             {pkg.licenseNumber && (

@@ -1,3 +1,4 @@
+import type { MetrcSyncStartResponse, MetrcSyncStatus } from '../../shared/manifest/metrcSync';
 import type { TrimSession, CreateTrimSessionDTO, Trimmer, TrimmerProfile, ProposedAction, Harvest, CreateHarvestDTO, HarvestWasteType, HarvestAllocation, HarvestPlantWeight, HarvestBin, BinCureLog, CreateBinDTO, FloweringBatchGroup, Strain, License, SpeechMode, HumanTask, TeamRole, Tag, TagType, TagStats, TagSettings, Package, CreatePackageDTO, MetrcItem, PackageAdjustment, AdjustmentReason, ProductType, ProcessTemplate, StepSupplyRequirement, YieldAverage, BackwardPlan, PlanningSession, PlanTargetInput, StrainYieldOverride, ReportSpec, SavedReport, TaskViewSpec, SavedTaskView, SupplyPool, SupplyItem, SupplyLedgerEntry, SupplyChangeType, SupplyPoolSlug, ContactThread, ApiKey, ApiKeyScope, CreatedApiKey } from '../types/definitions';
 
 const API_BASE = '/.netlify/functions';
@@ -1107,6 +1108,30 @@ export const getMetrcItems = async (licenseNumber?: string): Promise<MetrcItem[]
     return await response.json();
 };
 
+// ── Metrc sync (per-customer deploys only; see docs/metrc-sync.md) ───────────
+
+/** null when this deploy has no sync for the signed-in company (403/404), so Settings can hide the section. */
+export const getMetrcSyncStatus = async (): Promise<MetrcSyncStatus | null> => {
+    try {
+        const response = await fetchWithAuth(`${API_BASE}/metrc-sync-status`);
+        if (!response.ok) return null;
+        return await response.json();
+    } catch {
+        return null;
+    }
+};
+
+export const startMetrcSync = async (dryRun: boolean): Promise<MetrcSyncStartResponse> => {
+    const response = await fetchWithAuth(`${API_BASE}/metrc-sync-start`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ dryRun }),
+    });
+    const body = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(body.error || `Could not start sync (${response.status})`);
+    return body;
+};
+
 export const upsertMetrcItem = async (data: {
     name: string;
     licenseNumber: string;
@@ -2033,6 +2058,9 @@ export const apiService = {
     // METRC Items
     getMetrcItems,
     upsertMetrcItem,
+    // Metrc sync
+    getMetrcSyncStatus,
+    startMetrcSync,
     // Package Adjustments
     createPackageAdjustment,
     getPackageAdjustments,
