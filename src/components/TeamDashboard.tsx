@@ -250,7 +250,7 @@ const MemberRow = ({
             if (url) setInviteUrl(url);
         } catch (err) {
             setInviteError(err instanceof Error ? err.message : 'Failed to send invite');
-            setTimeout(() => setInviteError(null), 4000);
+            setTimeout(() => setInviteError(null), 10000);
         } finally {
             setInviting(false);
         }
@@ -273,6 +273,9 @@ const MemberRow = ({
     };
 
     const inviteStatusBadge = () => {
+        if (inviteError) {
+            return <span className="text-xs text-[#DF5B59]">{inviteError}</span>;
+        }
         switch (profile.inviteStatus) {
             case 'pending':
                 return (
@@ -459,6 +462,8 @@ const MemberRow = ({
     );
 };
 
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
 // ── Add Member Modal ────────────────────────────────────────────────────────
 
 const AddMemberModal = ({
@@ -466,7 +471,7 @@ const AddMemberModal = ({
     onSubmit,
 }: {
     onClose: () => void;
-    onSubmit: (name: string, role: TeamRole, email?: string, departments?: Department[]) => Promise<{ inviteUrl?: string }>;
+    onSubmit: (name: string, role: TeamRole, email?: string, departments?: Department[]) => Promise<{ inviteUrl?: string; inviteError?: string }>;
 }) => {
     const [name, setName] = useState('');
     const [role, setRole] = useState<TeamRole>('technician');
@@ -474,19 +479,24 @@ const AddMemberModal = ({
     const [departments, setDepartments] = useState<Department[]>([]);
     const [saving, setSaving] = useState(false);
     const [inviteUrl, setInviteUrl] = useState<string | null>(null);
+    const [inviteError, setInviteError] = useState<string | null>(null);
     const [copied, setCopied] = useState(false);
     const nameRef = useRef<HTMLInputElement>(null);
+    const emailInvalid = email.trim() !== '' && !EMAIL_RE.test(email.trim());
+    const nameLooksLikeEmail = EMAIL_RE.test(name.trim());
 
     useEffect(() => { nameRef.current?.focus(); }, []);
 
     const handleSubmit = async () => {
-        if (!name.trim()) return;
+        if (!name.trim() || emailInvalid) return;
         setSaving(true);
         try {
             const depts = showDepartments(role) ? departments : [];
             const result = await onSubmit(name.trim(), role, email.trim() || undefined, depts);
             if (result.inviteUrl) {
                 setInviteUrl(result.inviteUrl);
+            } else if (result.inviteError) {
+                setInviteError(result.inviteError);
             } else {
                 onClose();
             }
@@ -501,6 +511,31 @@ const AddMemberModal = ({
         setCopied(true);
         setTimeout(() => setCopied(false), 2000);
     };
+
+    // Member saved but the invite didn't go out: say so instead of closing.
+    if (inviteError) {
+        return (
+            <Modal
+                title="Member Added — Invite Not Sent"
+                contentClassName="creation-modal"
+                titleIcon={<Mail size={20} className="text-amber-500" />}
+                onClose={onClose}
+                footer={
+                    <div className="flex items-center gap-2 justify-end">
+                        <button className="btn-cancel" onClick={onClose}>Done</button>
+                    </div>
+                }
+            >
+                <div className="space-y-3">
+                    <p className="text-sm text-gray-600">
+                        <strong>{name}</strong> was added as <strong>{ROLE_LABELS[role]}</strong>, but the invite to <strong>{email}</strong> could not be sent:
+                    </p>
+                    <p className="text-sm text-[#DF5B59] bg-red-50 border border-red-100 rounded-lg px-3 py-2.5">{inviteError}</p>
+                    <p className="text-xs text-gray-500">They can still sign in with this email and will join the team. Use the send-invite button on their row to retry.</p>
+                </div>
+            </Modal>
+        );
+    }
 
     // After invite is generated, show the link view
     if (inviteUrl) {
@@ -545,7 +580,7 @@ const AddMemberModal = ({
                     <button className="btn-cancel" onClick={onClose}>Cancel</button>
                     <button
                         className="btn-primary"
-                        disabled={!name.trim() || saving}
+                        disabled={!name.trim() || emailInvalid || saving}
                         onClick={handleSubmit}
                     >
                         {saving ? (email ? 'Adding & inviting...' : 'Adding...') : 'Add Member'}
@@ -564,6 +599,7 @@ const AddMemberModal = ({
                         placeholder="Full name"
                         className="field-input"
                     />
+                    {nameLooksLikeEmail && <p className="field-hint text-[#c07428]">That looks like an email address. Put the person's name here and the email below.</p>}
                 </div>
                 <div className="field">
                     <label className="field-label">Role</label>
@@ -611,7 +647,9 @@ const AddMemberModal = ({
                         type="email"
                         className="field-input"
                     />
-                    <p className="field-hint">{email.trim() ? 'An invite link will be generated for this user' : 'Add email to generate an invite link'}</p>
+                    <p className={`field-hint ${emailInvalid ? 'text-[#DF5B59]' : ''}`}>
+                        {emailInvalid ? 'Not a valid email address' : email.trim() ? 'An invite link will be generated for this user' : 'Add email to generate an invite link'}
+                    </p>
                 </div>
             </div>
         </Modal>
@@ -768,10 +806,10 @@ export const TeamDashboard: React.FC<TeamDashboardProps> = ({ profiles, onReload
     };
 
     // ── Actions ─────────────────────────────────────────────────────────────
-    const handleAdd = async (name: string, role: TeamRole, email?: string, depts?: Department[]): Promise<{ inviteUrl?: string }> => {
+    const handleAdd = async (name: string, role: TeamRole, email?: string, depts?: Department[]): Promise<{ inviteUrl?: string; inviteError?: string }> => {
         const result = await apiService.addTrimmerProfile(name, role, email, depts);
         onReload();
-        return { inviteUrl: result.inviteUrl };
+        return { inviteUrl: result.inviteUrl, inviteError: result.inviteError };
     };
 
     const handleUpdate = async (id: string, updates: Partial<TrimmerProfile>) => {

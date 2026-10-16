@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { X } from 'lucide-react';
 
 type ModalSize = 'sm' | 'md' | 'lg';
@@ -11,7 +11,11 @@ interface ModalProps {
     titleIcon?: React.ReactNode;
     /** Preset width; ignored if contentClassName sets its own max-width. */
     size?: ModalSize;
-    /** Disable backdrop click-to-close (default: enabled) */
+    /**
+     * Disable backdrop click-to-close. Defaults to disabled for data-entry forms
+     * (contentClassName 'creation-modal') so a stray click doesn't throw away
+     * what was typed, enabled otherwise.
+     */
     disableBackdropClose?: boolean;
     /** Disable Escape-to-close (default: enabled) */
     disableEscapeClose?: boolean;
@@ -47,9 +51,17 @@ export const Modal: React.FC<ModalProps> = ({
         return () => window.removeEventListener('keydown', handleKey);
     }, [onClose, disableEscapeClose]);
 
+    const backdropCloses = !(disableBackdropClose ?? contentClassName.split(' ').includes('creation-modal'));
+    // A drag that starts inside the dialog (e.g. selecting input text) and ends
+    // on the backdrop fires a click on the backdrop; only a press that started
+    // there counts.
+    const pressedOnBackdrop = useRef(false);
+
     const handleBackdropClick = (e: React.MouseEvent) => {
-        if (disableBackdropClose) return;
-        if (e.target === e.currentTarget) onClose();
+        const started = pressedOnBackdrop.current;
+        pressedOnBackdrop.current = false;
+        if (!backdropCloses) return;
+        if (started && e.target === e.currentTarget) onClose();
     };
 
     const classes = ['modal-content', SIZE_CLASS[size], contentClassName]
@@ -57,7 +69,11 @@ export const Modal: React.FC<ModalProps> = ({
         .join(' ');
 
     return (
-        <div className="modal-overlay" onClick={handleBackdropClick}>
+        <div
+            className="modal-overlay"
+            onMouseDown={(e) => { pressedOnBackdrop.current = e.target === e.currentTarget; }}
+            onClick={handleBackdropClick}
+        >
             <div className={classes}>
                 <div className="modal-header">
                     {titleIcon ? (

@@ -129,7 +129,7 @@ export const getTrimmerProfiles = async (): Promise<TrimmerProfile[]> => {
     return await response.json();
 };
 
-export const addTrimmerProfile = async (name: string, role?: TeamRole, email?: string, departments?: string[]): Promise<TrimmerProfile & { invited?: boolean; inviteUrl?: string }> => {
+export const addTrimmerProfile = async (name: string, role?: TeamRole, email?: string, departments?: string[]): Promise<TrimmerProfile & { invited?: boolean; inviteUrl?: string; inviteError?: string }> => {
     const response = await fetchWithAuth(`${API_BASE}/add-trimmer-profile`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -163,7 +163,10 @@ export const sendTeamInvite = async (profileId: string): Promise<{ success: bool
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ profileId }),
     });
-    if (!response.ok) throw new Error('Failed to send invite');
+    if (!response.ok) {
+        const body = await response.json().catch(() => ({}));
+        throw new Error(body.error || 'Failed to send invite');
+    }
     return await response.json();
 };
 

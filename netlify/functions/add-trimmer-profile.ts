@@ -47,6 +47,7 @@ export const handler: Handler = async (event) => {
         // Send Auth0 invitation if email was provided
         let invited = false;
         let inviteUrl: string | undefined;
+        let inviteError: string | undefined;
         if (email) {
             const result = await sendInvitation(email, name);
             invited = result.success;
@@ -58,7 +59,8 @@ export const handler: Handler = async (event) => {
                     WHERE id = ${row.id}
                 `;
             } else {
-                console.warn(`Profile created but invite failed for ${email}: ${result.error}`);
+                inviteError = result.error || 'Failed to send invitation';
+                console.warn(`Profile created but invite failed for ${email}: ${inviteError}`);
             }
         }
 
@@ -78,6 +80,7 @@ export const handler: Handler = async (event) => {
                 createdAt: row.created_at,
                 invited,
                 inviteUrl,
+                inviteError,
             }),
         };
     } catch (error) {
