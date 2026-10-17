@@ -369,6 +369,13 @@ export const getCompletedSessions = async (): Promise<TrimSession[]> => {
     return await response.json();
 };
 
+/** Same as getCompletedSessions but throws on failure, so Reports can show an error instead of "no data". */
+export const getCompletedSessionsStrict = async (): Promise<TrimSession[]> => {
+    const response = await fetchWithAuth(`${API_BASE}/get-completed-sessions`);
+    if (!response.ok) throw new Error(`Failed to load trim sessions (${response.status})`);
+    return await response.json();
+};
+
 // ============================================================================
 // HARVEST API
 // ============================================================================
@@ -2284,6 +2291,7 @@ export const apiService = {
     parseRoomSchematic,
     getMetrics,
     computeMetricsNow,
+    getCompletedSessionsStrict,
     deleteRoom,
     addRoomEquipment,
     updateRoomEquipment,
