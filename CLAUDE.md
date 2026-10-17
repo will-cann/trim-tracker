@@ -93,7 +93,9 @@ The plant map has four views: cards (rooms), table (sortable by feed, flower len
 - **Hot spots:** `shared/plantMap/hotspots.ts` `scoreHotspots()` turns events into a per-cell 0–1 risk surface (severity × recency decay with a floor for active events, plus neighbour bleed). History survives harvests, so a wet corner shows up across cycles. `get-hotspots.ts` is the facility roll-up (per room, per strain incidence).
 - **Move planner:** `shared/plantMap/movePlanner.ts` `planMoves()` → cull / isolate / relocate / inspect suggestions with destination cells (sibling rooms allowed), plus cells to leave empty at the next flip. Served by `get-room-layout.ts`; the UI applies moves directly or creates human tasks with `place_plants` / `destroy_plants` `onCompleteAction`s.
 - **Cohort sorting:** `shared/plantMap/cohorts.ts` groups plants by feed (`strains.feed_profile`), flower length (`default_flowering_days`) and stretch (`stretch_trait`) and `proposeLayout()` fills benches row-major by cohort, skipping hot cells while there's room.
-- **AI:** `plants` tool action `log_issue` → `log_plant_health_event`; read-only `find_hotspots` returns the roll-up plus a room's move plan. Both builders live in `netlify/functions/utils/plantMap.ts`.
+- **AI:** `plants` tool action `log_issue` → `log_plant_health_event`; read-only `find_hotspots` returns the roll-up plus a room's move plan. Both builders live in `netlify/functions/utils/plantMap.ts`. `create_room` / `update_room` take `layoutRows` / `layoutCols` ("Flower 1 has 4 benches of 8").
+- **Grids from drawings:** Settings → Rooms → Import schematic posts a floor plan / sketch to `parse-room-schematic.ts` (Claude vision, model via `SCHEMATIC_PARSE_MODEL`), which proposes rooms with benches × positions; the operator edits and saves (existing names update, new ones create).
+- **Chat context:** `ai-parse` pushes only the open harvest pipeline, capped at 40, since Metrc-synced facilities mirror every closed harvest.
 
 ### Email / CRM
 

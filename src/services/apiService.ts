@@ -275,7 +275,11 @@ export const aiParse = async (request: AiParseRequest): Promise<AiParseResult> =
         body: JSON.stringify({ ...body, streaming }),
         signal: abortSignal,
     });
-    if (!response.ok) throw new Error('AI parsing failed');
+    if (!response.ok) {
+        const err = await response.json().catch(() => ({}));
+        const detail = err?.detail || err?.error;
+        throw new Error(detail ? `AI parsing failed: ${detail}` : `AI parsing failed (${response.status})`);
+    }
 
     // Non-streaming path: old JSON body, parse and return.
     if (!streaming) {
@@ -847,6 +851,30 @@ export const getRooms = async (roomType?: string, detail?: boolean): Promise<Arr
     } catch {
         return [];
     }
+};
+
+export interface SchematicRoom {
+    name: string;
+    roomType: 'nursery' | 'veg' | 'flower' | 'dry' | 'storage' | 'general' | null;
+    layoutRows: number | null;
+    layoutCols: number | null;
+    capacity: number | null;
+    squareFootage: number | null;
+    notes: string | null;
+}
+
+/** Read a grow-room schematic (photo, PDF or drawing) into room grid proposals. */
+export const parseRoomSchematic = async (file: { fileName: string; mediaType: string; data: string }): Promise<{ rooms: SchematicRoom[]; notes: string | null }> => {
+    const response = await fetchWithAuth(`${API_BASE}/parse-room-schematic`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(file),
+    });
+    if (!response.ok) {
+        const err = await response.json().catch(() => ({}));
+        throw new Error(err.error || err.detail || `Could not read the schematic (${response.status})`);
+    }
+    return await response.json();
 };
 
 export const createRoom = async (data: { name: string; roomType?: string; capacity?: number; squareFootage?: number; notes?: string; layoutRows?: number; layoutCols?: number }): Promise<any> => {
@@ -2165,6 +2193,7 @@ export const apiService = {
     getRooms,
     createRoom,
     updateRoom,
+    parseRoomSchematic,
     deleteRoom,
     addRoomEquipment,
     updateRoomEquipment,

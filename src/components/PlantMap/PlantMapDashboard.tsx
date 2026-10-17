@@ -459,6 +459,7 @@ export const PlantMapDashboard: React.FC<PlantMapDashboardProps> = ({ refreshKey
                     ) : (
                         <RoomLayoutView
                             rooms={allRooms}
+                            roomsWithPlants={data ? new Set(rooms.filter(([, r]) => (r as any).totalPlants > 0).map(([name]) => name)) : undefined}
                             refreshKey={refreshKey}
                             onChanged={() => { refetch(); loadRooms(); if (plantList.length) loadPlantList(); }}
                         />

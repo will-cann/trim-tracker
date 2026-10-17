@@ -225,9 +225,14 @@ export const useAIChat = ({
             }
         } catch (error) {
             const isNetworkError = error instanceof TypeError || (error instanceof Error && error.message.includes('fetch'));
+            const serverDetail = error instanceof Error && error.message.startsWith('AI parsing failed: ')
+                ? error.message.slice('AI parsing failed: '.length)
+                : null;
             const hint = isNetworkError
                 ? 'It looks like there was a connection issue. Check your network and try again.'
-                : 'I had trouble understanding that. Try rephrasing, or use one of these examples:';
+                : serverDetail
+                    ? `The AI service returned an error: ${serverDetail}\n\nTry again in a moment, or use one of these examples:`
+                    : 'I had trouble understanding that. Try rephrasing, or use one of these examples:';
             addMessage('assistant', `${hint}\n\n` +
                 '- **Trim sessions** — "Start a session with OG Kush, 500g"\n' +
                 '- **Batches** — "Add 3 batches of Blue Dream at 750g each"\n' +

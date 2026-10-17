@@ -578,15 +578,19 @@ export async function executeAction(action: ProposedAction): Promise<ActionOutco
                 capacity: action.data.capacity,
                 squareFootage: action.data.squareFootage,
                 notes: action.data.notes,
+                layoutRows: action.data.layoutRows,
+                layoutCols: action.data.layoutCols,
             });
-            return OK('Room created');
+            return OK(`Room created${action.data.layoutRows && action.data.layoutCols ? ` (${action.data.layoutRows}×${action.data.layoutCols} grid)` : ''}`);
         case 'update_room': {
             const allRooms = await apiService.getRooms();
             const room = allRooms.find(r => r.name.toLowerCase() === action.data.roomName?.toLowerCase());
             if (!room) return SKIPPED('room not found');
-            const { roomName: _rn, ...updates } = action.data;
+            const { roomName: _rn, ...rest } = action.data;
+            // Only send what the AI set; undefined fields are left as they are.
+            const updates = Object.fromEntries(Object.entries(rest).filter(([, v]) => v !== undefined));
             await apiService.updateRoom(room.id, updates);
-            return OK('Room updated');
+            return OK(`Room updated${updates.layoutRows && updates.layoutCols ? ` (${updates.layoutRows}×${updates.layoutCols} grid)` : ''}`);
         }
         case 'delete_room': {
             const allRooms = await apiService.getRooms();

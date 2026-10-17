@@ -17,6 +17,8 @@ type RoomOption = { id: string; name: string; room_type: string; layout_rows?: n
 
 interface RoomLayoutViewProps {
     rooms: RoomOption[];
+    /** Names of rooms that currently hold plants; when given, only these are offered. */
+    roomsWithPlants?: ReadonlySet<string>;
     refreshKey?: number;
     /** Called after any mutation so the card/table views stay in sync. */
     onChanged: () => void;
@@ -39,11 +41,12 @@ const OVERLAYS: Array<{ value: OverlayMode; label: string }> = [
 
 const ROOM_TYPE_ORDER: Record<string, number> = { flower: 0, veg: 1, nursery: 2 };
 
-export const RoomLayoutView: React.FC<RoomLayoutViewProps> = ({ rooms, refreshKey, onChanged }) => {
+export const RoomLayoutView: React.FC<RoomLayoutViewProps> = ({ rooms, roomsWithPlants, refreshKey, onChanged }) => {
     const mappable = useMemo(() => rooms
         .filter(r => ['flower', 'veg', 'vegetative', 'nursery', 'general', ''].includes(r.room_type || ''))
+        .filter(r => !roomsWithPlants || roomsWithPlants.has(r.name))
         .sort((a, b) => (ROOM_TYPE_ORDER[a.room_type] ?? 9) - (ROOM_TYPE_ORDER[b.room_type] ?? 9) || a.name.localeCompare(b.name)),
-    [rooms]);
+    [rooms, roomsWithPlants]);
 
     const [roomId, setRoomId] = useState<string | null>(() => sessionStorage.getItem('plantMap.room'));
     const [layout, setLayout] = useState<RoomLayout | null>(null);
@@ -279,7 +282,7 @@ export const RoomLayoutView: React.FC<RoomLayoutViewProps> = ({ rooms, refreshKe
         return (
             <div className="room-map-empty mt-6">
                 <Grid3x3 size={18} className="text-gray-300" />
-                <p>Add a flower or veg room in Settings → Rooms to start mapping plants.</p>
+                <p>{rooms.length ? 'No room holds plants yet. Add a planting and it will show up here.' : 'Add a flower or veg room in Settings → Rooms to start mapping plants.'}</p>
             </div>
         );
     }
