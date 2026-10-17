@@ -10,10 +10,13 @@ import { runMetricsForCompany, shiftDate, todayIso } from './utils/metrics';
  * company for today's date. Returns only counts.
  *
  * Manual: POST with a Bearer token (director+). Body { date?, backfillDays? }
- * recomputes the caller's company for one day, or for the last N days when
- * backfillDays is set (max 365) — e.g. right after the migration so the
- * Reports page has a trend from day one.
+ * recomputes the caller's company for one day, or for `date` and the N days
+ * before it when backfillDays is set. One request is capped at 14 days so
+ * it stays inside the function time limit; the Reports page backfills a
+ * longer range as a series of requests.
  */
+const MAX_BACKFILL_DAYS_PER_REQUEST = 14;
+
 export const handler: Handler = async (event) => {
     if (event.httpMethod !== 'POST') {
         return { statusCode: 405, body: 'Method Not Allowed' };
@@ -49,7 +52,7 @@ export const handler: Handler = async (event) => {
         const body = JSON.parse(event.body || '{}');
         const today = todayIso();
         const date = typeof body.date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(body.date) && body.date <= today ? body.date : today;
-        const backfillDays = Math.min(365, Math.max(0, parseInt(body.backfillDays, 10) || 0));
+        const backfillDays = Math.min(MAX_BACKFILL_DAYS_PER_REQUEST, Math.max(0, parseInt(body.backfillDays, 10) || 0));
 
         const days: string[] = [];
         for (let i = backfillDays; i >= 0; i--) days.push(shiftDate(date, -i));

@@ -33,17 +33,48 @@ export const FacilityMetricsPanel: React.FC = () => {
 
     useEffect(() => { load(); }, [load]);
 
+    const [progress, setProgress] = useState<string | null>(null);
+
+    // The server computes at most 14 days per request (function time limit), so a
+    // 90-day backfill is a series of 7-day requests, oldest first.
     const compute = async (backfillDays?: number) => {
         setBusy(backfillDays ? 'backfill' : 'now');
         setError(null);
+        setProgress(null);
         try {
-            const r = await apiService.computeMetricsNow(backfillDays ? { backfillDays } : {});
-            if (r.failures.length) setError(`${r.failures.length} metric${r.failures.length === 1 ? '' : 's'} failed: ${[...new Set(r.failures.map(f => f.key))].join(', ')}`);
+            const failures: Array<{ date: string; key: string; error: string }> = [];
+            if (!backfillDays) {
+                const r = await apiService.computeMetricsNow({});
+                failures.push(...r.failures);
+            } else {
+                const chunk = 7;
+                const today = new Date();
+                const chunks: Array<{ date: string; backfillDays: number }> = [];
+                for (let offset = backfillDays; offset >= 0; offset -= chunk) {
+                    const d = new Date(today);
+                    d.setUTCDate(d.getUTCDate() - offset);
+                    chunks.push({ date: d.toISOString().slice(0, 10), backfillDays: Math.min(chunk - 1, offset) });
+                }
+                // Each chunk ends at `date` and covers backfillDays before it; walk forward so the
+                // ranges tile the window without overlap: [today-90..today-84], [today-83..today-77], …
+                let i = 0;
+                for (const c of chunks) {
+                    i++;
+                    setProgress(`Backfilling… ${i}/${chunks.length}`);
+                    const end = new Date(`${c.date}T00:00:00Z`);
+                    end.setUTCDate(end.getUTCDate() + c.backfillDays);
+                    const endIso = end > today ? today.toISOString().slice(0, 10) : end.toISOString().slice(0, 10);
+                    const r = await apiService.computeMetricsNow({ date: endIso, backfillDays: c.backfillDays });
+                    failures.push(...r.failures);
+                }
+            }
+            if (failures.length) setError(`${failures.length} metric run${failures.length === 1 ? '' : 's'} failed: ${[...new Set(failures.map(f => f.key))].join(', ')}`);
             await load();
         } catch (e) {
             setError(e instanceof Error ? e.message : 'Failed to compute metrics');
         } finally {
             setBusy(null);
+            setProgress(null);
         }
     };
 
@@ -80,7 +111,7 @@ export const FacilityMetricsPanel: React.FC = () => {
                             </button>
                             {(data?.latest.length ?? 0) < 5 && (
                                 <button className="btn-secondary text-xs px-2.5 py-1.5" onClick={() => compute(90)} disabled={!!busy} title="Compute the last 90 days so trends show from day one">
-                                    {busy === 'backfill' ? 'Backfilling…' : 'Backfill 90 days'}
+                                    {busy === 'backfill' ? (progress ?? 'Backfilling…') : 'Backfill 90 days'}
                                 </button>
                             )}
                         </>
