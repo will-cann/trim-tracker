@@ -16420,3 +16420,20 @@ select.settings-inline-input {
 .room-map-severity { display: flex; align-items: center; gap: 4px; }
 .room-map-severity-btn { width: 30px; height: 30px; border-radius: 6px; border: 1px solid #e5e7eb; background: white; font-size: 0.75rem; font-weight: 600; color: #374151; cursor: pointer; }
 .room-map-severity-btn.active { color: white; }
+
+/* ============================================================================
+   REPORTS — FACILITY METRICS (daily snapshots)
+   ============================================================================ */
+
+.facility-metrics { background: white; border: 1px solid #f3f4f6; border-radius: 8px; padding: 14px 16px; margin-bottom: 16px; }
+.facility-metrics-header { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+.facility-metrics-select { width: auto; font-size: 0.75rem; padding-top: 4px; padding-bottom: 4px; }
+.facility-metrics-empty { font-size: 0.75rem; color: #6b7280; text-align: center; padding: 18px 8px; background: #f9fafb; border-radius: 6px; }
+.facility-metrics-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }
+.facility-metric-tile { background: #f9fafb; border-radius: 6px; padding: 8px 10px; }
+.facility-metric-label { font-size: 0.625rem; text-transform: uppercase; letter-spacing: 0.04em; color: #6b7280; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.facility-metric-value { font-size: 1.125rem; font-weight: 600; color: #111827; font-variant-numeric: tabular-nums; margin-top: 2px; }
+.facility-metric-change { font-size: 0.6875rem; margin-top: 2px; }
+.facility-metrics-dims { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 12px; margin-top: 14px; }
+.facility-metrics-dim { border: 1px solid #f3f4f6; border-radius: 6px; padding: 8px 10px; }
+.facility-metrics-dim-title { font-size: 0.6875rem; font-weight: 600; color: #374151; margin-bottom: 4px; }

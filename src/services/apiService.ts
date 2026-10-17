@@ -853,6 +853,64 @@ export const getRooms = async (roomType?: string, detail?: boolean): Promise<Arr
     }
 };
 
+// ── Facility metrics (metric_snapshots, computed daily) ──
+
+export interface MetricDefinition {
+    key: string;
+    label: string;
+    description: string;
+    kind: 'count' | 'gauge' | 'ratio' | 'grams';
+    dimension: 'room' | 'phase' | 'strain' | 'issue' | 'status' | null;
+    goodWhenUp: boolean | null;
+}
+
+export interface MetricPoint { key: string; dimension: string; date: string; value: number }
+
+export interface LatestMetric extends MetricPoint {
+    previous: number | null;
+    change: number | null;
+    changePct: number | null;
+}
+
+export interface MetricRun {
+    id: string; date: string; trigger: 'schedule' | 'manual' | 'backfill'; status: 'running' | 'succeeded' | 'failed';
+    metricsWritten: number; error: string | null; startedAt: string; finishedAt: string | null;
+}
+
+export interface MetricsResponse {
+    definitions: MetricDefinition[];
+    windowDays: number;
+    compareDays: number;
+    latest: LatestMetric[];
+    series: Record<string, MetricPoint[]>;
+    runs: MetricRun[];
+}
+
+export const getMetrics = async (opts: { keys?: string[]; days?: number; compare?: number } = {}): Promise<MetricsResponse> => {
+    const params = new URLSearchParams();
+    if (opts.keys?.length) params.set('keys', opts.keys.join(','));
+    if (opts.days) params.set('days', String(opts.days));
+    if (opts.compare) params.set('compare', String(opts.compare));
+    const qs = params.toString();
+    const response = await fetchWithAuth(`${API_BASE}/get-metrics${qs ? `?${qs}` : ''}`);
+    if (!response.ok) throw new Error('Failed to load metrics');
+    return await response.json();
+};
+
+/** Recompute today's snapshot for this company, or backfill the last N days. Director+. */
+export const computeMetricsNow = async (opts: { backfillDays?: number } = {}): Promise<{ ok: boolean; days: number; written: number; failures: Array<{ date: string; key: string; error: string }> }> => {
+    const response = await fetchWithAuth(`${API_BASE}/compute-metrics`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(opts),
+    });
+    if (!response.ok) {
+        const err = await response.json().catch(() => ({}));
+        throw new Error(err.error || err.detail || 'Failed to compute metrics');
+    }
+    return await response.json();
+};
+
 export interface SchematicRoom {
     name: string;
     roomType: 'nursery' | 'veg' | 'flower' | 'dry' | 'storage' | 'general' | null;
@@ -2194,6 +2252,8 @@ export const apiService = {
     createRoom,
     updateRoom,
     parseRoomSchematic,
+    getMetrics,
+    computeMetricsNow,
     deleteRoom,
     addRoomEquipment,
     updateRoomEquipment,

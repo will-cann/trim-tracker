@@ -97,6 +97,10 @@ The plant map has four views: cards (rooms), table (sortable by feed, flower len
 - **Grids from drawings:** Settings → Rooms → Import schematic posts a floor plan / sketch to `parse-room-schematic.ts` (Claude vision, model via `SCHEMATIC_PARSE_MODEL`), which proposes rooms with benches × positions; the operator edits and saves (existing names update, new ones create).
 - **Chat context:** `ai-parse` pushes only the open harvest pipeline, capped at 40, since Metrc-synced facilities mirror every closed harvest.
 
+### Facility metrics (`metric_snapshots`, computed daily)
+
+`netlify/functions/utils/metrics.ts` is the registry: each metric is a SQL query returning (dimension, value) rows for one company as of a snapshot date (windows are anchored on that date so backfills are honest). `compute-metrics.ts` runs on the Netlify schedule in `netlify.toml` (daily, every company, no auth) and as a director-only POST for "Recompute now" / `backfillDays`. Each run writes one `metric_snapshots` row per company × metric × dimension × day (re-running a day replaces it) and a `metric_runs` row for observability. `get-metrics.ts` returns definitions, series, a latest-with-change summary (`summarizeLatest`) and recent runs; Reports → Facility metrics renders it; the AI reads it through the read-only `find_metrics` lookup. Add a metric by adding a definition and a computer in `utils/metrics.ts`; no schema change needed.
+
 ### Email / CRM
 
 Supplier and contact email is handled via SendGrid. Outbound sends go through

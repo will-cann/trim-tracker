@@ -31,6 +31,11 @@
 [functions."cron-supplier-reminders"]
   schedule = "0 14 * * *"
 
+# Facility metrics snapshots (metric_snapshots): one row per company × metric × day.
+# Daily at 05:20 UTC; Reports → Facility metrics can also recompute/backfill on demand.
+[functions."compute-metrics"]
+  schedule = "20 5 * * *"
+
 # Metrc → NeuroCann sync via T3 (docs/metrc-sync.md). The cron only queues a run and
 # hands it to metrc-sync-background (a Netlify background function, 15-minute limit),
 # which does the pulling. No-op on deploys without T3_API_KEY + one allowlisted company.

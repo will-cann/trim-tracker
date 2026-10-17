@@ -5,6 +5,7 @@ import { checkRateLimit } from './utils/rateLimit';
 import { withSentry, captureError } from './utils/sentry';
 import { normalizeContaminant } from '../../shared/plantMap/health';
 import { buildHotspotSummary, buildRoomLayout } from './utils/plantMap';
+import { METRIC_DEFINITIONS, METRIC_KEYS, summarizeLatest } from './utils/metrics';
 
 const ANTHROPIC_API_URL = 'https://api.anthropic.com/v1/messages';
 
@@ -220,7 +221,7 @@ const SYSTEM_PROMPT = `You are an AI assistant for a cannabis cultivation and ma
 
 You have access to two kinds of tools:
 
-1. **Read-only lookup tools** (names starting with \`find_\` or \`plan_\`): find_plants, find_packages, find_human_tasks, find_bins, find_extraction_logs, plan_backward. These run server-side and return query results directly to you in the next turn. Use them to resolve fuzzy references, find specific entities, scan inventory, or compute production plans. **These do NOT consume a user action slot — you can call them freely and use the results to reason about what to do next.**
+1. **Read-only lookup tools** (names starting with \`find_\` or \`plan_\`): find_plants, find_packages, find_human_tasks, find_bins, find_extraction_logs, find_hotspots, find_metrics (daily facility metrics and trends), plan_backward. These run server-side and return query results directly to you in the next turn. Use them to resolve fuzzy references, find specific entities, scan inventory, or compute production plans. **These do NOT consume a user action slot — you can call them freely and use the results to reason about what to do next.**
 
 2. **Mutation tools** (everything else): plants, extraction_run, create_harvest, create_human_tasks, etc. These propose actions that the user will review and confirm. You can call multiple mutation tools in one turn; they all appear in the preview card together.
 
@@ -916,6 +917,20 @@ Returns: { windowDays, contaminant, rooms: [...], strains: [...], totals, plan?:
                 days: { type: 'number', description: 'Look-back window in days (default 90). 0 = all time.' },
                 roomId: { type: 'string', description: 'Room to get a move plan for (preferred when known).' },
                 roomName: { type: 'string', description: 'Room name (fuzzy) to get a move plan for.' },
+            },
+        },
+    },
+    {
+        name: 'find_metrics',
+        description: `Facility metrics computed daily (metric_snapshots): live plants (total, by phase, by room), average plant health, plants with issues, active issues and new issues (7d) by contaminant, bud rot incidence by strain (90d), open harvests by status, harvests completed and wet weight (30d), flower trimmed (30d), active packages and grams, open/overdue tasks. Use for "how are we trending", "is bud rot getting better", "how many plants did we have last month", "what's our average health this week vs last". Returns the latest value per metric with the change vs \`compareDays\` earlier, plus the daily series for \`days\`.
+
+Returns: { latest: [{ key, dimension, date, value, previous, change, changePct }], series: { key: [{ dimension, date, value }] }, definitions }`,
+        input_schema: {
+            type: 'object' as const,
+            properties: {
+                keys: { type: 'array', items: { type: 'string' }, description: 'Metric keys to return (default: all). e.g. ["plants.live", "health.botrytis_incidence_90d"]' },
+                days: { type: 'number', description: 'Series window in days (default 30).' },
+                compareDays: { type: 'number', description: 'Change is measured against the snapshot this many days earlier (default 7).' },
             },
         },
     },
@@ -3013,6 +3028,29 @@ IMPORTANT: If the user is correcting or updating a previous statement (e.g. "act
                     });
                 }
 
+                if (name === 'find_metrics') {
+                    const keys = Array.isArray(lookupInput.keys) ? (lookupInput.keys as unknown[]).map(String).filter(k => METRIC_KEYS.includes(k)) : [];
+                    const useKeys = keys.length ? keys : METRIC_KEYS;
+                    const days = typeof lookupInput.days === 'number' && lookupInput.days > 0 ? Math.min(365, Math.round(lookupInput.days)) : 30;
+                    const compareDays = typeof lookupInput.compareDays === 'number' && lookupInput.compareDays > 0 ? Math.min(365, Math.round(lookupInput.compareDays)) : 7;
+                    const { rows } = await sql`
+                        SELECT metric_key, dimension, snapshot_date::text AS snapshot_date, value::float AS value
+                        FROM metric_snapshots
+                        WHERE company_id = ${authContext.companyId}
+                          AND metric_key = ANY(${useKeys}::text[])
+                          AND snapshot_date >= CURRENT_DATE - ${days}::int
+                        ORDER BY snapshot_date ASC
+                    `;
+                    const points = rows.map((r: any) => ({ key: r.metric_key, dimension: r.dimension, date: r.snapshot_date, value: Number(r.value) }));
+                    const series: Record<string, Array<{ dimension: string; date: string; value: number }>> = {};
+                    for (const p of points) (series[p.key] ??= []).push({ dimension: p.dimension, date: p.date, value: p.value });
+                    return lookupOk({
+                        latest: summarizeLatest(points, compareDays),
+                        series,
+                        definitions: METRIC_DEFINITIONS.filter(d => useKeys.includes(d.key)).map(d => ({ key: d.key, label: d.label, kind: d.kind, dimension: d.dimension })),
+                        note: points.length === 0 ? 'No snapshots yet — metrics are computed daily; a director can run "Recompute now" on Reports → Facility metrics.' : undefined,
+                    });
+                }
                 if (name === 'find_hotspots') {
                     const rawC = typeof lookupInput.contaminant === 'string' ? lookupInput.contaminant : 'botrytis';
                     const contaminant = rawC === 'all' ? null : (normalizeContaminant(rawC) ?? 'botrytis');
@@ -3060,6 +3098,7 @@ IMPORTANT: If the user is correcting or updating a previous statement (e.g. "act
         const READONLY_TOOLS = new Set([
             'find_plants',
             'find_hotspots',
+            'find_metrics',
             'find_packages',
             'find_human_tasks',
             'find_bins',
