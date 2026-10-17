@@ -1022,7 +1022,11 @@ export const getRoomLayout = async (roomId: string): Promise<RoomLayout> => {
     const response = await fetchWithAuth(`${API_BASE}/get-room-layout?roomId=${encodeURIComponent(roomId)}`);
     if (!response.ok) {
         const err = await response.json().catch(() => ({ error: 'Failed to load room layout' }));
-        throw new Error(err.error || 'Failed to load room layout');
+        // The server's detail is usually the database's own message (e.g. a
+        // column from a migration that hasn't been applied) — show it.
+        const detail = typeof err.detail === 'string' && err.detail ? err.detail : null;
+        const hint = detail && /does not exist/i.test(detail) ? ' This usually means a migration in migrations/ has not been run on this database yet.' : '';
+        throw new Error(`${err.error || 'Failed to load room layout'}${detail ? `: ${detail}` : ''}${hint}`);
     }
     return await response.json();
 };
