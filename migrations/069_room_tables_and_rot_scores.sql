@@ -38,4 +38,6 @@ ALTER TABLE plant_health_events
     ADD COLUMN IF NOT EXISTS source VARCHAR(20) NOT NULL DEFAULT 'app' CHECK (source IN ('app', 'ai', 'sheet'));
 
 -- Re-importing a sheet for the same room and day replaces that day's sheet events.
-CREATE INDEX IF NOT EXISTS idx_phe_room_sheet_day ON plant_health_events (room_id, source, (observed_at::date));
+-- (observed_at::date can't be indexed — the cast depends on the session time
+-- zone — so index the timestamp itself; the delete matches on a day range.)
+CREATE INDEX IF NOT EXISTS idx_phe_room_sheet_day ON plant_health_events (room_id, source, observed_at);

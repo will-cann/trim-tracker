@@ -107,7 +107,9 @@ export const handler: Handler = async (event) => {
             let events = 0;
             if (observedAt) {
                 await client.query(
-                    `DELETE FROM plant_health_events WHERE company_id = $1 AND room_id = $2 AND source = 'sheet' AND observed_at::date = $3::date`,
+                    `DELETE FROM plant_health_events
+                     WHERE company_id = $1 AND room_id = $2 AND source = 'sheet'
+                       AND observed_at >= $3::date AND observed_at < $3::date + INTERVAL '1 day'`,
                     [context.companyId, room.id, observedAt],
                 );
                 const tableAt = new Map(sheet.tables.map(t => [`${t.row}:${t.col}`, t]));
