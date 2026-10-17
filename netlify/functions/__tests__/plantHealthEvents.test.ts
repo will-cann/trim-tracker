@@ -64,8 +64,8 @@ describe('POST /plant-health-events', () => {
             { match: /FROM plants p LEFT JOIN rooms/, rows: () => [PLANT] },
             { match: /INSERT INTO plant_health_events/, rows: (v) => [{
                 id: 'e1', plant_id: v[1], plant_label: v[2], strain_name: v[3], room_id: v[4], room_name: v[5],
-                position_row: v[6], position_col: v[7], contaminant: v[8], severity: v[9], note: v[10],
-                growth_phase: v[11], flowering_day: v[12], status: 'active', observed_at: v[13], resolved_at: null,
+                position_row: v[6], position_col: v[7], contaminant: v[8], severity: v[9], rot_score: v[10], note: v[11],
+                growth_phase: v[12], flowering_day: v[13], status: 'active', observed_at: v[14], source: v[15], resolved_at: null,
             }] },
         ];
         const res = await invoke('POST', { plantIds: [PLANT.id], contaminant: 'bud rot', severity: 9, note: ' top cola ', observedAt: '2026-10-10T12:00:00Z' });
@@ -80,6 +80,8 @@ describe('POST /plant-health-events', () => {
         expect(ev.roomName).toBe('Flower Room 1');
         expect(ev.floweringDay).toBe(39);         // 2026-09-01 → 2026-10-10
         expect(ev.note).toBe('top cola');
+        expect(ev.rotScore).toBeNull();
+        expect(ev.source).toBe('app');
 
         const update = calls.find(c => /UPDATE plants SET contaminants/.test(c.text));
         expect(update).toBeDefined();
@@ -95,6 +97,27 @@ describe('POST /plant-health-events', () => {
         ];
         const res = await invoke('POST', { plantIds: [PLANT.id], contaminant: 'botrytis' });
         expect(res.statusCode).toBe(201);
+        expect(calls.some(c => /UPDATE plants SET contaminants/.test(c.text))).toBe(false);
+    });
+});
+
+describe('POST /plant-health-events (table cell)', () => {
+    it('logs a cell-level bud-rot score with the operator scale mapped onto severity', async () => {
+        responders = [
+            { match: /FROM rooms r LEFT JOIN room_tables t/, rows: () => [{ id: PLANT.room_id, name: 'Flower Room 1', strains: [{ strain: 'BDZ', count: null }] }] },
+            // Cell-mode insert has a literal NULL plant_id, so values start at the label.
+            { match: /INSERT INTO plant_health_events/, rows: (v) => [{
+                id: 'e3', plant_id: null, plant_label: v[1], strain_name: v[2], room_id: v[3], room_name: v[4],
+                position_row: v[5], position_col: v[6], contaminant: v[7], severity: v[8], rot_score: v[9], note: v[10],
+                growth_phase: 'flowering', status: 'active', observed_at: v[11], source: v[12], resolved_at: null,
+            }] },
+        ];
+        const res = await invoke('POST', { roomId: PLANT.room_id, row: 9, col: 2, contaminant: 'botrytis', rotScore: 2, note: 'tops going' });
+        expect(res.statusCode).toBe(201);
+        const ev = JSON.parse(res.body).created[0];
+        expect(ev).toMatchObject({ plantId: null, plantLabel: 'BDZ table', strainName: 'BDZ', row: 9, col: 2, contaminant: 'botrytis', severity: 4, rotScore: 2, source: 'app' });
+        expect(ev.note).toBe('Score 2 — Freeze tops. tops going');
+        // No plant state to update in cell mode.
         expect(calls.some(c => /UPDATE plants SET contaminants/.test(c.text))).toBe(false);
     });
 });

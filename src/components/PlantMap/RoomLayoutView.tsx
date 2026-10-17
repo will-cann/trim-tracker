@@ -1,7 +1,8 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { AlertTriangle, Flame, Grid3x3, MousePointerClick, X } from 'lucide-react';
-import type { MapPlant, RoomLayout, HotspotSummary, CohortSortKey, Placement, CellScore } from '../../types/plantMap';
-import { scoreHotspots, proposeLayout, cellKey, CONTAMINANT_MAP, SPREADING_CONTAMINANTS, floweringWeek, contaminantLabel, riskLevel } from '../../types/plantMap';
+import { AlertTriangle, FileSpreadsheet, Flame, Grid3x3, MousePointerClick, X } from 'lucide-react';
+import type { MapPlant, RoomLayout, HotspotSummary, CohortSortKey, Placement, CellScore, RoomTable, PlantHealthEvent } from '../../types/plantMap';
+import { scoreHotspots, proposeLayout, cellKey, CONTAMINANT_MAP, SPREADING_CONTAMINANTS, floweringWeek, contaminantLabel, riskLevel, severityToRotScore, rotScoreLabel } from '../../types/plantMap';
+import { ImportRoomSheetModal } from './ImportRoomSheetModal';
 import { apiService } from '../../services/apiService';
 import { RoomGrid } from './RoomGrid';
 import type { OverlayMode } from './RoomGrid';
@@ -17,6 +18,8 @@ type RoomOption = { id: string; name: string; room_type: string; layout_rows?: n
 
 interface RoomLayoutViewProps {
     rooms: RoomOption[];
+    /** Names of rooms that currently hold plants; when given, only these are offered. */
+    roomsWithPlants?: ReadonlySet<string>;
     refreshKey?: number;
     /** Called after any mutation so the card/table views stay in sync. */
     onChanged: () => void;
@@ -39,11 +42,12 @@ const OVERLAYS: Array<{ value: OverlayMode; label: string }> = [
 
 const ROOM_TYPE_ORDER: Record<string, number> = { flower: 0, veg: 1, nursery: 2 };
 
-export const RoomLayoutView: React.FC<RoomLayoutViewProps> = ({ rooms, refreshKey, onChanged }) => {
+export const RoomLayoutView: React.FC<RoomLayoutViewProps> = ({ rooms, roomsWithPlants, refreshKey, onChanged }) => {
     const mappable = useMemo(() => rooms
         .filter(r => ['flower', 'veg', 'vegetative', 'nursery', 'general', ''].includes(r.room_type || ''))
+        .filter(r => !roomsWithPlants || roomsWithPlants.has(r.name))
         .sort((a, b) => (ROOM_TYPE_ORDER[a.room_type] ?? 9) - (ROOM_TYPE_ORDER[b.room_type] ?? 9) || a.name.localeCompare(b.name)),
-    [rooms]);
+    [rooms, roomsWithPlants]);
 
     const [roomId, setRoomId] = useState<string | null>(() => sessionStorage.getItem('plantMap.room'));
     const [layout, setLayout] = useState<RoomLayout | null>(null);
@@ -61,6 +65,8 @@ export const RoomLayoutView: React.FC<RoomLayoutViewProps> = ({ rooms, refreshKe
     const [movingId, setMovingId] = useState<string | null>(null);
     const [preview, setPreview] = useState<{ placements: Placement[]; unplaced: string[]; label: string } | null>(null);
     const [showLog, setShowLog] = useState(false);
+    const [showImport, setShowImport] = useState(false);
+    const [selectedTable, setSelectedTable] = useState<RoomTable | null>(null);
     const [busy, setBusy] = useState(false);
     const [notice, setNotice] = useState<string | null>(null);
     const [gridDraft, setGridDraft] = useState<{ rows: string; cols: string }>({ rows: '4', cols: '8' });
@@ -121,6 +127,22 @@ export const RoomLayoutView: React.FC<RoomLayoutViewProps> = ({ rooms, refreshKe
     }, [layout, heatContaminant, heatWindow]);
 
     const plants = layout?.plants ?? [];
+    const tables = layout?.tables ?? [];
+    const isTableRoom = tables.length > 0;
+    // Latest active bud-rot score per table cell, for the chips.
+    const tableScores = useMemo(() => {
+        const m = new Map<string, number>();
+        const seen = new Set<string>();
+        for (const e of layout?.events ?? []) {
+            if (e.status !== 'active' || e.contaminant !== 'botrytis' || e.row == null || e.col == null) continue;
+            const key = cellKey(e.row, e.col);
+            if (seen.has(key)) continue;   // events are newest first
+            seen.add(key);
+            m.set(key, e.rotScore ?? severityToRotScore(e.severity));
+        }
+        return m;
+    }, [layout]);
+    const selectedTableLive = selectedTable ? tables.find(t => t.row === selectedTable.row && t.col === selectedTable.col) ?? null : null;
     const placed = plants.filter(p => p.row != null && p.col != null);
     const unplaced = plants.filter(p => p.row == null || p.col == null);
     const hasLayout = !!(layout?.room.layoutRows && layout?.room.layoutCols);
@@ -146,12 +168,20 @@ export const RoomLayoutView: React.FC<RoomLayoutViewProps> = ({ rooms, refreshKe
             }
             return;
         }
+        setSelectedTable(null);
         setSelected(prev => {
             const next = e.metaKey || e.ctrlKey || e.shiftKey ? new Set(prev) : new Set<string>();
             if (prev.has(plant.id) && (e.metaKey || e.ctrlKey || e.shiftKey)) next.delete(plant.id);
             else next.add(plant.id);
             return next;
         });
+        setPanelTab('plant');
+    };
+
+    const handleTableClick = (table: RoomTable) => {
+        if (movingId) return;
+        setSelected(new Set());
+        setSelectedTable(prev => prev && prev.row === table.row && prev.col === table.col ? null : table);
         setPanelTab('plant');
     };
 
@@ -183,7 +213,7 @@ export const RoomLayoutView: React.FC<RoomLayoutViewProps> = ({ rooms, refreshKe
             placeMoving(row, col, occupant);
             return;
         }
-        if (!occupant) setSelected(new Set());
+        if (!occupant) { setSelected(new Set()); setSelectedTable(null); }
     };
 
     const startMove = (plantId: string) => {
@@ -279,7 +309,7 @@ export const RoomLayoutView: React.FC<RoomLayoutViewProps> = ({ rooms, refreshKe
         return (
             <div className="room-map-empty mt-6">
                 <Grid3x3 size={18} className="text-gray-300" />
-                <p>Add a flower or veg room in Settings → Rooms to start mapping plants.</p>
+                <p>{rooms.length ? 'No room holds plants yet. Add a planting and it will show up here.' : 'Add a flower or veg room in Settings → Rooms to start mapping plants.'}</p>
             </div>
         );
     }
@@ -324,13 +354,16 @@ export const RoomLayoutView: React.FC<RoomLayoutViewProps> = ({ rooms, refreshKe
 
                 <div className="flex-1" />
 
+                <button className="btn-secondary text-xs px-2.5 py-1.5" onClick={() => setShowImport(true)} title="Import a room map + health report workbook">
+                    <FileSpreadsheet size={13} /> Import sheet
+                </button>
                 <button
                     className="btn-new-batch text-xs px-2.5 py-1.5"
                     onClick={() => setShowLog(true)}
-                    disabled={selectedPlants.length === 0}
-                    title={selectedPlants.length ? 'Log an issue on the selected plants' : 'Select plants on the grid first (shift-click for several)'}
+                    disabled={selectedPlants.length === 0 && !selectedTableLive}
+                    title={selectedTableLive ? 'Score the selected table' : selectedPlants.length ? 'Log an issue on the selected plants' : 'Select plants or a table on the grid first'}
                 >
-                    <AlertTriangle size={13} /> Log issue{selectedPlants.length ? ` (${selectedPlants.length})` : ''}
+                    <AlertTriangle size={13} /> {selectedTableLive ? 'Score table' : `Log issue${selectedPlants.length ? ` (${selectedPlants.length})` : ''}`}
                 </button>
             </div>
 
@@ -390,6 +423,10 @@ export const RoomLayoutView: React.FC<RoomLayoutViewProps> = ({ rooms, refreshKe
                                 <input type="number" min={1} max={60} value={gridDraft.cols} onChange={e => setGridDraft(d => ({ ...d, cols: e.target.value }))} className="field-input w-20" placeholder="Columns" />
                                 <button className="btn-primary text-xs px-3 py-1.5" onClick={saveGrid} disabled={busy}>Save grid</button>
                             </div>
+                            <p className="text-[11px] text-gray-400">or</p>
+                            <button className="btn-secondary text-xs px-3 py-1.5" onClick={() => setShowImport(true)}>
+                                <FileSpreadsheet size={13} /> Import a room sheet (tables + scores)
+                            </button>
                             {plants.length > 0 && <p className="text-[11px] text-gray-400">{plants.length} plant{plants.length === 1 ? '' : 's'} in this room will be ready to place.</p>}
                         </div>
                     ) : layout ? (
@@ -398,11 +435,16 @@ export const RoomLayoutView: React.FC<RoomLayoutViewProps> = ({ rooms, refreshKe
                                 rows={layout.room.layoutRows!}
                                 cols={layout.room.layoutCols!}
                                 plants={plants}
+                                tables={tables}
+                                tableScores={tableScores}
+                                layoutMeta={layout.room.layoutMeta}
                                 cells={heatCells}
                                 overlay={overlay}
                                 cohortColor={cohortColor}
                                 selectedIds={selected}
+                                selectedTableKey={selectedTableLive ? cellKey(selectedTableLive.row, selectedTableLive.col) : null}
                                 movingId={movingId}
+                                onTableClick={handleTableClick}
                                 preview={preview?.placements ?? null}
                                 avoidCells={layout.plan.avoidCells}
                                 targetCells={targetCells}
@@ -461,7 +503,7 @@ export const RoomLayoutView: React.FC<RoomLayoutViewProps> = ({ rooms, refreshKe
                         <div className="room-map-tabs">
                             {([
                                 ['plan', `Plan${layout.plan.suggestions.length ? ` (${layout.plan.suggestions.length})` : ''}`],
-                                ['plant', focusPlant ? focusPlant.label : `Plant${selectedPlants.length > 1 ? `s (${selectedPlants.length})` : ''}`],
+                                ['plant', selectedTableLive ? 'Table' : focusPlant ? focusPlant.label : `Plant${selectedPlants.length > 1 ? `s (${selectedPlants.length})` : ''}`],
                                 ['cohorts', 'Sort'],
                                 ['log', `Log${layout.events.filter(e => e.status === 'active').length ? ` (${layout.events.filter(e => e.status === 'active').length})` : ''}`],
                             ] as Array<[PanelTab, string]>).map(([key, label]) => (
@@ -469,6 +511,11 @@ export const RoomLayoutView: React.FC<RoomLayoutViewProps> = ({ rooms, refreshKe
                             ))}
                         </div>
 
+                        {panelTab === 'plan' && isTableRoom && plants.length === 0 && (
+                            <p className="text-[11px] text-gray-500 px-3 pt-3">
+                                This room is tracked by table (from the room sheet). Scores drive the hot-spot map; move suggestions need individually placed plants.
+                            </p>
+                        )}
                         {panelTab === 'plan' && (
                             <MovePlannerPanel
                                 roomName={layout.room.name}
@@ -479,7 +526,21 @@ export const RoomLayoutView: React.FC<RoomLayoutViewProps> = ({ rooms, refreshKe
                             />
                         )}
 
-                        {panelTab === 'plant' && (
+                        {panelTab === 'plant' && selectedTableLive && (
+                            <TablePanel
+                                table={selectedTableLive}
+                                events={layout.events.filter(e => e.row === selectedTableLive.row && e.col === selectedTableLive.col && e.plantId == null)}
+                                heatCells={heatCells}
+                                busy={busy}
+                                onLog={() => setShowLog(true)}
+                                onResolve={async (eventIds) => {
+                                    setBusy(true);
+                                    try { await apiService.resolvePlantHealthEvents({ eventIds }); refresh(); }
+                                    finally { setBusy(false); }
+                                }}
+                            />
+                        )}
+                        {panelTab === 'plant' && !selectedTableLive && (
                             <PlantPanel
                                 plants={selectedPlants}
                                 heatCells={heatCells}
@@ -521,14 +582,81 @@ export const RoomLayoutView: React.FC<RoomLayoutViewProps> = ({ rooms, refreshKe
                 )}
             </div>
 
-            {showLog && (
+            {showLog && layout && (
                 <LogHealthEventModal
-                    plants={(selectedPlants.length ? selectedPlants : []).map(p => ({ id: p.id, label: p.label, strainName: p.strainName }))}
+                    plants={selectedTableLive ? [] : selectedPlants.map(p => ({ id: p.id, label: p.label, strainName: p.strainName }))}
+                    cell={selectedTableLive ? {
+                        roomId: layout.room.id, row: selectedTableLive.row, col: selectedTableLive.col,
+                        label: `${selectedTableLive.strains.map(s => s.strain).join('/')} table`,
+                        strainName: selectedTableLive.strains[0]?.strain ?? null,
+                    } : null}
                     defaultContaminant={heatContaminant === 'all' ? 'botrytis' : heatContaminant}
                     onClose={() => setShowLog(false)}
                     onLogged={() => { setShowLog(false); refresh(); }}
                 />
             )}
+
+            {showImport && (
+                <ImportRoomSheetModal
+                    rooms={mappable.map(r => ({ id: r.id, name: r.name }))}
+                    currentRoomId={roomId}
+                    onClose={() => setShowImport(false)}
+                    onImported={(id) => { setShowImport(false); setSelectedTable(null); setSelected(new Set()); setRoomId(id); onChanged(); load(); }}
+                />
+            )}
+        </div>
+    );
+};
+
+// ── Selected table panel ──────────────────────────────────────────────────
+
+const TablePanel: React.FC<{
+    table: RoomTable;
+    events: PlantHealthEvent[];
+    heatCells: CellScore[];
+    busy: boolean;
+    onLog: () => void;
+    onResolve: (eventIds: string[]) => void;
+}> = ({ table, events, heatCells, busy, onLog, onResolve }) => {
+    const cell = heatCells.find(c => c.row === table.row && c.col === table.col);
+    const level = riskLevel(cell?.score ?? 0);
+    const active = events.filter(e => e.status === 'active');
+    const history = events.filter(e => e.status === 'resolved').slice(0, 6);
+    return (
+        <div className="room-map-panel-body">
+            <h3 className="text-sm font-semibold text-gray-900">{table.strains.map(s => s.count != null && table.strains.length > 1 ? `${s.strain} ×${s.count}` : s.strain).join(' / ')}</h3>
+            <p className="text-xs text-gray-500 mb-3">{table.plantCount} plants · R{table.row + 1} · {table.col + 1}{table.section ? ` · ${table.section}` : ''}</p>
+            <dl className="room-map-dl">
+                <dt>Cell risk</dt><dd style={{ color: RISK_TEXT_COLOR[level] }}>{RISK_LABEL[level]}{cell?.events ? ` · ${cell.events} logged here` : ''}</dd>
+            </dl>
+            {active.length > 0 && (
+                <div className="mt-3">
+                    <p className="text-[11px] uppercase tracking-wider text-gray-400 mb-1">Active</p>
+                    <ul className="space-y-1">
+                        {active.map(e => (
+                            <li key={e.id} className="text-xs text-gray-800 flex items-center gap-2">
+                                <span className="room-map-event-sev" style={{ background: e.severity >= 4 ? '#C53030' : e.severity >= 2 ? '#E0604A' : '#F0BF00' }}>{e.rotScore ?? e.severity}</span>
+                                {e.contaminant === 'botrytis' && e.rotScore != null ? `Bud rot ${e.rotScore} · ${rotScoreLabel(e.rotScore)}` : contaminantLabel(e.contaminant)}
+                                <span className="text-gray-400">{e.observedAt.slice(0, 10)}</span>
+                            </li>
+                        ))}
+                    </ul>
+                    <button className="room-map-link-btn mt-1" onClick={() => onResolve(active.map(e => e.id))} disabled={busy}>Mark resolved</button>
+                </div>
+            )}
+            {history.length > 0 && (
+                <div className="mt-3">
+                    <p className="text-[11px] uppercase tracking-wider text-gray-400 mb-1">Earlier</p>
+                    <ul className="space-y-0.5">
+                        {history.map(e => (
+                            <li key={e.id} className="text-[11px] text-gray-500">{e.observedAt.slice(0, 10)} · {e.contaminant === 'botrytis' && e.rotScore != null ? `bud rot ${e.rotScore}` : contaminantLabel(e.contaminant)}</li>
+                        ))}
+                    </ul>
+                </div>
+            )}
+            <div className="flex flex-col gap-2 mt-4">
+                <button className="btn-primary text-xs px-2 py-1.5 justify-center" onClick={onLog}>Score this table</button>
+            </div>
         </div>
     );
 };

@@ -1,4 +1,4 @@
-import type { RoomLayout, PlantHealthEvent, HotspotSummary } from '../types/plantMap';
+import type { RoomLayout, PlantHealthEvent, HotspotSummary, ParsedRoomSheet } from '../types/plantMap';
 import type { MetrcSyncStartResponse, MetrcSyncStatus } from '../../shared/manifest/metrcSync';
 import type { TrimSession, CreateTrimSessionDTO, Trimmer, TrimmerProfile, ProposedAction, Harvest, CreateHarvestDTO, HarvestWasteType, HarvestAllocation, HarvestPlantWeight, HarvestBin, BinCureLog, CreateBinDTO, FloweringBatchGroup, Strain, License, SpeechMode, HumanTask, TeamRole, Tag, TagType, TagStats, TagSettings, Package, CreatePackageDTO, MetrcItem, PackageAdjustment, AdjustmentReason, ProductType, ProcessTemplate, StepSupplyRequirement, YieldAverage, BackwardPlan, PlanningSession, PlanTargetInput, StrainYieldOverride, ReportSpec, SavedReport, TaskViewSpec, SavedTaskView, SupplyPool, SupplyItem, SupplyLedgerEntry, SupplyChangeType, SupplyPoolSlug, ContactThread, ApiKey, ApiKeyScope, CreatedApiKey } from '../types/definitions';
 
@@ -275,7 +275,11 @@ export const aiParse = async (request: AiParseRequest): Promise<AiParseResult> =
         body: JSON.stringify({ ...body, streaming }),
         signal: abortSignal,
     });
-    if (!response.ok) throw new Error('AI parsing failed');
+    if (!response.ok) {
+        const err = await response.json().catch(() => ({}));
+        const detail = err?.detail || err?.error;
+        throw new Error(detail ? `AI parsing failed: ${detail}` : `AI parsing failed (${response.status})`);
+    }
 
     // Non-streaming path: old JSON body, parse and return.
     if (!streaming) {
@@ -849,6 +853,88 @@ export const getRooms = async (roomType?: string, detail?: boolean): Promise<Arr
     }
 };
 
+// ── Facility metrics (metric_snapshots, computed daily) ──
+
+export interface MetricDefinition {
+    key: string;
+    label: string;
+    description: string;
+    kind: 'count' | 'gauge' | 'ratio' | 'grams';
+    dimension: 'room' | 'phase' | 'strain' | 'issue' | 'status' | null;
+    goodWhenUp: boolean | null;
+}
+
+export interface MetricPoint { key: string; dimension: string; date: string; value: number }
+
+export interface LatestMetric extends MetricPoint {
+    previous: number | null;
+    change: number | null;
+    changePct: number | null;
+}
+
+export interface MetricRun {
+    id: string; date: string; trigger: 'schedule' | 'manual' | 'backfill'; status: 'running' | 'succeeded' | 'failed';
+    metricsWritten: number; error: string | null; startedAt: string; finishedAt: string | null;
+}
+
+export interface MetricsResponse {
+    definitions: MetricDefinition[];
+    windowDays: number;
+    compareDays: number;
+    latest: LatestMetric[];
+    series: Record<string, MetricPoint[]>;
+    runs: MetricRun[];
+}
+
+export const getMetrics = async (opts: { keys?: string[]; days?: number; compare?: number } = {}): Promise<MetricsResponse> => {
+    const params = new URLSearchParams();
+    if (opts.keys?.length) params.set('keys', opts.keys.join(','));
+    if (opts.days) params.set('days', String(opts.days));
+    if (opts.compare) params.set('compare', String(opts.compare));
+    const qs = params.toString();
+    const response = await fetchWithAuth(`${API_BASE}/get-metrics${qs ? `?${qs}` : ''}`);
+    if (!response.ok) throw new Error('Failed to load metrics');
+    return await response.json();
+};
+
+/** Recompute today's snapshot for this company, or backfill the last N days. Director+. */
+export const computeMetricsNow = async (opts: { backfillDays?: number } = {}): Promise<{ ok: boolean; days: number; written: number; failures: Array<{ date: string; key: string; error: string }> }> => {
+    const response = await fetchWithAuth(`${API_BASE}/compute-metrics`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(opts),
+    });
+    if (!response.ok) {
+        const err = await response.json().catch(() => ({}));
+        throw new Error(err.error || err.detail || 'Failed to compute metrics');
+    }
+    return await response.json();
+};
+
+export interface SchematicRoom {
+    name: string;
+    roomType: 'nursery' | 'veg' | 'flower' | 'dry' | 'storage' | 'general' | null;
+    layoutRows: number | null;
+    layoutCols: number | null;
+    capacity: number | null;
+    squareFootage: number | null;
+    notes: string | null;
+}
+
+/** Read a grow-room schematic (photo, PDF or drawing) into room grid proposals. */
+export const parseRoomSchematic = async (file: { fileName: string; mediaType: string; data: string }): Promise<{ rooms: SchematicRoom[]; notes: string | null }> => {
+    const response = await fetchWithAuth(`${API_BASE}/parse-room-schematic`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(file),
+    });
+    if (!response.ok) {
+        const err = await response.json().catch(() => ({}));
+        throw new Error(err.error || err.detail || `Could not read the schematic (${response.status})`);
+    }
+    return await response.json();
+};
+
 export const createRoom = async (data: { name: string; roomType?: string; capacity?: number; squareFootage?: number; notes?: string; layoutRows?: number; layoutCols?: number }): Promise<any> => {
     const response = await fetchWithAuth(`${API_BASE}/manage-room`, {
         method: 'POST',
@@ -959,9 +1045,14 @@ export const setPlantPositions = async (payload: {
 };
 
 export const logPlantHealthEvent = async (payload: {
-    plantIds: string[];
+    plantIds?: string[];
+    /** Table-cell event (no plant ids): room + cell. */
+    roomId?: string;
+    strainName?: string;
     contaminant: string;
     severity?: number;
+    /** Operator's bud-rot scale 0.5–3; overrides severity when given. */
+    rotScore?: number;
     note?: string;
     observedAt?: string;
     row?: number;
@@ -1006,6 +1097,24 @@ export const getPlantHealthEvents = async (filters: {
     const qs = params.toString();
     const response = await fetchWithAuth(`${API_BASE}/plant-health-events${qs ? `?${qs}` : ''}`);
     if (!response.ok) throw new Error('Failed to load plant health events');
+    return await response.json();
+};
+
+export const importRoomSheet = async (payload: {
+    roomId?: string;
+    roomName?: string;
+    observedAt: string | null;
+    sheet: ParsedRoomSheet;
+}): Promise<{ success: boolean; room: { id: string; name: string; created: boolean }; rows: number; cols: number; tables: number; plants: number; events: number }> => {
+    const response = await fetchWithAuth(`${API_BASE}/import-room-sheet`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+    });
+    if (!response.ok) {
+        const err = await response.json().catch(() => ({}));
+        throw new Error(err.error || err.detail || 'Failed to import room sheet');
+    }
     return await response.json();
 };
 
@@ -2165,6 +2274,9 @@ export const apiService = {
     getRooms,
     createRoom,
     updateRoom,
+    parseRoomSchematic,
+    getMetrics,
+    computeMetricsNow,
     deleteRoom,
     addRoomEquipment,
     updateRoomEquipment,
@@ -2177,6 +2289,7 @@ export const apiService = {
     resolvePlantHealthEvents,
     getPlantHealthEvents,
     getHotspots,
+    importRoomSheet,
     // Tags
     getTags,
     importTags,

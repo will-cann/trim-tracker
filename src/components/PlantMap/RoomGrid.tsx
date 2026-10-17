@@ -1,7 +1,7 @@
 import React from 'react';
-import type { MapPlant, CellScore, Placement } from '../../types/plantMap';
+import type { MapPlant, CellScore, Placement, RoomTable, RoomLayoutMeta } from '../../types/plantMap';
 import { cellKey, riskLevel, contaminantAbbrev, getHealthColor, HEALTH_COLOR_MAP } from '../../types/plantMap';
-import { heatColor, RISK_LABEL } from './plantMapColors';
+import { heatColor, RISK_LABEL, SEVERITY_COLOR } from './plantMapColors';
 
 export type OverlayMode = 'hotspots' | 'health' | 'feed' | 'flower' | 'stretch';
 
@@ -9,12 +9,18 @@ export interface RoomGridProps {
     rows: number;
     cols: number;
     plants: MapPlant[];
+    /** Tables (trays of plants) on cells, for rooms tracked at table granularity. */
+    tables?: RoomTable[];
+    /** Latest active rot score per cell key ("row:col"), shown on table chips. */
+    tableScores?: ReadonlyMap<string, number>;
+    layoutMeta?: RoomLayoutMeta | null;
     /** Heat surface for the current contaminant/window filter. */
     cells: CellScore[];
     overlay: OverlayMode;
     /** Cohort colour per plant id (feed / flower / stretch overlays). */
     cohortColor?: (plant: MapPlant) => string | undefined;
     selectedIds: ReadonlySet<string>;
+    selectedTableKey?: string | null;
     /** Plant waiting for a destination cell. */
     movingId: string | null;
     /** Proposed layout to preview as ghosts. */
@@ -24,17 +30,20 @@ export interface RoomGridProps {
     /** Destination cells of pending planner suggestions. */
     targetCells?: ReadonlyArray<{ row: number; col: number }>;
     onPlantClick: (plant: MapPlant, e: React.MouseEvent) => void;
+    onTableClick?: (table: RoomTable) => void;
     onCellClick: (row: number, col: number, occupant: MapPlant | null) => void;
 }
 
 export const RoomGrid: React.FC<RoomGridProps> = ({
-    rows, cols, plants, cells, overlay, cohortColor, selectedIds, movingId, preview, avoidCells, targetCells,
-    onPlantClick, onCellClick,
+    rows, cols, plants, tables, tableScores, layoutMeta, cells, overlay, cohortColor, selectedIds, selectedTableKey, movingId, preview, avoidCells, targetCells,
+    onPlantClick, onTableClick, onCellClick,
 }) => {
     const byCell = new Map<string, MapPlant>();
     for (const p of plants) {
         if (p.row != null && p.col != null) byCell.set(cellKey(p.row, p.col), p);
     }
+    const tableByCell = new Map<string, RoomTable>();
+    for (const t of tables ?? []) tableByCell.set(cellKey(t.row, t.col), t);
     const heat = new Map<string, CellScore>();
     for (const c of cells) heat.set(cellKey(c.row, c.col), c);
     const previewByCell = new Map<string, MapPlant>();
@@ -50,34 +59,49 @@ export const RoomGrid: React.FC<RoomGridProps> = ({
     }
     const avoid = new Set((avoidCells ?? []).map(c => cellKey(c.row, c.col)));
     const targets = new Set((targetCells ?? []).map(c => cellKey(c.row, c.col)));
+    const sectionStart = new Map<number, string>();
+    for (const s of layoutMeta?.sections ?? []) sectionStart.set(s.rowStart, s.name);
 
     const colLabels = Array.from({ length: cols }, (_, i) => i + 1);
+    const hasAxis = !!(layoutMeta?.colStartLabel || layoutMeta?.colEndLabel);
 
     return (
         <div className="room-map-scroll">
             <div
                 className="room-map-grid"
-                style={{ gridTemplateColumns: `34px repeat(${cols}, minmax(64px, 1fr))` }}
+                style={{ gridTemplateColumns: `44px repeat(${cols}, minmax(64px, 1fr))` }}
             >
+                {hasAxis && (
+                    <div className="room-map-axis" style={{ gridColumn: `2 / span ${cols}` }}>
+                        <span>{layoutMeta?.colStartLabel ?? ''}</span>
+                        <span className="room-map-axis-line" />
+                        <span>{layoutMeta?.colEndLabel ?? ''}</span>
+                    </div>
+                )}
+                {hasAxis && <div className="room-map-corner" style={{ gridRow: 1 }} />}
                 <div className="room-map-corner" />
                 {colLabels.map(c => (
                     <div key={`c${c}`} className="room-map-col-label">{c}</div>
                 ))}
                 {Array.from({ length: rows }, (_, r) => (
                     <React.Fragment key={`r${r}`}>
+                        {sectionStart.has(r) && (
+                            <div className="room-map-section" style={{ gridColumn: `1 / span ${cols + 1}` }}>{sectionStart.get(r)}</div>
+                        )}
                         <div className="room-map-row-label">R{r + 1}</div>
                         {colLabels.map((_, c) => {
                             const key = cellKey(r, c);
                             const occupant = preview ? (previewByCell.get(key) ?? null) : (byCell.get(key) ?? null);
+                            const table = !occupant ? tableByCell.get(key) ?? null : null;
                             const score = heat.get(key)?.score ?? 0;
                             const level = riskLevel(score);
                             const bg = overlay === 'hotspots' ? heatColor(score) : undefined;
                             const isMoveTarget = movingId != null;
                             const classes = ['room-map-cell'];
-                            if (occupant) classes.push('occupied');
+                            if (occupant || table) classes.push('occupied');
                             if (isMoveTarget) classes.push('move-target');
-                            if (avoid.has(key) && !occupant) classes.push('avoid');
-                            if (targets.has(key) && !occupant) classes.push('target');
+                            if (avoid.has(key) && !occupant && !table) classes.push('avoid');
+                            if (targets.has(key) && !occupant && !table) classes.push('target');
                             if (preview && occupant && previewMoved.has(occupant.id)) classes.push('preview-moved');
                             const heatInfo = heat.get(key);
                             const title = heatInfo && heatInfo.events > 0
@@ -100,6 +124,13 @@ export const RoomGrid: React.FC<RoomGridProps> = ({
                                             moving={movingId === occupant.id}
                                             ghost={!!preview}
                                             onClick={(e) => { e.stopPropagation(); if (!preview) onPlantClick(occupant, e); }}
+                                        />
+                                    ) : table ? (
+                                        <TableChip
+                                            table={table}
+                                            score={tableScores?.get(key) ?? null}
+                                            selected={selectedTableKey === key}
+                                            onClick={(e) => { e.stopPropagation(); onTableClick?.(table); }}
                                         />
                                     ) : (
                                         avoid.has(key) ? <span className="room-map-avoid-mark" title="Planner: leave empty at next flip">✕</span> : null
@@ -146,6 +177,35 @@ const PlantChip: React.FC<{
                 <span className="room-map-plant-issue" style={{ background: worst >= 4 ? '#C53030' : '#E0604A' }}>
                     {[...new Set(active.map(i => contaminantAbbrev(i.contaminant)))].join(' ')}
                 </span>
+            )}
+        </button>
+    );
+};
+
+const scoreColor = (score: number) => score >= 3 ? SEVERITY_COLOR[5] : score >= 2 ? SEVERITY_COLOR[4] : score >= 1 ? SEVERITY_COLOR[2] : SEVERITY_COLOR[1];
+
+const TableChip: React.FC<{
+    table: RoomTable;
+    score: number | null;
+    selected: boolean;
+    onClick: (e: React.MouseEvent) => void;
+}> = ({ table, score, selected, onClick }) => {
+    const names = table.strains.map(s => s.count != null && table.strains.length > 1 ? `${s.strain} ${s.count}` : s.strain).join(' / ');
+    const classes = ['room-map-plant', 'room-map-table'];
+    if (selected) classes.push('selected');
+    if (score != null) classes.push('has-issue');
+    return (
+        <button
+            type="button"
+            className={classes.join(' ')}
+            style={score != null ? { borderLeftColor: scoreColor(score) } : undefined}
+            onClick={onClick}
+            title={`${names} · ${table.plantCount} plants${score != null ? ` · bud rot ${score}` : ''}`}
+        >
+            <span className="room-map-plant-label">{names}</span>
+            <span className="room-map-plant-strain">{table.plantCount} plants{table.section ? ` · ${table.section}` : ''}</span>
+            {score != null && (
+                <span className="room-map-plant-issue" style={{ background: scoreColor(score) }}>BR {score}</span>
             )}
         </button>
     );

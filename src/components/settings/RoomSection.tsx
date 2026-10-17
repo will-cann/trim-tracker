@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { Plus, Trash2, ChevronDown, ChevronRight } from 'lucide-react';
+import { Plus, Trash2, ChevronDown, ChevronRight, FileUp } from 'lucide-react';
+import { SchematicImportModal } from './SchematicImportModal';
 import { CenteredSpinner } from '../Spinner';
 import type { Room, EquipmentType } from '../../types/plantMap';
 import { apiService } from '../../services/apiService';
@@ -23,6 +24,7 @@ export const RoomSection: React.FC<RoomSectionProps> = ({ rooms, loading, onRelo
     const [newEquipName, setNewEquipName] = useState('');
     const [newEquipType, setNewEquipType] = useState<EquipmentType>('light');
     const [newEquipQty, setNewEquipQty] = useState('1');
+    const [showSchematic, setShowSchematic] = useState(false);
 
     const handleAddRoom = async () => {
         const name = newRoomName.trim();
@@ -75,11 +77,24 @@ export const RoomSection: React.FC<RoomSectionProps> = ({ rooms, loading, onRelo
                     <p className="settings-section-desc">Manage facility spaces and their equipment.</p>
                 </div>
                 {!isAdding && (
-                    <button onClick={() => setIsAdding(true)} className="btn-new-batch text-sm px-3 py-1.5">
-                        <Plus size={14} /> Add Room
-                    </button>
+                    <div className="flex items-center gap-2">
+                        <button onClick={() => setShowSchematic(true)} className="btn-secondary text-sm px-3 py-1.5" title="Read rooms and bench grids from a floor plan or sketch">
+                            <FileUp size={14} /> Import schematic
+                        </button>
+                        <button onClick={() => setIsAdding(true)} className="btn-new-batch text-sm px-3 py-1.5">
+                            <Plus size={14} /> Add Room
+                        </button>
+                    </div>
                 )}
             </div>
+
+            {showSchematic && (
+                <SchematicImportModal
+                    existingRooms={rooms}
+                    onClose={() => setShowSchematic(false)}
+                    onApplied={async () => { setShowSchematic(false); await onReload(); }}
+                />
+            )}
 
             {isAdding && (
                 <div className="settings-add-form">

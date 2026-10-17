@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { CheckCircle2 } from 'lucide-react';
 import type { PlantHealthEvent } from '../../types/plantMap';
-import { contaminantLabel, SEVERITY_LABELS } from '../../types/plantMap';
+import { contaminantLabel, SEVERITY_LABELS, rotScoreLabel } from '../../types/plantMap';
 import { apiService } from '../../services/apiService';
 import { SEVERITY_COLOR } from './plantMapColors';
 
@@ -45,10 +45,11 @@ export const HealthEventLog: React.FC<HealthEventLogProps> = ({ events, onChange
                 <ul className="room-map-events">
                     {visible.map(e => (
                         <li key={e.id} className={`room-map-event ${e.status}`}>
-                            <span className="room-map-event-sev" style={{ background: SEVERITY_COLOR[e.severity] }} title={SEVERITY_LABELS[e.severity]}>{e.severity}</span>
+                            <span className="room-map-event-sev" style={{ background: SEVERITY_COLOR[e.severity] }} title={e.rotScore != null ? `Score ${e.rotScore} · ${rotScoreLabel(e.rotScore)}` : SEVERITY_LABELS[e.severity]}>{e.rotScore ?? e.severity}</span>
                             <div className="flex-1 min-w-0">
                                 <div className="flex items-baseline gap-1.5 flex-wrap">
-                                    <span className="text-xs font-medium text-gray-800">{contaminantLabel(e.contaminant)}</span>
+                                    <span className="text-xs font-medium text-gray-800">{contaminantLabel(e.contaminant)}{e.rotScore != null ? ` · ${rotScoreLabel(e.rotScore)}` : ''}</span>
+                                    {e.source === 'sheet' && <span className="text-[10px] text-gray-400 border border-gray-200 rounded px-1">sheet</span>}
                                     {e.plantId ? (
                                         <button className="room-map-plant-link" onClick={() => onFocusPlant(e.plantId!)}>{e.plantLabel}</button>
                                     ) : (

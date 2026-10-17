@@ -2,11 +2,14 @@ import React, { useState } from 'react';
 import { AlertTriangle } from 'lucide-react';
 import { Modal } from '../ui';
 import { apiService } from '../../services/apiService';
-import { CONTAMINANT_MAP, SEVERITY_LABELS } from '../../types/plantMap';
+import { CONTAMINANT_MAP, SEVERITY_LABELS, ROT_SCORE_SCALE, rotScoreToSeverity } from '../../types/plantMap';
 import { SEVERITY_COLOR } from './plantMapColors';
 
 interface LogHealthEventModalProps {
+    /** Individually tracked plants to log on. */
     plants: Array<{ id: string; label: string; strainName: string }>;
+    /** Or one table cell in a table-granularity room. */
+    cell?: { roomId: string; row: number; col: number; label: string; strainName: string | null } | null;
     defaultContaminant?: string;
     onClose: () => void;
     onLogged: () => void;
@@ -14,22 +17,27 @@ interface LogHealthEventModalProps {
 
 const today = () => new Date().toISOString().slice(0, 10);
 
-export const LogHealthEventModal: React.FC<LogHealthEventModalProps> = ({ plants, defaultContaminant = 'botrytis', onClose, onLogged }) => {
+export const LogHealthEventModal: React.FC<LogHealthEventModalProps> = ({ plants, cell = null, defaultContaminant = 'botrytis', onClose, onLogged }) => {
     const [contaminant, setContaminant] = useState(defaultContaminant);
     const [severity, setSeverity] = useState(3);
+    const [rotScore, setRotScore] = useState<number>(0.5);
     const [note, setNote] = useState('');
     const [observedAt, setObservedAt] = useState(today());
     const [submitting, setSubmitting] = useState(false);
     const [error, setError] = useState<string | null>(null);
+
+    const budRot = contaminant === 'botrytis';
+    const targetCount = cell ? 1 : plants.length;
 
     const submit = async () => {
         setSubmitting(true);
         setError(null);
         try {
             await apiService.logPlantHealthEvent({
-                plantIds: plants.map(p => p.id),
+                ...(cell ? { roomId: cell.roomId, row: cell.row, col: cell.col, strainName: cell.strainName ?? undefined } : { plantIds: plants.map(p => p.id) }),
                 contaminant,
-                severity,
+                severity: budRot ? rotScoreToSeverity(rotScore) : severity,
+                rotScore: budRot ? rotScore : undefined,
                 note: note.trim() || undefined,
                 observedAt: observedAt ? `${observedAt}T12:00:00` : undefined,
             });
@@ -48,7 +56,7 @@ export const LogHealthEventModal: React.FC<LogHealthEventModalProps> = ({ plants
 
     return (
         <Modal
-            title="Log plant health issue"
+            title={cell ? 'Score this table' : 'Log plant health issue'}
             titleIcon={<AlertTriangle size={16} className="text-amber-500" />}
             contentClassName="creation-modal"
             size="sm"
@@ -56,17 +64,21 @@ export const LogHealthEventModal: React.FC<LogHealthEventModalProps> = ({ plants
             footer={
                 <>
                     <button onClick={onClose} className="btn-cancel" disabled={submitting}>Cancel</button>
-                    <button onClick={submit} className="btn-primary" disabled={submitting || plants.length === 0}>
-                        {submitting ? 'Saving…' : `Log on ${plants.length} plant${plants.length === 1 ? '' : 's'}`}
+                    <button onClick={submit} className="btn-primary" disabled={submitting || targetCount === 0}>
+                        {submitting ? 'Saving…' : cell ? 'Log score' : `Log on ${plants.length} plant${plants.length === 1 ? '' : 's'}`}
                     </button>
                 </>
             }
         >
             <div className="space-y-4">
                 <div>
-                    <p className="text-[11px] uppercase tracking-wider text-gray-400 mb-1">Plants</p>
+                    <p className="text-[11px] uppercase tracking-wider text-gray-400 mb-1">{cell ? 'Table' : 'Plants'}</p>
                     <div className="flex flex-wrap gap-1">
-                        {plants.map(p => (
+                        {cell ? (
+                            <span className="px-2 py-0.5 text-[11px] font-medium bg-gray-100 text-gray-700 rounded-full">
+                                {cell.label} <span className="text-gray-400">· R{cell.row + 1}·{cell.col + 1}</span>
+                            </span>
+                        ) : plants.map(p => (
                             <span key={p.id} className="px-2 py-0.5 text-[11px] font-medium bg-gray-100 text-gray-700 rounded-full">
                                 {p.label} <span className="text-gray-400">· {p.strainName}</span>
                             </span>
@@ -87,27 +99,45 @@ export const LogHealthEventModal: React.FC<LogHealthEventModalProps> = ({ plants
                     </select>
                 </div>
 
-                <div>
-                    <label className="field-label">Severity</label>
-                    <div className="room-map-severity">
-                        {[1, 2, 3, 4, 5].map(n => (
-                            <button
-                                key={n}
-                                type="button"
-                                className={`room-map-severity-btn ${severity === n ? 'active' : ''}`}
-                                style={severity === n ? { background: SEVERITY_COLOR[n], borderColor: SEVERITY_COLOR[n] } : undefined}
-                                onClick={() => setSeverity(n)}
-                                title={SEVERITY_LABELS[n]}
-                            >
-                                {n}
-                            </button>
-                        ))}
-                        <span className="text-xs text-gray-500 ml-2">{SEVERITY_LABELS[severity]}</span>
+                {budRot ? (
+                    <div>
+                        <label className="field-label">Bud rot score</label>
+                        <div className="room-map-score-grid">
+                            {ROT_SCORE_SCALE.map(l => (
+                                <button
+                                    key={l.score}
+                                    type="button"
+                                    className={`room-map-score-btn ${rotScore === l.score ? 'active' : ''}`}
+                                    style={rotScore === l.score ? { borderColor: SEVERITY_COLOR[l.severity], background: `${SEVERITY_COLOR[l.severity]}1A` } : undefined}
+                                    onClick={() => setRotScore(l.score)}
+                                >
+                                    <span className="room-map-score-num" style={{ background: SEVERITY_COLOR[l.severity] }}>{l.score}</span>
+                                    <span className="room-map-score-label">{l.label}</span>
+                                    <span className="room-map-score-meaning">{l.meaning}</span>
+                                </button>
+                            ))}
+                        </div>
                     </div>
-                    {contaminant === 'botrytis' && severity >= 4 && (
-                        <p className="text-[11px] text-red-600 mt-1">Severity 4+ bud rot: the planner will recommend removing the plant rather than moving it.</p>
-                    )}
-                </div>
+                ) : (
+                    <div>
+                        <label className="field-label">Severity</label>
+                        <div className="room-map-severity">
+                            {[1, 2, 3, 4, 5].map(n => (
+                                <button
+                                    key={n}
+                                    type="button"
+                                    className={`room-map-severity-btn ${severity === n ? 'active' : ''}`}
+                                    style={severity === n ? { background: SEVERITY_COLOR[n], borderColor: SEVERITY_COLOR[n] } : undefined}
+                                    onClick={() => setSeverity(n)}
+                                    title={SEVERITY_LABELS[n]}
+                                >
+                                    {n}
+                                </button>
+                            ))}
+                            <span className="text-xs text-gray-500 ml-2">{SEVERITY_LABELS[severity]}</span>
+                        </div>
+                    </div>
+                )}
 
                 <div>
                     <label className="field-label">Observed on</label>

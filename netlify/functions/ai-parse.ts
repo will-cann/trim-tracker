@@ -5,6 +5,7 @@ import { checkRateLimit } from './utils/rateLimit';
 import { withSentry, captureError } from './utils/sentry';
 import { normalizeContaminant } from '../../shared/plantMap/health';
 import { buildHotspotSummary, buildRoomLayout } from './utils/plantMap';
+import { METRIC_DEFINITIONS, METRIC_KEYS, summarizeLatest } from './utils/metrics';
 
 const ANTHROPIC_API_URL = 'https://api.anthropic.com/v1/messages';
 
@@ -208,13 +209,19 @@ async function consumeAnthropicStream(
     };
 }
 
+/** Whole-number grid dimension for create_room / update_room, or undefined when absent/invalid. */
+function gridDim(v: unknown): number | undefined {
+    const n = typeof v === 'number' ? v : typeof v === 'string' ? parseInt(v, 10) : NaN;
+    return Number.isInteger(n) && n >= 1 && n <= 60 ? n : undefined;
+}
+
 const SYSTEM_PROMPT = `You are an AI assistant for a cannabis cultivation and manufacturing application called Trim Tracker. Your job is to parse user input (natural language, voice transcripts, or CSV data) into structured actions for the application.
 
 ## How to use tools
 
 You have access to two kinds of tools:
 
-1. **Read-only lookup tools** (names starting with \`find_\` or \`plan_\`): find_plants, find_packages, find_human_tasks, find_bins, find_extraction_logs, plan_backward. These run server-side and return query results directly to you in the next turn. Use them to resolve fuzzy references, find specific entities, scan inventory, or compute production plans. **These do NOT consume a user action slot — you can call them freely and use the results to reason about what to do next.**
+1. **Read-only lookup tools** (names starting with \`find_\` or \`plan_\`): find_plants, find_packages, find_human_tasks, find_bins, find_extraction_logs, find_hotspots, find_metrics (daily facility metrics and trends), plan_backward. These run server-side and return query results directly to you in the next turn. Use them to resolve fuzzy references, find specific entities, scan inventory, or compute production plans. **These do NOT consume a user action slot — you can call them freely and use the results to reason about what to do next.**
 
 2. **Mutation tools** (everything else): plants, extraction_run, create_harvest, create_human_tasks, etc. These propose actions that the user will review and confirm. You can call multiple mutation tools in one turn; they all appear in the preview card together.
 
@@ -236,6 +243,7 @@ The application can automate these operations:
 - **Harvest Bins**: Physical containers created during the buck & bin phase. Bins hold one strain from one harvest. Lifecycle: curing → ready → in_trim → completed. Bins need regular burping/aeration during curing (the schedule varies by strain and conditions). When ready, bins are sent to the trim team.
 - **Plants (unified tool)**: Use the \`plants\` tool for all plant operations — create plantings, move between rooms, change growth phase, update health, destroy. The tool has a single \`action\` field that discriminates. Plant health is tracked per **(strain, room, entity)** — all plants of the same strain in the same room share one health value and contaminants list, matching how cultivators reason about plant groups. Don't try to express per-plant health; update the group. For scheduled plantings ("next week we're starting 50 Gelato clones"), set \`plannedFor\` on the create action to produce a scheduled human task instead of an immediate commit.
 - **Fuzzy plant references**: The plant map is NOT pushed into context — call \`find_plants\` with a query before acting on any plant reference. Pass (strainName, roomName, phase, contaminants) as filters, then use the returned IDs in a subsequent \`plants\` call. This applies in both interactive and ambient modes.
+- **Room grids from conversation**: "Flower 1 has 4 benches with 8 plants each" / "set up Veg 2 as 3 tables of 12" → \`update_room\` (or \`create_room\`) with layoutRows = benches and layoutCols = positions per bench. Ask for the two numbers if the user wants a room mapped but gives only one. Positions inside the grid are then set on the plant map ("Auto-place by cohort") or with \`place_plants\`.
 - **Plant mapping / bud rot hot spots**: Rooms can have a bench grid (rows × columns) and each plant a cell (row/col, 1-indexed when people say "bench 2, fourth from the left"). Individual observations go through \`plants\` with action=log_issue — one issue key (e.g. botrytis for "bud rot", "grey mold", "mold on the cola"), a severity 1–5 (1 trace, 3 moderate, 5 critical), optional note, and optionally the cell. This is per-PLANT (unlike update_health, which is per group) and feeds the hot-spot map and the move planner, so prefer log_issue whenever the user describes a specific sick plant or a specific spot. Use \`find_hotspots\` to answer "where is the bud rot", "which rooms/strains keep getting PM", or "what should I move" — pass roomId/roomName to get that room's move plan (cull / isolate / relocate / inspect with target cells). Plants are sorted into benches by feed program, flower length and stretch; those live on the strain (Settings → Strains).
 - **Convert to Trim**: Convert a flower harvest allocation or a ready bin into a trim entry for processing.
 - **Strains**: Create new strains or remove existing ones from the system.
@@ -913,6 +921,20 @@ Returns: { windowDays, contaminant, rooms: [...], strains: [...], totals, plan?:
         },
     },
     {
+        name: 'find_metrics',
+        description: `Facility metrics computed daily (metric_snapshots): live plants (total, by phase, by room), average plant health, plants with issues, active issues and new issues (7d) by contaminant, bud rot incidence by strain (90d), open harvests by status, harvests completed and wet weight (30d), flower trimmed (30d), active packages and grams, open/overdue tasks. Use for "how are we trending", "is bud rot getting better", "how many plants did we have last month", "what's our average health this week vs last". Returns the latest value per metric with the change vs \`compareDays\` earlier, plus the daily series for \`days\`.
+
+Returns: { latest: [{ key, dimension, date, value, previous, change, changePct }], series: { key: [{ dimension, date, value }] }, definitions }`,
+        input_schema: {
+            type: 'object' as const,
+            properties: {
+                keys: { type: 'array', items: { type: 'string' }, description: 'Metric keys to return (default: all). e.g. ["plants.live", "health.botrytis_incidence_90d"]' },
+                days: { type: 'number', description: 'Series window in days (default 30).' },
+                compareDays: { type: 'number', description: 'Change is measured against the snapshot this many days earlier (default 7).' },
+            },
+        },
+    },
+    {
         name: 'find_packages',
         description: `Look up packages matching a query. Replaces the pushed packages inventory — call this to check what\'s in stock, find a specific label, or scope mutations to a subset (e.g. "all active Wedding Cake flower packages in Vault 1"). Use the resolved IDs in a subsequent turn when calling update_package / finish_package / delete_package or setting up extraction run inputs.
 
@@ -1371,6 +1393,8 @@ Present results as a clear waterfall: Stage 1 → Stage 2 → ... → Final Outp
                 capacity: { type: 'number', description: 'Plant capacity' },
                 squareFootage: { type: 'number', description: 'Square footage of the room' },
                 notes: { type: 'string', description: 'Optional notes about the room' },
+                layoutRows: { type: 'number', description: 'Plant-map grid rows = number of benches/tables ("4 benches" → 4). 1–60.' },
+                layoutCols: { type: 'number', description: 'Plant-map grid columns = plant positions per bench ("8 across" → 8). 1–60.' },
             },
             required: ['name'],
         },
@@ -1387,6 +1411,8 @@ Present results as a clear waterfall: Stage 1 → Stage 2 → ... → Final Outp
                 capacity: { type: 'number', description: 'New plant capacity' },
                 squareFootage: { type: 'number', description: 'New square footage' },
                 notes: { type: 'string', description: 'New notes' },
+                layoutRows: { type: 'number', description: 'Plant-map grid rows = benches/tables in the room ("Flower 1 has 4 benches" → 4). 1–60.' },
+                layoutCols: { type: 'number', description: 'Plant-map grid columns = positions per bench ("8 plants per bench" → 8). 1–60.' },
             },
             required: ['roomName'],
         },
@@ -2049,10 +2075,20 @@ IMPORTANT: If the user is correcting or updating a previous statement (e.g. "act
 
         // Harvests summary — bin counts kept inline, full bins listing
         // stripped (PR #2). Use the find_bins tool to look up bin details.
-        if (request.context.harvests && request.context.harvests.length > 0) {
-            contextInfo.push(`- Harvests: ${request.context.harvests.map(h => `"${h.batchId}" / ${h.strain} [${h.status}]${h.bins?.length ? ` (${h.bins.length} bins)` : ''} (ID: ${h.id})`).join(', ')}`);
+        // A Metrc-synced facility mirrors every harvest it has ever closed, so
+        // the client can hand us thousands. Push only the open pipeline, capped,
+        // and point the model at the lookup tools for the rest — otherwise the
+        // prompt alone can blow past the context window and the chat never
+        // answers.
+        const MAX_CONTEXT_HARVESTS = 40;
+        const openHarvests = (request.context.harvests ?? []).filter(h => h.status !== 'completed');
+        const completedCount = (request.context.harvests?.length ?? 0) - openHarvests.length;
+        if (openHarvests.length > 0) {
+            const shown = openHarvests.slice(0, MAX_CONTEXT_HARVESTS);
+            const omitted = openHarvests.length - shown.length;
+            contextInfo.push(`- Harvests (open pipeline${omitted > 0 ? `, ${shown.length} of ${openHarvests.length} shown` : ''}): ${shown.map(h => `"${h.batchId}" / ${h.strain} [${h.status}]${h.bins?.length ? ` (${h.bins.length} bins)` : ''} (ID: ${h.id})`).join(', ')}${omitted > 0 ? `; +${omitted} more open harvests not listed` : ''}${completedCount > 0 ? `; ${completedCount} completed harvests not listed` : ''}. For any harvest not listed, ask the user for the batch name or call find_bins.`);
         } else {
-            contextInfo.push(`- Harvests: None`);
+            contextInfo.push(`- Harvests: no open harvests${completedCount > 0 ? ` (${completedCount} completed, not listed)` : ''}`);
         }
 
         // Human tasks full list STRIPPED (PR #2). Call find_human_tasks
@@ -2992,6 +3028,29 @@ IMPORTANT: If the user is correcting or updating a previous statement (e.g. "act
                     });
                 }
 
+                if (name === 'find_metrics') {
+                    const keys = Array.isArray(lookupInput.keys) ? (lookupInput.keys as unknown[]).map(String).filter(k => METRIC_KEYS.includes(k)) : [];
+                    const useKeys = keys.length ? keys : METRIC_KEYS;
+                    const days = typeof lookupInput.days === 'number' && lookupInput.days > 0 ? Math.min(365, Math.round(lookupInput.days)) : 30;
+                    const compareDays = typeof lookupInput.compareDays === 'number' && lookupInput.compareDays > 0 ? Math.min(365, Math.round(lookupInput.compareDays)) : 7;
+                    const { rows } = await sql`
+                        SELECT metric_key, dimension, snapshot_date::text AS snapshot_date, value::float AS value
+                        FROM metric_snapshots
+                        WHERE company_id = ${authContext.companyId}
+                          AND metric_key = ANY(${useKeys}::text[])
+                          AND snapshot_date >= CURRENT_DATE - ${days}::int
+                        ORDER BY snapshot_date ASC
+                    `;
+                    const points = rows.map((r: any) => ({ key: r.metric_key, dimension: r.dimension, date: r.snapshot_date, value: Number(r.value) }));
+                    const series: Record<string, Array<{ dimension: string; date: string; value: number }>> = {};
+                    for (const p of points) (series[p.key] ??= []).push({ dimension: p.dimension, date: p.date, value: p.value });
+                    return lookupOk({
+                        latest: summarizeLatest(points, compareDays),
+                        series,
+                        definitions: METRIC_DEFINITIONS.filter(d => useKeys.includes(d.key)).map(d => ({ key: d.key, label: d.label, kind: d.kind, dimension: d.dimension })),
+                        note: points.length === 0 ? 'No snapshots yet — metrics are computed daily; a director can run "Recompute now" on Reports → Facility metrics.' : undefined,
+                    });
+                }
                 if (name === 'find_hotspots') {
                     const rawC = typeof lookupInput.contaminant === 'string' ? lookupInput.contaminant : 'botrytis';
                     const contaminant = rawC === 'all' ? null : (normalizeContaminant(rawC) ?? 'botrytis');
@@ -3039,6 +3098,7 @@ IMPORTANT: If the user is correcting or updating a previous statement (e.g. "act
         const READONLY_TOOLS = new Set([
             'find_plants',
             'find_hotspots',
+            'find_metrics',
             'find_packages',
             'find_human_tasks',
             'find_bins',
@@ -3155,7 +3215,16 @@ IMPORTANT: If the user is correcting or updating a previous statement (e.g. "act
             if (!apiResponse.ok) {
                 const errText = await apiResponse.text();
                 console.error('Anthropic API error:', apiResponse.status, errText);
-                return { statusCode: 502, body: JSON.stringify({ error: 'AI service error', detail: errText, status: apiResponse.status }) };
+                // Throw so both the streaming (error event) and non-streaming
+                // (500 + detail) paths tell the user what happened. A bare
+                // return here was swallowed by the loop's void signature and
+                // came out as an empty reply.
+                let detail = errText.slice(0, 300);
+                try {
+                    const parsed = JSON.parse(errText);
+                    detail = parsed?.error?.message || detail;
+                } catch { /* keep raw text */ }
+                throw new Error(`AI service error (${apiResponse.status}): ${detail}`);
             }
 
             response = await consumeAnthropicStream(apiResponse, onTextDelta);
@@ -3867,6 +3936,8 @@ IMPORTANT: If the user is correcting or updating a previous statement (e.g. "act
                                 capacity: input.capacity,
                                 squareFootage: input.squareFootage,
                                 notes: input.notes,
+                                layoutRows: gridDim(input.layoutRows),
+                                layoutCols: gridDim(input.layoutCols),
                             },
                         });
                         break;
@@ -3880,6 +3951,8 @@ IMPORTANT: If the user is correcting or updating a previous statement (e.g. "act
                                 capacity: input.capacity,
                                 squareFootage: input.squareFootage,
                                 notes: input.notes,
+                                layoutRows: gridDim(input.layoutRows),
+                                layoutCols: gridDim(input.layoutCols),
                             },
                         });
                         break;

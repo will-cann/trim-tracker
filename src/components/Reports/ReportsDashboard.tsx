@@ -6,6 +6,7 @@ import { MetricCard } from './MetricCard';
 import { ThroughputChart } from './ThroughputChart';
 import { CostMetricsRow } from './CostMetricsRow';
 import { ReportsBuilder } from './ReportsBuilder';
+import { FacilityMetricsPanel } from './FacilityMetricsPanel';
 import { getReportsData, shiftWeek, formatDateRange, type ReportsData, type DateRange } from '../../services/reportsData';
 import { ChevronLeft, ChevronRight, MoreVertical, ChevronUp, BarChart3 } from 'lucide-react';
 import { PageSkeleton } from '../Skeleton';
@@ -158,6 +159,8 @@ export const ReportsDashboard: React.FC = () => {
                 density="compact"
                 actions={dateRangeNav}
             />
+
+            <FacilityMetricsPanel />
 
             {/* Tab content */}
             {activeTab === 'dashboards' ? <ReportsBuilder /> : renderTrimPerformance()}

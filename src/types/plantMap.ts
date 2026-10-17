@@ -27,6 +27,8 @@ export type { Cohort, CohortSortKey, CohortPlantInput, Placement, ProposedLayout
 export { buildCohorts, comparePlantsByTraits, proposeLayout, DEFAULT_COHORT_ORDER } from '../../shared/plantMap/cohorts';
 export type { MoveSuggestion, MovePlan, SuggestionKind, SuggestionPriority, CellRef } from '../../shared/plantMap/movePlanner';
 export { floweringWeek, planMoves } from '../../shared/plantMap/movePlanner';
+export type { ParsedRoomSheet, SheetTable, SheetScore, SheetGrid } from '../../shared/plantMap/roomSheet';
+export { parseRoomWorkbook, ROT_SCORE_SCALE, rotScoreToSeverity, severityToRotScore, rotScoreLabel } from '../../shared/plantMap/roomSheet';
 
 export type PlantPhase = 'nursery' | 'vegetative' | 'flowering';
 
@@ -212,8 +214,27 @@ export type PlantHealthEvent = {
   growthPhase: string | null;
   floweringDay: number | null;
   status: 'active' | 'resolved';
+  /** Operator's bud-rot scale (0.5–3) when the event was scored that way. */
+  rotScore: number | null;
+  source: 'app' | 'ai' | 'sheet';
   observedAt: string;
   resolvedAt: string | null;
+};
+
+/** A tray of plants on one grid cell (rooms tracked at table granularity). */
+export type RoomTable = {
+  id: string;
+  row: number;
+  col: number;
+  section: string | null;
+  strains: Array<{ strain: string; count: number | null }>;
+  plantCount: number;
+};
+
+export type RoomLayoutMeta = {
+  sections?: Array<{ name: string; rowStart: number; rowCount: number }>;
+  colStartLabel?: string | null;
+  colEndLabel?: string | null;
 };
 
 export type RoomLayout = {
@@ -224,8 +245,10 @@ export type RoomLayout = {
     capacity: number | null;
     layoutRows: number | null;
     layoutCols: number | null;
+    layoutMeta: RoomLayoutMeta | null;
   };
   plants: MapPlant[];
+  tables: RoomTable[];
   events: PlantHealthEvent[];
   /** Risk surface over every spreading contaminant, all history. */
   cells: CellScore[];

@@ -29,16 +29,32 @@ export function serializeEvent(e: any) {
         growthPhase: e.growth_phase ?? null,
         floweringDay: e.flowering_day ?? null,
         status: e.status,
+        rotScore: e.rot_score != null ? Number(e.rot_score) : null,
+        source: e.source ?? 'app',
         observedAt: toIso(e.observed_at),
         resolvedAt: e.resolved_at ? toIso(e.resolved_at) : null,
     };
 }
 
+export interface RoomTableRow {
+    id: string;
+    row: number;
+    col: number;
+    section: string | null;
+    strains: Array<{ strain: string; count: number | null }>;
+    plantCount: number;
+}
+
 export type ActiveIssue = { contaminant: string; severity: number; observedAt: string };
 
 export interface RoomLayoutData {
-    room: { id: string; name: string; roomType: string | null; capacity: number | null; layoutRows: number | null; layoutCols: number | null };
+    room: {
+        id: string; name: string; roomType: string | null; capacity: number | null; layoutRows: number | null; layoutCols: number | null;
+        layoutMeta: { sections?: Array<{ name: string; rowStart: number; rowCount: number }>; colStartLabel?: string | null; colEndLabel?: string | null } | null;
+    };
     plants: any[];
+    /** Table-granularity occupancy (from room sheets); empty when plants are placed 1:1. */
+    tables: RoomTableRow[];
     events: any[];
     cells: ReturnType<typeof scoreHotspots>['cells'];
     plan: MovePlan;
@@ -48,12 +64,19 @@ export interface RoomLayoutData {
 /** Room grid + plants + event history + hot-spot surface + move plan. Returns null when the room isn't the company's. */
 export async function buildRoomLayout(companyId: string, roomId: string): Promise<RoomLayoutData | null> {
     const { rows: roomRows } = await sql`
-        SELECT id, name, room_type, capacity, layout_rows, layout_cols
+        SELECT id, name, room_type, capacity, layout_rows, layout_cols, layout_meta
         FROM rooms
         WHERE id = ${roomId}::uuid AND company_id = ${companyId}
     `;
     const room = roomRows[0];
     if (!room) return null;
+
+    const { rows: tableRows } = await sql`
+        SELECT id, position_row, position_col, section, strains, plant_count
+        FROM room_tables
+        WHERE company_id = ${companyId} AND room_id = ${roomId}::uuid
+        ORDER BY position_row, position_col
+    `;
 
     // Sibling rooms of the same type that have a grid — candidate destinations.
     const { rows: siblingRows } = await sql`
@@ -88,7 +111,7 @@ export async function buildRoomLayout(companyId: string, roomId: string): Promis
         SELECT
             e.id, e.plant_id, e.plant_label, e.strain_name, e.room_id, e.room_name,
             e.position_row, e.position_col, e.contaminant, e.severity, e.note,
-            e.growth_phase, e.flowering_day, e.status,
+            e.growth_phase, e.flowering_day, e.status, e.rot_score, e.source,
             e.observed_at, e.resolved_at
         FROM plant_health_events e
         WHERE e.company_id = ${companyId}
@@ -156,7 +179,16 @@ export async function buildRoomLayout(companyId: string, roomId: string): Promis
             capacity: room.capacity ?? null,
             layoutRows: room.layout_rows ?? null,
             layoutCols: room.layout_cols ?? null,
+            layoutMeta: room.layout_meta ?? null,
         },
+        tables: tableRows.map((t: any) => ({
+            id: t.id,
+            row: t.position_row,
+            col: t.position_col,
+            section: t.section ?? null,
+            strains: Array.isArray(t.strains) ? t.strains : [],
+            plantCount: t.plant_count ?? 0,
+        })),
         plants: plantRows.filter((p: any) => p.room_id === room.id).map((p: any) => ({
             id: p.id,
             label: p.label,
