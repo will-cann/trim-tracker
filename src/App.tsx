@@ -40,7 +40,7 @@ const VIEW_SCREEN_CONTEXT: Record<ViewType, string> = {
   'harvests': 'Harvest Tracker — managing harvest records, wet weights, drying locations, and allocations',
   'settings': 'Settings — managing licenses, strains, and app configuration',
   'tasks': 'Tasks Panel — viewing and managing human tasks and operational to-dos',
-  'plant-map': 'Plant Map — viewing rooms, plants by growth phase (veg, flower, dry, cure), and plant locations. Operations here involve moving plants between rooms, updating plant health, and managing room assignments',
+  'plant-map': 'Plant Map — viewing rooms, plants by growth phase (veg, flower, dry, cure), and plant locations, including the room grid map with bud-rot hot spots and the move planner. Operations here involve moving plants between rooms or cells, logging per-plant issues (plants action=log_issue), updating plant health, and managing room assignments',
   'harvest-day': 'Harvest Day Cockpit — active harvest session with plant weighing, allocation, fresh frozen packaging, and batch submission',
   'packages': 'Package Inventory — managing packaged product (flower, trim, shake) with weights, lab testing status, and compliance tracking',
   'extractions': 'Extraction Log — viewing processing history: ice water washes, rosin presses, cart fills with yield tracking',

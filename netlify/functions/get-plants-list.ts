@@ -73,9 +73,13 @@ export const handler: Handler = async (event) => {
                         MIN(p.planted_date)::text AS planted_date,
                         MIN(p.vegetative_date)::text AS vegetative_date,
                         MIN(p.flowering_date)::text AS flowering_date,
-                        MIN(p.target_harvest_date)::text AS target_harvest_date
+                        MIN(p.target_harvest_date)::text AS target_harvest_date,
+                        MIN(s.feed_profile) AS feed_profile,
+                        MIN(s.default_flowering_days) AS default_flowering_days,
+                        MIN(s.stretch_trait) AS stretch_trait
                     FROM plants p
                     LEFT JOIN rooms r ON r.id = p.room_id
+                    LEFT JOIN strains s ON s.company_id = p.company_id AND LOWER(s.name) = LOWER(p.strain_name)
                     WHERE p.company_id = ${context.companyId}
                       AND p.growth_phase = ANY(${plantPhases}::text[])
                       AND (${roomsArg}::text[] IS NULL OR r.name = ANY(${roomsArg}::text[]))
@@ -99,6 +103,11 @@ export const handler: Handler = async (event) => {
                     target_harvest_date: r.target_harvest_date,
                     tag_number: null,
                     batch_count: r.batch_count,
+                    position_row: null,
+                    position_col: null,
+                    feed_profile: r.feed_profile,
+                    default_flowering_days: r.default_flowering_days,
+                    stretch_trait: r.stretch_trait,
                     created_at: null,
                 }));
                 plantTotal = plantRows.length;
@@ -118,10 +127,16 @@ export const handler: Handler = async (event) => {
                             p.flowering_date::text,
                             p.target_harvest_date::text,
                             t.tag_number,
+                            p.position_row,
+                            p.position_col,
+                            s.feed_profile,
+                            s.default_flowering_days,
+                            s.stretch_trait,
                             p.created_at
                         FROM plants p
                         LEFT JOIN rooms r ON r.id = p.room_id
                         LEFT JOIN tags t ON t.assigned_to_plant_id = p.id AND t.status = 'assigned'
+                        LEFT JOIN strains s ON s.company_id = p.company_id AND LOWER(s.name) = LOWER(p.strain_name)
                         WHERE p.company_id = ${context.companyId}
                           AND p.growth_phase = ANY(${plantPhases}::text[])
                           AND (${roomsArg}::text[] IS NULL OR r.name = ANY(${roomsArg}::text[]))
@@ -164,9 +179,15 @@ export const handler: Handler = async (event) => {
                     NULL::text AS target_harvest_date,
                     NULL::text AS tag_number,
                     (pb.untracked_count + pb.tracked_count) AS batch_count,
+                    NULL::int AS position_row,
+                    NULL::int AS position_col,
+                    s.feed_profile,
+                    s.default_flowering_days,
+                    s.stretch_trait,
                     pb.created_at
                 FROM plant_batches pb
                 LEFT JOIN rooms r ON r.id = pb.room_id
+                LEFT JOIN strains s ON s.company_id = pb.company_id AND LOWER(s.name) = LOWER(pb.strain_name)
                 WHERE pb.company_id = ${context.companyId}
                   AND (pb.untracked_count + pb.tracked_count) > 0
                   AND (${roomsArg}::text[] IS NULL OR r.name = ANY(${roomsArg}::text[]))
@@ -193,6 +214,11 @@ export const handler: Handler = async (event) => {
             targetHarvestDate: r.target_harvest_date,
             tagNumber: r.tag_number,
             batchCount: r.batch_count ?? null,
+            row: r.position_row ?? null,
+            col: r.position_col ?? null,
+            feedProfile: r.feed_profile || null,
+            floweringDays: r.default_flowering_days || null,
+            stretchTrait: r.stretch_trait || null,
             createdAt: r.created_at,
         });
 

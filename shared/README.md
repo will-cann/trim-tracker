@@ -11,3 +11,4 @@ Rules, so every consumer can import them:
 |------|---------|
 | `growth/demoRequest.ts` | `src/lib/demoRequest.ts`, `src/components/public/DemoRequestPage.tsx`, `growth/src/demoRequest.ts` |
 | `manifest/t3.ts` | `src/manifest/lib/t3api.ts`, `src/manifest/lib/reconcile.ts`, `netlify/functions/t3-*.ts`, `netlify/functions/utils/t3*.ts` |
+| `plantMap/*` | `src/types/plantMap.ts` (re-exports), `src/components/PlantMap/*`, `netlify/functions/utils/plantMap.ts`, `netlify/functions/plant-health-events.ts`, `netlify/functions/ai-parse.ts` |

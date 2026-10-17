@@ -523,6 +523,44 @@ export async function executeAction(action: ProposedAction): Promise<ActionOutco
             await apiService.updateExtractionRun(d.runId, { status: 'cancelled' });
             return OK(`Cancelled run "${d.runName || d.runId}"`);
         }
+        case 'log_plant_health_event': {
+            // Per-plant observation with severity and location. Resolve the
+            // group fuzzily (strain + room) when the AI didn't pass IDs.
+            let plantIds = action.data.plantIds as string[];
+            if (!plantIds?.length && (action.data.strain || action.data.roomName)) {
+                const resolved = await resolvePlantIds(action.data.strain, action.data.roomName);
+                if (resolved && resolved.entityType === 'plants') plantIds = resolved.plantIds;
+            }
+            if (!plantIds?.length) return SKIPPED('no plants found');
+            if (!action.data.contaminant) return SKIPPED('no issue named');
+            const res = await apiService.logPlantHealthEvent({
+                plantIds,
+                contaminant: action.data.contaminant,
+                severity: action.data.severity,
+                note: action.data.note,
+                observedAt: action.data.observedAt,
+                row: action.data.row,
+                col: action.data.col,
+            });
+            return OK(`Logged ${action.data.contaminant.replace(/_/g, ' ')} on ${res.affected} plant${res.affected === 1 ? '' : 's'}`);
+        }
+        case 'place_plants': {
+            // Grid placement (from the move planner's tasks or the AI).
+            const placements = action.data.placements as Array<{ plantId: string; row: number; col: number }>;
+            if (!placements?.length) return SKIPPED('no placements');
+            let roomId = action.data.roomId as string | undefined;
+            if (!roomId && action.data.roomName) {
+                const allRooms = await apiService.getRooms();
+                roomId = (allRooms.find((r: any) => r.name.toLowerCase() === String(action.data.roomName).toLowerCase()) as any)?.id;
+            }
+            if (!roomId) return SKIPPED('room not found');
+            const res = await apiService.setPlantPositions({ roomId, placements });
+            return OK(`Placed ${res.placed} plant${res.placed === 1 ? '' : 's'}${action.data.roomName ? ` in ${action.data.roomName}` : ''}`);
+        }
+        case 'find_hotspots_result': {
+            const d = action.data as { totals?: { active?: number } };
+            return OK(`Checked hot spots — ${d.totals?.active ?? 0} active`);
+        }
         case 'find_plants_result': {
             // Stub action emitted by the find_plants tool in PR #1. The
             // frontend doesn't execute anything — it just surfaces the

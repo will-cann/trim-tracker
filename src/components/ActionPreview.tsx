@@ -43,6 +43,9 @@ const ACTION_CONFIG: Record<string, { icon: typeof Package; label: string; color
     change_plant_phase: { icon: TrendingUp, label: 'Change Phase', color: 'text-blue-600', bgColor: 'bg-blue-50' },
     destroy_plants: { icon: Skull, label: 'Destroy Plants', color: 'text-red-600', bgColor: 'bg-red-50' },
     update_plant_health: { icon: Sprout, label: 'Update Health', color: 'text-emerald-600', bgColor: 'bg-emerald-50' },
+    log_plant_health_event: { icon: Sprout, label: 'Log Plant Issue', color: 'text-amber-600', bgColor: 'bg-amber-50' },
+    place_plants: { icon: MoveRight, label: 'Place Plants', color: 'text-blue-600', bgColor: 'bg-blue-50' },
+    find_hotspots_result: { icon: Sprout, label: 'Hot Spots', color: 'text-amber-600', bgColor: 'bg-amber-50' },
     // Strain & license
     create_strain: { icon: Leaf, label: 'Add Strain', color: 'text-emerald-600', bgColor: 'bg-emerald-50' },
     update_strain: { icon: Leaf, label: 'Update Strain', color: 'text-blue-600', bgColor: 'bg-blue-50' },
@@ -223,6 +226,8 @@ const KEY_FIELDS: Record<string, string[]> = {
     change_plant_phase: ['strain', 'targetPhase', 'targetRoomName'],
     destroy_plants: ['strain', 'roomName'],
     update_plant_health: ['strain', 'roomName'],
+    log_plant_health_event: ['strain', 'roomName', 'contaminant', 'severity', 'note'],
+    place_plants: ['roomName'],
     create_strain: ['name', 'phenotype', 'terpeneTags'],
     update_strain: ['strainName', 'phenotype', 'terpeneTags'],
     delete_strain: ['strainName'],

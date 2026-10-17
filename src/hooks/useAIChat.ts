@@ -382,6 +382,10 @@ export const useAIChat = ({
                         return { type: action.type, label: 'Planting created', summary: [d.strainName, d.count && `${d.count} plants`].filter(Boolean).join(' · '), navigateTo: 'plant-map' as const };
                     case 'move_plants':
                         return { type: action.type, label: 'Plants moved', summary: [d.strain, d.targetRoomName].filter(Boolean).join(' → '), navigateTo: 'plant-map' as const };
+                    case 'log_plant_health_event':
+                        return { type: action.type, label: 'Plant issue logged', summary: [d.contaminant?.replace(/_/g, ' '), d.strain, d.severity && `severity ${d.severity}/5`].filter(Boolean).join(' · '), navigateTo: 'plant-map' as const };
+                    case 'place_plants':
+                        return { type: action.type, label: 'Plants placed', summary: [d.roomName, d.placements?.length && `${d.placements.length} cells`].filter(Boolean).join(' · '), navigateTo: 'plant-map' as const };
                     case 'change_plant_phase':
                         return { type: action.type, label: 'Phase changed', summary: [d.strain, d.targetPhase].filter(Boolean).join(' → '), navigateTo: 'plant-map' as const };
                     case 'destroy_plants':
