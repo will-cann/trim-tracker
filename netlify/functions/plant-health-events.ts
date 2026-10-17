@@ -2,15 +2,20 @@ import { Handler } from '@netlify/functions';
 import { sql } from './utils/db';
 import { resolveContext, authorize } from './utils/auth';
 import { CONTAMINANT_MAP, normalizeContaminant, clampSeverity, computeHealthFromIssues } from '../../shared/plantMap/health';
+import { rotScoreToSeverity, rotScoreLabel } from '../../shared/plantMap/roomSheet';
 import { serializeEvent } from './utils/plantMap';
 
 /**
  * Plant health event log.
  *
- *   POST  { plantIds: string[], contaminant, severity?, note?, observedAt?, row?, col? }
+ *   POST  { plantIds: string[], contaminant, severity?, rotScore?, note?, observedAt?, row?, col? }
  *         Logs one event per plant, snapshotting the plant's room and cell at
  *         observation time, and adds the contaminant to the plant's current
  *         state (plants.contaminants + recomputed plant_health).
+ *         Or, for a table-granularity room (no plant ids):
+ *         { roomId, row, col, strainName?, contaminant, severity?, rotScore?, note?, observedAt? }
+ *         Logs one cell-level event. rotScore (0.5–3, the operator's bud-rot
+ *         scale) sets severity when given.
  *   PATCH { eventIds?: string[], plantIds?: string[], contaminant?: string }
  *         Resolves matching active events. When a plant has no more active
  *         events for a contaminant, it's removed from plants.contaminants.
@@ -36,7 +41,7 @@ export const handler: Handler = async (event) => {
             const { rows } = await sql`
                 SELECT e.id, e.plant_id, e.plant_label, e.strain_name, e.room_id, e.room_name,
                        e.position_row, e.position_col, e.contaminant, e.severity, e.note,
-                       e.growth_phase, e.flowering_day, e.status, e.observed_at, e.resolved_at
+                       e.growth_phase, e.flowering_day, e.status, e.rot_score, e.source, e.observed_at, e.resolved_at
                 FROM plant_health_events e
                 WHERE e.company_id = ${context.companyId}
                   AND (${roomId}::uuid IS NULL OR e.room_id = ${roomId}::uuid)
@@ -56,21 +61,55 @@ export const handler: Handler = async (event) => {
         if (event.httpMethod === 'POST') {
             const body = JSON.parse(event.body || '{}');
             const plantIds: string[] = Array.isArray(body.plantIds) ? body.plantIds.filter((x: unknown) => typeof x === 'string') : [];
-            if (plantIds.length === 0) {
-                return json(400, { error: 'plantIds is required.' });
+            const cellMode = plantIds.length === 0 && typeof body.roomId === 'string' && Number.isInteger(body.row) && Number.isInteger(body.col);
+            if (plantIds.length === 0 && !cellMode) {
+                return json(400, { error: 'plantIds is required (or roomId + row + col for a table cell).' });
             }
             const contaminant = typeof body.contaminant === 'string' ? normalizeContaminant(body.contaminant) : null;
             if (!contaminant) {
                 return json(400, { error: `Unknown contaminant. Use one of: ${Object.keys(CONTAMINANT_MAP).join(', ')}` });
             }
-            const severity = clampSeverity(body.severity);
-            const note = typeof body.note === 'string' && body.note.trim() ? body.note.trim() : null;
+            const rotScore = typeof body.rotScore === 'number' && body.rotScore > 0 && body.rotScore <= 3 ? Math.round(body.rotScore * 2) / 2 : null;
+            const severity = rotScore != null ? rotScoreToSeverity(rotScore) : clampSeverity(body.severity);
+            const rawNote = typeof body.note === 'string' && body.note.trim() ? body.note.trim() : null;
+            const note = rotScore != null && contaminant === 'botrytis'
+                ? [`Score ${rotScore} — ${rotScoreLabel(rotScore)}`, rawNote].filter(Boolean).join('. ')
+                : rawNote;
+            const source = body.source === 'ai' ? 'ai' : 'app';
             const observedAt = typeof body.observedAt === 'string' && Number.isFinite(Date.parse(body.observedAt))
                 ? new Date(body.observedAt).toISOString()
                 : new Date().toISOString();
             // Optional explicit cell (e.g. the issue was spotted on an unplaced plant at a known bench spot).
             const overrideRow = Number.isInteger(body.row) ? body.row : null;
             const overrideCol = Number.isInteger(body.col) ? body.col : null;
+
+            if (cellMode) {
+                const { rows: roomRows } = await sql`
+                    SELECT r.id, r.name, t.strains
+                    FROM rooms r
+                    LEFT JOIN room_tables t ON t.room_id = r.id AND t.position_row = ${body.row} AND t.position_col = ${body.col}
+                    WHERE r.id = ${body.roomId}::uuid AND r.company_id = ${context.companyId}
+                `;
+                const room = roomRows[0];
+                if (!room) return json(404, { error: 'Room not found.' });
+                const tableStrains: Array<{ strain: string }> = Array.isArray(room.strains) ? room.strains : [];
+                const strainName = typeof body.strainName === 'string' && body.strainName.trim() ? body.strainName.trim() : (tableStrains[0]?.strain ?? null);
+                const label = tableStrains.length ? `${tableStrains.map(s => s.strain).join('/')} table` : `R${body.row + 1}·${body.col + 1}`;
+                const { rows: inserted } = await sql`
+                    INSERT INTO plant_health_events (
+                        company_id, plant_id, plant_label, strain_name, room_id, room_name,
+                        position_row, position_col, contaminant, severity, rot_score, note,
+                        growth_phase, status, observed_at, source, reported_by
+                    ) VALUES (
+                        ${context.companyId}, NULL, ${label}, ${strainName}, ${room.id}::uuid, ${room.name},
+                        ${body.row}, ${body.col}, ${contaminant}, ${severity}, ${rotScore}, ${note},
+                        'flowering', 'active', ${observedAt}::timestamptz, ${source},
+                        (SELECT id FROM users WHERE id = ${context.userId}::uuid)
+                    )
+                    RETURNING *
+                `;
+                return json(201, { success: true, created: [serializeEvent(inserted[0])], affected: 1 });
+            }
 
             const { rows: plants } = await sql`
                 SELECT p.id, p.label, p.strain_name, p.room_id, r.name AS room_name,
@@ -94,12 +133,12 @@ export const handler: Handler = async (event) => {
                 const { rows: inserted } = await sql`
                     INSERT INTO plant_health_events (
                         company_id, plant_id, plant_label, strain_name, room_id, room_name,
-                        position_row, position_col, contaminant, severity, note,
-                        growth_phase, flowering_day, status, observed_at, reported_by
+                        position_row, position_col, contaminant, severity, rot_score, note,
+                        growth_phase, flowering_day, status, observed_at, source, reported_by
                     ) VALUES (
                         ${context.companyId}, ${p.id}::uuid, ${p.label}, ${p.strain_name}, ${p.room_id}::uuid, ${p.room_name ?? null},
-                        ${row}, ${col}, ${contaminant}, ${severity}, ${note},
-                        ${p.growth_phase}, ${floweringDay}, 'active', ${observedAt}::timestamptz,
+                        ${row}, ${col}, ${contaminant}, ${severity}, ${rotScore}, ${note},
+                        ${p.growth_phase}, ${floweringDay}, 'active', ${observedAt}::timestamptz, ${source},
                         (SELECT id FROM users WHERE id = ${context.userId}::uuid)
                     )
                     RETURNING *

@@ -16437,3 +16437,16 @@ select.settings-inline-input {
 .facility-metrics-dims { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 12px; margin-top: 14px; }
 .facility-metrics-dim { border: 1px solid #f3f4f6; border-radius: 6px; padding: 8px 10px; }
 .facility-metrics-dim-title { font-size: 0.6875rem; font-weight: 600; color: #374151; margin-bottom: 4px; }
+
+/* ── Plant map: tables, sections, axis, rot score picker ───────────────────── */
+.room-map-section { font-size: 0.625rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: #6b7280; padding: 6px 0 2px; border-bottom: 1px solid #f3f4f6; margin-top: 4px; }
+.room-map-axis { display: flex; align-items: center; gap: 8px; font-size: 0.625rem; color: #9ca3af; text-transform: uppercase; letter-spacing: 0.06em; }
+.room-map-axis-line { flex: 1; height: 1px; background: linear-gradient(90deg, #d1d5db, #e5e7eb, #d1d5db); }
+.room-map-table { background: rgba(255,255,255,0.96); }
+.room-map-table .room-map-plant-label { font-size: 0.6875rem; }
+.room-map-score-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.room-map-score-btn { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; text-align: left; border: 1px solid #e5e7eb; border-radius: 6px; padding: 8px; background: white; cursor: pointer; }
+.room-map-score-btn:hover { border-color: #d1d5db; }
+.room-map-score-num { color: white; font-size: 0.6875rem; font-weight: 700; border-radius: 4px; padding: 1px 6px; }
+.room-map-score-label { font-size: 0.75rem; font-weight: 600; color: #111827; }
+.room-map-score-meaning { font-size: 0.625rem; color: #6b7280; line-height: 1.3; }

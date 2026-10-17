@@ -3,14 +3,15 @@
  * shows hot-spot cells and the planner's suggestions, and turns a
  * suggestion into a human task with a place_plants onCompleteAction.
  */
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { render, screen, fireEvent, waitFor, cleanup } from '@testing-library/react';
 import type { RoomLayout, HotspotSummary } from '../../../types/plantMap';
 import { scoreHotspots, planMoves } from '../../../types/plantMap';
 
 const mocks = vi.hoisted(() => ({
     getRoomLayout: vi.fn(),
     getHotspots: vi.fn(),
+    importRoomSheet: vi.fn(),
     setPlantPositions: vi.fn(),
     createTask: vi.fn(),
     createTasks: vi.fn(),
@@ -31,7 +32,7 @@ function buildLayout(): RoomLayout {
     const rows = 2, cols = 4;
     const events = [
         { id: 'e1', plantId: 'p1', plantLabel: 'WC-F-001', strainName: 'Wedding Cake', roomId: 'r1', roomName: 'Flower 1', row: 0, col: 0,
-          contaminant: 'botrytis', severity: 3, note: null, growthPhase: 'flowering', floweringDay: 45, status: 'active' as const, observedAt: daysAgo(1), resolvedAt: null },
+          contaminant: 'botrytis', severity: 3, note: null, growthPhase: 'flowering', floweringDay: 45, status: 'active' as const, rotScore: null, source: 'app' as const, observedAt: daysAgo(1), resolvedAt: null },
     ];
     const plants = [
         { id: 'p1', label: 'WC-F-001', strainName: 'Wedding Cake', growthPhase: 'flowering' as const, row: 0, col: 0, plantHealth: 70, contaminants: ['botrytis'],
@@ -48,8 +49,8 @@ function buildLayout(): RoomLayout {
         floweringDays: p.floweringDays, stretchTrait: p.stretchTrait, feedProfile: p.feedProfile, activeIssues: p.activeIssues.map(i => ({ contaminant: i.contaminant, severity: i.severity })),
     })) }, { now: NOW });
     return {
-        room: { id: 'r1', name: 'Flower 1', roomType: 'flower', capacity: 8, layoutRows: rows, layoutCols: cols },
-        plants, events, cells, plan, otherRooms: [],
+        room: { id: 'r1', name: 'Flower 1', roomType: 'flower', capacity: 8, layoutRows: rows, layoutCols: cols, layoutMeta: null },
+        plants, tables: [], events, cells, plan, otherRooms: [],
     };
 }
 
@@ -59,6 +60,9 @@ const hotspots: HotspotSummary = {
     strains: [{ strainName: 'Wedding Cake', events: 1, activeEvents: 1, plantsAffected: 1, plantsFlowered: 4, incidence: 0.25 }],
     totals: { active: 1, inWindow: 1, plantsWithActive: 1 },
 };
+
+// vitest runs without globals here, so testing-library doesn't auto-unmount between tests.
+afterEach(cleanup);
 
 beforeEach(() => {
     vi.clearAllMocks();
@@ -131,5 +135,38 @@ describe('suggestionToTask', () => {
         expect(task.category).toBe('ipm');
         expect(task.priority).toBe('urgent');
         expect(task.onCompleteAction?.type).toBe('destroy_plants');
+    });
+});
+
+describe('RoomLayoutView with a table-granularity room', () => {
+    it('renders table chips with their rot score and scores a table through the cell endpoint', async () => {
+        const base = buildLayout();
+        mocks.getRoomLayout.mockResolvedValue({
+            ...base,
+            room: { ...base.room, layoutRows: 2, layoutCols: 3, layoutMeta: { sections: [{ name: 'Upper Deck', rowStart: 0, rowCount: 1 }, { name: 'Lower Deck', rowStart: 1, rowCount: 1 }], colStartLabel: 'East', colEndLabel: 'West' } },
+            plants: [],
+            tables: [
+                { id: 't1', row: 0, col: 0, section: 'Upper Deck', strains: [{ strain: 'GSB4', count: 7 }, { strain: 'ARS20', count: 7 }], plantCount: 14 },
+                { id: 't2', row: 1, col: 2, section: 'Lower Deck', strains: [{ strain: 'BDZ', count: null }], plantCount: 12 },
+            ],
+            events: [{ id: 'e9', plantId: null, plantLabel: 'BDZ table', strainName: 'BDZ', roomId: 'r1', roomName: 'Flower 1', row: 1, col: 2, contaminant: 'botrytis', severity: 2, note: 'Score 1 — Needs QC', growthPhase: 'flowering', floweringDay: null, status: 'active', rotScore: 1, source: 'sheet', observedAt: daysAgo(1), resolvedAt: null }],
+            plan: { roomId: 'r1', suggestions: [], avoidCells: [], summary: { plantsWithActiveSpread: 0, plantsAtRisk: 0, emptySafeCells: 4, emptyHotCells: 0 } },
+        });
+        mocks.logPlantHealthEvent.mockResolvedValue({ success: true, created: [], affected: 1 });
+        render(<RoomLayoutView rooms={rooms} onChanged={() => undefined} />);
+        expect(await screen.findByText('GSB4 7 / ARS20 7')).toBeTruthy();
+        expect(screen.getByText('Upper Deck')).toBeTruthy();
+        expect(screen.getByText('BR 1')).toBeTruthy();
+        // Select the BDZ table and score it.
+        fireEvent.click(screen.getByText('BDZ'));
+        fireEvent.click(screen.getByText('Score table'));
+        // Title of the modal plus the panel's own button carry the same words.
+        expect((await screen.findAllByText('Score this table')).length).toBeGreaterThanOrEqual(2);
+        fireEvent.click(screen.getByText('Freeze tops'));
+        fireEvent.click(screen.getByText('Log score'));
+        await waitFor(() => expect(mocks.logPlantHealthEvent).toHaveBeenCalled());
+        const arg = mocks.logPlantHealthEvent.mock.calls[0][0];
+        expect(arg).toMatchObject({ roomId: 'r1', row: 1, col: 2, strainName: 'BDZ', contaminant: 'botrytis', rotScore: 2, severity: 4 });
+        expect(arg.plantIds).toBeUndefined();
     });
 });
