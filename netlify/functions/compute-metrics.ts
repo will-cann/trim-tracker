@@ -1,19 +1,19 @@
 import type { Handler } from '@netlify/functions';
-import { sql } from './utils/db';
 import { resolveContext, authorize } from './utils/auth';
 import { runMetricsForCompany, shiftDate, todayIso } from './utils/metrics';
 
 /**
- * Computes the facility metric snapshots.
+ * Manual recompute of the facility metric snapshots for the caller's company.
  *
- * Scheduled (netlify.toml, daily): no Authorization header. Runs every
- * company for today's date. Returns only counts.
+ * POST with a Bearer token (director+). Body { date?, backfillDays? }
+ * recomputes one day (today by default), or `date` and the N days before it
+ * when backfillDays is set. One request is capped at 14 days so it stays
+ * inside the function time limit; the Reports page backfills a longer range
+ * as a series of requests.
  *
- * Manual: POST with a Bearer token (director+). Body { date?, backfillDays? }
- * recomputes the caller's company for one day, or for `date` and the N days
- * before it when backfillDays is set. One request is capped at 14 days so
- * it stays inside the function time limit; the Reports page backfills a
- * longer range as a series of requests.
+ * The nightly run for every company is cron-compute-metrics.ts. It must be a
+ * separate function: Netlify answers HTTP calls to a scheduled function with
+ * an empty 403, so this one is deliberately not on a schedule.
  */
 const MAX_BACKFILL_DAYS_PER_REQUEST = 14;
 
@@ -22,32 +22,11 @@ export const handler: Handler = async (event) => {
         return { statusCode: 405, body: 'Method Not Allowed' };
     }
 
-    const hasAuth = !!event.headers.authorization;
     try {
-        if (!hasAuth) {
-            // Scheduled invocation.
-            const asOf = todayIso();
-            const { rows: companies } = await sql`SELECT id FROM companies`;
-            let written = 0;
-            let failed = 0;
-            for (const c of companies) {
-                try {
-                    const r = await runMetricsForCompany(c.id, asOf, 'schedule');
-                    written += r.written;
-                    if (r.failures.length) failed++;
-                } catch (err) {
-                    failed++;
-                    console.error('[compute-metrics] company failed', c.id, err);
-                }
-            }
-            console.log(`[compute-metrics] ${asOf}: ${companies.length} companies, ${written} rows, ${failed} with failures`);
-            return json(200, { ok: true, date: asOf, companies: companies.length, written, failed });
-        }
-
         const context = await resolveContext(event.headers.authorization);
         if (!context) return json(401, { error: 'Unauthorized' });
         const denied = authorize(context, 'director');
-        if (denied) return denied;
+        if (denied) return json(403, { error: 'Only directors and admins can recompute metrics', detail: `Your role is ${context.role}.` });
 
         const body = JSON.parse(event.body || '{}');
         const today = todayIso();

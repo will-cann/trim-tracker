@@ -104,7 +104,7 @@ export function formatDateRange(range: DateRange): string {
 }
 
 export async function getReportsData(dateRange?: DateRange): Promise<ReportsData> {
-    const allSessions = await apiService.getCompletedSessions();
+    const allSessions = await apiService.getCompletedSessionsStrict();
 
     // Determine the full available range from all sessions
     let availableRange: DateRange | null = null;

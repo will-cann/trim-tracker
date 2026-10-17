@@ -32,8 +32,10 @@
   schedule = "0 14 * * *"
 
 # Facility metrics snapshots (metric_snapshots): one row per company × metric × day.
-# Daily at 05:20 UTC; Reports → Facility metrics can also recompute/backfill on demand.
-[functions."compute-metrics"]
+# Daily at 05:20 UTC. The on-demand "Recompute now" / backfill from Reports → Facility
+# metrics is a separate HTTP function (compute-metrics): Netlify returns an empty 403
+# for direct calls to a scheduled function, so the two must not share a name.
+[functions."cron-compute-metrics"]
   schedule = "20 5 * * *"
 
 # Metrc → NeuroCann sync via T3 (docs/metrc-sync.md). The cron only queues a run and

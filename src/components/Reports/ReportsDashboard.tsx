@@ -12,6 +12,7 @@ import { ChevronLeft, ChevronRight, MoreVertical, ChevronUp, BarChart3 } from 'l
 import { PageSkeleton } from '../Skeleton';
 import { useAuth } from '../../contexts/authContext';
 import { DashboardHeader, EmptyState } from '../ui';
+import { ErrorRetry } from '../ErrorRetry';
 
 type ReportsTab = 'dashboards' | 'trim-performance';
 
@@ -21,6 +22,7 @@ export const ReportsDashboard: React.FC = () => {
     const [activeTab] = useState<ReportsTab>('trim-performance');
     const [data, setData] = useState<ReportsData | null>(null);
     const [loading, setLoading] = useState(true);
+    const [loadError, setLoadError] = useState<string | null>(null);
     const [customWage, setCustomWage] = useState<number>(15);
     const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined);
 
@@ -30,13 +32,20 @@ export const ReportsDashboard: React.FC = () => {
 
     const loadData = async (range?: DateRange) => {
         setLoading(true);
-        const reportsData = await getReportsData(range);
-        setData(reportsData);
-        if (reportsData && !range) {
-            setCustomWage(reportsData.summary.avgHourlyWage);
-            setDateRange(reportsData.dateRange);
+        setLoadError(null);
+        try {
+            const reportsData = await getReportsData(range);
+            setData(reportsData);
+            if (reportsData && !range) {
+                setCustomWage(reportsData.summary.avgHourlyWage);
+                setDateRange(reportsData.dateRange);
+            }
+        } catch (e) {
+            setData(null);
+            setLoadError(e instanceof Error ? e.message : 'Failed to load reports');
+        } finally {
+            setLoading(false);
         }
-        setLoading(false);
     };
 
     const handlePrev = () => {
@@ -93,6 +102,10 @@ export const ReportsDashboard: React.FC = () => {
     const renderTrimPerformance = () => {
         if (loading) {
             return <PageSkeleton label="Loading reports…" />;
+        }
+
+        if (loadError) {
+            return <ErrorRetry message={loadError} onRetry={() => loadData(dateRange)} />;
         }
 
         if (!data || data.summary.trimLaborHours === 0) {
