@@ -1,4 +1,4 @@
-import type { RoomLayout, PlantHealthEvent, HotspotSummary, ParsedRoomSheet } from '../types/plantMap';
+import type { RoomLayout, PlantHealthEvent, HotspotSummary, ParsedRoomSheet, RoomLayoutMeta } from '../types/plantMap';
 import type { MetrcSyncStartResponse, MetrcSyncStatus } from '../../shared/manifest/metrcSync';
 import type { TrimSession, CreateTrimSessionDTO, Trimmer, TrimmerProfile, ProposedAction, Harvest, CreateHarvestDTO, HarvestWasteType, HarvestAllocation, HarvestPlantWeight, HarvestBin, BinCureLog, CreateBinDTO, FloweringBatchGroup, Strain, License, SpeechMode, HumanTask, TeamRole, Tag, TagType, TagStats, TagSettings, Package, CreatePackageDTO, MetrcItem, PackageAdjustment, AdjustmentReason, ProductType, ProcessTemplate, StepSupplyRequirement, YieldAverage, BackwardPlan, PlanningSession, PlanTargetInput, StrainYieldOverride, ReportSpec, SavedReport, TaskViewSpec, SavedTaskView, SupplyPool, SupplyItem, SupplyLedgerEntry, SupplyChangeType, SupplyPoolSlug, ContactThread, ApiKey, ApiKeyScope, CreatedApiKey } from '../types/definitions';
 
@@ -897,8 +897,8 @@ export const getMetrics = async (opts: { keys?: string[]; days?: number; compare
     return await response.json();
 };
 
-/** Recompute today's snapshot for this company, or backfill the last N days. Director+. */
-export const computeMetricsNow = async (opts: { backfillDays?: number } = {}): Promise<{ ok: boolean; days: number; written: number; failures: Array<{ date: string; key: string; error: string }> }> => {
+/** Recompute one day's snapshot for this company (today by default), or that day and up to 14 days before it. Director+. */
+export const computeMetricsNow = async (opts: { date?: string; backfillDays?: number } = {}): Promise<{ ok: boolean; days: number; written: number; failures: Array<{ date: string; key: string; error: string }> }> => {
     const response = await fetchWithAuth(`${API_BASE}/compute-metrics`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -906,7 +906,10 @@ export const computeMetricsNow = async (opts: { backfillDays?: number } = {}): P
     });
     if (!response.ok) {
         const err = await response.json().catch(() => ({}));
-        throw new Error(err.error || err.detail || 'Failed to compute metrics');
+        const detail = typeof err.detail === 'string' && err.detail ? err.detail : null;
+        const base = err.error || `Failed to compute metrics (${response.status})`;
+        const hint = detail && /does not exist/i.test(detail) ? ' Run migrations/068_metric_snapshots.sql on this database.' : '';
+        throw new Error(`${base}${detail ? `: ${detail}` : ''}${hint}`);
     }
     return await response.json();
 };
@@ -948,7 +951,7 @@ export const createRoom = async (data: { name: string; roomType?: string; capaci
     return response.json();
 };
 
-export const updateRoom = async (id: string, updates: { name?: string; roomType?: string; capacity?: number | null; squareFootage?: number | null; notes?: string | null; layoutRows?: number | null; layoutCols?: number | null }): Promise<any> => {
+export const updateRoom = async (id: string, updates: { name?: string; roomType?: string; capacity?: number | null; squareFootage?: number | null; notes?: string | null; layoutRows?: number | null; layoutCols?: number | null; layoutMeta?: RoomLayoutMeta | null }): Promise<any> => {
     const response = await fetchWithAuth(`${API_BASE}/manage-room`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },

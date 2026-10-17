@@ -42,6 +42,12 @@ const OVERLAYS: Array<{ value: OverlayMode; label: string }> = [
 
 const ROOM_TYPE_ORDER: Record<string, number> = { flower: 0, veg: 1, nursery: 2 };
 
+/** Grid presets read from the facility's bench templates (Airflow Maps workbook): two levels of five benches. */
+const GRID_PRESETS: Array<{ key: string; label: string; rows: number; cols: number; meta: { sections: Array<{ name: string; rowStart: number; rowCount: number }>; colStartLabel: string; colEndLabel: string } }> = [
+    { key: 'legacy', label: 'Legacy building', rows: 10, cols: 9, meta: { sections: [{ name: 'Upper Level', rowStart: 0, rowCount: 5 }, { name: 'Lower Level', rowStart: 5, rowCount: 5 }], colStartLabel: 'East', colEndLabel: 'West' } },
+    { key: 'expansion', label: 'Expansion building', rows: 10, cols: 15, meta: { sections: [{ name: 'Upper Level', rowStart: 0, rowCount: 5 }, { name: 'Lower Level', rowStart: 5, rowCount: 5 }], colStartLabel: 'East', colEndLabel: 'West' } },
+];
+
 export const RoomLayoutView: React.FC<RoomLayoutViewProps> = ({ rooms, roomsWithPlants, refreshKey, onChanged }) => {
     const mappable = useMemo(() => rooms
         .filter(r => ['flower', 'veg', 'vegetative', 'nursery', 'general', ''].includes(r.room_type || ''))
@@ -282,14 +288,14 @@ export const RoomLayoutView: React.FC<RoomLayoutViewProps> = ({ rooms, roomsWith
         }
     };
 
-    const saveGrid = async () => {
+    const saveGrid = async (preset?: typeof GRID_PRESETS[number]) => {
         if (!layout) return;
-        const rows = parseInt(gridDraft.rows, 10);
-        const cols = parseInt(gridDraft.cols, 10);
+        const rows = preset ? preset.rows : parseInt(gridDraft.rows, 10);
+        const cols = preset ? preset.cols : parseInt(gridDraft.cols, 10);
         if (!rows || !cols || rows < 1 || cols < 1) { setNotice('Rows and columns must be at least 1.'); return; }
         setBusy(true);
         try {
-            await apiService.updateRoom(layout.room.id, { layoutRows: rows, layoutCols: cols });
+            await apiService.updateRoom(layout.room.id, { layoutRows: rows, layoutCols: cols, ...(preset ? { layoutMeta: preset.meta } : {}) });
             setNotice(null);
             refresh();
         } catch (e) {
@@ -421,7 +427,15 @@ export const RoomLayoutView: React.FC<RoomLayoutViewProps> = ({ rooms, roomsWith
                                 <input type="number" min={1} max={60} value={gridDraft.rows} onChange={e => setGridDraft(d => ({ ...d, rows: e.target.value }))} className="field-input w-20" placeholder="Rows" />
                                 <span className="text-gray-400">×</span>
                                 <input type="number" min={1} max={60} value={gridDraft.cols} onChange={e => setGridDraft(d => ({ ...d, cols: e.target.value }))} className="field-input w-20" placeholder="Columns" />
-                                <button className="btn-primary text-xs px-3 py-1.5" onClick={saveGrid} disabled={busy}>Save grid</button>
+                                <button className="btn-primary text-xs px-3 py-1.5" onClick={() => saveGrid()} disabled={busy}>Save grid</button>
+                            </div>
+                            <div className="flex items-center gap-2 flex-wrap justify-center">
+                                <span className="text-[11px] text-gray-400">Presets:</span>
+                                {GRID_PRESETS.map(p => (
+                                    <button key={p.key} className="btn-secondary text-xs px-2.5 py-1" onClick={() => saveGrid(p)} disabled={busy} title={`${p.rows} benches × ${p.cols} positions, ${p.meta.sections.map(s => s.name).join(' / ')}, ${p.meta.colStartLabel} → ${p.meta.colEndLabel}`}>
+                                        {p.label} · {p.rows}×{p.cols}
+                                    </button>
+                                ))}
                             </div>
                             <p className="text-[11px] text-gray-400">or</p>
                             <button className="btn-secondary text-xs px-3 py-1.5" onClick={() => setShowImport(true)}>

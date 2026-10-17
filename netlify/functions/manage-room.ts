@@ -67,7 +67,17 @@ export const handler: Handler = async (event) => {
 
         // UPDATE
         if (event.httpMethod === 'PUT') {
-            const { id, name, roomType, capacity, squareFootage, notes, layoutRows, layoutCols } = JSON.parse(event.body || '{}');
+            const { id, name, roomType, capacity, squareFootage, notes, layoutRows, layoutCols, layoutMeta } = JSON.parse(event.body || '{}');
+            // Section bands / axis labels for the grid; `null` clears, undefined keeps.
+            const layoutMetaVal: string | null | undefined = layoutMeta === undefined ? undefined
+                : layoutMeta === null ? null
+                : JSON.stringify({
+                    sections: Array.isArray(layoutMeta.sections)
+                        ? layoutMeta.sections.filter((s: any) => s && typeof s.name === 'string').map((s: any) => ({ name: String(s.name).slice(0, 80), rowStart: Math.max(0, parseInt(s.rowStart, 10) || 0), rowCount: Math.max(0, parseInt(s.rowCount, 10) || 0) }))
+                        : [],
+                    colStartLabel: typeof layoutMeta.colStartLabel === 'string' ? layoutMeta.colStartLabel.slice(0, 40) : null,
+                    colEndLabel: typeof layoutMeta.colEndLabel === 'string' ? layoutMeta.colEndLabel.slice(0, 40) : null,
+                });
             if (!id) {
                 return { statusCode: 400, body: JSON.stringify({ error: 'Room ID is required' }) };
             }
@@ -97,9 +107,10 @@ export const handler: Handler = async (event) => {
                     notes = CASE WHEN ${notes !== undefined} THEN ${notes?.trim() || null} ELSE notes END,
                     layout_rows = CASE WHEN ${layoutRows !== undefined} THEN ${layoutRows || null} ELSE layout_rows END,
                     layout_cols = CASE WHEN ${layoutCols !== undefined} THEN ${layoutCols || null} ELSE layout_cols END,
+                    layout_meta = CASE WHEN ${layoutMetaVal !== undefined} THEN ${layoutMetaVal ?? null}::jsonb ELSE layout_meta END,
                     updated_at = NOW()
                 WHERE id = ${id} AND company_id = ${context.companyId}
-                RETURNING id, name, room_type, capacity, square_footage, notes, layout_rows, layout_cols
+                RETURNING id, name, room_type, capacity, square_footage, notes, layout_rows, layout_cols, layout_meta
             `;
 
             if (result.rows.length === 0) {
