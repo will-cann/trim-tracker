@@ -4,7 +4,7 @@ import { FileSpreadsheet, FileUp } from 'lucide-react';
 import { Modal } from '../ui';
 import { apiService } from '../../services/apiService';
 import type { ParsedRoomSheet, SheetGrid } from '../../types/plantMap';
-import { parseRoomWorkbook, rotScoreLabel } from '../../types/plantMap';
+import { parseRoomWorkbook, rotScoreLabel, defaultObservedAt } from '../../types/plantMap';
 
 interface ImportRoomSheetModalProps {
     rooms: Array<{ id: string; name: string }>;
@@ -44,7 +44,7 @@ export const ImportRoomSheetModal: React.FC<ImportRoomSheetModalProps> = ({ room
             const match = result.roomName ? rooms.find(r => r.name.toLowerCase() === result.roomName!.toLowerCase()) : null;
             setRoomChoice(match ? match.id : currentRoomId && !result.roomName ? currentRoomId : '__new__');
             setNewRoomName(result.roomName ?? '');
-            setObservedAt(result.observedAt ?? new Date().toISOString().slice(0, 10));
+            setObservedAt(defaultObservedAt(result.observedAt, new Date().toISOString().slice(0, 10)).observedAt);
             if (result.tables.length === 0) setError('No tables were found in that workbook.');
         } catch (e) {
             setParsed(null);
@@ -77,7 +77,9 @@ export const ImportRoomSheetModal: React.FC<ImportRoomSheetModalProps> = ({ room
     };
 
     const canApply = !!parsed && parsed.tables.length > 0 && (roomChoice !== '__new__' || newRoomName.trim()) && (!parsed.scores.length || !!observedAt);
-    const dateDiffers = parsed?.observedAt && observedAt && parsed.observedAt !== observedAt;
+    const today = new Date().toISOString().slice(0, 10);
+    const sheetDate = parsed?.observedAt ? defaultObservedAt(parsed.observedAt, today) : null;
+    const sheetDateIgnored = sheetDate && (sheetDate.verdict === 'old' || sheetDate.verdict === 'future');
 
     return (
         <Modal
@@ -148,8 +150,14 @@ export const ImportRoomSheetModal: React.FC<ImportRoomSheetModalProps> = ({ room
                             </div>
                             <div>
                                 <label className="field-label">Scores observed on</label>
-                                <input type="date" className="field-input w-full" value={observedAt} onChange={e => setObservedAt(e.target.value)} max={new Date().toISOString().slice(0, 10)} />
-                                {dateDiffers && <p className="text-[11px] text-gray-400 mt-1">Sheet says {parsed.observedAt}; using {observedAt}.</p>}
+                                <input type="date" className="field-input w-full" value={observedAt} onChange={e => setObservedAt(e.target.value)} max={today} />
+                                {sheetDateIgnored ? (
+                                    <p className="text-[11px] text-amber-700 mt-1">
+                                        The sheet is titled {parsed.observedAt}{sheetDate.verdict === 'future' ? ', a future date' : `, ${sheetDate.ageDays} days ago`}, so it isn't being used as the scoring date. Change this if the scores really are from then.
+                                    </p>
+                                ) : parsed.observedAt && parsed.observedAt !== observedAt ? (
+                                    <p className="text-[11px] text-gray-400 mt-1">Sheet says {parsed.observedAt}; using {observedAt}.</p>
+                                ) : null}
                             </div>
                         </div>
 

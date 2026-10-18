@@ -28,7 +28,7 @@ export { buildCohorts, comparePlantsByTraits, proposeLayout, DEFAULT_COHORT_ORDE
 export type { MoveSuggestion, MovePlan, SuggestionKind, SuggestionPriority, CellRef } from '../../shared/plantMap/movePlanner';
 export { floweringWeek, planMoves } from '../../shared/plantMap/movePlanner';
 export type { ParsedRoomSheet, SheetTable, SheetScore, SheetGrid } from '../../shared/plantMap/roomSheet';
-export { parseRoomWorkbook, ROT_SCORE_SCALE, rotScoreToSeverity, severityToRotScore, rotScoreLabel } from '../../shared/plantMap/roomSheet';
+export { parseRoomWorkbook, ROT_SCORE_SCALE, rotScoreToSeverity, severityToRotScore, rotScoreLabel, defaultObservedAt, SHEET_DATE_TRUST_DAYS } from '../../shared/plantMap/roomSheet';
 
 export type PlantPhase = 'nursery' | 'vegetative' | 'flowering';
 
