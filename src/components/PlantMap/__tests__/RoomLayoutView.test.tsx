@@ -139,7 +139,7 @@ describe('suggestionToTask', () => {
 });
 
 describe('RoomLayoutView with a table-granularity room', () => {
-    it('renders table chips with their rot score and scores a table through the cell endpoint', async () => {
+    it('renders the glance map (one tile per table, score badge) and scores a table through the cell endpoint', async () => {
         const base = buildLayout();
         mocks.getRoomLayout.mockResolvedValue({
             ...base,
@@ -153,15 +153,25 @@ describe('RoomLayoutView with a table-granularity room', () => {
             plan: { roomId: 'r1', suggestions: [], avoidCells: [], summary: { plantsWithActiveSpread: 0, plantsAtRisk: 0, emptySafeCells: 4, emptyHotCells: 0 } },
         });
         mocks.logPlantHealthEvent.mockResolvedValue({ success: true, created: [], affected: 1 });
-        render(<RoomLayoutView rooms={rooms} onChanged={() => undefined} />);
-        expect(await screen.findByText('GSB4 7 / ARS20 7')).toBeTruthy();
-        expect(screen.getByText('Upper Deck')).toBeTruthy();
-        expect(screen.getByText('BR 1')).toBeTruthy();
-        // Select the BDZ table and score it.
-        fireEvent.click(screen.getByText('BDZ'));
-        fireEvent.click(screen.getByText('Score table'));
-        // Title of the modal plus the panel's own button carry the same words.
+        const { container } = render(<RoomLayoutView rooms={rooms} onChanged={() => undefined} />);
+        // One tile per table: strain code + count, section headers once.
+        expect(await screen.findByText('GSB4/ARS20')).toBeTruthy();
+        expect([...container.querySelectorAll('.trm-section')].map(e => e.textContent)).toEqual(['Upper Deck', 'Lower Deck']);
+        const bdz = container.querySelector('[data-cell="1:2"]') as HTMLElement;
+        expect(bdz.querySelector('.trm-score')?.textContent).toBe('1');
+        // The plant-room chrome is gone: no overlay switcher, no planner tabs, no unplaced chips.
+        expect(screen.queryByText('Hot spots')).toBeNull();
+        expect(screen.queryByText('Sort')).toBeNull();
+        expect(screen.queryByText(/Not on grid/)).toBeNull();
+        // Room summary shows the distribution before anything is selected.
+        expect(screen.getByText('1 of 2 tables scored', { exact: false })).toBeTruthy();
+        // Select the BDZ table → inspector → score it through the cell endpoint.
+        fireEvent.click(bdz);
+        expect(screen.getByText('12 plants · R2·3 · Lower Deck')).toBeTruthy();
+        fireEvent.click(screen.getByRole('button', { name: /Score this table/ }));
+        // Modal title plus the inspector's own button carry the same words; the chip names the cell.
         expect((await screen.findAllByText('Score this table')).length).toBeGreaterThanOrEqual(2);
+        expect(screen.getByText(/BDZ table/)).toBeTruthy();
         fireEvent.click(screen.getByText('Freeze tops'));
         fireEvent.click(screen.getByText('Log score'));
         await waitFor(() => expect(mocks.logPlantHealthEvent).toHaveBeenCalled());

@@ -16291,6 +16291,9 @@ select.settings-inline-input {
 
 .room-map-body { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 12px; align-items: start; }
 @media (max-width: 960px) { .room-map-body { grid-template-columns: 1fr; } }
+/* Table rooms carry their own panel inside TableRoomMap, so the body is one column and unframed. */
+.room-map-body--single { grid-template-columns: minmax(0, 1fr); }
+.room-map-main--flush { background: transparent; border: 0; padding: 0; }
 
 .room-map-main { min-width: 0; background: white; border: 1px solid #f3f4f6; border-radius: 8px; padding: 12px; }
 .room-map-scroll { overflow: auto; }
