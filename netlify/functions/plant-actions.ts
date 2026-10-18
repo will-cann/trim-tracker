@@ -2,6 +2,7 @@ import { Handler } from '@netlify/functions';
 import { sql } from './utils/db';
 import { captureError } from './utils/sentry';
 import { resolveContext, authorize } from './utils/auth';
+import { settleTableScoresForRooms } from './utils/tableScores';
 
 type ActionType = 'destroy' | 'change-phase' | 'change-room' | 'plant-health';
 
@@ -55,6 +56,7 @@ export const handler: Handler = async (event) => {
         switch (action) {
             case 'destroy': {
                 if (isPlants) {
+                    const leavingRooms = await roomsOf(context.companyId, plantIds);
                     const result = await sql`
                         UPDATE plants
                         SET growth_phase = 'destroyed',
@@ -64,6 +66,7 @@ export const handler: Handler = async (event) => {
                             AND growth_phase != 'destroyed'
                     `;
                     affectedCount = result.rows.length || plantIds.length;
+                    await settleQuietly(context.companyId, leavingRooms);
                 } else {
                     // For plant batches, just delete them
                     const result = await sql`
@@ -176,6 +179,7 @@ export const handler: Handler = async (event) => {
                 // ── Individual plants: phase change queries ──
                 // A grid position belongs to a room: moving rooms clears it.
                 const clearPos = !!targetRoomId;
+                const leavingRooms = targetPhase === 'harvested' || targetPhase === 'destroyed' ? await roomsOf(context.companyId, plantIds) : [];
                 if (targetPhase === 'vegetative') {
                     await sql`
                         UPDATE plants
@@ -215,6 +219,7 @@ export const handler: Handler = async (event) => {
                     `;
                 }
                 affectedCount = plantIds.length;
+                await settleQuietly(context.companyId, leavingRooms);
 
                 // ── Automatic tag assignment ──
                 // Check if this transition should assign tags
@@ -415,3 +420,25 @@ export const handler: Handler = async (event) => {
         };
     }
 };
+
+/** Rooms the given plants are in right now (before an update moves or ends them). */
+async function roomsOf(companyId: string, plantIds: string[]): Promise<string[]> {
+    const { rows } = await sql`
+        SELECT DISTINCT room_id FROM plants
+        WHERE id = ANY(${plantIds}::uuid[]) AND company_id = ${companyId} AND room_id IS NOT NULL
+    `;
+    return rows.map((r: any) => r.room_id);
+}
+
+/**
+ * Harvested or destroyed plants may have emptied a room tracked by table; its
+ * open bud-rot scores are then over. Never fails the action itself.
+ */
+async function settleQuietly(companyId: string, roomIds: string[]): Promise<void> {
+    if (!roomIds.length) return;
+    try {
+        await settleTableScoresForRooms(companyId, roomIds);
+    } catch (err) {
+        console.warn('[plant-actions] could not settle table scores', err);
+    }
+}

@@ -1,6 +1,7 @@
 import type { Handler } from '@netlify/functions';
 import { sql } from './utils/db';
 import { runMetricsForCompany, todayIso } from './utils/metrics';
+import { expireStaleTableScores, TABLE_SCORE_MAX_AGE_DAYS } from './utils/tableScores';
 
 /**
  * Scheduled (netlify.toml, daily): writes today's facility metric snapshots
@@ -22,6 +23,13 @@ export const handler: Handler = async () => {
             } catch (err) {
                 failed++;
                 console.error('[cron-compute-metrics] company failed', c.id, err);
+            }
+            // Table scores (sheet imports) have no plant to end them: close any older than a cycle.
+            try {
+                const expired = await expireStaleTableScores(c.id);
+                if (expired) console.log(`[cron-compute-metrics] ${c.id}: closed ${expired} table score(s) older than ${TABLE_SCORE_MAX_AGE_DAYS} days`);
+            } catch (err) {
+                console.error('[cron-compute-metrics] table score expiry failed', c.id, err);
             }
         }
         console.log(`[cron-compute-metrics] ${asOf}: ${companies.length} companies, ${written} rows, ${failed} with failures`);
