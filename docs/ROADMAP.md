@@ -173,6 +173,10 @@ Planned features, integrations, and improvements. Updated as priorities evolve.
 - Add sub-tabs to settings for better organization
 - Current settings page is flat; needs grouping (account, team, facility, integrations, etc.)
 
+### Bud-rot scoring workflow (Proper)
+- Make each scoring pass free for the team: email-in workbook import, phone scoring pass, voice scoring, weekly task + digest, harvest pre-fill from table scores, photo-assisted scoring.
+- **Design brief:** `docs/briefs/bud-rot-scoring-workflow-brief.md`
+
 ### Plant Map Polish
 - Expanded room responsive improvements for smaller screens
 - Strain name truncation — consider expandable cells or tooltip
