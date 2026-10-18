@@ -16291,6 +16291,9 @@ select.settings-inline-input {
 
 .room-map-body { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 12px; align-items: start; }
 @media (max-width: 960px) { .room-map-body { grid-template-columns: 1fr; } }
+/* Table rooms carry their own panel inside TableRoomMap, so the body is one column and unframed. */
+.room-map-body--single { grid-template-columns: minmax(0, 1fr); }
+.room-map-main--flush { background: transparent; border: 0; padding: 0; }
 
 .room-map-main { min-width: 0; background: white; border: 1px solid #f3f4f6; border-radius: 8px; padding: 12px; }
 .room-map-scroll { overflow: auto; }
@@ -16826,4 +16829,114 @@ select.settings-inline-input {
   .report-bar-delta { display: none; }
   .reports-tabs { width: 100%; }
   .reports-tab { flex: 1; justify-content: center; }
+}
+
+/* ── Table-room glance map (TableRoomMap) ──────────────────────────────── */
+
+.trm { display: flex; flex-direction: column; gap: 12px; }
+
+.trm-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.trm-title { margin: 0; font-size: 1.125rem; font-weight: 900; letter-spacing: -0.01em; color: #1A1A1A; }
+.trm-sub { display: block; margin-top: 2px; font-size: 0.8125rem; color: #737373; }
+.trm-sub strong { color: #1A1A1A; }
+.trm-age { color: #959595; }
+.trm-age--stale { color: #B06A1F; font-weight: 700; }
+.trm-head-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.trm-btn { font-size: 0.8125rem; padding: 6px 10px; }
+
+.trm-seg { display: inline-flex; background: #F1F1F1; border-radius: 8px; padding: 3px; gap: 2px; }
+.trm-seg-btn { padding: 5px 12px; font-size: 0.8125rem; font-weight: 600; color: #737373; background: none; border: 0; border-radius: 6px; cursor: pointer; font-family: inherit; white-space: nowrap; }
+.trm-seg-btn.active { background: #fff; color: #1A1A1A; box-shadow: 0 1px 2px rgba(0,0,0,0.06); }
+.trm-seg-btn:disabled { opacity: 0.5; cursor: default; }
+
+.trm-banner { display: flex; align-items: center; gap: 8px; padding: 8px 12px; border-radius: 8px; background: rgba(250, 158, 82, 0.12); color: #7A4A14; font-size: 0.8125rem; }
+
+.trm-body { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 12px; align-items: start; }
+@media (max-width: 900px) { .trm-body { grid-template-columns: 1fr; } }
+
+.trm-grid-wrap { position: relative; background: #fff; border: 1px solid #E8E8E8; border-radius: 12px; padding: 14px 16px 12px; min-width: 0; }
+.trm-axis { display: flex; align-items: center; gap: 8px; margin: 0 0 6px 34px; font-size: 0.6875rem; letter-spacing: 0.08em; text-transform: uppercase; color: #959595; }
+.trm-axis-line { flex: 1; height: 1px; background: #E0E0E0; }
+.trm-grid { display: grid; gap: 4px; }
+.trm-col-label, .trm-row-label { font-size: 0.6875rem; color: #959595; text-align: center; align-self: center; font-variant-numeric: tabular-nums; }
+.trm-row-label { text-align: right; padding-right: 6px; }
+.trm-section { grid-column: 1 / -1; font-size: 0.6875rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: #737373; padding: 10px 0 2px; }
+.trm-section:first-of-type { padding-top: 4px; }
+.trm-empty { min-height: 34px; border: 1px dashed #EEEEEE; border-radius: 6px; }
+
+.trm-tile {
+  position: relative; display: flex; align-items: center; gap: 6px; min-height: 34px; padding: 0 8px;
+  background: #fff; border: 1px solid #E0E0E0; border-radius: 6px; font-family: inherit; cursor: pointer;
+  color: #1A1A1A; text-align: left; min-width: 0; transition: box-shadow 0.12s, transform 0.12s;
+}
+.trm-tile.scored { border-color: transparent; }
+.trm-tile:hover { box-shadow: 0 2px 8px rgba(0,0,0,0.12); z-index: 1; }
+.trm-tile:focus-visible { outline: 2px solid #1A1A1A; outline-offset: 1px; }
+.trm-tile.selected { box-shadow: 0 0 0 2px #1A1A1A; z-index: 1; }
+.trm-code { font-size: 0.75rem; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.trm-count { font-size: 0.6875rem; opacity: 0.65; font-variant-numeric: tabular-nums; margin-left: auto; }
+.trm-score, .trm-delta {
+  position: absolute; top: -6px; right: -4px; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px;
+  font-size: 0.6875rem; font-weight: 800; line-height: 18px; text-align: center; color: #fff; background: #C8403E; box-shadow: 0 0 0 2px #fff;
+}
+.trm-delta--better, .trm-delta--cleared { background: #2E9A5C; }
+.trm-delta--new { background: #E0863A; }
+
+.trm-legend { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; margin-top: 12px; font-size: 0.6875rem; color: #737373; }
+.trm-legend-item { display: inline-flex; align-items: center; gap: 5px; }
+.trm-legend-item i { display: inline-block; width: 12px; height: 12px; border-radius: 3px; }
+
+.trm-card {
+  position: absolute; z-index: 5; width: 240px; transform: translate(-50%, -100%); padding: 10px 12px;
+  background: #fff; border-radius: 10px; box-shadow: 0 6px 20px rgba(0,0,0,0.16); border: 1px solid #E8E8E8; pointer-events: none;
+  font-size: 0.75rem; color: #404040;
+}
+.trm-card--below { transform: translate(-50%, 0); }
+.trm-card-title { font-size: 0.8125rem; font-weight: 700; color: #1A1A1A; }
+.trm-card-sub { color: #737373; margin-bottom: 6px; }
+.trm-card-score { display: flex; align-items: center; gap: 6px; }
+.trm-card-prev { margin-top: 4px; color: #737373; }
+.trm-card-hint { margin-top: 6px; font-size: 0.6875rem; color: #959595; }
+.trm-muted { color: #959595; }
+.trm-bad { color: #A8403E; font-weight: 700; }
+.trm-good { color: #1A7A42; font-weight: 700; }
+
+.trm-pill { display: inline-flex; align-items: center; justify-content: center; min-width: 26px; height: 20px; padding: 0 6px; border-radius: 5px; font-size: 0.75rem; font-weight: 800; font-variant-numeric: tabular-nums; flex-shrink: 0; }
+.trm-pill--none { background: #F1F1F1; color: #959595; }
+
+.trm-panel { background: #fff; border: 1px solid #E8E8E8; border-radius: 12px; min-width: 0; }
+.trm-panel-body { padding: 14px 16px; }
+.trm-panel-title { margin: 0; font-size: 0.9375rem; font-weight: 700; color: #1A1A1A; }
+.trm-back { background: none; border: 0; padding: 0 0 8px; font-family: inherit; font-size: 0.75rem; color: #737373; cursor: pointer; }
+.trm-back:hover { color: #1A1A1A; }
+.trm-block { margin-top: 14px; }
+.trm-block-title { font-size: 0.6875rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: #959595; margin-bottom: 6px; }
+
+.trm-dist { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 5px; }
+.trm-dist-row { display: grid; grid-template-columns: 30px 1fr 90px 28px; align-items: center; gap: 8px; font-size: 0.75rem; }
+.trm-dist-label { color: #404040; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.trm-dist-track { height: 8px; background: #F8F8F8; border-radius: 4px; overflow: hidden; }
+.trm-dist-fill { display: block; height: 100%; border-radius: 4px; box-sizing: border-box; }
+.trm-dist-n { text-align: right; font-weight: 700; font-variant-numeric: tabular-nums; color: #1A1A1A; }
+
+.trm-changes { display: flex; gap: 12px; flex-wrap: wrap; font-size: 0.75rem; color: #959595; }
+
+.trm-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+.trm-list-row { display: flex; align-items: center; gap: 8px; font-size: 0.75rem; padding: 4px 0; width: 100%; }
+.trm-list-main { flex: 1; min-width: 0; color: #1A1A1A; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.trm-list-btn { background: none; border: 0; font-family: inherit; text-align: left; cursor: pointer; border-radius: 6px; padding: 4px 4px; margin: 0 -4px; }
+.trm-list-btn:hover { background: #F8F8F8; }
+
+.trm-current { display: flex; align-items: center; gap: 10px; font-size: 0.75rem; }
+.trm-current-label { font-weight: 700; color: #1A1A1A; }
+.trm-link { background: none; border: 0; padding: 6px 0 0; font-family: inherit; font-size: 0.75rem; font-weight: 600; color: var(--primary-dark); cursor: pointer; }
+.trm-primary { width: 100%; justify-content: center; gap: 6px; margin-top: 16px; }
+
+/* Phones: tiles become colour-only, which is the glance level the eye needs there. */
+@media (max-width: 640px) {
+  .trm-grid-wrap { padding: 10px; }
+  .trm-tile { min-height: 28px; padding: 0 4px; justify-content: center; }
+  .trm-code, .trm-count { display: none; }
+  .trm-score, .trm-delta { position: static; box-shadow: none; background: transparent; color: inherit; font-size: 0.75rem; }
+  .trm-card { display: none; }
 }

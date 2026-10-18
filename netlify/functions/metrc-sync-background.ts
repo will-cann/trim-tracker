@@ -2,6 +2,7 @@ import type { Handler } from '@netlify/functions';
 import { pool } from './utils/db';
 import { MetrcSyncStore } from './utils/metrcSyncStore';
 import { liveT3, runMetrcSync, syncGate } from './utils/metrcSyncRunner';
+import { settleTableScoresForRooms } from './utils/tableScores';
 
 /**
  * Pulls Metrc into NeuroCann through T3. A Netlify *background* function
@@ -54,6 +55,15 @@ export const handler: Handler = async (event) => {
         const result = await runMetrcSync(store, liveT3, { companyId: gate.companyId, runId: run.id, dryRun: run.dry_run, deadline });
         await store.finishRun(run.id, result);
         console.log(`metrc-sync-background: run ${run.id} ${result.status}; ${result.errors.length} error(s)`);
+        if (!run.dry_run && result.status !== 'failed') {
+            // Plants Metrc just marked harvested may have emptied a room scored by table.
+            try {
+                const settled = await settleTableScoresForRooms(gate.companyId);
+                if (settled) console.log(`metrc-sync-background: settled ${settled} table score(s) in harvested rooms`);
+            } catch (err) {
+                console.warn('metrc-sync-background: could not settle table scores', err);
+            }
+        }
         return { statusCode: 200, body: JSON.stringify({ runId: run.id, status: result.status }) };
     } catch (err) {
         console.error('metrc-sync-background error:', err);

@@ -65,15 +65,51 @@ export interface RotScoreLevel {
   severity: number;
   label: string;
   meaning: string;
+  /** Plant-health equivalent (0–100) for a table at this score, so table rooms roll up like plant rooms. */
+  health: number;
 }
 
 /** The operator's bud-rot scale and what each level means for the harvest. */
 export const ROT_SCORE_SCALE: readonly RotScoreLevel[] = [
-  { score: 0.5, severity: 1, label: 'Early signs', meaning: 'First spots; watch and keep airflow on it.' },
-  { score: 1, severity: 2, label: 'Needs QC', meaning: 'Will have to be QC\'d at harvest.' },
-  { score: 2, severity: 4, label: 'Freeze tops', meaning: 'Likely freezing the tops.' },
-  { score: 3, severity: 5, label: 'All to frozen', meaning: 'Everything goes to frozen; nothing salvageable.' },
+  { score: 0.5, severity: 1, label: 'Early signs', meaning: 'First spots; watch and keep airflow on it.', health: 90 },
+  { score: 1, severity: 2, label: 'Needs QC', meaning: 'Will have to be QC\'d at harvest.', health: 75 },
+  { score: 2, severity: 4, label: 'Freeze tops', meaning: 'Likely freezing the tops.', health: 45 },
+  { score: 3, severity: 5, label: 'All to frozen', meaning: 'Everything goes to frozen; nothing salvageable.', health: 10 },
 ];
+
+/** Health (0–100) for a table at a bud-rot score; unknown scores take the nearest level below. */
+export function rotScoreToHealth(score: number | null | undefined): number {
+  if (score == null) return 100;
+  const exact = ROT_SCORE_SCALE.find(l => l.score === score);
+  if (exact) return exact.health;
+  const below = [...ROT_SCORE_SCALE].reverse().find(l => l.score <= score);
+  return below ? below.health : 100;
+}
+
+export interface TableHealthInput {
+  plantCount: number;
+  /** Latest active bud-rot score on the table, or null when unscored. */
+  score: number | null;
+}
+
+/**
+ * Room health for a table-granularity room: the plant-weighted mean of each
+ * table's score health, unscored tables counting as 100. Mirrors how plant
+ * rooms average plant_health, so the cards view reads the same for both.
+ */
+export function tableRoomHealth(tables: readonly TableHealthInput[]): { health: number; plants: number; scoredTables: number; scoredPlants: number } {
+  let weighted = 0;
+  let plants = 0;
+  let scoredTables = 0;
+  let scoredPlants = 0;
+  for (const t of tables) {
+    const n = Math.max(0, t.plantCount || 0);
+    plants += n;
+    weighted += n * rotScoreToHealth(t.score);
+    if (t.score != null) { scoredTables++; scoredPlants += n; }
+  }
+  return { health: plants > 0 ? Math.round(weighted / plants) : 100, plants, scoredTables, scoredPlants };
+}
 
 export function rotScoreToSeverity(score: number): number {
   if (!Number.isFinite(score)) return 3;

@@ -10,6 +10,7 @@ import { LogHealthEventModal } from './LogHealthEventModal';
 import { MovePlannerPanel } from './MovePlannerPanel';
 import { CohortPanel, cohortValue } from './CohortPanel';
 import { HealthEventLog } from './HealthEventLog';
+import { TableRoomMap } from './TableRoomMap';
 import { categoryColor, RISK_LABEL, RISK_TEXT_COLOR } from './plantMapColors';
 import { CenteredSpinner } from '../Spinner';
 import { ErrorRetry } from '../ErrorRetry';
@@ -335,13 +336,15 @@ export const RoomLayoutView: React.FC<RoomLayoutViewProps> = ({ rooms, roomsWith
                     })}
                 </select>
 
-                <div className="room-map-seg">
-                    {OVERLAYS.map(o => (
-                        <button key={o.value} className={`room-map-seg-btn ${overlay === o.value ? 'active' : ''}`} onClick={() => setOverlay(o.value)}>{o.label}</button>
-                    ))}
-                </div>
+                {!isTableRoom && (
+                    <div className="room-map-seg">
+                        {OVERLAYS.map(o => (
+                            <button key={o.value} className={`room-map-seg-btn ${overlay === o.value ? 'active' : ''}`} onClick={() => setOverlay(o.value)}>{o.label}</button>
+                        ))}
+                    </div>
+                )}
 
-                {overlay === 'hotspots' && (
+                {!isTableRoom && overlay === 'hotspots' && (
                     <>
                         <select className="field-input room-map-small-select" value={heatContaminant} onChange={e => setHeatContaminant(e.target.value)} title="Which issue to map">
                             <option value="botrytis">Bud rot (botrytis)</option>
@@ -360,9 +363,12 @@ export const RoomLayoutView: React.FC<RoomLayoutViewProps> = ({ rooms, roomsWith
 
                 <div className="flex-1" />
 
-                <button className="btn-secondary text-xs px-2.5 py-1.5" onClick={() => setShowImport(true)} title="Import a room map + health report workbook">
-                    <FileSpreadsheet size={13} /> Import sheet
-                </button>
+                {!isTableRoom && (
+                    <button className="btn-secondary text-xs px-2.5 py-1.5" onClick={() => setShowImport(true)} title="Import a room map + health report workbook">
+                        <FileSpreadsheet size={13} /> Import sheet
+                    </button>
+                )}
+                {!isTableRoom && (
                 <button
                     className="btn-new-batch text-xs px-2.5 py-1.5"
                     onClick={() => setShowLog(true)}
@@ -371,6 +377,7 @@ export const RoomLayoutView: React.FC<RoomLayoutViewProps> = ({ rooms, roomsWith
                 >
                     <AlertTriangle size={13} /> {selectedTableLive ? 'Score table' : `Log issue${selectedPlants.length ? ` (${selectedPlants.length})` : ''}`}
                 </button>
+                )}
             </div>
 
             {/* ── Facility strip ──────────────────────────────────────── */}
@@ -410,8 +417,8 @@ export const RoomLayoutView: React.FC<RoomLayoutViewProps> = ({ rooms, roomsWith
             )}
 
             {/* ── Body ────────────────────────────────────────────────── */}
-            <div className="room-map-body">
-                <div className="room-map-main">
+            <div className={`room-map-body${isTableRoom ? ' room-map-body--single' : ''}`}>
+                <div className={`room-map-main${isTableRoom ? ' room-map-main--flush' : ''}`}>
                     {loading && !layout ? (
                         <CenteredSpinner label="Loading room…" height="py-16" />
                     ) : error ? (
@@ -443,6 +450,22 @@ export const RoomLayoutView: React.FC<RoomLayoutViewProps> = ({ rooms, roomsWith
                             </button>
                             {plants.length > 0 && <p className="text-[11px] text-gray-400">{plants.length} plant{plants.length === 1 ? '' : 's'} in this room will be ready to place.</p>}
                         </div>
+                    ) : layout && isTableRoom ? (
+                        // Rooms scored by table (sheet imports): one-line tiles tinted by
+                        // score, with the hover card and side panel inside the component.
+                        <TableRoomMap
+                            room={{ name: layout.room.name, layoutRows: layout.room.layoutRows!, layoutCols: layout.room.layoutCols!, layoutMeta: layout.room.layoutMeta }}
+                            tables={tables}
+                            events={layout.events.filter(e => e.plantId == null)}
+                            onScoreTable={(table) => { setSelected(new Set()); setSelectedTable(table); setShowLog(true); }}
+                            onResolve={async (eventIds) => {
+                                setBusy(true);
+                                try { await apiService.resolvePlantHealthEvents({ eventIds }); refresh(); }
+                                catch (e) { setNotice(e instanceof Error ? e.message : 'Failed to resolve'); }
+                                finally { setBusy(false); }
+                            }}
+                            onImportSheet={() => setShowImport(true)}
+                        />
                     ) : layout ? (
                         <>
                             <RoomGrid
@@ -512,7 +535,7 @@ export const RoomLayoutView: React.FC<RoomLayoutViewProps> = ({ rooms, roomsWith
                 </div>
 
                 {/* ── Side panel ──────────────────────────────────────── */}
-                {layout && hasLayout && (
+                {layout && hasLayout && !isTableRoom && (
                     <aside className="room-map-panel">
                         <div className="room-map-tabs">
                             {([
@@ -525,11 +548,6 @@ export const RoomLayoutView: React.FC<RoomLayoutViewProps> = ({ rooms, roomsWith
                             ))}
                         </div>
 
-                        {panelTab === 'plan' && isTableRoom && plants.length === 0 && (
-                            <p className="text-[11px] text-gray-500 px-3 pt-3">
-                                This room is tracked by table (from the room sheet). Scores drive the hot-spot map; move suggestions need individually placed plants.
-                            </p>
-                        )}
                         {panelTab === 'plan' && (
                             <MovePlannerPanel
                                 roomName={layout.room.name}

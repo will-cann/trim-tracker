@@ -1,6 +1,7 @@
 import { Handler } from '@netlify/functions';
 import { sql } from './utils/db';
 import { resolveContext } from './utils/auth';
+import { tableRoomRollups } from './utils/tableScores';
 
 export const handler: Handler = async (event) => {
     if (event.httpMethod !== 'GET') {
@@ -116,6 +117,8 @@ export const handler: Handler = async (event) => {
             strains: Set<string>;
             healthSum: number;
             healthCount: number;
+            /** Rooms tracked by table: health from their bud-rot scores (see tableRoomRollups). */
+            healthOverride?: number;
             contaminants: Set<string>;
             phaseDates: Set<string>;
             harvestDates: Set<string>;
@@ -152,6 +155,26 @@ export const handler: Handler = async (event) => {
             if (row.flip_date) room.flipDates.add(row.flip_date);
         }
 
+        // Rooms scored by table (sheet imports) carry their health on the tables,
+        // not on plant rows, which Metrc never scores. Roll the scores up so the
+        // card agrees with the map, and list rooms that exist only as tables.
+        if (phase === 'flowering') {
+            const rollups = await tableRoomRollups(context.companyId);
+            for (const t of rollups.values()) {
+                let room = roomMap.get(t.roomName);
+                if (!room) {
+                    room = {
+                        roomId: t.roomId, totalPlants: t.plants, strains: new Set(t.strains), healthSum: 0, healthCount: 0,
+                        contaminants: new Set(), phaseDates: new Set(), harvestDates: new Set(), flipDates: new Set(),
+                    };
+                    roomMap.set(t.roomName, room);
+                }
+                const plantDerived = room.healthCount > 0 ? Math.round(room.healthSum / room.healthCount) : null;
+                room.healthOverride = plantDerived == null ? t.health : Math.min(plantDerived, t.health);
+                for (const c of t.contaminants) room.contaminants.add(c);
+            }
+        }
+
         const plantMap: Record<string, any> = {};
         for (const [name, room] of roomMap) {
             plantMap[name] = {
@@ -159,7 +182,7 @@ export const handler: Handler = async (event) => {
                 totalPlants: room.totalPlants,
                 totalStrains: room.strains.size,
                 strains: [...room.strains].sort(),
-                plantHealth: room.healthCount > 0 ? Math.round(room.healthSum / room.healthCount) : 100,
+                plantHealth: room.healthOverride ?? (room.healthCount > 0 ? Math.round(room.healthSum / room.healthCount) : 100),
                 contaminants: [...room.contaminants].sort(),
                 phaseDates: [...room.phaseDates].sort(),
                 harvestDates: [...room.harvestDates].sort(),

@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
-import { parseRoomWorkbook, parseStrainCell, rotScoreToSeverity, rotScoreLabel, severityToRotScore } from '../roomSheet';
+import { parseRoomWorkbook, parseStrainCell, rotScoreToSeverity, rotScoreLabel, severityToRotScore, rotScoreToHealth, tableRoomHealth } from '../roomSheet';
 import type { SheetGrid } from '../roomSheet';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -23,6 +23,36 @@ describe('rot score scale', () => {
         expect([1, 2, 3, 4, 5].map(severityToRotScore)).toEqual([0.5, 1, 1.5, 2, 3]);
         expect(rotScoreLabel(2)).toBe('Freeze tops');
         expect(rotScoreLabel(3)).toBe('All to frozen');
+    });
+
+    it('maps scores onto a plant-health equivalent, unscored tables reading 100', () => {
+        expect([null, 0.5, 1, 2, 3].map(rotScoreToHealth)).toEqual([100, 90, 75, 45, 10]);
+        expect(rotScoreToHealth(1.5)).toBe(75);   // nearest level below
+    });
+});
+
+describe('tableRoomHealth', () => {
+    it('is the plant-weighted mean of table health, so one bad table in a big room barely moves it', () => {
+        const room = tableRoomHealth([
+            { plantCount: 14, score: null },
+            { plantCount: 14, score: null },
+            { plantCount: 12, score: 3 },
+        ]);
+        expect(room).toEqual({ health: 73, plants: 40, scoredTables: 1, scoredPlants: 12 });
+    });
+
+    it('reads 100 for an unscored or empty room', () => {
+        expect(tableRoomHealth([]).health).toBe(100);
+        expect(tableRoomHealth([{ plantCount: 14, score: null }]).health).toBe(100);
+    });
+
+    it('matches the Papin sheet: 34 of 90 tables scored, mostly early signs', () => {
+        const parsed = parseRoomWorkbook(papin);
+        const scores = new Map(parsed.scores.map(s => [`${s.row}:${s.col}`, s.score]));
+        const room = tableRoomHealth(parsed.tables.map(t => ({ plantCount: t.plantCount, score: scores.get(`${t.row}:${t.col}`) ?? null })));
+        expect(room.scoredTables).toBe(34);
+        expect(room.health).toBeGreaterThan(90);
+        expect(room.health).toBeLessThan(100);
     });
 });
 
