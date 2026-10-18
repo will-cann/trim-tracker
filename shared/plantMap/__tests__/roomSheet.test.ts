@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
-import { parseRoomWorkbook, parseStrainCell, rotScoreToSeverity, rotScoreLabel, severityToRotScore, rotScoreToHealth, tableRoomHealth } from '../roomSheet';
+import { parseRoomWorkbook, parseStrainCell, rotScoreToSeverity, rotScoreLabel, severityToRotScore, rotScoreToHealth, tableRoomHealth, defaultObservedAt } from '../roomSheet';
 import type { SheetGrid } from '../roomSheet';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -126,5 +126,23 @@ describe('parseRoomWorkbook edge cases', () => {
         const parsed = parseRoomWorkbook({ map: [['Veg 1'], [], ['A', 'B'], [10, null]] });
         expect(parsed.tables).toHaveLength(2);
         expect(parsed.warnings.some(w => w.includes('"B" has no plant count'))).toBe(true);
+    });
+});
+
+describe('defaultObservedAt', () => {
+    const today = '2026-10-18';
+    it('uses a recent title date', () => {
+        expect(defaultObservedAt('2026-10-15', today)).toEqual({ observedAt: '2026-10-15', verdict: 'recent', ageDays: 3 });
+        expect(defaultObservedAt(today, today).verdict).toBe('recent');
+    });
+    it('falls back to today for an old title date (a stale template or a typo), and says how old', () => {
+        // Papin's sheet is titled 8/19 but was scored in October: the month was mistyped.
+        expect(defaultObservedAt('2026-08-19', today)).toEqual({ observedAt: today, verdict: 'old', ageDays: 60 });
+    });
+    it('falls back to today for a future title date (the day the room comes down)', () => {
+        expect(defaultObservedAt('2026-10-19', today)).toEqual({ observedAt: today, verdict: 'future', ageDays: -1 });
+    });
+    it('is today when the sheet has no date', () => {
+        expect(defaultObservedAt(null, today)).toEqual({ observedAt: today, verdict: 'none', ageDays: null });
     });
 });

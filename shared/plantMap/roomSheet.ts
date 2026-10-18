@@ -45,7 +45,11 @@ export interface SheetSection {
 
 export interface ParsedRoomSheet {
   roomName: string | null;
-  /** YYYY-MM-DD from the title, if any. */
+  /**
+   * YYYY-MM-DD from the sheet's title, if any. A title date is a hint, not the
+   * observation date: operators reuse a template, mistype the month, or write
+   * the day the room comes down. See defaultObservedAt().
+   */
   observedAt: string | null;
   sections: SheetSection[];
   rows: number;
@@ -369,4 +373,26 @@ export function parseRoomWorkbook(sheets: Record<string, SheetGrid>): ParsedRoom
   const { _parse: _ignored, ...rest } = layout;
   void _ignored;
   return { ...rest, scores, warnings };
+}
+
+// ── Observation date for an import ──────────────────────────────────────────
+
+/** A title date older than this is more likely a stale template or a typo than the day the room was scored. */
+export const SHEET_DATE_TRUST_DAYS = 14;
+
+export type SheetDateVerdict = 'none' | 'recent' | 'old' | 'future';
+
+/**
+ * The date an import's scores should carry. The sheet's title date is used
+ * only when it falls within the last SHEET_DATE_TRUST_DAYS; an older or future
+ * date defaults to today and the verdict says why, so the UI can show it.
+ */
+export function defaultObservedAt(sheetDate: string | null | undefined, today: string, trustDays = SHEET_DATE_TRUST_DAYS): { observedAt: string; verdict: SheetDateVerdict; ageDays: number | null } {
+  if (!sheetDate) return { observedAt: today, verdict: 'none', ageDays: null };
+  const ms = Date.parse(`${today}T00:00:00Z`) - Date.parse(`${sheetDate}T00:00:00Z`);
+  if (!Number.isFinite(ms)) return { observedAt: today, verdict: 'none', ageDays: null };
+  const ageDays = Math.round(ms / 86_400_000);
+  if (ageDays < 0) return { observedAt: today, verdict: 'future', ageDays };
+  if (ageDays > trustDays) return { observedAt: today, verdict: 'old', ageDays };
+  return { observedAt: sheetDate, verdict: 'recent', ageDays };
 }
