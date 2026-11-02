@@ -1,4 +1,4 @@
-import { addScan, lineStatus, type ScanFailReason } from './order'
+import { addScan, isNotATag, lineStatus, type ScanFailReason } from './order'
 import { normalizeTag } from './metrc'
 import type { OrderState, PickLine, ScanSource } from '../types'
 
@@ -38,9 +38,10 @@ export type WedgeScanResult =
 export function wedgeScan(state: OrderState, raw: string, activeLineId: string | null, source: ScanSource = 'usb'): WedgeScanResult {
   const route = routeScan(state, raw, activeLineId)
   if (!route.lineId) {
-    // Still validate so the user gets "not a tag" rather than "nothing to scan into".
+    // Still validate so the user gets "not a tag" (or "that's the CaseID label")
+    // rather than "nothing to scan into".
     const probe = state.lines[0] ? addScan(state, state.lines[0].id, raw, source) : null
-    if (probe && !probe.ok && probe.reason === 'invalid') return { ok: false, reason: 'invalid', lineId: null }
+    if (probe && !probe.ok && isNotATag(probe.reason)) return { ok: false, reason: probe.reason, detail: probe.detail, lineId: null }
     return { ok: false, reason: 'no-open-line', lineId: null }
   }
   const r = addScan(state, route.lineId, raw, source)

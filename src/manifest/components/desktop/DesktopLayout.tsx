@@ -6,7 +6,7 @@ import { ReviewScreen } from '../ReviewScreen'
 import { SettingsScreen } from '../SettingsScreen'
 import { LinesPane } from './LinesPane'
 import { ScanPane, type ScanEvent } from './ScanPane'
-import { importRecordedTags, removeScan, scanFailureMessage, summarize } from '../../lib/order'
+import { importRecordedTags, isNotATag, removeScan, scanFailureMessage, summarize } from '../../lib/order'
 import { firstOpenLine, wedgeScan } from '../../lib/wedge'
 import { shortTag } from '../../lib/metrc'
 import { beep } from '../../lib/beep'
@@ -80,7 +80,7 @@ export function DesktopLayout(props: Props) {
     if (!r.ok) {
       beep('error')
       const where = r.lineId ? order.lines.find((l) => l.id === r.lineId)?.productName : undefined
-      setLastEvent({ tone: 'red', title: scanFailureMessage(r.reason, r.detail), detail: r.reason === 'invalid' ? `Read: ${raw}` : where ? `${shortTag(raw)} · ${where}` : shortTag(raw), at: Date.now() })
+      setLastEvent({ tone: 'red', title: scanFailureMessage(r.reason, r.detail), detail: isNotATag(r.reason) ? `Read: ${raw}` : where ? `${shortTag(raw)} · ${where}` : shortTag(raw), at: Date.now() })
       return
     }
     setOrder(r.state)

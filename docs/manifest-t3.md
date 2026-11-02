@@ -157,3 +157,11 @@ rehearsing the create-transfer flow end to end, not for checking real inventory.
   the submission and tells the user where to look.
 - Submission is blocked in the UI for the bundled sample order and whenever new
   scans have been added since the last Metrc check.
+- Proper's cases carry two labels: the blue Metrc tag (Code 128, the one the
+  picker needs) on the side and a white Lucid Green "Enhanced CaseID" QR on the
+  front, which is the one a picker sees first. Scanning the QR
+  (`https://qr.lcdg.io/c/<id>`, or a unit's LucidID `https://qr.lcdg.io/<id>`)
+  is recognised by `src/manifest/lib/lucidGreen.ts` and answered with "that's
+  the CaseID label, scan the blue Metrc barcode" instead of the generic
+  "not a Metrc tag". Lucid Green's API could resolve a CaseID to its Metrc tag
+  if Proper has access; not wired.
