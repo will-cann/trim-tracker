@@ -1,6 +1,6 @@
 import { Handler } from '@netlify/functions';
 import { authorizeManifestRequest, jsonResponse as json } from './utils/manifestAuth';
-import { isT3Configured, t3ActivePackages, t3EligibleTransferPackages, t3Licenses, t3Mode, T3Error, type T3Package } from './utils/t3';
+import { t3ActivePackages, t3EligibleTransferPackages, t3Licenses, t3Mode, withT3, T3Error, type T3Package } from './utils/t3';
 import { classifyPackages, isMetrcTag } from './utils/t3Transfer';
 import type { T3VerifyRequest, T3VerifyResponse } from '../../shared/manifest/t3';
 
@@ -23,7 +23,8 @@ export const handler: Handler = async (event) => {
     try {
         const auth = await authorizeManifestRequest(event.headers);
         if (!auth.ok) return json(auth.status, { error: auth.error });
-        if (!isT3Configured()) return json(503, { error: 'Metrc lookups are not enabled on this deploy (T3_API_KEY unset).', code: 'NOT_CONFIGURED' });
+        if (!auth.t3) return json(503, { error: 'No Metrc connection for your company. A director can connect one in Settings → Metrc.', code: 'NOT_CONFIGURED' });
+        const creds = auth.t3;
 
         const body: Partial<T3VerifyRequest> = JSON.parse(event.body || '{}');
         const licenseNumber = (body.licenseNumber ?? '').trim();
@@ -35,49 +36,51 @@ export const handler: Handler = async (event) => {
         const bad = tags.filter(t => !isMetrcTag(t));
         if (bad.length) return json(400, { error: `Not Metrc tags: ${bad.slice(0, 3).join(', ')}${bad.length > 3 ? '…' : ''}`, tags: bad });
 
-        const eligible = await t3EligibleTransferPackages(licenseNumber, tags);
-        let missing = tags.filter(t => !eligible.has(t));
+        return await withT3(creds, async () => {
+            const eligible = await t3EligibleTransferPackages(licenseNumber, tags);
+            let missing = tags.filter(t => !eligible.has(t));
 
-        const active = missing.length ? await t3ActivePackages(licenseNumber, missing) : new Map<string, T3Package>();
-        missing = missing.filter(t => !active.has(t));
+            const active = missing.length ? await t3ActivePackages(licenseNumber, missing) : new Map<string, T3Package>();
+            missing = missing.filter(t => !active.has(t));
 
-        // Misses are often "right package, wrong origin licence". Look on the other
-        // licences in the order first, then anything else the account can see.
-        const elsewhere: Array<{ licenseNumber: string; packages: Map<string, T3Package> }> = [];
-        if (missing.length) {
-            const requested = (Array.isArray(body.otherLicenses) ? body.otherLicenses : [])
-                .map(l => String(l).trim())
-                .filter(l => LICENSE_RE.test(l) && l.toUpperCase() !== licenseNumber.toUpperCase());
-            let candidates = Array.from(new Set(requested));
-            if (candidates.length < MAX_OTHER_LICENSES) {
-                try {
-                    const all = (await t3Licenses()).map(l => l.licenseNumber).filter(l => l.toUpperCase() !== licenseNumber.toUpperCase());
-                    candidates = Array.from(new Set([...candidates, ...all]));
-                } catch {
-                    /* licence list is a nicety; keep going with what the client sent */
-                }
-            }
-            for (const other of candidates.slice(0, MAX_OTHER_LICENSES)) {
-                if (!missing.length) break;
-                try {
-                    const found = await t3EligibleTransferPackages(other, missing);
-                    if (found.size) {
-                        elsewhere.push({ licenseNumber: other, packages: found });
-                        missing = missing.filter(t => !found.has(t));
+            // Misses are often "right package, wrong origin licence". Look on the other
+            // licences in the order first, then anything else the account can see.
+            const elsewhere: Array<{ licenseNumber: string; packages: Map<string, T3Package> }> = [];
+            if (missing.length) {
+                const requested = (Array.isArray(body.otherLicenses) ? body.otherLicenses : [])
+                    .map(l => String(l).trim())
+                    .filter(l => LICENSE_RE.test(l) && l.toUpperCase() !== licenseNumber.toUpperCase());
+                let candidates = Array.from(new Set(requested));
+                if (candidates.length < MAX_OTHER_LICENSES) {
+                    try {
+                        const all = (await t3Licenses()).map(l => l.licenseNumber).filter(l => l.toUpperCase() !== licenseNumber.toUpperCase());
+                        candidates = Array.from(new Set([...candidates, ...all]));
+                    } catch {
+                        /* licence list is a nicety; keep going with what the client sent */
                     }
-                } catch {
-                    /* no access to that licence; not an error for this check */
+                }
+                for (const other of candidates.slice(0, MAX_OTHER_LICENSES)) {
+                    if (!missing.length) break;
+                    try {
+                        const found = await t3EligibleTransferPackages(other, missing);
+                        if (found.size) {
+                            elsewhere.push({ licenseNumber: other, packages: found });
+                            missing = missing.filter(t => !found.has(t));
+                        }
+                    } catch {
+                        /* no access to that licence; not an error for this check */
+                    }
                 }
             }
-        }
 
-        const response: T3VerifyResponse = {
-            licenseNumber,
-            mode: t3Mode(),
-            checkedAt: new Date().toISOString(),
-            results: classifyPackages(tags, licenseNumber, eligible, active, elsewhere),
-        };
-        return json(200, response);
+            const response: T3VerifyResponse = {
+                licenseNumber,
+                mode: t3Mode(),
+                checkedAt: new Date().toISOString(),
+                results: classifyPackages(tags, licenseNumber, eligible, active, elsewhere),
+            };
+            return json(200, response);
+        });
     } catch (error) {
         if (error instanceof T3Error) {
             console.error('t3-verify-packages: T3 error', error.status, error.code, error.detail);

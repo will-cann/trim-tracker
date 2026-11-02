@@ -1,7 +1,7 @@
 import type { T3Harvest, T3Item, T3Location, T3Package, T3Plant, T3PlantBatch, T3Strain } from './t3';
-import { isT3Configured, t3HarvestList, t3Items, t3Licenses, t3Locations, t3PackageList, t3PlantBatchList, t3PlantList, t3PlantPermissions, t3Strains, T3Error } from './t3';
+import { t3HarvestList, t3Items, t3Licenses, t3Locations, t3PackageList, t3PlantBatchList, t3PlantList, t3PlantPermissions, t3Strains, T3Error } from './t3';
 import {
-    conflictsFor, resolveSyncCompany, isCurrent, mapHarvest, mapItem, mapLocation, mapPackage, mapPlant, mapPlantBatch, mapStrain, MAX_REPORTED_CONFLICTS,
+    conflictsFor, isCurrent, mapHarvest, mapItem, mapLocation, mapPackage, mapPlant, mapPlantBatch, mapStrain, MAX_REPORTED_CONFLICTS,
     sinceFor, SYNC_LISTS, T3_LIST_PATH, type HarvestRow, type PackageRow, type PlantBatchRow, type PlantRow, type ProductTypeSpec,
 } from './metrcSync';
 import type { CultivationIds, FinishRun, ListState, UpsertCounts } from './metrcSyncStore';
@@ -246,18 +246,6 @@ async function syncList(
     const itemIds = await store.metrcItemIds(opts.companyId, license);
     const written = await store.upsertPackages(opts.companyId, toWrite, itemIds);
     return { fetched: rows.length, ...written, unchanged: unchanged + written.unchanged };
-}
-
-// ── Is this deploy a sync deploy? ──────────────────────────────────────────
-
-export type SyncGate = { ok: true; companyId: string } | { ok: false; status: number; code: string; error: string };
-
-/** T3 key present and exactly one allowlisted company: the two things every sync entry point checks first. */
-export function syncGate(): SyncGate {
-    if (!isT3Configured()) return { ok: false, status: 503, code: 'NOT_CONFIGURED', error: 'Metrc sync is not enabled on this deploy (T3_API_KEY unset).' };
-    const company = resolveSyncCompany(process.env.MANIFEST_COMPANY_IDS);
-    if (!company.ok) return { ok: false, status: 409, code: 'NO_SYNC_COMPANY', error: company.reason };
-    return { ok: true, companyId: company.companyId };
 }
 
 // ── Kicking the background function ────────────────────────────────────────

@@ -1,14 +1,15 @@
 import type { Handler } from '@netlify/functions';
 import { sql } from './utils/db';
-import { authorizeManifestRequest, jsonResponse as json } from './utils/manifestAuth';
-import { isT3Configured, t3Mode } from './utils/t3';
-import { resolveSyncCompany } from './utils/metrcSync';
+import { resolveContext } from './utils/auth';
+import { jsonResponse as json } from './utils/manifestAuth';
+import { syncGate } from './utils/metrcConnections';
 import type { MetrcSyncListState, MetrcSyncRun, MetrcSyncStatus } from '../../shared/manifest/metrcSync';
 
 /**
- * What Settings → Metrc Sync shows: whether this deploy syncs into the caller's
- * company, the last runs with per-list counts and errors, each list's cursor,
- * and how many synced rows NeuroCann holds. Read-only.
+ * What Settings → Metrc shows: whether the caller's company can sync (its own
+ * connection or the deploy key), the last runs with per-list counts and
+ * errors, each list's cursor, and how many synced rows NeuroCann holds.
+ * Read-only; any signed-in user of the company may look.
  */
 
 const RECENT_RUNS = 10;
@@ -17,24 +18,19 @@ export const handler: Handler = async (event) => {
     if (event.httpMethod !== 'GET') return { statusCode: 405, body: 'Method Not Allowed' };
 
     try {
-        const auth = await authorizeManifestRequest(event.headers);
-        if (!auth.ok) return json(auth.status, { error: auth.error });
-        const { ctx } = auth;
+        const ctx = await resolveContext(event.headers.authorization);
+        if (!ctx) return json(401, { error: 'Sign in first.' });
 
-        const configured = isT3Configured();
-        const company = resolveSyncCompany(process.env.MANIFEST_COMPANY_IDS);
-        let enabled = false;
-        let reason: string | undefined;
-        if (!configured) reason = 'Metrc sync is not set up on this deploy (T3_API_KEY unset).';
-        else if (!company.ok) reason = company.reason;
-        else if (company.companyId !== ctx.companyId.toLowerCase()) reason = 'This deploy syncs Metrc into a different company.';
-        else enabled = true;
-
+        const gate = await syncGate(ctx.companyId);
+        const enabled = gate.ok;
+        const configured = gate.ok || gate.code !== 'NOT_CONFIGURED';
+        const reason = gate.ok ? undefined : gate.code === 'NOT_CONFIGURED' ? 'Connect Metrc to start syncing.' : gate.error;
         const canRun = enabled && (ctx.role === 'admin' || ctx.role === 'director');
 
         const base: MetrcSyncStatus = {
             configured,
-            mode: t3Mode(),
+            mode: gate.ok ? gate.creds.mode : 'read-only',
+            source: gate.ok ? gate.creds.source : null,
             enabled,
             reason,
             canRun,

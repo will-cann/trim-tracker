@@ -85,10 +85,12 @@ export interface MetrcSyncListState {
 }
 
 export interface MetrcSyncStatus {
-  /** T3_API_KEY is set on this deploy. */
+  /** NeuroCann holds Metrc credentials for this company (its own connection or the deploy key). */
   configured: boolean
   mode: T3Mode
-  /** This company is the one allowlisted company the sync targets. */
+  /** Where the credentials come from, when configured. */
+  source?: 'connection' | 'env' | null
+  /** The sync may run for this company. */
   enabled: boolean
   /** Why `enabled` is false, when it is. */
   reason?: string

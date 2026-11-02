@@ -3,6 +3,12 @@
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
+// No database in unit tests: the company has no self-serve connection, so the deploy key + allowlist apply.
+vi.mock('../utils/metrcConnectionStore', () => ({
+    findConnection: async () => null,
+    activeConnectionCompanyIds: async () => [],
+}));
+
 vi.mock('../utils/auth', async () => {
     const actual = await vi.importActual<typeof import('../utils/auth')>('../utils/auth');
     return {

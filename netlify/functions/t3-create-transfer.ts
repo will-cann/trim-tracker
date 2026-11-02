@@ -2,7 +2,6 @@ import { Handler } from '@netlify/functions';
 import { authorizeManifestRequest, jsonResponse as json } from './utils/manifestAuth';
 import { authorize, type Role } from './utils/auth';
 import {
-    isT3Configured,
     t3CreateTransfer,
     t3Destination,
     t3EligibleTransferPackages,
@@ -11,6 +10,7 @@ import {
     t3TransferInputs,
     t3Transporter,
     t3WritesAllowed,
+    withT3,
     T3Error,
 } from './utils/t3';
 import { buildTransferPayload, isMetrcTag, pickTransferType, pickUnit, TransferValidationError } from './utils/t3Transfer';
@@ -101,49 +101,51 @@ export const handler: Handler = async (event) => {
     try {
         const auth = await authorizeManifestRequest(event.headers);
         if (!auth.ok) return json(auth.status, { error: auth.error });
-        if (!isT3Configured()) return json(503, { error: 'Metrc transfers are not enabled on this deploy (T3_API_KEY unset).', code: 'NOT_CONFIGURED' });
+        if (!auth.t3) return json(503, { error: 'No Metrc connection for your company. A director can connect one in Settings → Metrc.', code: 'NOT_CONFIGURED' });
+        const creds = auth.t3;
 
         const req = normalizeBody(JSON.parse(event.body || '{}'));
         if (typeof req === 'string') return json(400, { error: req });
 
-        const mode = t3Mode();
-        if (req.submit && !t3WritesAllowed()) {
-            return json(403, {
-                error: 'This deploy is in read-only mode (T3_MODE=read-only): transfers can be validated but not submitted to Metrc.',
-                code: 'READ_ONLY',
-            });
-        }
-        if (req.submit && authorize(auth.ctx, SUBMIT_ROLE)) {
-            return json(403, { error: `Submitting a transfer to Metrc needs the ${SUBMIT_ROLE} or admin role; you are ${auth.ctx.role}.`, code: 'ROLE' });
-        }
+        return await withT3(creds, async () => {
+            const mode = t3Mode();
+            if (req.submit && !t3WritesAllowed()) {
+                return json(403, {
+                    error: 'This Metrc connection is read-only: transfers can be validated but not submitted to Metrc. A director can allow submissions in Settings → Metrc.',
+                    code: 'READ_ONLY',
+                });
+            }
+            if (req.submit && authorize(auth.ctx, SUBMIT_ROLE)) {
+                return json(403, { error: `Submitting a transfer to Metrc needs the ${SUBMIT_ROLE} or admin role; you are ${auth.ctx.role}.`, code: 'ROLE' });
+            }
 
-        const [inputs, recipient, transporter, eligible] = await Promise.all([
-            t3TransferInputs(req.licenseNumber),
-            t3Destination(req.licenseNumber, req.header.recipientLicense),
-            t3Transporter(req.licenseNumber, req.transporter.transporterLicense),
-            t3EligibleTransferPackages(req.licenseNumber, req.packages.map(p => p.tag)),
-        ]);
+            const [inputs, recipient, transporter, eligible] = await Promise.all([
+                t3TransferInputs(req.licenseNumber),
+                t3Destination(req.licenseNumber, req.header.recipientLicense),
+                t3Transporter(req.licenseNumber, req.transporter.transporterLicense),
+                t3EligibleTransferPackages(req.licenseNumber, req.packages.map(p => p.tag)),
+            ]);
 
-        const types = inputs.transferTypes ?? [];
-        const transferType = pickTransferType(types, req.header.transferType);
-        if (!transferType) {
-            const available = types.filter(t => t.forLicensedShipments !== false).map(t => t.name);
-            return json(400, { error: `Metrc has no transfer type named "${req.header.transferType}" on ${req.licenseNumber}. Available: ${available.join(', ') || 'none'}.` });
-        }
-        if (!recipient) return json(400, { error: `Metrc has no transfer destination with licence ${req.header.recipientLicense} for ${req.licenseNumber}. Check the recipient licence.` });
-        if (!transporter) return json(400, { error: `Metrc has no transporter with licence ${req.transporter.transporterLicense} for ${req.licenseNumber}. Check the transporter licence in Settings.` });
+            const types = inputs.transferTypes ?? [];
+            const transferType = pickTransferType(types, req.header.transferType);
+            if (!transferType) {
+                const available = types.filter(t => t.forLicensedShipments !== false).map(t => t.name);
+                return json(400, { error: `Metrc has no transfer type named "${req.header.transferType}" on ${req.licenseNumber}. Available: ${available.join(', ') || 'none'}.` });
+            }
+            if (!recipient) return json(400, { error: `Metrc has no transfer destination with licence ${req.header.recipientLicense} for ${req.licenseNumber}. Check the recipient licence.` });
+            if (!transporter) return json(400, { error: `Metrc has no transporter with licence ${req.transporter.transporterLicense} for ${req.licenseNumber}. Check the transporter licence in Settings.` });
 
-        const units = inputs.unitsOfMeasure ?? [];
-        const packageIds = new Map<string, number>();
-        for (const [label, p] of eligible) packageIds.set(label, p.id);
+            const units = inputs.unitsOfMeasure ?? [];
+            const packageIds = new Map<string, number>();
+            for (const [label, p] of eligible) packageIds.set(label, p.id);
 
-        const built = buildTransferPayload(req, {
-            recipient: { id: recipient.id, licenseNumber: recipient.licenseNumber, facilityName: recipient.facilityName },
-            transporter: { id: transporter.id, licenseNumber: transporter.licenseNumber, facilityName: transporter.facilityName },
-            transferType,
-            gramsUnitId: pickUnit(units, 'Grams')?.id ?? null,
-            poundsUnitId: pickUnit(units, 'Pounds')?.id ?? null,
-            packageIds,
+            const built = buildTransferPayload(req, {
+                recipient: { id: recipient.id, licenseNumber: recipient.licenseNumber, facilityName: recipient.facilityName },
+                transporter: { id: transporter.id, licenseNumber: transporter.licenseNumber, facilityName: transporter.facilityName },
+                transferType,
+                gramsUnitId: pickUnit(units, 'Grams')?.id ?? null,
+                poundsUnitId: pickUnit(units, 'Pounds')?.id ?? null,
+                packageIds,
         });
 
         const before = req.submit ? new Set((await t3RecentOutgoing(req.licenseNumber)).map(t => t.id)) : new Set<number>();
@@ -176,6 +178,7 @@ export const handler: Handler = async (event) => {
             warnings: built.warnings,
         };
         return json(200, response);
+        });
     } catch (error) {
         if (error instanceof TransferValidationError) {
             return json(400, { error: error.message, tags: error.tags });
