@@ -7121,6 +7121,91 @@ select.field-input {
   color: #9E3533;
 }
 
+.sync-message--warn {
+  border-color: rgba(224, 134, 58, 0.45);
+  background: rgba(224, 134, 58, 0.07);
+  color: #8A4E1B;
+}
+
+/* ─── Settings → Metrc: self-serve connection ─── */
+.metrc-connection {
+  margin-bottom: 20px;
+}
+
+.metrc-connection .sync-panel {
+  padding-bottom: 12px;
+}
+
+.metrc-connection .sync-panel > :not(.sync-panel-head) {
+  padding-left: 12px;
+  padding-right: 12px;
+}
+
+.metrc-connection .sync-panel > .sync-message {
+  margin: 10px 12px 0;
+}
+
+.metrc-steps {
+  list-style: none;
+  margin: 0 0 12px;
+  padding: 0;
+  display: grid;
+  gap: 10px;
+}
+
+.metrc-step {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.metrc-step-num {
+  flex: none;
+  width: 24px;
+  height: 24px;
+  border-radius: 999px;
+  background: #1A1A1A;
+  color: white;
+  font-size: 0.75rem;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.metrc-conn-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px 24px;
+  padding-top: 12px;
+}
+
+.metrc-conn-label {
+  font-size: 0.6875rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #959595;
+  margin-bottom: 4px;
+}
+
+.metrc-license-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border: 1px solid #EBEBEB;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.metrc-license {
+  padding: 6px 10px;
+}
+
+.metrc-license + .metrc-license {
+  border-top: 1px solid #F1F1F1;
+}
+
 .sync-panel {
   background: white;
   border: 1px solid var(--border-color);

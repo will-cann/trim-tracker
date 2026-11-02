@@ -1,5 +1,6 @@
 import type { RoomLayout, PlantHealthEvent, HotspotSummary, ParsedRoomSheet, RoomLayoutMeta } from '../types/plantMap';
 import type { MetrcSyncStartResponse, MetrcSyncStatus } from '../../shared/manifest/metrcSync';
+import type { MetrcConnectionPatch, MetrcConnectionResponse, MetrcConnectionStatus, MetrcConnectRequest } from '../../shared/manifest/metrcConnection';
 import type { TrimSession, CreateTrimSessionDTO, Trimmer, TrimmerProfile, ProposedAction, Harvest, CreateHarvestDTO, HarvestWasteType, HarvestAllocation, HarvestPlantWeight, HarvestBin, BinCureLog, CreateBinDTO, FloweringBatchGroup, Strain, License, SpeechMode, HumanTask, TeamRole, Tag, TagType, TagStats, TagSettings, Package, CreatePackageDTO, MetrcItem, PackageAdjustment, AdjustmentReason, ProductType, ProcessTemplate, StepSupplyRequirement, YieldAverage, BackwardPlan, PlanningSession, PlanTargetInput, StrainYieldOverride, ReportSpec, SavedReport, TaskViewSpec, SavedTaskView, SupplyPool, SupplyItem, SupplyLedgerEntry, SupplyChangeType, SupplyPoolSlug, ContactThread, ApiKey, ApiKeyScope, CreatedApiKey } from '../types/definitions';
 
 const API_BASE = '/.netlify/functions';
@@ -1363,9 +1364,44 @@ export const getMetrcItems = async (licenseNumber?: string): Promise<MetrcItem[]
     return await response.json();
 };
 
-// ── Metrc sync (per-customer deploys only; see docs/metrc-sync.md) ───────────
+// ── Metrc connection (self-serve T3 key; see docs/metrc-sync.md) ────────────
 
-/** null when this deploy has no sync for the signed-in company (403/404), so Settings can hide the section. */
+const metrcConnectionRequest = async (init: RequestInit): Promise<MetrcConnectionResponse> => {
+    const response = await fetchWithAuth(`${API_BASE}/metrc-connection`, {
+        ...init,
+        headers: { 'Content-Type': 'application/json', ...(init.headers as Record<string, string> | undefined) },
+    });
+    const body = await response.json().catch(() => ({}));
+    if (!response.ok) {
+        const err = new Error(body.error || `Request failed (${response.status})`) as Error & { code?: string };
+        err.code = body.code;
+        throw err;
+    }
+    return body;
+};
+
+/** null when the endpoint is unreachable (e.g. functions not running), so Settings can degrade quietly. */
+export const getMetrcConnection = async (): Promise<MetrcConnectionStatus | null> => {
+    try {
+        const response = await fetchWithAuth(`${API_BASE}/metrc-connection`);
+        if (!response.ok) return null;
+        return await response.json();
+    } catch {
+        return null;
+    }
+};
+
+export const connectMetrc = (req: MetrcConnectRequest) =>
+    metrcConnectionRequest({ method: 'POST', body: JSON.stringify(req) });
+
+export const updateMetrcConnection = (patch: MetrcConnectionPatch) =>
+    metrcConnectionRequest({ method: 'PATCH', body: JSON.stringify(patch) });
+
+export const disconnectMetrc = () => metrcConnectionRequest({ method: 'DELETE' });
+
+// ── Metrc sync (see docs/metrc-sync.md) ──────────────────────────────────────
+
+/** null when the status endpoint is unreachable or refuses, so Settings can degrade quietly. */
 export const getMetrcSyncStatus = async (): Promise<MetrcSyncStatus | null> => {
     try {
         const response = await fetchWithAuth(`${API_BASE}/metrc-sync-status`);
@@ -2326,7 +2362,11 @@ export const apiService = {
     // METRC Items
     getMetrcItems,
     upsertMetrcItem,
-    // Metrc sync
+    // Metrc connection + sync
+    getMetrcConnection,
+    connectMetrc,
+    updateMetrcConnection,
+    disconnectMetrc,
     getMetrcSyncStatus,
     startMetrcSync,
     // Package Adjustments

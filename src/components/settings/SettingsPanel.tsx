@@ -14,7 +14,9 @@ import { EquipmentSection } from './EquipmentSection';
 import { ProductTypeSection } from './ProductTypeSection';
 import { LlmPluginSection } from './LlmPluginSection';
 import { MetrcSyncSection } from './MetrcSyncSection';
+import { MetrcConnectionSection } from './MetrcConnectionSection';
 import type { MetrcSyncStatus } from '../../../shared/manifest/metrcSync';
+import type { MetrcConnectionStatus } from '../../../shared/manifest/metrcConnection';
 
 interface SettingsPanelProps {
     onViewChange?: (view: any) => void;
@@ -33,7 +35,8 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ onViewChange }) =>
         requireBatchTag: false, autoTagPrefix: 'PLT', autoTagCounter: 0,
     });
     const [rooms, setRooms] = useState<Room[]>([]);
-    // null = this deploy does not sync Metrc into this company; the section is hidden.
+    // Metrc: the connection card always shows; the sync panel only once the company can sync.
+    const [metrcConnection, setMetrcConnection] = useState<MetrcConnectionStatus | null>(null);
     const [metrcSync, setMetrcSync] = useState<MetrcSyncStatus | null>(null);
 
     // Delete confirmation
@@ -89,10 +92,20 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ onViewChange }) =>
         return status;
     }, []);
 
+    const loadMetrcConnection = useCallback(async () => {
+        setMetrcConnection(await apiService.getMetrcConnection());
+    }, []);
+
+    // After connecting, replacing or removing a key the sync panel has to follow.
+    const handleMetrcConnectionChange = useCallback((next: MetrcConnectionStatus) => {
+        setMetrcConnection(next);
+        void loadMetrcSync();
+    }, [loadMetrcSync]);
+
     useEffect(() => {
-        Promise.all([loadLicenses(), loadStrains(), loadProfiles(), loadTagSettings(), loadRooms(), loadMetrcSync()])
+        Promise.all([loadLicenses(), loadStrains(), loadProfiles(), loadTagSettings(), loadRooms(), loadMetrcSync(), loadMetrcConnection()])
             .finally(() => setLoading(false));
-    }, [loadLicenses, loadStrains, loadProfiles, loadTagSettings, loadRooms, loadMetrcSync]);
+    }, [loadLicenses, loadStrains, loadProfiles, loadTagSettings, loadRooms, loadMetrcSync, loadMetrcConnection]);
 
     const handleSaveTagSettings = async (updates: Partial<TagSettings>) => {
         const newSettings = await apiService.updateTagSettings({ ...tagSettings, ...updates });
@@ -174,7 +187,12 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ onViewChange }) =>
             case 'llm-plugin':
                 return <LlmPluginSection />;
             case 'metrc-sync':
-                return metrcSync ? <MetrcSyncSection initialStatus={metrcSync} /> : null;
+                return (
+                    <>
+                        {metrcConnection && <MetrcConnectionSection status={metrcConnection} onChange={handleMetrcConnectionChange} />}
+                        {metrcSync && <MetrcSyncSection key={metrcSync.source ?? 'sync'} initialStatus={metrcSync} />}
+                    </>
+                );
         }
     };
 
@@ -204,7 +222,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ onViewChange }) =>
                             rooms: rooms.length,
                             team: profiles.filter(p => p.status === 'active').length,
                         }}
-                        hidden={metrcSync ? [] : ['metrc-sync']}
+                        hidden={metrcConnection || metrcSync ? [] : ['metrc-sync']}
                     />
                 </aside>
 
