@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { Check, Eye } from 'lucide-react';
 import { useAuth } from '../contexts/authContext';
 import { ActionPreview } from './ActionPreview';
 import type { ProposedAction } from '../types/definitions';
@@ -783,6 +784,25 @@ const STEPS = [
   },
 ];
 
+/* ─── Demo explainer — mirrors the copy on the Book a Demo page ─── */
+const DEMO_EXPLAINER =
+  'A demo is a thirty-minute call with someone who has run rooms and harvests. We walk through your facility and your workflow in the product, no slides. Request one and we email within a business day to find a time.';
+
+/* ─── METRC via Track & Trace Tools — what syncs today vs. what the operator still reviews ─── */
+const METRC_SYNCED = [
+  { label: 'Packages', detail: 'Active inventory with tags, quantities and lab testing states.' },
+  { label: 'Plants and plant batches', detail: 'Every tagged plant and batch, by room and growth phase.' },
+  { label: 'Harvests', detail: 'Open and closed harvests with their wet weights and waste.' },
+  { label: 'Items, strains and locations', detail: 'Your METRC catalog becomes the vocabulary the AI works from.' },
+];
+
+const METRC_REVIEWED = [
+  { label: 'Every write is proposed first', detail: 'Nothing is pushed to METRC without a person confirming the preview.' },
+  { label: 'Transfers are verified case by case', detail: 'The manifest picker checks each scanned case against METRC — item, quantity, source lot and lab status — before a transfer is created.' },
+  { label: 'Your notes stay yours', detail: 'Contaminant flags, trim data and harvest links live in NeuroCann and are never overwritten by a sync.' },
+  { label: 'Set up per facility', detail: 'Connected through a Track & Trace Tools account on your METRC license. Read-only until you decide otherwise.' },
+];
+
 /* ─── Main Landing Page ─── */
 export const LandingPage: React.FC = () => {
   const { login } = useAuth();
@@ -800,31 +820,23 @@ export const LandingPage: React.FC = () => {
         <div className="absolute inset-0 pointer-events-none opacity-[0.03]" style={{ backgroundImage: 'linear-gradient(#1A1A1A 1px, transparent 1px), linear-gradient(90deg, #1A1A1A 1px, transparent 1px)', backgroundSize: '64px 64px' }} />
         <div className="max-w-7xl mx-auto relative">
           <div className="grid lg:grid-cols-2 gap-12 lg:gap-8 items-center">
+            {/* Hero copy renders at full opacity on first paint; only the demo panel animates in. */}
             <div>
-              <div className="flex items-center gap-3 mb-6" style={{ opacity: 0, animation: 'heroFadeIn 0.6s cubic-bezier(0.16,1,0.3,1) 0.1s forwards' }}>
+              <div className="flex items-center gap-3 mb-6">
                 <div className="w-10 h-0.5 bg-emerald-500 rounded-full" />
                 <p className="text-xs font-bold tracking-[0.2em] uppercase text-emerald-600">
                   Facility Operations, Spoken
                 </p>
               </div>
-              <h1
-                className="text-5xl sm:text-6xl lg:text-[4.5rem] font-black text-gray-900 leading-[1.02] tracking-tight mb-7"
-                style={{ opacity: 0, animation: 'heroFadeIn 0.8s cubic-bezier(0.16,1,0.3,1) 0.2s forwards' }}
-              >
+              <h1 className="text-5xl sm:text-6xl lg:text-[4.5rem] font-black text-gray-900 leading-[1.02] tracking-tight mb-7">
                 Run your facility
                 <br />
                 with your <span className="text-emerald-600">voice</span>.
               </h1>
-              <p
-                className="text-lg text-gray-500 leading-relaxed max-w-xl mb-10"
-                style={{ opacity: 0, animation: 'heroFadeIn 0.7s cubic-bezier(0.16,1,0.3,1) 0.4s forwards' }}
-              >
+              <p className="text-lg text-gray-600 leading-relaxed max-w-xl mb-10">
                 NeuroCann manages cultivation, harvests, trim, extraction, packaging, ordering, supplies, and compliance — through a single conversational interface. Voice-first. Hands-free.
               </p>
-              <div
-                className="flex flex-wrap gap-3"
-                style={{ opacity: 0, animation: 'heroFadeIn 0.7s cubic-bezier(0.16,1,0.3,1) 0.55s forwards' }}
-              >
+              <div className="flex flex-wrap gap-3">
                 <Link
                   href={demoPath('hero')}
                   className="group relative bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-8 py-4 rounded-xl transition-all text-sm inline-block shadow-lg shadow-emerald-500/20 hover:shadow-emerald-500/30"
@@ -839,11 +851,14 @@ export const LandingPage: React.FC = () => {
                   See How It Works
                 </a>
               </div>
+              <p className="text-sm text-gray-500 leading-relaxed max-w-md mt-5">
+                {DEMO_EXPLAINER}
+              </p>
             </div>
 
             <div
               className="flex justify-center lg:justify-end"
-              style={{ opacity: 0, animation: 'heroFadeIn 0.9s cubic-bezier(0.16,1,0.3,1) 0.3s forwards' }}
+              style={{ animation: 'heroFadeIn 0.7s cubic-bezier(0.16,1,0.3,1) both' }}
             >
               <AIChatDemo />
             </div>
@@ -1002,6 +1017,76 @@ export const LandingPage: React.FC = () => {
         </div>
       </section>
 
+      {/* ═══════════════════ e2. METRC VIA T3 ═══════════════════ */}
+      <section id="metrc" className="py-20 lg:py-28 px-6 lg:px-8 bg-gray-50/80 border-y border-gray-100">
+        <div className="max-w-7xl mx-auto">
+          <Reveal>
+            <div className="max-w-2xl mb-12">
+              <div className="text-violet-600">
+                <Eyebrow accent="bg-violet-500" label="METRC Integration" />
+              </div>
+              <h2 className="text-4xl sm:text-5xl font-black text-gray-900 tracking-tight mb-4">
+                Connected to METRC.<br />Available today.
+              </h2>
+              <p className="text-lg text-gray-600 leading-relaxed">
+                NeuroCann connects to METRC through a Track &amp; Trace Tools (T3) account and mirrors your license every 15 minutes. It reads what the state already knows about your facility, so you never type a tag twice, and it keeps a person in front of every change.
+              </p>
+            </div>
+          </Reveal>
+          <div className="grid lg:grid-cols-2 gap-4 lg:gap-6">
+            <Reveal delay={100}>
+              <div className="bg-white rounded-2xl border border-gray-200 h-full overflow-hidden" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.04), 0 8px 32px rgba(0,0,0,0.05)' }}>
+                <div className="h-0.5 bg-emerald-500" />
+                <div className="p-7">
+                  <div className="flex items-center gap-2 mb-5">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                    <h3 className="text-xs font-bold text-emerald-700 uppercase tracking-wider">Synced today</h3>
+                  </div>
+                  <ul className="space-y-4">
+                    {METRC_SYNCED.map((row) => (
+                      <li key={row.label} className="flex gap-3">
+                        <Check className="w-4 h-4 text-emerald-600 mt-1 shrink-0" strokeWidth={3} aria-hidden="true" />
+                        <div>
+                          <div className="text-sm font-black text-gray-900">{row.label}</div>
+                          <p className="text-sm text-gray-500 leading-relaxed">{row.detail}</p>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
+            </Reveal>
+            <Reveal delay={200}>
+              <div className="bg-white rounded-2xl border border-gray-200 h-full overflow-hidden" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.04), 0 8px 32px rgba(0,0,0,0.05)' }}>
+                <div className="h-0.5 bg-amber-500" />
+                <div className="p-7">
+                  <div className="flex items-center gap-2 mb-5">
+                    <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+                    <h3 className="text-xs font-bold text-amber-700 uppercase tracking-wider">You still review</h3>
+                  </div>
+                  <ul className="space-y-4">
+                    {METRC_REVIEWED.map((row) => (
+                      <li key={row.label} className="flex gap-3">
+                        <Eye className="w-4 h-4 text-amber-600 mt-1 shrink-0" strokeWidth={2.5} aria-hidden="true" />
+                        <div>
+                          <div className="text-sm font-black text-gray-900">{row.label}</div>
+                          <p className="text-sm text-gray-500 leading-relaxed">{row.detail}</p>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
+            </Reveal>
+          </div>
+          <Reveal delay={300}>
+            <p className="text-sm text-gray-500 leading-relaxed max-w-2xl mt-8">
+              Outbound transfers leave through the manifest picker: as a T3 Autofill file by default, or submitted to METRC directly once you switch that on. Writing harvests, new packages and adjustments back to METRC is still on the roadmap. Ask about the T3 connection when you book a demo.
+            </p>
+          </Reveal>
+        </div>
+      </section>
+
       {/* ═══════════════════ f. ORDERING & PROCUREMENT ═══════════════════ */}
       <section className="py-24 lg:py-32 px-6 lg:px-8 bg-gray-50/80">
         <div className="max-w-7xl mx-auto">
@@ -1075,7 +1160,7 @@ export const LandingPage: React.FC = () => {
       </section>
 
       {/* ═══════════════════ AMBIENT VOICE — feature spotlight ═══════════════════ */}
-      <section className="relative py-28 lg:py-36 px-6 lg:px-8 overflow-hidden">
+      <section className="relative py-24 lg:py-28 px-6 lg:px-8 overflow-hidden">
         <div className="absolute inset-0 pointer-events-none" style={{ background: 'radial-gradient(circle at 80% 30%, rgba(59,181,112,0.05) 0%, transparent 55%), radial-gradient(circle at 20% 70%, rgba(223,91,89,0.04) 0%, transparent 55%)' }} />
         <div className="max-w-7xl mx-auto relative">
           <div className="grid lg:grid-cols-12 gap-12 items-start">
@@ -1104,7 +1189,7 @@ export const LandingPage: React.FC = () => {
       </section>
 
       {/* ═══════════════════ HOW IT WORKS ═══════════════════ */}
-      <section id="how-it-works" className="relative py-28 lg:py-36 px-6 lg:px-8 overflow-hidden bg-gray-50/80">
+      <section id="how-it-works" className="relative py-20 lg:py-28 px-6 lg:px-8 overflow-hidden bg-gray-50/80">
         <div className="absolute inset-0 pointer-events-none" style={{ background: 'radial-gradient(circle at 20% 50%, rgba(59,181,112,0.04) 0%, transparent 50%), radial-gradient(circle at 80% 50%, rgba(28,158,255,0.04) 0%, transparent 50%)' }} />
         <div className="absolute inset-0 pointer-events-none opacity-[0.02]" style={{ backgroundImage: 'linear-gradient(#1A1A1A 1px, transparent 1px), linear-gradient(90deg, #1A1A1A 1px, transparent 1px)', backgroundSize: '64px 64px' }} />
         <div className="max-w-7xl mx-auto relative">
@@ -1112,12 +1197,12 @@ export const LandingPage: React.FC = () => {
             <div className="text-emerald-600">
               <Eyebrow accent="bg-emerald-500" label="How It Works" />
             </div>
-            <h2 className="text-4xl sm:text-5xl font-black text-gray-900 tracking-tight mb-20 max-w-md">
+            <h2 className="text-4xl sm:text-5xl font-black text-gray-900 tracking-tight mb-14 max-w-md">
               Three steps.<br />Zero friction.
             </h2>
           </Reveal>
 
-          <div className="grid md:grid-cols-3 gap-16 md:gap-10">
+          <div className="grid md:grid-cols-3 gap-12 md:gap-10">
             {STEPS.map((step, i) => {
               const accents = ['border-emerald-500', 'border-blue-500', 'border-amber-500'];
               const numColors = ['text-emerald-200', 'text-blue-200', 'text-amber-200'];
@@ -1136,14 +1221,14 @@ export const LandingPage: React.FC = () => {
       </section>
 
       {/* ═══════════════════ ALSO BUILT IN + ROADMAP ═══════════════════ */}
-      <section className="py-24 px-6 lg:px-8">
+      <section className="py-20 lg:py-24 px-6 lg:px-8">
         <div className="max-w-7xl mx-auto">
           <Reveal>
             <div className="text-gray-500">
               <Eyebrow accent="bg-gray-400" label="Also Built In" />
             </div>
           </Reveal>
-          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-20">
+          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-14">
             {[
               { label: 'Task management', detail: 'AI-created tasks with priority, assignees, and due dates. Hybrid physical-then-digital flows.', border: 'border-l-emerald-500' },
               { label: 'Supply management', detail: 'Par levels, ledger tracking, vendor linkage. Restock alerts feed back into ordering.', border: 'border-l-blue-500' },
@@ -1168,7 +1253,7 @@ export const LandingPage: React.FC = () => {
           </Reveal>
           <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
             {[
-              { label: 'METRC API sync', detail: 'Direct state compliance integration. Auto-submit harvests, packages, and transfers.' },
+              { label: 'METRC write-back', detail: 'Submit harvests, new packages and adjustments to METRC from NeuroCann. Reads and transfer checks are live today via T3.' },
               { label: 'AI sub-agents', detail: 'Autonomous monitoring, anomaly detection, routine SOP execution.' },
               { label: 'Multi-facility view', detail: 'Cross-location dashboards and comparative analytics.' },
               { label: 'Push notifications', detail: 'Task due dates, daily summaries, anomaly alerts.' },
@@ -1189,7 +1274,7 @@ export const LandingPage: React.FC = () => {
 
       {/* ═══════════════════ FROM THE BLOG ═══════════════════ */}
       {latestPosts.length > 0 && (
-        <section id="blog" className="py-24 lg:py-32 px-6 lg:px-8 bg-gray-50/80">
+        <section id="blog" className="py-20 lg:py-24 px-6 lg:px-8 bg-gray-50/80">
           <div className="max-w-7xl mx-auto">
             <Reveal>
               <div className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-4 mb-12">
@@ -1222,7 +1307,7 @@ export const LandingPage: React.FC = () => {
       )}
 
       {/* ═══════════════════ CLOSING CTA ═══════════════════ */}
-      <section className="relative py-28 lg:py-36 px-6 lg:px-8 bg-gray-950 overflow-hidden">
+      <section className="relative py-24 lg:py-28 px-6 lg:px-8 bg-gray-950 overflow-hidden">
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[400px] pointer-events-none" style={{ background: 'radial-gradient(ellipse, rgba(59,181,112,0.12) 0%, transparent 70%)' }} />
         <div className="absolute inset-0 pointer-events-none opacity-[0.04]" style={{ backgroundImage: 'linear-gradient(#fff 1px, transparent 1px), linear-gradient(90deg, #fff 1px, transparent 1px)', backgroundSize: '64px 64px' }} />
         <Reveal>
@@ -1251,6 +1336,9 @@ export const LandingPage: React.FC = () => {
                 Sign In
               </button>
             </div>
+            <p className="text-sm text-gray-500 leading-relaxed max-w-md mx-auto mt-8">
+              {DEMO_EXPLAINER}
+            </p>
           </div>
         </Reveal>
       </section>
