@@ -7,35 +7,69 @@ harvests and plants** for every licence the T3 login can see. Writes back to Met
 
 Read `docs/manifest-t3.md` first for what T3 is and how the key and `T3_MODE` work.
 
-## When it runs, and into which company
+## Where the credentials come from (self-serve)
 
-The sync is on when **both** are true on a Netlify site:
+A company reaches Metrc one of two ways, checked in this order by
+`utils/metrcConnections.ts` → `resolveMetrcCredentials(companyId)`:
 
-- `T3_API_KEY` is set (the same key the manifest picker uses), and
-- `MANIFEST_COMPANY_IDS` names **exactly one** company.
+1. **Its own connection** (`metrc_connections`, migration 070). A director or admin
+   opens **Settings → Metrc**, follows the three steps (T3 account on a Metrc login for
+   the facility, T3+ subscription, generate a secret key) and pastes the key. The
+   server verifies it against T3 (`/v2/auth/whoami`, `/v2/licenses`) *before* storing
+   it, encrypts it with AES-256-GCM under `METRC_CONNECTION_KEY`, and from then on
+   every T3 call for that company uses that key. The key is never returned; Settings
+   shows its last four characters. This is the self-serve path and needs no deploy
+   per customer.
+2. **The deploy key**: `T3_API_KEY` / `T3_MODE` in the site's env, but only for a
+   company listed in `MANIFEST_COMPANY_IDS`. This is the original per-customer-site
+   model (Proper's `proper-neurocann`) and keeps working unchanged. For the *sync*
+   the allowlist must name exactly one company (`NO_SYNC_COMPANY` otherwise), so a
+   site-wide key can never land in several tenants.
 
-That one company is where Metrc data lands. Zero or several ids and every entry point
-refuses (`NO_SYNC_COMPANY`), so the shared production site — which must never have a
-T3 key — can't sync by accident, and neither can a site with several tenants
-allowlisted. Before a second customer gets a sync, the key and the company move into
-a `metrc_connections` table (out of scope, see the brief).
+`METRC_CONNECTION_KEY` is a long random string (`openssl rand -base64 48`) set on the
+shared production site. Without it the Settings card says the server cannot store
+keys yet and the POST answers `503 SELF_SERVE_DISABLED`; everything else still works.
+Rotating it makes stored keys unreadable: the card then shows the connection as
+present but not connected and asks for the key again.
 
-For Proper: `proper-neurocann` on Netlify, `MANIFEST_COMPANY_IDS` = the new Proper
-company id (not Brian's existing neurocann.app team). Confirm the id in Settings →
-*Metrc via T3* on the picker (the 403 message quotes it) before the first run.
+How the credentials flow: `utils/t3.ts` keeps them in an `AsyncLocalStorage`.
+Handlers call `withT3(creds, () => …)` and every T3 helper inside that scope uses
+them; outside any scope the env vars apply. `authorizeManifestRequest` resolves the
+caller's credentials and returns them as `auth.t3`, so the `t3-*` functions never
+look at `process.env` themselves.
+
+### The connection card (Settings → Metrc)
+
+`metrc-connection.ts`: `GET` status (any role), `POST { apiKey, mode? }` connect or
+rotate, `PATCH { mode?, status?, syncLicenses?, verify? }`, `DELETE` (director or
+admin). Mode is `read-only` by default; `live` lets the manifest picker submit
+transfers after a director confirms. `status: 'paused'` keeps the key but the
+scheduler skips the company (Sync now and dry runs still work). `syncLicenses`
+restricts the sync to some of the licences the login sees (`null` = all).
+`verify: true` re-runs the whoami/licences check and records the result or the error
+on the row. A failed sync run records `last_error` on the connection; a clean real
+run records `last_synced_at`.
+
+T3 failures are translated for someone setting this up alone: a 401 becomes
+`400 KEY_REJECTED` ("copy it again from …/secret-key"), unreachable/5xx becomes
+`502 T3_DOWN`, and a key that works but has no T3+ or sees no licences is stored with
+warnings in the response.
 
 ## Moving parts
 
 | Piece | What it does |
 |---|---|
-| `cron-metrc-sync.ts` | Every 15 minutes (schedule in `netlify.toml`). Inserts a `metrc_sync_runs` row with `status='queued'` and POSTs `{ runId }` to the background function. Skips when a run is queued or running. |
-| `metrc-sync-background.ts` | Netlify **background** function (15-minute limit; the caller gets 202 at once). Claims the queued run (→ `running`), pulls, upserts, finishes the run. Only runs a row that is queued for the allowlisted company — the run id is the credential. |
-| `metrc-sync-start.ts` | **Sync now** / **Dry run** from Settings. Director or admin of the allowlisted company. Queues a `manual` run and kicks the background function. |
-| `metrc-sync-status.ts` | What Settings shows: enabled?, last runs with per-licence/per-list counts and errors, each list's cursor, totals of synced rows. |
+| `metrc-connection.ts` | Self-serve connection: GET / POST / PATCH / DELETE above. |
+| `utils/metrcConnections.ts` | Rules: key encryption, `resolveMetrcCredentials`, `syncCompanyIds`, `syncGate(companyId)`, `verifyKey`, wire shape. |
+| `utils/metrcConnectionStore.ts` | SQL for `metrc_connections`; mocked in handler tests. |
+| `cron-metrc-sync.ts` | Every 15 minutes (schedule in `netlify.toml`). For **each** company from `syncCompanyIds()` (active connections + the single allowlisted env company): inserts a `metrc_sync_runs` row with `status='queued'` and POSTs `{ runId }` to the background function. Skips a company with a run queued or running. |
+| `metrc-sync-background.ts` | Netlify **background** function (15-minute limit; the caller gets 202 at once). Reads the queued run's company, resolves that company's credentials with `syncGate`, claims the run (→ `running`), pulls inside `withT3`, upserts, finishes the run. The run id is the credential. |
+| `metrc-sync-start.ts` | **Sync now** / **Dry run** from Settings. Director or admin of a company that passes `syncGate`. Queues a `manual` run and kicks the background function. |
+| `metrc-sync-status.ts` | What Settings shows: enabled?, source (`connection` / `env`), last runs with per-licence/per-list counts and errors, each list's cursor, totals of synced rows. |
 | `utils/metrcSync.ts` | Pure rules: which lists, since when, Metrc row → NeuroCann row, lab state / status / product-type maps, change detection and the conflict report. Unit-tested with no I/O. |
 | `utils/metrcSyncStore.ts` | Batched upserts over one pooled client (200 rows per statement). Metrc-owned columns are named explicitly in every `SET`. |
 | `utils/metrcSyncRunner.ts` | Orchestration with T3 and the store injected. |
-| `migrations/067_metrc_sync.sql`, `068_metrc_sync_phase2.sql` | Schema below. |
+| `migrations/067_metrc_sync.sql`, `068_metrc_sync_phase2.sql`, `070_metrc_connections.sql` | Schema below. |
 
 ### One run at a time
 
@@ -151,21 +185,33 @@ hand-entered rows. Run a dry run on the Proper site before the first real sync.
   harvests (their upsert key), plants and plant batches.
 - `metrc_sync_state` (cursor per company/licence/list) and `metrc_sync_runs` (status, counts,
   errors, report, started_by). Partial unique index: one running run per company.
+- 070: `metrc_connections` — one row per company: `api_key_encrypted` (`v1:<iv>:<tag>:<ct>`),
+  `api_key_hint`, `mode`, `status` (`active` / `paused`), what T3 said about the login
+  (`metrc_username`, `metrc_hostname`, `has_t3plus`, `t3plus_tier`, `api_access_level`,
+  `licenses`), `sync_licenses`, `last_verified_at`, `last_synced_at`, `last_error`.
 
 ```bash
 node scripts/run-migration.mjs migrations/067_metrc_sync.sql           # dev branch
 node scripts/run-migration.mjs migrations/068_metrc_sync_phase2.sql
+node scripts/run-migration.mjs migrations/070_metrc_connections.sql
 node scripts/run-migration.mjs --prod migrations/067_metrc_sync.sql    # prod, per CLAUDE.md
 node scripts/run-migration.mjs --prod migrations/068_metrc_sync_phase2.sql
+node scripts/run-migration.mjs --prod migrations/070_metrc_connections.sql
 ```
 
-## Settings → Metrc Sync
+## Settings → Metrc
 
-Appears in the main app only when `metrc-sync-status` says the sync is enabled for the
-signed-in company (other tenants never see it). Shows totals, the last run (status, who
-started it, per-licence counts per list, errors, dry-run report), each list's cursor and
-last error, and recent runs. Directors and admins get **Sync now** and **Dry run**; the
-panel polls every 5 s while a run is active.
+Always in the nav. The top card is the connection (`MetrcConnectionSection`): the
+three setup steps and the key form when nothing is connected; the login, key hint,
+subscription, mode, licences (tick/untick to choose what syncs) and Re-check / Pause
+schedule / Replace key / Disconnect once connected; a read-only summary when the
+deploy's own key applies. Only directors and admins can change it; everyone can see it.
+
+Below it, once `metrc-sync-status` says the company can sync, the sync panel
+(`MetrcSyncSection`) shows totals, the last run (status, who started it, per-licence
+counts per list, errors, dry-run report), each list's cursor and last error, and recent
+runs. Directors and admins get **Sync now** and **Dry run**; the panel polls every 5 s
+while a run is active.
 
 Synced packages carry a small **Metrc** marker on the card and in the detail modal, where
 status buttons are hidden and location, lab state and item are disabled with a tooltip
@@ -177,8 +223,12 @@ status buttons are hidden and location, lab state and item are disabled with a t
 netlify dev        # not `npm run dev` — Sync now needs the functions and process.env.URL
 ```
 
-`.env`: `T3_API_KEY`, `T3_MODE=read-only`, `MANIFEST_COMPANY_IDS=<one company id>`, dev
-`DATABASE_URL`. Apply 067 to the dev branch first. Then Settings → Metrc Sync → Dry run.
+Self-serve path: `.env` needs `METRC_CONNECTION_KEY` (any long random string) and the dev
+`DATABASE_URL`; apply 067, 068 and 070 to the dev branch. Then Settings → Metrc → paste a
+T3 key → Dry run.
+
+Deploy-key path: `T3_API_KEY`, `T3_MODE=read-only`, `MANIFEST_COMPANY_IDS=<one company id>`
+instead of a stored connection.
 
 ## Before the first real run on Proper (from the brief's risk list)
 

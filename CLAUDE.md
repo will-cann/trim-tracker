@@ -130,19 +130,27 @@ qty, parent lot, lab state) against the pick list and attached invoice, and
 `sandbox`, `live`) decides whether submit is allowed. Wire types live in
 `shared/manifest/t3.ts`; setup in `docs/manifest-t3.md`.
 
-### Metrc sync (per-customer deploys)
+### Metrc sync and self-serve connections
 
-On a deploy with `T3_API_KEY` and exactly one company in `MANIFEST_COMPANY_IDS`, Metrc is
-mirrored into that company: `cron-metrc-sync` (every 15 min) queues a `metrc_sync_runs` row and
-POSTs its id to `metrc-sync-background` (Netlify background function, 15-min limit), which pulls
-items, strains, locations, packages, plant batches, harvests and plants per licence through
-`utils/t3.ts` and upserts them.
+A company's Metrc credentials come from `utils/metrcConnections.ts` →
+`resolveMetrcCredentials(companyId)`: first its own connection (`metrc_connections`, migration
+070 — a T3 secret key a director pasted into Settings → Metrc, verified against T3 then stored
+AES-256-GCM encrypted under `METRC_CONNECTION_KEY`; handler `metrc-connection.ts`, UI
+`MetrcConnectionSection.tsx`), else the deploy's `T3_API_KEY`/`T3_MODE` for a company in
+`MANIFEST_COMPANY_IDS` (the per-customer-site model). `utils/t3.ts` reads credentials from an
+`AsyncLocalStorage`: handlers wrap T3 calls in `withT3(creds, …)`; `authorizeManifestRequest`
+returns them as `auth.t3`. `cron-metrc-sync` (every 15 min) loops over `syncCompanyIds()` (active
+connections + the single allowlisted env company), queues a `metrc_sync_runs` row per company and
+POSTs its id to `metrc-sync-background` (Netlify background function, 15-min limit), which resolves
+that run's company via `syncGate(companyId)` and pulls items, strains, locations, packages, plant
+batches, harvests and plants per licence through `utils/t3.ts` and upserts them.
 Pure mapping and conflict rules live in `utils/metrcSync.ts` (tested without I/O), batched SQL in
 `utils/metrcSyncStore.ts`, orchestration in `utils/metrcSyncRunner.ts`. Metrc-owned columns are
 named explicitly in the upserts; NeuroCann-owned data (notes, contaminants, harvest links, trim
 data) is never touched, and rows are never deleted. Per-list cursors (`metrc_sync_state`) only
-advance on a clean pull. Settings → Metrc Sync (`metrc-sync-status`, `metrc-sync-start`) shows
-runs and offers Sync now / Dry run to directors. Design: `docs/briefs/t3-metrc-sync-brief.md`;
+advance on a clean pull. Settings → Metrc shows the connection card and, once the company can
+sync, the sync panel (`metrc-sync-status`, `metrc-sync-start`) with runs and Sync now / Dry run
+for directors. Design: `docs/briefs/t3-metrc-sync-brief.md`;
 operations: `docs/metrc-sync.md`.
 
 ### LLM Plugin (MCP server)

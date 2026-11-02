@@ -43,11 +43,20 @@ subscription, the licences it can see and whether Metrc grants
 The picker signs in with the same Auth0 application as the main app
 (`src/manifest/auth.tsx`; callbacks return to `/manifest`). Every manifest
 function (`t3-*`, `parse-invoice`, `send-manifest-email`) requires that Bearer
-token **and** the caller's company to be listed in `MANIFEST_COMPANY_IDS`
-(comma-separated company UUIDs). The allowlist is what actually protects the
-Metrc data: `resolveContext()` auto-provisions a company for any new Auth0 signup,
-so a token alone would let anyone who can register read the facility's inventory.
-Unset = every manifest function answers 403.
+token **and** one of:
+
+- the caller's company has its own Metrc connection (a T3 key a director pasted
+  into **Settings → Metrc**; stored encrypted in `metrc_connections`, see
+  `docs/metrc-sync.md`), or
+- the caller's company is listed in `MANIFEST_COMPANY_IDS` (comma-separated
+  company UUIDs) on a deploy that carries `T3_API_KEY`.
+
+The allowlist is what protects a *deploy-wide* key: `resolveContext()`
+auto-provisions a company for any new Auth0 signup, so a token alone would let
+anyone who can register read the facility's inventory through the site's key. A
+company's own key only ever reaches that company's Metrc, so a stored connection
+is enough on its own. With neither, every manifest function answers 403 and the
+message points at Settings → Metrc.
 
 Within an allowlisted company any role can scan, read invoices, check packages
 and dry-run a transfer; **submitting** a transfer to Metrc additionally needs the
@@ -63,25 +72,38 @@ message quotes your company id, which is what goes in `MANIFEST_COMPANY_IDS`.
 
 ## Setup
 
-1. Sign in to T3 (dash.trackandtrace.tools) with the Metrc login that owns the
-   facility licences and make sure it has an active T3+ subscription.
+### Self-serve (any facility, shared site)
+
+1. Sign in to T3 (dash.trackandtrace.tools) with a Metrc login for the facility
+   (a view-only employee if possible) and add an active T3+ subscription.
 2. Generate a secret key at <https://api.trackandtrace.tools/v2/pages/secret-key>
    (or `POST /v2/auth/secretkey`). The key is bound to that Metrc username and
    password; rotating the password invalidates it.
-3. In Netlify env vars set `T3_API_KEY` to the key, `T3_MODE` (below) and
-   `MANIFEST_COMPANY_IDS` (above).
+3. In NeuroCann, a director opens **Settings → Metrc**, pastes the key, picks
+   read-only (default) or transfers allowed, and connects. The server checks the
+   key with T3 before saving it and stores it encrypted. The mode can be changed
+   there later; it plays the role `T3_MODE` plays below.
 4. Open `/manifest`, sign in, then Settings → *Metrc via T3* → **Check connection**.
 
-The key never reaches the browser. All T3 calls go through
+### Deploy key (one site per customer)
+
+1–2 as above, then in that site's Netlify env vars set `T3_API_KEY` to the key,
+`T3_MODE` (below) and `MANIFEST_COMPANY_IDS` (above). This is how Proper was set
+up before self-serve existed and still works.
+
+The key never reaches the browser either way. All T3 calls go through
 `netlify/functions/t3-status.ts`, `t3-verify-packages.ts` and
-`t3-create-transfer.ts`, which share the client in `utils/t3.ts`.
+`t3-create-transfer.ts`, which share the client in `utils/t3.ts`; each handler
+gets the company's credentials from `authorizeManifestRequest` (`auth.t3`) and
+wraps its calls in `withT3(...)`.
 
 ## A dedicated deploy per customer (Proper)
 
-A T3 key is a customer's Metrc login. Don't put it in the shared production
-site's env: give each customer whose Metrc we touch its own Netlify site, deployed
-from the same repo and branch, so the key, the mode and the allowlist are scoped
-to that deploy and the main site never has a T3 key at all.
+Before self-serve connections this was the only way to scope a key: a T3 key is a
+customer's Metrc login, so rather than put it in the shared site's env, give the
+customer its own Netlify site from the same repo and branch, with the key, the
+mode and the allowlist scoped to that deploy. It remains an option for a customer
+who wants their users on a separate hostname.
 
 For Proper:
 
@@ -111,11 +133,12 @@ For Proper:
 The main production site keeps `T3_API_KEY` unset (Metrc card shows "Not set
 up"). Code changes still ship to both sites from `main`; only env differs.
 
-## Read-only, sandbox and live (`T3_MODE`)
+## Read-only, sandbox and live (`T3_MODE` / connection mode)
 
 A T3 secret key has **no permission scoping of its own**: it does whatever the
-Metrc login behind it can do. Limiting what the picker does with it is therefore a
-deploy-level decision:
+Metrc login behind it can do. Limiting what the picker does with it is therefore
+NeuroCann's decision — the connection's mode in Settings → Metrc for a self-serve
+key, `T3_MODE` for a deploy key:
 
 | `T3_MODE`   | Reads real inventory | Transfer "Validate" | Transfer "Submit" |
 |-------------|----------------------|---------------------|-------------------|
