@@ -4,6 +4,7 @@ import { Button, Card, Input, Notice, Pill, Screen, TopBar } from './ui'
 import { Scanner } from './Scanner'
 import { lineStatus } from '../lib/order'
 import { extractTags, isMetrcTag, shortTag, TAG_HINT } from '../lib/metrc'
+import { parseLucidCode } from '../lib/lucidGreen'
 import type { OrderState, PickLine, ScanSource } from '../types'
 
 interface Props {
@@ -53,7 +54,15 @@ export function ScanSheet({ order, line, onScan, onRemove, onImportRecorded, onN
     const raw = el.value
     const tags = extractTags(raw)
     if (tags.length === 0) {
-      if (raw.trim()) showToast({ tone: 'red', text: `Not a Metrc tag. ${TAG_HINT}` })
+      if (parseLucidCode(raw)) {
+        // A Bluetooth scanner typed the CaseID QR's URL in here. Clear it so the
+        // next scan doesn't land on the end of it, and let addScan explain.
+        el.value = ''
+        setHasText(false)
+        handle(raw.trim(), 'manual')
+      } else if (raw.trim()) {
+        showToast({ tone: 'red', text: `Not a Metrc tag. ${TAG_HINT}` })
+      }
       return
     }
     el.value = ''

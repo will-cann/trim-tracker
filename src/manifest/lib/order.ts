@@ -1,5 +1,6 @@
 import type { OrderState, PackageRow, PickLine, Scan, ScanSource } from '../types'
 import { guessLicenseKind, isMetrcTag, normalizeTag, TAG_HINT } from './metrc'
+import { parseLucidCode } from './lucidGreen'
 import { invoiceNumberFromOrder } from './pickList'
 import type { LicenseDefaults } from './storage'
 
@@ -62,7 +63,12 @@ export function tagIndex(state: OrderState): Map<string, string[]> {
   return idx
 }
 
-export type ScanFailReason = 'invalid' | 'duplicate-here' | 'duplicate-elsewhere' | 'is-lot-tag'
+export type ScanFailReason = 'invalid' | 'case-id' | 'lucid-id' | 'duplicate-here' | 'duplicate-elsewhere' | 'is-lot-tag'
+
+/** The scan wasn't a Metrc tag at all (as opposed to a tag we won't accept here). */
+export function isNotATag(reason: ScanFailReason | 'no-open-line'): boolean {
+  return reason === 'invalid' || reason === 'case-id' || reason === 'lucid-id'
+}
 
 export type AddScanResult =
   | { ok: true; state: OrderState; warning?: string }
@@ -72,6 +78,10 @@ export function scanFailureMessage(reason: ScanFailReason | 'no-open-line', deta
   switch (reason) {
     case 'invalid':
       return `Not a Metrc tag. ${TAG_HINT}`
+    case 'case-id':
+      return "That's the CaseID label on the front. Scan the blue Metrc barcode on the side of the case."
+    case 'lucid-id':
+      return "That's a LucidID from a unit inside, not the case. Scan the blue Metrc barcode on the case."
     case 'duplicate-here':
       return 'Already scanned on this line.'
     case 'duplicate-elsewhere':
@@ -84,6 +94,10 @@ export function scanFailureMessage(reason: ScanFailReason | 'no-open-line', deta
 }
 
 export function addScan(state: OrderState, lineId: string, raw: string, source: ScanSource): AddScanResult {
+  // Before normalising: normalizeTag would flatten the QR's URL into letters.
+  const lucid = parseLucidCode(raw)
+  if (lucid) return { ok: false, reason: lucid.kind === 'case' ? 'case-id' : 'lucid-id', detail: lucid.id }
+
   const tag = normalizeTag(raw)
   if (!isMetrcTag(tag)) return { ok: false, reason: 'invalid' }
 
