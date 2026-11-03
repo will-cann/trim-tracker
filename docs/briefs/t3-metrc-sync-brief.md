@@ -54,8 +54,8 @@ receive Proper's Metrc data, even though it involves the same people and licence
   on it.
 - Before a second customer: move the key off the site into a `metrc_connections` table
   (`company_id`, encrypted T3 key, mode, licences, `last_synced_at`), configured from
-  Settings by an admin. The runner then loops over connections. Out of scope for phase 1, but
-  keep the code shaped so the key and company come from one place.
+  Settings by an admin. The runner then loops over connections. *Done — migration 070,
+  `utils/metrcConnections.ts`, Settings → Metrc; see `docs/metrc-sync.md`.*
 
 ### What it pulls
 

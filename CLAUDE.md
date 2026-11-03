@@ -119,30 +119,38 @@ schema but are not wired to a provider yet.
 ### Manifest picker (`src/manifest/`, `/manifest`)
 
 Standalone pick-and-scan page (own Auth0 provider in `src/manifest/auth.tsx`; functions require a
-Bearer token from a company listed in `MANIFEST_COMPANY_IDS`, transfer submit needs director+)
-that loads an Apex pick list, scans Metrc case tags, and emits T3 Autofill `.t3csv` transfer files.
-Customers whose Metrc we touch get their own Netlify site from the same branch with their own
-`T3_API_KEY`/`T3_MODE`/allowlist (`docs/manifest-t3.md`). With
-`T3_API_KEY` set it also talks to metrc.com through the T3 API (`netlify/functions/t3-*.ts`,
+Bearer token from a company that has a Metrc connection in Settings → Metrc or is listed in
+`MANIFEST_COMPANY_IDS`, transfer submit needs director+) that loads an Apex pick list, scans Metrc
+case tags, and emits T3 Autofill `.t3csv` transfer files. A customer can also get its own Netlify
+site from the same branch with a deploy-wide `T3_API_KEY`/`T3_MODE`/allowlist (`docs/manifest-t3.md`).
+With Metrc credentials it also talks to metrc.com through the T3 API (`netlify/functions/t3-*.ts`,
 client in `utils/t3.ts`): `lib/reconcile.ts` checks each scanned case's Metrc contents (item,
 qty, parent lot, lab state) against the pick list and attached invoice, and
-`t3-create-transfer` validates/submits the transfer. `T3_MODE` (`read-only` default,
-`sandbox`, `live`) decides whether submit is allowed. Wire types live in
+`t3-create-transfer` validates/submits the transfer. The connection's mode (`read-only` default,
+`sandbox`, `live`; `T3_MODE` for a deploy key) decides whether submit is allowed. Wire types live in
 `shared/manifest/t3.ts`; setup in `docs/manifest-t3.md`.
 
-### Metrc sync (per-customer deploys)
+### Metrc sync and self-serve connections
 
-On a deploy with `T3_API_KEY` and exactly one company in `MANIFEST_COMPANY_IDS`, Metrc is
-mirrored into that company: `cron-metrc-sync` (every 15 min) queues a `metrc_sync_runs` row and
-POSTs its id to `metrc-sync-background` (Netlify background function, 15-min limit), which pulls
-items, strains, locations, packages, plant batches, harvests and plants per licence through
-`utils/t3.ts` and upserts them.
+A company's Metrc credentials come from `utils/metrcConnections.ts` →
+`resolveMetrcCredentials(companyId)`: first its own connection (`metrc_connections`, migration
+070 — a T3 secret key a director pasted into Settings → Metrc, verified against T3 then stored
+AES-256-GCM encrypted under `METRC_CONNECTION_KEY`; handler `metrc-connection.ts`, UI
+`MetrcConnectionSection.tsx`), else the deploy's `T3_API_KEY`/`T3_MODE` for a company in
+`MANIFEST_COMPANY_IDS` (the per-customer-site model). `utils/t3.ts` reads credentials from an
+`AsyncLocalStorage`: handlers wrap T3 calls in `withT3(creds, …)`; `authorizeManifestRequest`
+returns them as `auth.t3`. `cron-metrc-sync` (every 15 min) loops over `syncCompanyIds()` (active
+connections + the single allowlisted env company), queues a `metrc_sync_runs` row per company and
+POSTs its id to `metrc-sync-background` (Netlify background function, 15-min limit), which resolves
+that run's company via `syncGate(companyId)` and pulls items, strains, locations, packages, plant
+batches, harvests and plants per licence through `utils/t3.ts` and upserts them.
 Pure mapping and conflict rules live in `utils/metrcSync.ts` (tested without I/O), batched SQL in
 `utils/metrcSyncStore.ts`, orchestration in `utils/metrcSyncRunner.ts`. Metrc-owned columns are
 named explicitly in the upserts; NeuroCann-owned data (notes, contaminants, harvest links, trim
 data) is never touched, and rows are never deleted. Per-list cursors (`metrc_sync_state`) only
-advance on a clean pull. Settings → Metrc Sync (`metrc-sync-status`, `metrc-sync-start`) shows
-runs and offers Sync now / Dry run to directors. Design: `docs/briefs/t3-metrc-sync-brief.md`;
+advance on a clean pull. Settings → Metrc shows the connection card and, once the company can
+sync, the sync panel (`metrc-sync-status`, `metrc-sync-start`) with runs and Sync now / Dry run
+for directors. Design: `docs/briefs/t3-metrc-sync-brief.md`;
 operations: `docs/metrc-sync.md`.
 
 ### LLM Plugin (MCP server)

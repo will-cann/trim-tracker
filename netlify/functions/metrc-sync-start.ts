@@ -1,27 +1,27 @@
 import type { Handler } from '@netlify/functions';
 import { pool } from './utils/db';
-import { authorizeManifestRequest, jsonResponse as json } from './utils/manifestAuth';
+import { authorize, resolveContext } from './utils/auth';
+import { jsonResponse as json } from './utils/manifestAuth';
 import { MetrcSyncStore } from './utils/metrcSyncStore';
-import { kickBackgroundSync, syncGate } from './utils/metrcSyncRunner';
+import { kickBackgroundSync } from './utils/metrcSyncRunner';
+import { syncGate } from './utils/metrcConnections';
 import type { MetrcSyncStartRequest, MetrcSyncStartResponse } from '../../shared/manifest/metrcSync';
 
 /**
- * "Sync now" (and "Dry run") from Settings → Metrc Sync. Director or admin of
- * the allowlisted company only. Queues a manual run and kicks the background
- * function; the panel then polls metrc-sync-status to watch it.
+ * "Sync now" (and "Dry run") from Settings → Metrc. Director or admin of a
+ * company with a Metrc connection. Queues a manual run and kicks the
+ * background function; the panel then polls metrc-sync-status to watch it.
  */
 export const handler: Handler = async (event) => {
     if (event.httpMethod !== 'POST') return { statusCode: 405, body: 'Method Not Allowed' };
 
     try {
-        const auth = await authorizeManifestRequest(event.headers, { minRole: 'director' });
-        if (!auth.ok) return json(auth.status, { error: auth.error });
+        const ctx = await resolveContext(event.headers.authorization);
+        if (!ctx) return json(401, { error: 'Sign in first.' });
+        if (authorize(ctx, 'director')) return json(403, { error: `Starting a sync needs the director or admin role; you are ${ctx.role}.` });
 
-        const gate = syncGate();
+        const gate = await syncGate(ctx.companyId);
         if (!gate.ok) return json(gate.status, { error: gate.error, code: gate.code });
-        if (gate.companyId !== auth.ctx.companyId.toLowerCase()) {
-            return json(403, { error: 'This deploy syncs Metrc into a different company.' });
-        }
 
         let body: MetrcSyncStartRequest = {};
         try {
@@ -34,11 +34,11 @@ export const handler: Handler = async (event) => {
         const client = await pool.connect();
         try {
             const store = new MetrcSyncStore(client);
-            await store.failStaleRuns(gate.companyId);
-            if (await store.hasActiveRun(gate.companyId)) {
+            await store.failStaleRuns(ctx.companyId);
+            if (await store.hasActiveRun(ctx.companyId)) {
                 return json(409, { error: 'A sync is already running. Wait for it to finish.', code: 'RUN_ACTIVE' });
             }
-            const runId = await store.enqueueRun(gate.companyId, { trigger: 'manual', startedBy: auth.ctx.userId, dryRun });
+            const runId = await store.enqueueRun(ctx.companyId, { trigger: 'manual', startedBy: ctx.userId, dryRun });
             const kicked = await kickBackgroundSync(runId);
             if (!kicked.ok) {
                 await store.finishRun(runId, { status: 'failed', counts: {}, errors: [], error: kicked.error });

@@ -93,6 +93,12 @@ export class MetrcSyncStore {
         );
     }
 
+    /** Which company a queued run belongs to, so the background function can resolve that company's credentials. */
+    async queuedRunCompany(runId: string): Promise<string | null> {
+        const { rows } = await this.db.query(`SELECT company_id FROM metrc_sync_runs WHERE id = $1 AND status = 'queued'`, [runId]);
+        return rows[0] ? String(rows[0].company_id) : null;
+    }
+
     /** Scheduler path: a queued row is the capability; move it to running or explain why not. */
     async claimQueuedRun(runId: string, companyId: string): Promise<RunRow | null> {
         try {

@@ -13,7 +13,7 @@ interface SettingsNavProps {
         rooms: number;
         team: number;
     };
-    /** Sections that do not apply to this deploy/company (e.g. Metrc sync on a site without T3). */
+    /** Sections that do not apply here (e.g. Metrc when the functions are unreachable). */
     hidden?: SettingsSection[];
 }
 
@@ -26,7 +26,7 @@ const NAV_ITEMS: { id: SettingsSection; label: string; icon: React.ElementType; 
     { id: 'products', label: 'Product Catalog', icon: Package },
     { id: 'team', label: 'Team', icon: Users, countKey: 'team' },
     { id: 'llm-plugin', label: 'LLM Plugin', icon: Plug },
-    { id: 'metrc-sync', label: 'Metrc Sync', icon: Cloud },
+    { id: 'metrc-sync', label: 'Metrc', icon: Cloud },
 ];
 
 export const SettingsNav: React.FC<SettingsNavProps> = ({ active, onChange, counts, hidden = [] }) => {

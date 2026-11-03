@@ -1,13 +1,21 @@
+import { AsyncLocalStorage } from 'node:async_hooks';
 import type { T3Mode } from '../../../shared/manifest/t3';
 
 /**
  * Thin client for the T3 API (Track & Trace Tools, https://api.trackandtrace.tools),
  * which wraps metrc.com with a REST interface. Authenticates with a long-lived
- * secret key (T3_API_KEY) generated at https://api.trackandtrace.tools/v2/pages/secret-key
+ * secret key generated at https://api.trackandtrace.tools/v2/pages/secret-key
  * against the Metrc login that owns the facility licences.
  *
+ * Where the key comes from: a handler that has resolved a company's
+ * credentials (utils/metrcConnections.ts — the company's own stored key, or the
+ * deploy's T3_API_KEY for the allowlisted company) wraps its T3 calls in
+ * `withT3(creds, …)`. Everything in this module then reads those credentials;
+ * outside such a scope the env vars are used, so single-tenant deploys and
+ * scripts keep working unchanged.
+ *
  * T3 has no scoped keys: a secret key carries every permission of the Metrc
- * login behind it. T3_MODE is how this deploy limits what that key is used for:
+ * login behind it. The mode is how NeuroCann limits what that key is used for:
  *   read-only (default) — reads + dry-run validation only; submit is refused here
  *   sandbox             — the key is swapped for a Metrc sandbox JWT on each call
  *   live                — real writes when a caller passes submit=true
@@ -38,14 +46,42 @@ export class T3Error extends Error {
     }
 }
 
+// ── Credentials ────────────────────────────────────────────────────────────
+
+export interface T3Credentials {
+    apiKey: string;
+    mode: T3Mode;
+}
+
+const credentialScope = new AsyncLocalStorage<T3Credentials>();
+
+export function parseT3Mode(raw: string | undefined | null): T3Mode {
+    const v = (raw || 'read-only').trim().toLowerCase();
+    if (v === 'live' || v === 'sandbox') return v;
+    return 'read-only';
+}
+
+/** The deploy-wide key, when the site has one (per-customer deploys, local dev). */
+export function envT3Credentials(): T3Credentials | null {
+    const apiKey = process.env.T3_API_KEY;
+    return apiKey ? { apiKey, mode: parseT3Mode(process.env.T3_MODE) } : null;
+}
+
+/** Run `fn` with every T3 call inside it authenticated as `creds`. */
+export function withT3<T>(creds: T3Credentials, fn: () => Promise<T>): Promise<T> {
+    return credentialScope.run(creds, fn);
+}
+
+function currentCredentials(): T3Credentials | null {
+    return credentialScope.getStore() ?? envT3Credentials();
+}
+
 export function isT3Configured(): boolean {
-    return Boolean(process.env.T3_API_KEY);
+    return currentCredentials() !== null;
 }
 
 export function t3Mode(): T3Mode {
-    const raw = (process.env.T3_MODE || 'read-only').trim().toLowerCase();
-    if (raw === 'live' || raw === 'sandbox') return raw;
-    return 'read-only';
+    return currentCredentials()?.mode ?? 'read-only';
 }
 
 export const t3WritesAllowed = () => t3Mode() !== 'read-only';
@@ -71,7 +107,7 @@ function describeError(status: number, body: unknown): T3Error {
     const title = typeof o.title === 'string' ? o.title : undefined;
 
     let message: string;
-    if (status === 401) message = detail ?? 'T3 rejected the secret key. Regenerate it at api.trackandtrace.tools/v2/pages/secret-key and update T3_API_KEY.';
+    if (status === 401) message = detail ?? 'T3 rejected the secret key. Regenerate it at api.trackandtrace.tools/v2/pages/secret-key and connect it again in Settings → Metrc.';
     else if (status === 402 || /t3\+|subscription/i.test(`${code} ${title} ${detail}`)) message = detail ?? 'This T3 account needs an active T3+ subscription for Metrc data and transfer endpoints.';
     else if (status === 403) message = detail ?? 'The Metrc login behind the T3 key does not have access to that licence or action.';
     else if (status === 400) message = detail ?? title ?? 'T3 rejected the request.';
@@ -100,7 +136,8 @@ async function rawFetch(url: string, init: RequestInit): Promise<Response> {
 
 // ── Sandbox session ────────────────────────────────────────────────────────
 
-let sandboxJwt: { token: string; mintedAt: number } | null = null;
+/** One cached sandbox JWT per secret key, since several companies may share a lambda. */
+const sandboxJwts = new Map<string, { token: string; mintedAt: number }>();
 const SANDBOX_JWT_TTL_MS = 20 * 60 * 1000;
 
 /**
@@ -109,7 +146,8 @@ const SANDBOX_JWT_TTL_MS = 20 * 60 * 1000;
  * otherwise T3 answers 400 and we surface that plainly.
  */
 async function sandboxToken(apiKey: string, force = false): Promise<string> {
-    if (!force && sandboxJwt && Date.now() - sandboxJwt.mintedAt < SANDBOX_JWT_TTL_MS) return sandboxJwt.token;
+    const cached = sandboxJwts.get(apiKey);
+    if (!force && cached && Date.now() - cached.mintedAt < SANDBOX_JWT_TTL_MS) return cached.token;
     const res = await rawFetch(buildUrl('/v2/auth/sandbox'), {
         method: 'POST',
         headers: { Accept: 'application/json', 'X-T3-API-Key': apiKey },
@@ -117,7 +155,7 @@ async function sandboxToken(apiKey: string, force = false): Promise<string> {
     const body = await parseBody(res);
     if (res.status === 400) {
         throw new T3Error(
-            'T3_MODE=sandbox, but Metrc has not provisioned a sandbox for this login. Ask Metrc support for sandbox access on the state hostname, or switch T3_MODE to read-only.',
+            'Sandbox mode is on, but Metrc has not provisioned a sandbox for this login. Ask Metrc support for sandbox access on the state hostname, or switch the connection to read-only.',
             400,
             'SANDBOX_UNAVAILABLE',
         );
@@ -125,13 +163,13 @@ async function sandboxToken(apiKey: string, force = false): Promise<string> {
     if (!res.ok) throw describeError(res.status, body);
     const token = (body as { accessToken?: string } | null)?.accessToken;
     if (!token) throw new T3Error('T3 sandbox exchange returned no token.', 502, 'SANDBOX_NO_TOKEN');
-    sandboxJwt = { token, mintedAt: Date.now() };
+    sandboxJwts.set(apiKey, { token, mintedAt: Date.now() });
     return token;
 }
 
 /** Exposed for tests. */
 export function resetSandboxSession() {
-    sandboxJwt = null;
+    sandboxJwts.clear();
 }
 
 // ── Core request ───────────────────────────────────────────────────────────
@@ -140,8 +178,9 @@ export async function t3Request<T>(
     path: string,
     opts: { method?: 'GET' | 'POST'; query?: Query; body?: unknown } = {},
 ): Promise<T> {
-    const apiKey = process.env.T3_API_KEY;
-    if (!apiKey) throw new T3Error('T3 is not configured on this deploy (T3_API_KEY unset).', 503, 'NOT_CONFIGURED');
+    const creds = currentCredentials();
+    if (!creds) throw new T3Error('No Metrc connection for this company. Connect one in Settings → Metrc.', 503, 'NOT_CONFIGURED');
+    const { apiKey, mode } = creds;
 
     const url = buildUrl(path, opts.query);
     const send = async (auth: Record<string, string>) => {
@@ -155,7 +194,7 @@ export async function t3Request<T>(
     };
 
     const attempt = async (): Promise<Response> => {
-        if (t3Mode() === 'sandbox') {
+        if (mode === 'sandbox') {
             let res = await send({ Authorization: `Bearer ${await sandboxToken(apiKey)}` });
             if (res.status === 401) res = await send({ Authorization: `Bearer ${await sandboxToken(apiKey, true)}` });
             return res;
