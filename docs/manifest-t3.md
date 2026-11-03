@@ -58,6 +58,15 @@ company's own key only ever reaches that company's Metrc, so a stored connection
 is enough on its own. With neither, every manifest function answers 403 and the
 message points at Settings → Metrc.
 
+The picker enforces this up front: `ConnectMetrcGate` (`src/manifest/components/`)
+asks `metrc-connection` for the company's status on load and, when there is
+neither a stored connection nor a deploy key, shows a **Connect your Metrc first**
+screen instead of the pick list. A director or admin can paste a T3 secret key
+and pick the mode right there (same handler and encryption as Settings → Metrc);
+anyone else is told to ask a director. If the status call itself fails the gate
+opens and the per-function 403s take over, so an outage never locks people out
+of a list they already loaded.
+
 Within an allowlisted company any role can scan, read invoices, check packages
 and dry-run a transfer; **submitting** a transfer to Metrc additionally needs the
 `director` or `admin` role (403 `ROLE` otherwise).
@@ -162,6 +171,37 @@ have provisioned sandbox access for that login; if it hasn't, T3 answers 400 and
 the picker reports `SANDBOX_UNAVAILABLE`. Sandbox licences and packages are not
 the real facility's, so scanned production tags won't be found there — it is for
 rehearsing the create-transfer flow end to end, not for checking real inventory.
+
+## Picking: lot digits, scan-first, Apex tag ranges, vault walk
+
+Proper's pickers find a case by its **lot** (the source batch in Apex's Batch ID
+column), not by product name or the case's own tag, and they read the last
+digits. So:
+
+- Every pick line leads with the lot's last **7** digits (`TAG_SUFFIX_LEN` in
+  `src/manifest/lib/metrc.ts`; `LotDigits` / `TagText` in
+  `components/TagDigits.tsx`), leading zeros muted, product name beneath.
+  Scanned tags show in full with the last 7 bold.
+- **Scan any case** (`ScanAnySheet.tsx`, phone/tablet layout) opens the scanner
+  without choosing a line first. A tag Apex recorded for a line routes to it
+  offline (`matchRecorded`); anything else is looked up in Metrc
+  (`t3-verify-packages`, primary licence plus the order's other origin
+  licences) and matched on the parent lot, falling back to the item name
+  (`matchByFacts`, `lib/scanFirst.ts`). The facts are kept
+  (`mergeFacts`) so the Review check doesn't re-fetch them. Ambiguous or
+  unknown cases ask the picker which line it belongs to, or to skip it.
+- When Proper enters a PO in Apex they type the **range of case tags** packed for
+  it. `expandTagRanges` (`lib/pickList.ts`) turns `1A4…146121-1A4…146131` or the
+  shorthand `1A4…146121 to 131` in the Metrc Package ID / Note columns into
+  recorded tags (same prefix, forward only, capped at 500). A scan that isn't
+  among a line's recorded tags is flagged in amber (`addScan` warnings), not
+  blocked, since Apex's record can be stale.
+- Pick lists are sorted to the **vault walk** (`lib/vaultOrder.ts`): stops are
+  matched from brand / category / name, and Settings → *Vault walk order*
+  (`VaultWalkCard.tsx`) lets the lead drag the stops into the order the room is
+  actually laid out. The walk is saved per device
+  (`manifest-picker:vault-walk:v1`) and re-sorts the loaded list; lines that
+  match no stop go last.
 
 ## Operational notes
 

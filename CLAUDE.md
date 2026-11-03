@@ -128,7 +128,12 @@ client in `utils/t3.ts`): `lib/reconcile.ts` checks each scanned case's Metrc co
 qty, parent lot, lab state) against the pick list and attached invoice, and
 `t3-create-transfer` validates/submits the transfer. The connection's mode (`read-only` default,
 `sandbox`, `live`; `T3_MODE` for a deploy key) decides whether submit is allowed. Wire types live in
-`shared/manifest/t3.ts`; setup in `docs/manifest-t3.md`.
+`shared/manifest/t3.ts`; setup in `docs/manifest-t3.md`. `ConnectMetrcGate` wraps the app: a company
+with no Metrc credentials sees a connect screen (directors paste a T3 key inline) instead of the pick
+list. Pickers work by lot, so every line leads with the lot's last 7 digits (`LotDigits`), and
+**Scan any case** (`ScanAnySheet`, `lib/scanFirst.ts`) matches a scanned tag to a line via Apex's
+recorded tags (ranges expanded by `expandTagRanges`) or Metrc's parent lot. Lists sort to a
+per-device vault walk (`lib/vaultOrder.ts`, Settings → Vault walk order).
 
 ### Metrc sync and self-serve connections
 
