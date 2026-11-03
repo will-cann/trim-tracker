@@ -32,6 +32,11 @@ keys yet and the POST answers `503 SELF_SERVE_DISABLED`; everything else still w
 Rotating it makes stored keys unreadable: the card then shows the connection as
 present but not connected and asks for the key again.
 
+Deploy order does not matter: until migration 070 has run, every read of
+`metrc_connections` (Postgres `42P01`) counts as "no connections" with one warning
+in the function log, so the picker and the sync behave exactly as before; only
+connecting a key answers `503 MIGRATION_PENDING`.
+
 How the credentials flow: `utils/t3.ts` keeps them in an `AsyncLocalStorage`.
 Handlers call `withT3(creds, () => …)` and every T3 helper inside that scope uses
 them; outside any scope the env vars apply. `authorizeManifestRequest` resolves the

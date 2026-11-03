@@ -53,23 +53,48 @@ const toRow = (r: any): ConnectionRow => ({
     sync_licenses: Array.isArray(r.sync_licenses) ? r.sync_licenses : null,
 });
 
+/**
+ * Postgres 42P01 (undefined_table): migration 070 has not been applied on this
+ * database yet. Reads treat that as "no connections" so a deploy that lands
+ * before the migration cannot take the picker or the sync down; writes still
+ * fail loudly.
+ */
+let warnedMissingTable = false;
+const isMissingTable = (err: unknown) => (err as { code?: string } | null)?.code === '42P01';
+function missingTable<T>(err: unknown, fallback: T): T {
+    if (!isMissingTable(err)) throw err;
+    if (!warnedMissingTable) {
+        warnedMissingTable = true;
+        console.warn('metrc_connections does not exist yet; run migrations/070_metrc_connections.sql. Treating as no self-serve connections.');
+    }
+    return fallback;
+}
+
 export async function findConnection(companyId: string): Promise<ConnectionRow | null> {
-    const { rows } = await sql`
-        SELECT c.id, c.company_id, c.api_key_encrypted, c.api_key_hint, c.mode, c.status,
-               c.metrc_username, c.metrc_hostname, c.has_t3plus, c.t3plus_tier, c.api_access_level,
-               c.licenses, c.sync_licenses, c.last_verified_at, c.last_synced_at, c.last_error, c.last_error_at,
-               c.created_by, u.name AS created_by_name, c.created_at, c.updated_at
-          FROM metrc_connections c
-          LEFT JOIN users u ON u.id = c.created_by
-         WHERE c.company_id = ${companyId}
-    `;
-    return rows[0] ? toRow(rows[0]) : null;
+    try {
+        const { rows } = await sql`
+            SELECT c.id, c.company_id, c.api_key_encrypted, c.api_key_hint, c.mode, c.status,
+                   c.metrc_username, c.metrc_hostname, c.has_t3plus, c.t3plus_tier, c.api_access_level,
+                   c.licenses, c.sync_licenses, c.last_verified_at, c.last_synced_at, c.last_error, c.last_error_at,
+                   c.created_by, u.name AS created_by_name, c.created_at, c.updated_at
+              FROM metrc_connections c
+              LEFT JOIN users u ON u.id = c.created_by
+             WHERE c.company_id = ${companyId}
+        `;
+        return rows[0] ? toRow(rows[0]) : null;
+    } catch (err) {
+        return missingTable(err, null);
+    }
 }
 
 /** Companies whose scheduled sync should run. */
 export async function activeConnectionCompanyIds(): Promise<string[]> {
-    const { rows } = await sql`SELECT company_id FROM metrc_connections WHERE status = 'active' ORDER BY created_at`;
-    return rows.map((r: any) => String(r.company_id));
+    try {
+        const { rows } = await sql`SELECT company_id FROM metrc_connections WHERE status = 'active' ORDER BY created_at`;
+        return rows.map((r: any) => String(r.company_id));
+    } catch (err) {
+        return missingTable(err, []);
+    }
 }
 
 export interface SaveConnectionInput {

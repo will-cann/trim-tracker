@@ -138,6 +138,10 @@ export const handler: Handler = async (event) => {
 
         return { statusCode: 405, body: 'Method Not Allowed' };
     } catch (error) {
+        if ((error as { code?: string } | null)?.code === '42P01') {
+            console.error('metrc-connection: metrc_connections table missing — run migrations/070_metrc_connections.sql');
+            return json(503, { error: 'This server is not ready to store Metrc connections yet (database migration pending). Ask NeuroCann.', code: 'MIGRATION_PENDING' });
+        }
         console.error('metrc-connection error:', error);
         return json(500, { error: 'Internal server error' });
     }
