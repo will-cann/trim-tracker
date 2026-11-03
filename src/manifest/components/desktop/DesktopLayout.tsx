@@ -11,6 +11,7 @@ import { firstOpenLine, wedgeScan } from '../../lib/wedge'
 import { shortTag } from '../../lib/metrc'
 import { beep } from '../../lib/beep'
 import type { EmailSettings, LayoutPreference, LicenseDefaults } from '../../lib/storage'
+import type { VaultWalk } from '../../lib/vaultOrder'
 import type { DestinationHeader, OrderState, PickLine, TransporterProfile } from '../../types'
 
 interface Props {
@@ -19,7 +20,9 @@ interface Props {
   licenses: LicenseDefaults
   email: EmailSettings
   layoutPref: LayoutPreference
+  vaultWalk: VaultWalk
   onLayoutPref: (p: LayoutPreference) => void
+  onVaultWalk: (w: VaultWalk) => void
   setOrder: (s: OrderState) => void
   update: (fn: (s: OrderState) => OrderState) => void
   onTransporter: (t: Partial<TransporterProfile>) => void
@@ -32,7 +35,7 @@ interface Props {
 type Pane = 'scan' | 'review' | 'settings'
 
 export function DesktopLayout(props: Props) {
-  const { order, transporter, licenses, email, layoutPref, onLayoutPref, setOrder, update, onTransporter, onLicenses, onEmail, onLoaded, onReset } = props
+  const { order, transporter, licenses, email, layoutPref, vaultWalk, onLayoutPref, onVaultWalk, setOrder, update, onTransporter, onLicenses, onEmail, onLoaded, onReset } = props
   const [pane, setPane] = useState<Pane>('scan')
   const [activeLineId, setActiveLineId] = useState<string | null>(() => (order ? firstOpenLine(order)?.id ?? null : null))
   const [lastEvent, setLastEvent] = useState<ScanEvent | null>(null)
@@ -55,16 +58,18 @@ export function DesktopLayout(props: Props) {
             licenses={licenses}
             email={email}
             layoutPref={layoutPref}
-            hasOrder={false}
+            vaultWalk={vaultWalk}
+            order={null}
             onTransporter={onTransporter}
             onLicenses={onLicenses}
             onEmail={onEmail}
             onLayoutPref={onLayoutPref}
+            onVaultWalk={onVaultWalk}
             onReset={onReset}
             onBack={() => setPane('scan')}
           />
         ) : (
-          <LoadScreen onLoaded={onLoaded} onSettings={() => setPane('settings')} />
+          <LoadScreen vaultWalk={vaultWalk} onLoaded={onLoaded} onSettings={() => setPane('settings')} />
         )}
       </LayoutContext.Provider>
     )
@@ -218,11 +223,13 @@ export function DesktopLayout(props: Props) {
                 licenses={licenses}
                 email={email}
                 layoutPref={layoutPref}
-                hasOrder
+                vaultWalk={vaultWalk}
+                order={order}
                 onTransporter={onTransporter}
                 onLicenses={onLicenses}
                 onEmail={onEmail}
                 onLayoutPref={onLayoutPref}
+                onVaultWalk={onVaultWalk}
                 onReset={onReset}
                 onBack={() => setPane('scan')}
               />

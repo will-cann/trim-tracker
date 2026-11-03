@@ -45,6 +45,12 @@ export interface MetrcConnectionStatus {
   source: MetrcConnectionSource | null
   /** The server holds METRC_CONNECTION_KEY, so keys can be stored here. */
   selfServeAvailable: boolean
+  /**
+   * The server also holds a T3 organisation registration secret, so a director
+   * can connect with a plain Metrc username and password: T3 registers that
+   * login under NeuroCann's T3+ organisation and mints the key for us.
+   */
+  metrcLoginAvailable: boolean
   /** Signed-in user is a director or admin and may connect, change or remove the key. */
   canManage: boolean
   /** Present when source is 'connection'. */
@@ -53,9 +59,28 @@ export interface MetrcConnectionStatus {
   env: { mode: T3Mode } | null
 }
 
+/**
+ * A Metrc login, sent once so T3 can mint a secret key bound to it. NeuroCann
+ * forwards it to T3 over TLS and keeps only the resulting key; T3 stores the
+ * credentials encrypted on its side (that is how every T3 secret key works).
+ */
+export interface MetrcLogin {
+  username: string
+  password: string
+  /** e.g. mo.metrc.com — see ./metrcHosts.ts */
+  hostname: string
+  /** Colorado only: the Metrc login email. */
+  email?: string
+  /** Michigan only: the seed of the Metrc multi-factor authenticator. */
+  otpSeed?: string
+}
+
+/** Exactly one of `apiKey` or `metrcLogin`. */
 export interface MetrcConnectRequest {
   /** The T3 secret key from api.trackandtrace.tools/v2/pages/secret-key. */
-  apiKey: string
+  apiKey?: string
+  /** Or: have T3 mint the key from a Metrc login (needs `metrcLoginAvailable`). */
+  metrcLogin?: MetrcLogin
   /** Defaults to read-only. */
   mode?: T3Mode
 }

@@ -58,6 +58,16 @@ company's own key only ever reaches that company's Metrc, so a stored connection
 is enough on its own. With neither, every manifest function answers 403 and the
 message points at Settings → Metrc.
 
+The picker enforces this up front: `ConnectMetrcGate` (`src/manifest/components/`)
+asks `metrc-connection` for the company's status on load and, when there is
+neither a stored connection nor a deploy key, shows a **Connect your Metrc first**
+screen instead of the pick list. A director or admin connects right there (same
+handler and encryption as Settings → Metrc), by **signing in with their Metrc
+login** when the server can mint keys (below) or by pasting a T3 secret key;
+anyone else is told to ask a director. If the status call itself fails the gate
+opens and the per-function 403s take over, so an outage never locks people out
+of a list they already loaded.
+
 Within an allowlisted company any role can scan, read invoices, check packages
 and dry-run a transfer; **submitting** a transfer to Metrc additionally needs the
 `director` or `admin` role (403 `ROLE` otherwise).
@@ -72,7 +82,34 @@ message quotes your company id, which is what goes in `MANIFEST_COMPANY_IDS`.
 
 ## Setup
 
-### Self-serve (any facility, shared site)
+### Self-serve with a Metrc login (preferred)
+
+Set `T3_REGISTRATION_SECRET` on the site to NeuroCann's T3 organisation
+registration secret (dash.trackandtrace.tools → organisation; rotatable). The
+connect form in Settings → Metrc and on the picker's gate then leads with
+**Sign in with Metrc**: state host, username, password (Colorado adds the login
+email, Michigan the authenticator seed) and the mode. `metrc-connection` POSTs
+`{ metrcLogin, mode }` and `mintKeyFromMetrcLogin()` (`utils/metrcConnections.ts`)
+turns it into a key with T3's own auth endpoints (`utils/t3.ts`):
+
+1. `POST /v2/auth/credentials` — a free login check, so a wrong password costs
+   one failed Metrc login and is reported as exactly that (skipped for Michigan,
+   which wants a live OTP rather than the seed).
+2. `POST /v2/auth/register` with the registration secret — T3 validates the
+   login against Metrc, registers it under our T3+ organisation (one seat) and
+   returns a secret key. 409 means it is already in the organisation, so
+3. `POST /v2/auth/secretkey` mints a plain key for the known login.
+
+The key is then verified and stored exactly as a pasted one. The password
+transits the Netlify function and is never stored or logged; T3 keeps the
+credentials encrypted behind the key, the same as a key made on their dash.
+Error codes: `METRC_LOGIN_REJECTED` (400), `REGISTRATION_SECRET` (503, our
+secret is stale), `T3_SEATS` (503, organisation full; the message offers the
+key path). The form's "Paste it instead" link falls back to the key flow.
+Without `T3_REGISTRATION_SECRET` the status reports `metrcLoginAvailable:
+false` and only the key form shows.
+
+### Self-serve with a T3 secret key
 
 1. Sign in to T3 (dash.trackandtrace.tools) with a Metrc login for the facility
    (a view-only employee if possible) and add an active T3+ subscription.
@@ -162,6 +199,37 @@ have provisioned sandbox access for that login; if it hasn't, T3 answers 400 and
 the picker reports `SANDBOX_UNAVAILABLE`. Sandbox licences and packages are not
 the real facility's, so scanned production tags won't be found there — it is for
 rehearsing the create-transfer flow end to end, not for checking real inventory.
+
+## Picking: lot digits, scan-first, Apex tag ranges, vault walk
+
+Proper's pickers find a case by its **lot** (the source batch in Apex's Batch ID
+column), not by product name or the case's own tag, and they read the last
+digits. So:
+
+- Every pick line leads with the lot's last **7** digits (`TAG_SUFFIX_LEN` in
+  `src/manifest/lib/metrc.ts`; `LotDigits` / `TagText` in
+  `components/TagDigits.tsx`), leading zeros muted, product name beneath.
+  Scanned tags show in full with the last 7 bold.
+- **Scan any case** (`ScanAnySheet.tsx`, phone/tablet layout) opens the scanner
+  without choosing a line first. A tag Apex recorded for a line routes to it
+  offline (`matchRecorded`); anything else is looked up in Metrc
+  (`t3-verify-packages`, primary licence plus the order's other origin
+  licences) and matched on the parent lot, falling back to the item name
+  (`matchByFacts`, `lib/scanFirst.ts`). The facts are kept
+  (`mergeFacts`) so the Review check doesn't re-fetch them. Ambiguous or
+  unknown cases ask the picker which line it belongs to, or to skip it.
+- When Proper enters a PO in Apex they type the **range of case tags** packed for
+  it. `expandTagRanges` (`lib/pickList.ts`) turns `1A4…146121-1A4…146131` or the
+  shorthand `1A4…146121 to 131` in the Metrc Package ID / Note columns into
+  recorded tags (same prefix, forward only, capped at 500). A scan that isn't
+  among a line's recorded tags is flagged in amber (`addScan` warnings), not
+  blocked, since Apex's record can be stale.
+- Pick lists are sorted to the **vault walk** (`lib/vaultOrder.ts`): stops are
+  matched from brand / category / name, and Settings → *Vault walk order*
+  (`VaultWalkCard.tsx`) lets the lead drag the stops into the order the room is
+  actually laid out. The walk is saved per device
+  (`manifest-picker:vault-walk:v1`) and re-sorts the loaded list; lines that
+  match no stop go last.
 
 ## Operational notes
 

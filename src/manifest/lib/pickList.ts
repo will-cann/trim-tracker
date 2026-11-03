@@ -41,6 +41,44 @@ export function parseQuantity(raw: string): { packages: number; total: number } 
   return { packages: 1, total: n }
 }
 
+/**
+ * Apex users type the case tags a line was packed into as a range rather
+ * than one per line: "1A40C0300000B56000146121-1A40C0300000B56000146131",
+ * or the shorthand "…146121-131" where the end replaces the last digits of
+ * the start. Expands those to the individual tags (inclusive, capped).
+ */
+const RANGE_RE = /(1A4[0-9A-Z]{21})\s*(?:-|–|—|to|through|thru|\.\.)\s*(1A4[0-9A-Z]{21}|\d{1,11})(?![0-9A-Z])/gi
+const MAX_RANGE = 500
+
+export function expandTagRanges(text: string, cap = MAX_RANGE): string[] {
+  const out: string[] = []
+  for (const m of text.toUpperCase().matchAll(RANGE_RE)) {
+    const start = m[1]
+    const end = m[2]
+    const run = start.match(/(\d+)$/)
+    if (!run) continue
+    const prefix = start.slice(0, start.length - run[1].length)
+    const width = run[1].length
+    const from = Number(run[1])
+    let to: number
+    if (end.length === start.length) {
+      if (!end.startsWith(prefix)) continue
+      to = Number(end.slice(prefix.length))
+    } else {
+      if (end.length > width) continue
+      to = Number(run[1].slice(0, width - end.length) + end)
+    }
+    if (!Number.isFinite(to) || to < from || to - from >= cap) continue
+    for (let n = from; n <= to; n++) out.push(prefix + String(n).padStart(width, '0'))
+  }
+  return out
+}
+
+/** Every tag Apex recorded in a cell: single tags plus expanded ranges, de-duplicated. */
+export function extractRecordedTags(text: string): string[] {
+  return Array.from(new Set([...extractTags(text), ...expandTagRanges(text)]))
+}
+
 function headerIndex(header: string[]): Record<string, number> {
   const idx: Record<string, number> = {}
   header.forEach((h, i) => {
@@ -76,7 +114,7 @@ export function parsePickList(text: string): ParsedPickList {
     const lotLabel = get(row, COLS.batchId)
     const lotTags = extractTags(lotLabel)
     const recordedTags = Array.from(
-      new Set([...extractTags(get(row, COLS.metrcPackageId)), ...extractTags(get(row, COLS.note))]),
+      new Set([...extractRecordedTags(get(row, COLS.metrcPackageId)), ...extractRecordedTags(get(row, COLS.note))]),
     )
     const unitsPerPackage = qty.packages > 0 ? Math.round(qty.total / qty.packages) : qty.total
     if (unitsPerPackage * qty.packages !== qty.total) {

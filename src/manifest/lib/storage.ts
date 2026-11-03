@@ -1,10 +1,12 @@
 import type { OrderState, TransporterProfile } from '../types'
+import { DEFAULT_WALK, normalizeWalk, type VaultWalk } from './vaultOrder'
 
 const ORDER_KEY = 'manifest-picker:order:v1'
 const TRANSPORTER_KEY = 'manifest-picker:transporter:v1'
 const LICENSES_KEY = 'manifest-picker:licenses:v1'
 const EMAIL_KEY = 'manifest-picker:email:v1'
 const LAYOUT_KEY = 'manifest-picker:layout:v1'
+const WALK_KEY = 'manifest-picker:vault-walk:v1'
 
 /** auto = pick by screen width; phone/laptop force a layout. */
 export type LayoutPreference = 'auto' | 'phone' | 'laptop'
@@ -68,3 +70,11 @@ export const loadLayoutPreference = (): LayoutPreference => {
   return v === 'phone' || v === 'laptop' ? v : 'auto'
 }
 export const saveLayoutPreference = (p: LayoutPreference) => write(LAYOUT_KEY, p)
+
+export const loadVaultWalk = (): VaultWalk => {
+  const saved = read<unknown>(WALK_KEY)
+  return saved === null ? DEFAULT_WALK : normalizeWalk(saved)
+}
+/** Saving the default clears the key so future default changes apply. */
+export const saveVaultWalk = (w: VaultWalk) =>
+  write(WALK_KEY, w.length === DEFAULT_WALK.length && w.every((l, i) => l === DEFAULT_WALK[i]) ? null : w)

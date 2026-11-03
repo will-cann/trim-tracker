@@ -38,7 +38,7 @@ vi.mock('../utils/metrcConnectionStore', () => ({
     activeConnectionCompanyIds: () => store.activeConnectionCompanyIds(),
 }));
 
-const t3 = { whoami: vi.fn(), licenses: vi.fn(), permissions: vi.fn() };
+const t3 = { whoami: vi.fn(), licenses: vi.fn(), permissions: vi.fn(), checkLogin: vi.fn(), register: vi.fn(), mint: vi.fn() };
 vi.mock('../utils/t3', async () => {
     const actual = await vi.importActual<typeof import('../utils/t3')>('../utils/t3');
     return {
@@ -46,6 +46,9 @@ vi.mock('../utils/t3', async () => {
         t3WhoAmI: () => t3.whoami(),
         t3Licenses: () => t3.licenses(),
         t3PackagePermissions: (...a: unknown[]) => t3.permissions(...a),
+        t3CheckMetrcLogin: (...a: unknown[]) => t3.checkLogin(...a),
+        t3RegisterMetrcLogin: (...a: unknown[]) => t3.register(...a),
+        t3MintSecretKey: (...a: unknown[]) => t3.mint(...a),
     };
 });
 
@@ -95,6 +98,7 @@ beforeEach(() => {
     process.env.METRC_CONNECTION_KEY = 'unit-test-connection-key-0123456789';
     delete process.env.T3_API_KEY;
     delete process.env.MANIFEST_COMPANY_IDS;
+    delete process.env.T3_REGISTRATION_SECRET;
     saved = null;
     resolveContext.mockReset().mockImplementation(async (h?: string) => (h === 'Bearer good' ? director : h === 'Bearer tech' ? technician : null));
     for (const fn of Object.values(store)) fn.mockReset();
@@ -112,6 +116,9 @@ beforeEach(() => {
     t3.whoami.mockResolvedValue({ username: 'ops@proper.com', hostname: 'mo.metrc.com', hasT3plus: true, t3plusSubscriptionTier: 'Team', t3plusApiAccessLevel: 'full' });
     t3.licenses.mockResolvedValue([{ licenseNumber: 'CUL000030', licenseName: 'Proper Cultivation' }, { licenseNumber: 'MAN000012', licenseName: 'Proper Manufacturing' }]);
     t3.permissions.mockResolvedValue(['packages/active:new_transfer']);
+    t3.checkLogin.mockResolvedValue(undefined);
+    t3.register.mockResolvedValue({ secretKey: KEY, registered: true });
+    t3.mint.mockResolvedValue({ secretKey: KEY, registered: false });
 });
 
 describe('GET', () => {
@@ -122,7 +129,105 @@ describe('GET', () => {
     it('tells a technician there is nothing connected and that they cannot manage it', async () => {
         const res = await call('GET', undefined, { authorization: 'Bearer tech' });
         expect(res.statusCode).toBe(200);
-        expect(JSON.parse(res.body)).toMatchObject({ connected: false, source: null, selfServeAvailable: true, canManage: false });
+        expect(JSON.parse(res.body)).toMatchObject({ connected: false, source: null, selfServeAvailable: true, metrcLoginAvailable: false, canManage: false });
+    });
+
+    it('offers the Metrc-login path only when the server holds a T3 registration secret', async () => {
+        process.env.T3_REGISTRATION_SECRET = 'org-reg-secret';
+        expect(JSON.parse((await call('GET')).body).metrcLoginAvailable).toBe(true);
+        delete process.env.METRC_CONNECTION_KEY;
+        expect(JSON.parse((await call('GET')).body).metrcLoginAvailable).toBe(false);
+    });
+});
+
+describe('POST (connect with a Metrc login)', () => {
+    const login = { username: 'cwade', password: 'hunter2!', hostname: 'mo.metrc.com' };
+
+    it('checks the login, registers it under our T3 organisation, verifies and stores the minted key, and never echoes the password', async () => {
+        process.env.T3_REGISTRATION_SECRET = 'org-reg-secret';
+        const res = await call('POST', { metrcLogin: login, mode: 'live' });
+        expect(res.statusCode).toBe(201);
+        expect(t3.checkLogin).toHaveBeenCalledWith(login);
+        expect(t3.register).toHaveBeenCalledWith(login, 'org-reg-secret');
+        expect(t3.mint).not.toHaveBeenCalled();
+        const body = JSON.parse(res.body);
+        expect(body).toMatchObject({ connected: true, source: 'connection', warnings: [] });
+        expect(body.connection).toMatchObject({ keyHint: KEY.slice(-4), mode: 'live', username: 'ops@proper.com' });
+        expect(res.body).not.toContain('hunter2');
+        expect(res.body).not.toContain(KEY);
+        const input = store.saveConnection.mock.calls[0][0] as SaveConnectionInput;
+        expect(decryptSecret(input.apiKeyEncrypted)).toBe(KEY);
+    });
+
+    it('falls back to a plain key when the login is already in the organisation, and says so', async () => {
+        process.env.T3_REGISTRATION_SECRET = 'org-reg-secret';
+        t3.register.mockRejectedValue(new T3Error('Already registered', 409, 'ALREADY_REGISTERED'));
+        const res = await call('POST', { metrcLogin: login });
+        expect(res.statusCode).toBe(201);
+        expect(t3.mint).toHaveBeenCalledWith(login);
+        expect(JSON.parse(res.body).warnings.join(' ')).toMatch(/already knew this Metrc login/);
+    });
+
+    it('mints a plain key without a registration secret, with no organisation warning', async () => {
+        const res = await call('POST', { metrcLogin: login });
+        expect(res.statusCode).toBe(201);
+        expect(t3.register).not.toHaveBeenCalled();
+        expect(t3.mint).toHaveBeenCalledWith(login);
+        expect(JSON.parse(res.body).warnings).toEqual([]);
+    });
+
+    it('reports a wrong Metrc password as exactly that, before registering, and stores nothing', async () => {
+        process.env.T3_REGISTRATION_SECRET = 'org-reg-secret';
+        t3.checkLogin.mockRejectedValue(new T3Error('Metrc did not accept that username and password for mo.metrc.com.', 401, 'METRC_LOGIN_REJECTED'));
+        const res = await call('POST', { metrcLogin: { ...login, password: 'wrong' } });
+        expect(res.statusCode).toBe(400);
+        expect(JSON.parse(res.body)).toMatchObject({ code: 'METRC_LOGIN_REJECTED', error: expect.stringContaining('username and password') });
+        expect(t3.register).not.toHaveBeenCalled();
+        expect(store.saveConnection).not.toHaveBeenCalled();
+        expect(res.body).not.toContain('wrong');
+    });
+
+    it('blames the registration secret, not the person, when the login passed but T3 refused the registration', async () => {
+        process.env.T3_REGISTRATION_SECRET = 'stale';
+        t3.register.mockRejectedValue(new T3Error('rejected', 401, 'REGISTER_REJECTED'));
+        const res = await call('POST', { metrcLogin: login });
+        expect(res.statusCode).toBe(503);
+        expect(JSON.parse(res.body)).toMatchObject({ code: 'REGISTRATION_SECRET', error: expect.stringContaining('T3_REGISTRATION_SECRET') });
+        expect(t3.mint).not.toHaveBeenCalled();
+    });
+
+    it('explains a full T3+ organisation and offers the key path', async () => {
+        process.env.T3_REGISTRATION_SECRET = 'org-reg-secret';
+        t3.register.mockRejectedValue(new T3Error('no seats', 402, 'T3_SEATS'));
+        const res = await call('POST', { metrcLogin: login });
+        expect(res.statusCode).toBe(503);
+        expect(JSON.parse(res.body)).toMatchObject({ code: 'T3_SEATS', error: expect.stringContaining('secret key instead') });
+    });
+
+    it('validates the login shape per state without calling T3', async () => {
+        const cases: Array<[unknown, RegExp]> = [
+            [{ username: '', password: 'x', hostname: 'mo.metrc.com' }, /username and password/],
+            [{ username: 'a', password: 'x', hostname: 'metrc.example.com' }, /state host/],
+            [{ username: 'a', password: 'x', hostname: 'co.metrc.com' }, /Colorado/],
+            [{ username: 'a', password: 'x', hostname: 'mi.metrc.com' }, /Michigan/],
+        ];
+        for (const [metrcLogin, re] of cases) {
+            const res = await call('POST', { metrcLogin });
+            expect(res.statusCode).toBe(400);
+            expect(JSON.parse(res.body)).toMatchObject({ code: 'LOGIN_FORMAT', error: expect.stringMatching(re) });
+        }
+        expect((await call('POST', { metrcLogin: login, apiKey: KEY })).statusCode).toBe(400);
+        expect(t3.checkLogin).not.toHaveBeenCalled();
+        expect(t3.mint).not.toHaveBeenCalled();
+    });
+
+    it('passes Colorado email and a Michigan seed through, skipping the pre-flight for Michigan', async () => {
+        await call('POST', { metrcLogin: { ...login, hostname: 'CO.metrc.com', email: 'c@proper.com' } });
+        expect(t3.mint).toHaveBeenLastCalledWith({ ...login, hostname: 'co.metrc.com', email: 'c@proper.com' });
+        expect(t3.checkLogin).toHaveBeenCalledTimes(1);
+        await call('POST', { metrcLogin: { ...login, hostname: 'mi.metrc.com', otpSeed: 'JBSW Y3DP EHPK 3PXP' } });
+        expect(t3.mint).toHaveBeenLastCalledWith({ ...login, hostname: 'mi.metrc.com', otpSeed: 'JBSWY3DPEHPK3PXP' });
+        expect(t3.checkLogin).toHaveBeenCalledTimes(1);
     });
 });
 

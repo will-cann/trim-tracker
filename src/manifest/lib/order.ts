@@ -118,11 +118,16 @@ export function addScan(state: OrderState, lineId: string, raw: string, source: 
     ...state,
     scans: { ...state.scans, [lineId]: [...here, { tag, at: Date.now(), source }] },
   }
-  const warning =
-    here.length + 1 > line.packagesExpected
-      ? `That's ${here.length + 1} packages on a line that expects ${line.packagesExpected}.`
-      : undefined
-  return { ok: true, state: next, warning }
+  const warnings: string[] = []
+  if (here.length + 1 > line.packagesExpected) {
+    warnings.push(`That's ${here.length + 1} packages on a line that expects ${line.packagesExpected}.`)
+  }
+  // Apex has the tags (or tag range) this line was packed into; a case from
+  // outside that set is probably the right product from the wrong lot.
+  if (line.recordedTags.length && !line.recordedTags.includes(tag)) {
+    warnings.push(`Not one of the ${line.recordedTags.length} tags Apex recorded for this line. Check the case.`)
+  }
+  return { ok: true, state: next, warning: warnings.length ? warnings.join(' ') : undefined }
 }
 
 export function removeScan(state: OrderState, lineId: string, tag: string): OrderState {

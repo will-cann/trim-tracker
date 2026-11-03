@@ -1,8 +1,30 @@
 # Handoff: Proper Cannabis manifest picker + Metrc via T3
 
-Status as of 2026-10-15. Read with `docs/manifest-t3.md` (design, setup, modes).
+Status as of 2026-11-03. Read with `docs/manifest-t3.md` (design, setup, modes).
 
-## Done
+## Update 2026-11-03: Chris Wade demo
+
+Notes and the full ask/status table are in `docs/briefs/proper-chris-wade-2026-11-03.md`.
+Shipped on the picker from that meeting: lot digits (last 7) lead every line, **Scan any
+case** scan-first mode, Apex tag-range expansion with out-of-range warnings, Settings →
+*Vault walk order*, and a connect-Metrc gate (`ConnectMetrcGate`) that replaces the pick
+list with a "Sign in with Metrc" form when the company has no Metrc credentials: the
+director's Metrc login goes to T3, which registers it under NeuroCann's T3+ organisation
+and mints the key (`T3_REGISTRATION_SECRET`); pasting a T3 key is the fallback.
+
+Still to do by hand (needs a Proper director login / a live Netlify token):
+
+1. Invite `cwade@properbrands.com` to the Proper company as **director** from Team.
+2. Flip the Proper site to Chris's own Metrc: confirm `METRC_CONNECTION_KEY` is set
+   there and migration `070_metrc_connections.sql` has run on prod; set
+   `T3_REGISTRATION_SECRET` to our T3 organisation's registration secret (and make
+   sure the T3+ subscription has a free seat); then
+   `netlify env:unset T3_API_KEY --filter proper-neurocann` (also `T3_MODE`,
+   `MANIFEST_COMPANY_IDS`) and redeploy. His first visit then lands on the sign-in
+   form. The 15-minute Metrc sync for Proper pauses until he has signed in.
+3. Follow-up call Friday 2026-11-07, 1 pm Eastern (noon Central).
+
+## Done (2026-10-15)
 
 - **PR #45 merged to `main`** (`4e2c667`): T3 integration for `/manifest`.
   - `netlify/functions/t3-status.ts`, `t3-verify-packages.ts`, `t3-create-transfer.ts`;

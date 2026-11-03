@@ -1,19 +1,23 @@
 import type { Handler } from '@netlify/functions';
 import { authorize, resolveContext } from './utils/auth';
 import { jsonResponse as json } from './utils/manifestAuth';
-import { connectionStatus, decryptSecret, encryptSecret, keyHint, selfServeAvailable, verifyKey } from './utils/metrcConnections';
+import { connectionStatus, decryptSecret, encryptSecret, keyHint, mintKeyFromMetrcLogin, registrationSecret, selfServeAvailable, verifyKey } from './utils/metrcConnections';
 import { deleteConnection, findConnection, patchConnection, recordConnectionError, recordVerification, saveConnection } from './utils/metrcConnectionStore';
-import { parseT3Mode, T3Error } from './utils/t3';
-import type { MetrcConnectionPatch, MetrcConnectionResponse, MetrcConnectRequest } from '../../shared/manifest/metrcConnection';
+import { parseT3Mode, T3Error, type MetrcLoginInput } from './utils/t3';
+import type { MetrcConnectionPatch, MetrcConnectionResponse, MetrcConnectRequest, MetrcLogin } from '../../shared/manifest/metrcConnection';
 import type { T3Mode } from '../../shared/manifest/t3';
+import { metrcLoginProblem } from '../../shared/manifest/metrcHosts';
 
 /**
  * Self-serve Metrc connection for the signed-in company (Settings → Metrc).
  *
  *   GET     — status: connected via own key or deploy key, key hint, mode,
  *             login, licences, last sync / error. Any role.
- *   POST    — connect (or rotate): { apiKey, mode? }. Verifies the key against
- *             T3 first, then stores it encrypted. Director or admin.
+ *   POST    — connect (or rotate): { apiKey, mode? } or { metrcLogin, mode? }.
+ *             A Metrc login is forwarded to T3 once, which mints the key
+ *             (registering the login under our T3+ organisation when the
+ *             server has T3_REGISTRATION_SECRET). Either way the key is
+ *             verified against T3 first, then stored encrypted. Director or admin.
  *   PATCH   — { mode?, status?, syncLicenses?, verify? }. Director or admin.
  *   DELETE  — remove the connection. Synced rows stay; they just stop updating.
  *
@@ -36,12 +40,32 @@ const parseBody = <T>(raw: string | null | undefined): T | null => {
 
 const t3Failure = (err: unknown) => {
     if (err instanceof T3Error) {
+        if (err.code === 'METRC_LOGIN_REJECTED') return { status: 400, error: err.message, code: err.code };
+        if (err.code === 'REGISTRATION_SECRET') return { status: 503, error: err.message, code: err.code };
+        if (err.code === 'T3_SEATS') return { status: 503, error: `${err.message} Ask NeuroCann to add a seat, or connect with a T3 secret key instead.`, code: err.code };
         if (err.status === 401) return { status: 400, error: 'T3 rejected that key. Copy it again from api.trackandtrace.tools/v2/pages/secret-key — the whole value, no spaces.', code: 'KEY_REJECTED' };
         if (err.code === 'UNREACHABLE' || err.status >= 500) return { status: 502, error: `Could not reach T3 to check the key: ${err.message}`, code: 'T3_DOWN' };
         return { status: 400, error: err.message, code: err.code ?? 'T3_ERROR' };
     }
     return { status: 500, error: 'Could not verify the key.', code: 'UNKNOWN' };
 };
+
+const FIELD_MAX = 256;
+
+/** Shape-checks a Metrc login without ever echoing it. */
+function parseMetrcLogin(raw: unknown): { ok: true; login: MetrcLoginInput } | { ok: false; error: string } {
+    const o = (raw && typeof raw === 'object' ? raw : {}) as Partial<Record<keyof MetrcLogin, unknown>>;
+    const str = (v: unknown) => (typeof v === 'string' ? v.trim() : '');
+    const username = str(o.username);
+    const password = typeof o.password === 'string' ? o.password : '';
+    const hostname = str(o.hostname).toLowerCase();
+    const email = str(o.email);
+    const otpSeed = str(o.otpSeed).replace(/\s+/g, '');
+    if ([username, password, hostname, email, otpSeed].some(v => v.length > FIELD_MAX)) return { ok: false, error: 'One of the login fields is too long.' };
+    const login: MetrcLoginInput = { username, password, hostname, ...(email ? { email } : {}), ...(otpSeed ? { otpSeed } : {}) };
+    const problem = metrcLoginProblem(login);
+    return problem ? { ok: false, error: problem } : { ok: true, login };
+}
 
 export const handler: Handler = async (event) => {
     try {
@@ -61,13 +85,27 @@ export const handler: Handler = async (event) => {
             }
             const body = parseBody<Partial<MetrcConnectRequest>>(event.body);
             if (!body) return json(400, { error: 'Invalid JSON body.' });
-            const apiKey = typeof body.apiKey === 'string' ? body.apiKey.trim() : '';
-            if (apiKey.length < KEY_MIN || apiKey.length > KEY_MAX || /\s/.test(apiKey)) {
-                return json(400, { error: 'Paste the whole T3 secret key (one long string, no spaces).', code: 'KEY_FORMAT' });
-            }
             const mode = body.mode === undefined ? 'read-only' : parseT3Mode(body.mode);
             if (body.mode !== undefined && !MODES.includes(body.mode as T3Mode)) {
                 return json(400, { error: `Mode must be one of ${MODES.join(', ')}.`, code: 'MODE' });
+            }
+
+            let apiKey = typeof body.apiKey === 'string' ? body.apiKey.trim() : '';
+            const warnings: string[] = [];
+            if (body.metrcLogin !== undefined) {
+                if (apiKey) return json(400, { error: 'Send either a T3 secret key or a Metrc login, not both.', code: 'LOGIN_FORMAT' });
+                const parsed = parseMetrcLogin(body.metrcLogin);
+                if (!parsed.ok) return json(400, { error: parsed.error, code: 'LOGIN_FORMAT' });
+                try {
+                    const minted = await mintKeyFromMetrcLogin(parsed.login);
+                    apiKey = minted.secretKey;
+                    if (!minted.registered && registrationSecret()) warnings.push('T3 already knew this Metrc login, so it was not added to NeuroCann\'s T3+ organisation again; its existing T3 subscription applies.');
+                } catch (err) {
+                    const f = t3Failure(err);
+                    return json(f.status, { error: f.error, code: f.code });
+                }
+            } else if (apiKey.length < KEY_MIN || apiKey.length > KEY_MAX || /\s/.test(apiKey)) {
+                return json(400, { error: 'Paste the whole T3 secret key (one long string, no spaces).', code: 'KEY_FORMAT' });
             }
 
             let verified;
@@ -77,6 +115,7 @@ export const handler: Handler = async (event) => {
                 const f = t3Failure(err);
                 return json(f.status, { error: f.error, code: f.code });
             }
+            warnings.push(...verified.warnings);
 
             await saveConnection({
                 companyId: ctx.companyId,
@@ -86,7 +125,7 @@ export const handler: Handler = async (event) => {
                 identity: verified.identity,
                 createdBy: ctx.userId,
             });
-            const response: MetrcConnectionResponse = { ...(await connectionStatus(ctx.companyId, canManage)), warnings: verified.warnings };
+            const response: MetrcConnectionResponse = { ...(await connectionStatus(ctx.companyId, canManage)), warnings };
             return json(201, response);
         }
 

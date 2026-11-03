@@ -91,9 +91,57 @@ export function vaultStop(line: PickLine): number | null {
   return i < 0 ? null : i
 }
 
+/** The stop's label, or null when the line matches no stop. */
+export function vaultStopLabel(line: PickLine): string | null {
+  const i = vaultStop(line)
+  return i === null ? null : VAULT_ORDER[i].label
+}
+
+/**
+ * A walk is the stop labels in the order the picker passes them. The default
+ * is Jacob's; a facility rearranges it in Settings → Vault walk order (saved
+ * on the device) when the room changes, which Chris Wade asked for after
+ * their kaizen re-layout.
+ */
+export type VaultWalk = string[]
+
+export const DEFAULT_WALK: VaultWalk = VAULT_ORDER.map((s) => s.label)
+
+/**
+ * A saved walk from storage: unknown labels are dropped, stops added to the
+ * code since it was saved go on the end, so a stale save never hides a stop.
+ */
+export function normalizeWalk(saved: unknown): VaultWalk {
+  const known = new Set(DEFAULT_WALK)
+  const seen = new Set<string>()
+  const walk: string[] = []
+  if (Array.isArray(saved)) {
+    for (const v of saved) {
+      if (typeof v === 'string' && known.has(v) && !seen.has(v)) {
+        walk.push(v)
+        seen.add(v)
+      }
+    }
+  }
+  for (const label of DEFAULT_WALK) if (!seen.has(label)) walk.push(label)
+  return walk
+}
+
+export function moveStop(walk: VaultWalk, from: number, to: number): VaultWalk {
+  if (from === to || from < 0 || to < 0 || from >= walk.length || to >= walk.length) return walk
+  const next = walk.slice()
+  const [stop] = next.splice(from, 1)
+  next.splice(to, 0, stop)
+  return next
+}
+
 /** Lines in vault walk order; ties and unmatched lines keep their Apex order. */
-export function sortByVaultOrder(lines: PickLine[]): PickLine[] {
-  const rank = (l: PickLine) => vaultStop(l) ?? VAULT_ORDER.length
+export function sortByVaultOrder(lines: PickLine[], walk: VaultWalk = DEFAULT_WALK): PickLine[] {
+  const rank = (l: PickLine) => {
+    const label = vaultStopLabel(l)
+    const i = label === null ? -1 : walk.indexOf(label)
+    return i < 0 ? walk.length : i
+  }
   return lines
     .map((line, i) => ({ line, i, r: rank(line) }))
     .sort((a, b) => a.r - b.r || a.i - b.i)

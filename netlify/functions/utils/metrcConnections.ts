@@ -1,7 +1,10 @@
 import { createCipheriv, createDecipheriv, createHash, randomBytes } from 'node:crypto';
 import type { T3License } from '../../../shared/manifest/t3';
 import type { MetrcConnectionDetails, MetrcConnectionStatus } from '../../../shared/manifest/metrcConnection';
-import { envT3Credentials, grantsAction, t3Licenses, t3PackagePermissions, t3WhoAmI, withT3, T3Error, type T3Credentials } from './t3';
+import {
+    envT3Credentials, grantsAction, t3CheckMetrcLogin, t3Licenses, t3MintSecretKey, t3PackagePermissions, t3RegisterMetrcLogin, t3WhoAmI, withT3, T3Error,
+    type MetrcLoginInput, type T3Credentials, type T3MintedKey,
+} from './t3';
 import { resolveSyncCompany } from './metrcSync';
 import { activeConnectionCompanyIds, findConnection, type ConnectionIdentity, type ConnectionRow } from './metrcConnectionStore';
 
@@ -55,6 +58,50 @@ export function decryptSecret(blob: string): string {
 }
 
 export const keyHint = (apiKey: string) => apiKey.slice(-4);
+
+// ── Minting a key from a Metrc login ───────────────────────────────────────
+
+/**
+ * NeuroCann's T3 organisation registration secret (dash.trackandtrace.tools →
+ * organisation settings). With it, a director can connect by typing their
+ * Metrc login: T3 registers that login under our T3+ organisation (one seat)
+ * and mints the key, so the facility never has to visit T3 or pay for T3+.
+ */
+export const registrationSecret = (): string | null => {
+    const s = process.env.T3_REGISTRATION_SECRET?.trim();
+    return s ? s : null;
+};
+
+export const metrcLoginAvailable = () => selfServeAvailable() && registrationSecret() !== null;
+
+/**
+ * Turn a Metrc login into a T3 secret key. Order matters for the error the
+ * person sees and for Metrc's failed-login lockout:
+ *   1. a free credentials check, so a wrong password costs one failed login and
+ *      is reported as exactly that (skipped for Michigan, which wants a live OTP);
+ *   2. register under our organisation — 409 means it already is, so
+ *   3. mint a plain key for the (now known) login.
+ * Without a registration secret only step 3 runs; the key then has whatever
+ * T3+ status the login already had, which verifyKey() reports.
+ */
+export async function mintKeyFromMetrcLogin(login: MetrcLoginInput): Promise<T3MintedKey> {
+    const secret = registrationSecret();
+    if (!login.otpSeed) await t3CheckMetrcLogin(login);
+    if (secret) {
+        try {
+            return await t3RegisterMetrcLogin(login, secret);
+        } catch (err) {
+            if (!(err instanceof T3Error)) throw err;
+            if (err.code === 'REGISTER_REJECTED') {
+                // The login passed step 1, so this is our secret, not their password.
+                if (!login.otpSeed) throw new T3Error('This server\'s T3 registration secret was not accepted. Ask NeuroCann to update T3_REGISTRATION_SECRET.', 401, 'REGISTRATION_SECRET');
+                throw new T3Error(`Metrc did not accept that login for ${login.hostname} (or this server's T3 registration secret is out of date). Check the username, password and authenticator seed.`, 401, 'METRC_LOGIN_REJECTED');
+            }
+            if (err.code !== 'ALREADY_REGISTERED') throw err;
+        }
+    }
+    return t3MintSecretKey(login);
+}
 
 // ── Which credentials apply to a company ───────────────────────────────────
 
@@ -215,6 +262,7 @@ export async function connectionStatus(companyId: string, canManage: boolean): P
         connected: creds !== null,
         source: creds?.source ?? null,
         selfServeAvailable: selfServeAvailable(),
+        metrcLoginAvailable: metrcLoginAvailable(),
         canManage,
         connection: null,
         env: null,

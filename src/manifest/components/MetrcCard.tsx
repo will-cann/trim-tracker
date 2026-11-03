@@ -151,8 +151,8 @@ export function MetrcCard({ order, rows, transporter, isSample, onMetrcSnapshot,
       )}
       {t3 && !t3.configured && (
         <Notice tone="blue">
-          <p className="font-bold">Metrc lookups are not enabled on this server.</p>
-          <p className="text-xs mt-1">Whoever runs the deploy sets T3_API_KEY (a Track & Trace Tools secret key). Until then, export the .t3csv files below as usual.</p>
+          <p className="font-bold">Your company has no Metrc connection.</p>
+          <p className="text-xs mt-1">A director connects one with a T3 secret key (NeuroCann → Settings → Metrc, or the connect screen when this page reloads). Until then, export the .t3csv files below as usual.</p>
         </Notice>
       )}
       {t3?.configured && !t3.connected && <Notice tone="red">{t3.error ?? 'T3 is configured but not responding.'}</Notice>}

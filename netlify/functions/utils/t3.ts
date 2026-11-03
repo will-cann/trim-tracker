@@ -222,6 +222,89 @@ export async function t3Request<T>(
     return json as T;
 }
 
+// ── Minting a secret key from a Metrc login ────────────────────────────────
+
+/**
+ * What T3 needs to log in to Metrc as someone: the same fields the dash asks
+ * for. Colorado adds an email, Michigan a TOTP seed. None of it is stored or
+ * logged here; T3 keeps it encrypted behind the key it hands back.
+ */
+export interface MetrcLoginInput {
+    username: string;
+    password: string;
+    hostname: string;
+    email?: string;
+    otpSeed?: string;
+}
+
+const loginBody = (login: MetrcLoginInput) => ({
+    username: login.username,
+    password: login.password,
+    hostname: login.hostname,
+    ...(login.email ? { email: login.email } : {}),
+    ...(login.otpSeed ? { otpSeed: login.otpSeed } : {}),
+});
+
+/** These `/v2/auth/*` endpoints take no key; they are how a key comes to exist. */
+async function unauthenticatedPost(path: string, body: unknown): Promise<{ status: number; body: unknown }> {
+    const res = await rawFetch(buildUrl(path), {
+        method: 'POST',
+        headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+    });
+    return { status: res.status, body: await parseBody(res) };
+}
+
+const metrcLoginRejected = (hostname: string) =>
+    new T3Error(`Metrc did not accept that username and password for ${hostname}. Check them by signing in at https://${hostname} and try again.`, 401, 'METRC_LOGIN_REJECTED');
+
+/**
+ * POST /v2/auth/credentials — a free endpoint that just logs the person into
+ * Metrc and returns a short-lived JWT we discard. Used as a pre-flight so a
+ * typo in the password is reported as exactly that, with one failed Metrc
+ * login rather than several. Not usable for Michigan (wants a live OTP, not the seed).
+ */
+export async function t3CheckMetrcLogin(login: MetrcLoginInput): Promise<void> {
+    const { status, body } = await unauthenticatedPost('/v2/auth/credentials', loginBody({ ...login, otpSeed: undefined }));
+    if (status === 401 || status === 403) throw metrcLoginRejected(login.hostname);
+    if (status >= 400) throw describeError(status, body);
+}
+
+export interface T3MintedKey {
+    secretKey: string;
+    /** True when T3 also registered the login under our organisation (a T3+ seat). */
+    registered: boolean;
+}
+
+/**
+ * POST /v2/auth/register — registers the Metrc login under the T3 organisation
+ * that owns `registrationSecret` (consuming one T3+ seat) and mints a secret
+ * key in the same call. 409 means the login is already in that organisation.
+ */
+export async function t3RegisterMetrcLogin(login: MetrcLoginInput, registrationSecret: string): Promise<T3MintedKey> {
+    const { status, body } = await unauthenticatedPost('/v2/auth/register', { ...loginBody(login), registrationSecret });
+    const o = (body && typeof body === 'object' ? body : {}) as { secretKey?: string; detail?: string };
+    if (status === 409) throw new T3Error('Already registered under this organisation.', 409, 'ALREADY_REGISTERED');
+    if (status === 402) throw new T3Error('The T3+ organisation has no free seats (or no active subscription), so this Metrc login cannot be added right now.', 402, 'T3_SEATS');
+    if (status === 401) {
+        // T3 answers 401 for both a bad Metrc login and a bad registration secret.
+        throw new T3Error(o.detail ?? 'T3 rejected the registration: Metrc login failed or the registration secret is wrong.', 401, 'REGISTER_REJECTED');
+    }
+    if (status >= 400) throw describeError(status, body);
+    if (!o.secretKey) throw new T3Error('T3 registered the login but returned no secret key.', 502, 'NO_SECRET_KEY');
+    return { secretKey: o.secretKey, registered: true };
+}
+
+/** POST /v2/auth/secretkey — mints a key for a login T3 already knows (or any login, without a T3+ seat). */
+export async function t3MintSecretKey(login: MetrcLoginInput): Promise<T3MintedKey> {
+    const { status, body } = await unauthenticatedPost('/v2/auth/secretkey', loginBody(login));
+    const o = (body && typeof body === 'object' ? body : {}) as { secretKey?: string };
+    if (status === 401 || status === 403) throw metrcLoginRejected(login.hostname);
+    if (status >= 400) throw describeError(status, body);
+    if (!o.secretKey) throw new T3Error('T3 returned no secret key.', 502, 'NO_SECRET_KEY');
+    return { secretKey: o.secretKey, registered: false };
+}
+
 // ── Account ────────────────────────────────────────────────────────────────
 
 export interface T3WhoAmI {

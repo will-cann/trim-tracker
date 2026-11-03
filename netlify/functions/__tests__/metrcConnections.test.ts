@@ -204,6 +204,6 @@ describe('connectionStatus', () => {
     });
 
     it('is empty when nothing is configured', async () => {
-        expect(await connectionStatus(COMPANY, true)).toEqual({ connected: false, source: null, selfServeAvailable: true, canManage: true, connection: null, env: null });
+        expect(await connectionStatus(COMPANY, true)).toEqual({ connected: false, source: null, selfServeAvailable: true, metrcLoginAvailable: false, canManage: true, connection: null, env: null });
     });
 });

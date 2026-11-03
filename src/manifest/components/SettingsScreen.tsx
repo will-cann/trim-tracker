@@ -1,20 +1,24 @@
 import { LogOut } from 'lucide-react'
 import { Button, Card, Field, Input, Notice, Screen, TopBar } from './ui'
 import { T3StatusCard } from './T3StatusCard'
+import { VaultWalkCard } from './VaultWalkCard'
 import { DEPLOY_NAME, useManifestAuth } from '../lib/authContext'
 import type { EmailSettings, LayoutPreference, LicenseDefaults } from '../lib/storage'
-import type { TransporterProfile } from '../types'
+import type { VaultWalk } from '../lib/vaultOrder'
+import type { OrderState, TransporterProfile } from '../types'
 
 interface Props {
   transporter: TransporterProfile
   licenses: LicenseDefaults
   email: EmailSettings
   layoutPref: LayoutPreference
-  hasOrder: boolean
+  vaultWalk: VaultWalk
+  order: OrderState | null
   onTransporter: (t: Partial<TransporterProfile>) => void
   onLicenses: (l: Partial<LicenseDefaults>) => void
   onEmail: (e: Partial<EmailSettings>) => void
   onLayoutPref: (p: LayoutPreference) => void
+  onVaultWalk: (w: VaultWalk) => void
   onReset: () => void
   onBack: () => void
 }
@@ -25,8 +29,9 @@ const LAYOUTS: { value: LayoutPreference; label: string; hint: string }[] = [
   { value: 'laptop', label: 'Laptop', hint: 'USB scanner' },
 ]
 
-export function SettingsScreen({ transporter, licenses, email, layoutPref, hasOrder, onTransporter, onLicenses, onEmail, onLayoutPref, onReset, onBack }: Props) {
+export function SettingsScreen({ transporter, licenses, email, layoutPref, vaultWalk, order, onTransporter, onLicenses, onEmail, onLayoutPref, onVaultWalk, onReset, onBack }: Props) {
   const auth = useManifestAuth()
+  const hasOrder = order !== null
   const T = (key: keyof TransporterProfile, label: string, extra?: Record<string, unknown>) => (
     <Field label={label}>
       <Input value={transporter[key]} onChange={(e) => onTransporter({ [key]: e.target.value })} {...extra} />
@@ -49,7 +54,7 @@ export function SettingsScreen({ transporter, licenses, email, layoutPref, hasOr
           Signed in as <span className="font-bold">{auth.email ?? 'unknown'}</span>
           {DEPLOY_NAME && <span className="text-gray-500"> · {DEPLOY_NAME}</span>}
         </p>
-        <p className="text-xs text-gray-500">Emailing files, reading invoices and Metrc checks run as this account. Only companies enabled on the server can use them.</p>
+        <p className="text-xs text-gray-500">Emailing files, reading invoices and Metrc checks run as this account, against your company's Metrc connection.</p>
         <Button block variant="secondary" onClick={auth.logout}>
           <LogOut className="h-5 w-5" /> Sign out
         </Button>
@@ -76,6 +81,8 @@ export function SettingsScreen({ transporter, licenses, email, layoutPref, hasOr
           ))}
         </div>
       </Card>
+
+      <VaultWalkCard walk={vaultWalk} order={order} onChange={onVaultWalk} />
 
       <Card className="p-4 space-y-3">
         <h2 className="text-subhead">Origin licenses</h2>

@@ -1,12 +1,14 @@
-import { ChevronRight, Check, AlertTriangle, Settings, RotateCcw, Download } from 'lucide-react'
+import { ChevronRight, Check, AlertTriangle, Settings, RotateCcw, Download, ScanBarcode } from 'lucide-react'
 import { Button, Card, Pill, Screen, TopBar, Notice } from './ui'
+import { LotDigits } from './TagDigits'
 import { lineStatus, summarize, type LineStatus } from '../lib/order'
-import { shortTag } from '../lib/metrc'
 import type { OrderState, PickLine, Scan } from '../types'
 
 interface Props {
   order: OrderState
   onOpenLine: (lineId: string) => void
+  /** Scan-first: open the camera without picking a line; the scan finds its own line. */
+  onScanAny: () => void
   onReview: () => void
   onImportRecorded: () => void
   onReset: () => void
@@ -51,10 +53,20 @@ function LineRow({ line, scans, onOpen }: { line: PickLine; scans: Scan[] | unde
         )}
       </div>
       <div className="min-w-0 flex-1">
-        <p className="text-body font-bold text-gray-900 leading-snug">{line.productName}</p>
+        {line.lotTag ? (
+          <>
+            <p className="flex items-baseline gap-2 leading-none">
+              <span className="text-eyebrow uppercase text-gray-400">Lot</span>
+              <LotDigits tag={line.lotTag} size="lg" />
+            </p>
+            <p className="text-sm font-bold text-gray-800 leading-snug mt-1">{line.productName}</p>
+          </>
+        ) : (
+          <p className="text-body font-bold text-gray-900 leading-snug">{line.productName}</p>
+        )}
         <p className="text-xs text-gray-500 mt-0.5">
           {line.packagesExpected} × {line.unitsPerPackage} units
-          {line.lotTag && <> · Lot {shortTag(line.lotTag)}</>}
+          {!line.lotTag && <> · no lot on the pick list</>}
           {line.potency && <> · {line.potency}</>}
         </p>
         <div className="mt-1 flex items-center gap-1.5">
@@ -67,11 +79,12 @@ function LineRow({ line, scans, onOpen }: { line: PickLine; scans: Scan[] | unde
   )
 }
 
-export function PickListScreen({ order, onOpenLine, onReview, onImportRecorded, onReset, onSettings }: Props) {
+export function PickListScreen({ order, onOpenLine, onScanAny, onReview, onImportRecorded, onReset, onSettings }: Props) {
   const s = summarize(order)
   const first = order.lines[0]
   const hasRecorded = order.lines.some((l) => l.recordedTags.length) && s.scanned === 0
   const pct = s.expected ? Math.round((s.scanned / s.expected) * 100) : 0
+  const allDone = s.expected > 0 && s.complete === s.total
 
   return (
     <Screen
@@ -80,9 +93,20 @@ export function PickListScreen({ order, onOpenLine, onReview, onImportRecorded, 
           <Button variant="secondary" onClick={onReset} aria-label="Start over" className="px-3">
             <RotateCcw className="h-5 w-5" />
           </Button>
-          <Button block onClick={onReview}>
-            Review & export {s.scanned > 0 && <span className="opacity-80 font-normal">· {s.scanned} pkgs</span>}
-          </Button>
+          {allDone ? (
+            <Button block onClick={onReview}>
+              Review & export <span className="opacity-80 font-normal">· {s.scanned} pkgs</span>
+            </Button>
+          ) : (
+            <>
+              <Button block onClick={onScanAny}>
+                <ScanBarcode className="h-5 w-5" /> Scan any case
+              </Button>
+              <Button variant="secondary" onClick={onReview} className="px-4">
+                Review
+              </Button>
+            </>
+          )}
         </>
       }
     >
@@ -108,7 +132,7 @@ export function PickListScreen({ order, onOpenLine, onReview, onImportRecorded, 
           <div className={`h-full transition-all ${pct >= 100 ? 'bg-emerald-500' : 'bg-amber-500'}`} style={{ width: `${Math.min(100, pct)}%` }} />
         </div>
         <p className="mt-2 text-xs text-gray-500">
-          {s.complete} of {s.total} lines done · Tap a line to scan its cases
+          {s.complete} of {s.total} lines done · Scan any case and it finds its line, or tap a line to scan just that one
         </p>
       </Card>
 

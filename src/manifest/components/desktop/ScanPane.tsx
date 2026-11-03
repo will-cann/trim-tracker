@@ -1,5 +1,6 @@
 import { ArrowRight, Check, Download, Trash2, AlertTriangle, X } from 'lucide-react'
 import { Button, Card, Pill } from '../ui'
+import { LotDigits, TagText } from '../TagDigits'
 import { WedgeInput } from './WedgeInput'
 import { lineStatus } from '../../lib/order'
 import { shortTag } from '../../lib/metrc'
@@ -70,14 +71,20 @@ export function ScanPane({ order, line, lastEvent, onScan, onRemove, onImportRec
             </div>
             <div className="min-w-0 flex-1">
               <p className="text-eyebrow uppercase text-gray-500">Active line</p>
-              <h2 className="text-h2 leading-tight">{line.productName}</h2>
+              {line.lotTag && (
+                <p className="flex items-baseline gap-2 leading-none mt-1">
+                  <span className="text-eyebrow uppercase text-gray-400">Lot</span>
+                  <LotDigits tag={line.lotTag} size="xl" />
+                </p>
+              )}
+              <h2 className={`${line.lotTag ? 'text-subhead mt-2' : 'text-h2'} leading-tight`}>{line.productName}</h2>
               <p className="text-sm text-gray-500 mt-1">
                 {line.brand} · {line.productType}
                 {line.potency ? ` · ${line.potency}` : ''} · {line.unitsPerPackage} units per {line.packagesExpected === 1 ? 'package' : 'case'}
               </p>
               {line.lotTag && (
-                <p className="text-sm text-gray-600 mt-1">
-                  Pull from lot <span className="font-mono font-bold tabular-nums">{line.lotTag}</span>
+                <p className="text-xs text-gray-500 mt-1">
+                  Full lot tag <TagText tag={line.lotTag} className="text-xs" />
                 </p>
               )}
             </div>
@@ -120,9 +127,8 @@ export function ScanPane({ order, line, lastEvent, onScan, onRemove, onImportRec
           {[...scans].reverse().map((s, i) => (
             <div key={s.tag} className="flex items-center gap-4 px-5 py-2 border-b border-gray-100 last:border-b-0 hover:bg-gray-50">
               <span className="w-6 text-center text-sm text-gray-400 tabular-nums">{scans.length - i}</span>
-              <p className="font-mono text-base tabular-nums text-gray-900 flex-1">
-                <span className="text-gray-400">{s.tag.slice(0, 14)}</span>
-                <span className="font-bold">{s.tag.slice(14)}</span>
+              <p className="text-base flex-1">
+                <TagText tag={s.tag} />
               </p>
               <span className="text-xs text-gray-400 w-40 text-right">
                 {new Date(s.at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })} · {SOURCE_LABEL[s.source] ?? s.source}
