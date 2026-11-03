@@ -13,9 +13,12 @@ A company reaches Metrc one of two ways, checked in this order by
 `utils/metrcConnections.ts` → `resolveMetrcCredentials(companyId)`:
 
 1. **Its own connection** (`metrc_connections`, migration 070). A director or admin
-   opens **Settings → Metrc**, follows the three steps (T3 account on a Metrc login for
-   the facility, T3+ subscription, generate a secret key) and pastes the key. The
-   server verifies it against T3 (`/v2/auth/whoami`, `/v2/licenses`) *before* storing
+   opens **Settings → Metrc** and either **signs in with the facility's Metrc login**
+   (when the site has `T3_REGISTRATION_SECRET`: T3 registers the login under
+   NeuroCann's T3+ organisation and mints the key, see `docs/manifest-t3.md`) or
+   follows the three steps (T3 account on a Metrc login for the facility, T3+
+   subscription, generate a secret key) and pastes the key. Either way the
+   server verifies the key against T3 (`/v2/auth/whoami`, `/v2/licenses`) *before* storing
    it, encrypts it with AES-256-GCM under `METRC_CONNECTION_KEY`, and from then on
    every T3 call for that company uses that key. The key is never returned; Settings
    shows its last four characters. This is the self-serve path and needs no deploy

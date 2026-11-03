@@ -57,7 +57,7 @@ export function T3StatusCard() {
       {s && !s.configured && (
         <Notice tone="blue">
           <p className="text-xs">
-            Your company has no Metrc connection. A director connects one with a T3 secret key (api.trackandtrace.tools/v2/pages/secret-key) in NeuroCann → Settings → Metrc, or by reloading this page and following the connect screen.
+            Your company has no Metrc connection. A director connects one with their Metrc login (or a T3 secret key) in NeuroCann → Settings → Metrc, or by reloading this page and following the connect screen.
           </p>
         </Notice>
       )}

@@ -18,9 +18,9 @@ vi.mock('../../services/apiService', () => ({ apiService: api }));
 
 import { MetrcConnectionSection } from '../settings/MetrcConnectionSection';
 
-const empty: MetrcConnectionStatus = { connected: false, source: null, selfServeAvailable: true, canManage: true, connection: null, env: null };
+const empty: MetrcConnectionStatus = { connected: false, source: null, selfServeAvailable: true, metrcLoginAvailable: false, canManage: true, connection: null, env: null };
 const connected: MetrcConnectionStatus = {
-    connected: true, source: 'connection', selfServeAvailable: true, canManage: true, env: null,
+    connected: true, source: 'connection', selfServeAvailable: true, metrcLoginAvailable: false, canManage: true, env: null,
     connection: {
         keyHint: 'a9f2', mode: 'read-only', status: 'active', username: 'ops@proper.com', hostname: 'mo.metrc.com',
         hasT3plus: true, subscriptionTier: 'Team', apiAccessLevel: 'full',
@@ -75,6 +75,51 @@ describe('not connected', () => {
         fireEvent.click(screen.getByRole('button', { name: /Connect Metrc/ }));
         expect((await screen.findByRole('alert')).textContent).toMatch(/rejected that key/);
         expect(screen.getByLabelText('T3 secret key')).toBeTruthy();
+    });
+
+    it('leads with a Metrc sign-in when the server can mint keys, sends the login (not a key), and clears the password afterwards', async () => {
+        api.connectMetrc.mockResolvedValue({ ...connected, warnings: [] });
+        const onChange = vi.fn();
+        render(<MetrcConnectionSection status={{ ...empty, metrcLoginAvailable: true }} onChange={onChange} />);
+
+        expect(screen.getByRole('form', { name: 'Sign in with Metrc' })).toBeTruthy();
+        expect(screen.queryByLabelText('T3 secret key')).toBeNull();
+        expect(screen.queryByText(/Add T3\+/)).toBeNull();
+        expect(screen.getByText(/never stores the password/)).toBeTruthy();
+
+        const submit = screen.getByRole('button', { name: /Sign in with Metrc/ }) as HTMLButtonElement;
+        fireEvent.change(screen.getByLabelText('Metrc username'), { target: { value: 'cwade' } });
+        fireEvent.change(screen.getByLabelText('Metrc password'), { target: { value: 'hunter2!' } });
+        expect(submit.disabled).toBe(true); // no state chosen yet
+        fireEvent.change(screen.getByLabelText('Metrc state'), { target: { value: 'mo.metrc.com' } });
+        expect(submit.disabled).toBe(false);
+        expect(screen.queryByLabelText('Metrc login email')).toBeNull();
+
+        fireEvent.click(submit);
+        await waitFor(() => expect(api.connectMetrc).toHaveBeenCalledWith({ metrcLogin: { username: 'cwade', password: 'hunter2!', hostname: 'mo.metrc.com' }, mode: 'read-only' }));
+        await waitFor(() => expect(onChange).toHaveBeenCalledWith(connected));
+        expect(api.connectMetrc.mock.calls[0][0]).not.toHaveProperty('apiKey');
+    });
+
+    it('asks Colorado for an email and Michigan for a seed, and can fall back to pasting a key', () => {
+        render(<MetrcConnectionSection status={{ ...empty, metrcLoginAvailable: true }} onChange={vi.fn()} />);
+        fireEvent.change(screen.getByLabelText('Metrc state'), { target: { value: 'co.metrc.com' } });
+        expect(screen.getByLabelText('Metrc login email')).toBeTruthy();
+        fireEvent.change(screen.getByLabelText('Metrc state'), { target: { value: 'mi.metrc.com' } });
+        expect(screen.queryByLabelText('Metrc login email')).toBeNull();
+        expect(screen.getByLabelText('Authenticator seed')).toBeTruthy();
+
+        fireEvent.click(screen.getByRole('button', { name: /Paste it instead/ }));
+        expect(screen.getByLabelText('T3 secret key')).toBeTruthy();
+        expect(screen.getByText(/Add T3\+/)).toBeTruthy();
+        fireEvent.click(screen.getByRole('button', { name: /Metrc login instead/ }));
+        expect(screen.getByLabelText('Metrc username')).toBeTruthy();
+    });
+
+    it('offers only the key form when the server has no T3 organisation secret', () => {
+        render(<MetrcConnectionSection status={empty} onChange={vi.fn()} />);
+        expect(screen.getByLabelText('T3 secret key')).toBeTruthy();
+        expect(screen.queryByRole('button', { name: /Metrc login instead/ })).toBeNull();
     });
 
     it('tells non-managers who can connect, and explains when the server cannot store keys', () => {

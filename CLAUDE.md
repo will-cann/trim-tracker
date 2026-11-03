@@ -129,8 +129,9 @@ qty, parent lot, lab state) against the pick list and attached invoice, and
 `t3-create-transfer` validates/submits the transfer. The connection's mode (`read-only` default,
 `sandbox`, `live`; `T3_MODE` for a deploy key) decides whether submit is allowed. Wire types live in
 `shared/manifest/t3.ts`; setup in `docs/manifest-t3.md`. `ConnectMetrcGate` wraps the app: a company
-with no Metrc credentials sees a connect screen (directors paste a T3 key inline) instead of the pick
-list. Pickers work by lot, so every line leads with the lot's last 7 digits (`LotDigits`), and
+with no Metrc credentials sees a connect screen instead of the pick list, where a director signs in
+with the facility's Metrc login (`mintKeyFromMetrcLogin` has T3 register it under NeuroCann's T3+ org
+via `T3_REGISTRATION_SECRET` and mint the key) or pastes a T3 key. Pickers work by lot, so every line leads with the lot's last 7 digits (`LotDigits`), and
 **Scan any case** (`ScanAnySheet`, `lib/scanFirst.ts`) matches a scanned tag to a line via Apex's
 recorded tags (ranges expanded by `expandTagRanges`) or Metrc's parent lot. Lists sort to a
 per-device vault walk (`lib/vaultOrder.ts`, Settings → Vault walk order).
@@ -139,9 +140,10 @@ per-device vault walk (`lib/vaultOrder.ts`, Settings → Vault walk order).
 
 A company's Metrc credentials come from `utils/metrcConnections.ts` →
 `resolveMetrcCredentials(companyId)`: first its own connection (`metrc_connections`, migration
-070 — a T3 secret key a director pasted into Settings → Metrc, verified against T3 then stored
-AES-256-GCM encrypted under `METRC_CONNECTION_KEY`; handler `metrc-connection.ts`, UI
-`MetrcConnectionSection.tsx`), else the deploy's `T3_API_KEY`/`T3_MODE` for a company in
+070 — a T3 secret key a director pasted into Settings → Metrc, or that T3 minted from the Metrc
+login they typed there (`POST /v2/auth/register` under our org with `T3_REGISTRATION_SECRET`, falling
+back to `/v2/auth/secretkey`), verified against T3 then stored AES-256-GCM encrypted under
+`METRC_CONNECTION_KEY`; handler `metrc-connection.ts`, UI `MetrcConnectionSection.tsx`), else the deploy's `T3_API_KEY`/`T3_MODE` for a company in
 `MANIFEST_COMPANY_IDS` (the per-customer-site model). `utils/t3.ts` reads credentials from an
 `AsyncLocalStorage`: handlers wrap T3 calls in `withT3(creds, …)`; `authorizeManifestRequest`
 returns them as `auth.t3`. `cron-metrc-sync` (every 15 min) loops over `syncCompanyIds()` (active

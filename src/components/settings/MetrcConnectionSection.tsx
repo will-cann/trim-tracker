@@ -1,15 +1,17 @@
 import React, { useState } from 'react';
-import { AlertTriangle, CheckCircle2, Eye, EyeOff, KeyRound, Loader2, Pause, Play, RefreshCw, ShieldCheck, Unplug } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, Eye, EyeOff, KeyRound, Loader2, LogIn, Pause, Play, RefreshCw, ShieldCheck, Unplug } from 'lucide-react';
 import { apiService } from '../../services/apiService';
-import type { MetrcConnectionResponse, MetrcConnectionStatus } from '../../../shared/manifest/metrcConnection';
+import type { MetrcConnectionResponse, MetrcConnectionStatus, MetrcConnectRequest } from '../../../shared/manifest/metrcConnection';
 import type { T3Mode } from '../../../shared/manifest/t3';
+import { hostNeedsEmail, hostNeedsOtpSeed, METRC_HOSTS, metrcLoginProblem } from '../../../shared/manifest/metrcHosts';
 
 /**
  * Settings → Metrc: connect a facility's own Track & Trace Tools (T3) key, see
  * what it is bound to, and manage it. The key is sent once and never shown
  * again; the server keeps it encrypted and only uses it for Metrc calls.
  *
- * Three shapes: not connected (how to get a key + the form), connected with a
+ * Three shapes: not connected (the form — a Metrc login when the server can
+ * have T3 mint the key, else how to get a key and paste it), connected with a
  * stored key (the card, licences, mode, pause / re-check / replace / remove),
  * and connected by the deploy's own configuration (read-only summary).
  */
@@ -135,10 +137,10 @@ export const MetrcConnectionSection: React.FC<Props> = ({ status, onChange }) =>
                     replacing={replacing}
                     busy={busy === 'connect'}
                     onCancel={() => setReplacing(false)}
-                    onSubmit={async (apiKey, mode) => {
+                    onSubmit={async req => {
                         const ok = await run(
                             'connect',
-                            () => apiService.connectMetrc({ apiKey, mode }),
+                            () => apiService.connectMetrc(req),
                             replacing ? 'Key replaced and checked with T3.' : 'Connected. Start with a dry run below to see what Metrc would change, then Sync now.',
                         );
                         if (ok) setReplacing(false);
@@ -177,18 +179,31 @@ const STEPS: Array<{ title: string; body: React.ReactNode }> = [
     },
 ];
 
+type Method = 'login' | 'key';
+const OTHER_HOST = '__other__';
+
 const ConnectForm: React.FC<{
     status: MetrcConnectionStatus;
     replacing: boolean;
     busy: boolean;
     onCancel: () => void;
-    onSubmit: (apiKey: string, mode: T3Mode) => Promise<boolean>;
+    onSubmit: (req: MetrcConnectRequest) => Promise<boolean>;
 }> = ({ status, replacing, busy, onCancel, onSubmit }) => {
+    const [method, setMethod] = useState<Method>(status.metrcLoginAvailable ? 'login' : 'key');
     const [apiKey, setApiKey] = useState('');
     const [show, setShow] = useState(false);
+    const [hostChoice, setHostChoice] = useState(status.connection?.hostname ?? '');
+    const [customHost, setCustomHost] = useState('');
+    const [username, setUsername] = useState(status.connection?.username ?? '');
+    const [password, setPassword] = useState('');
+    const [email, setEmail] = useState('');
+    const [otpSeed, setOtpSeed] = useState('');
     const [mode, setMode] = useState<T3Mode>(status.connection?.mode ?? 'read-only');
     const trimmed = apiKey.trim();
-    const valid = trimmed.length >= 16 && !/\s/.test(trimmed);
+    const keyValid = trimmed.length >= 16 && !/\s/.test(trimmed);
+    const hostname = hostChoice === OTHER_HOST ? customHost.trim().toLowerCase() : hostChoice;
+    const loginValid = metrcLoginProblem({ username, password, hostname, email, otpSeed }) === null;
+    const valid = method === 'login' ? loginValid : keyValid;
 
     if (!status.selfServeAvailable) {
         return (
@@ -210,13 +225,32 @@ const ConnectForm: React.FC<{
     const submit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!valid || busy) return;
-        const ok = await onSubmit(trimmed, mode);
+        const req: MetrcConnectRequest = method === 'login'
+            ? {
+                metrcLogin: {
+                    username: username.trim(),
+                    password,
+                    hostname,
+                    ...(hostNeedsEmail(hostname) ? { email: email.trim() } : {}),
+                    ...(hostNeedsOtpSeed(hostname) ? { otpSeed: otpSeed.replace(/\s+/g, '') } : {}),
+                },
+                mode,
+            }
+            : { apiKey: trimmed, mode };
+        const ok = await onSubmit(req);
+        setPassword('');
         if (ok) setApiKey('');
     };
 
+    const toggle = status.metrcLoginAvailable && (
+        <button type="button" className="text-xs underline text-[#595959]" onClick={() => setMethod(m => (m === 'login' ? 'key' : 'login'))} disabled={busy}>
+            {method === 'login' ? 'Have a T3 secret key already? Paste it instead' : 'Sign in with your Metrc login instead'}
+        </button>
+    );
+
     return (
         <>
-            {!replacing && (
+            {!replacing && method === 'key' && (
                 <ol className="metrc-steps">
                     {STEPS.map((s, i) => (
                         <li key={s.title} className="metrc-step">
@@ -229,28 +263,86 @@ const ConnectForm: React.FC<{
                     ))}
                 </ol>
             )}
+            {method === 'login' && (
+                <p className="text-sm text-[#595959] leading-relaxed mb-3">
+                    <LogIn size={14} className="inline-block mr-1 -mt-0.5" />
+                    Sign in with the Metrc login for your facility (a view-only employee if you can). It goes straight to Track &amp; Trace Tools over TLS, the
+                    same as signing in at dash.trackandtrace.tools; T3 keeps it encrypted and hands NeuroCann a key. NeuroCann never stores the password, and your
+                    T3 access is covered by NeuroCann&apos;s subscription. Changing the Metrc password later means connecting again.
+                </p>
+            )}
 
-            <form className="settings-add-form" onSubmit={submit} aria-label={replacing ? 'Replace Metrc key' : 'Connect Metrc'}>
-                <label htmlFor="metrc-key" className="block text-sm font-semibold text-[#1A1A1A] mb-1">
-                    {replacing ? 'New T3 secret key' : 'T3 secret key'}
-                </label>
-                <div className="flex gap-2 mb-1">
-                    <input
-                        id="metrc-key"
-                        type={show ? 'text' : 'password'}
-                        value={apiKey}
-                        onChange={e => setApiKey(e.target.value)}
-                        placeholder="Paste the key from api.trackandtrace.tools"
-                        autoComplete="off"
-                        spellCheck={false}
-                        className="field-input flex-1 font-mono text-xs"
-                        disabled={busy}
-                    />
-                    <button type="button" onClick={() => setShow(v => !v)} className="btn-cancel text-sm px-3 py-1.5" title={show ? 'Hide key' : 'Show key'} aria-label={show ? 'Hide key' : 'Show key'}>
-                        {show ? <EyeOff size={14} /> : <Eye size={14} />}
-                    </button>
-                </div>
-                <p className="text-xs text-[#959595] mb-3">Sent once over TLS and stored encrypted. It is never shown again, and it never reaches the browser after this.</p>
+            <form className="settings-add-form" onSubmit={submit} aria-label={replacing ? 'Replace Metrc key' : method === 'login' ? 'Sign in with Metrc' : 'Connect Metrc'}>
+                {method === 'login' ? (
+                    <div className="mb-3 grid gap-2 sm:grid-cols-2">
+                        <div className="sm:col-span-2">
+                            <label htmlFor="metrc-host" className="block text-sm font-semibold text-[#1A1A1A] mb-1">Metrc state</label>
+                            <select id="metrc-host" value={hostChoice} onChange={e => setHostChoice(e.target.value)} className="field-input" disabled={busy}>
+                                <option value="">Choose your state…</option>
+                                {METRC_HOSTS.map(h => (
+                                    <option key={h.hostname} value={h.hostname}>{h.state} ({h.hostname})</option>
+                                ))}
+                                <option value={OTHER_HOST}>Other Metrc host…</option>
+                            </select>
+                        </div>
+                        {hostChoice === OTHER_HOST && (
+                            <div className="sm:col-span-2">
+                                <label htmlFor="metrc-host-custom" className="block text-sm font-semibold text-[#1A1A1A] mb-1">Metrc hostname</label>
+                                <input id="metrc-host-custom" value={customHost} onChange={e => setCustomHost(e.target.value)} placeholder="xx.metrc.com" className="field-input font-mono" spellCheck={false} disabled={busy} />
+                            </div>
+                        )}
+                        <div>
+                            <label htmlFor="metrc-username" className="block text-sm font-semibold text-[#1A1A1A] mb-1">Metrc username</label>
+                            <input id="metrc-username" value={username} onChange={e => setUsername(e.target.value)} autoComplete="username" spellCheck={false} className="field-input" disabled={busy} />
+                        </div>
+                        <div>
+                            <label htmlFor="metrc-password" className="block text-sm font-semibold text-[#1A1A1A] mb-1">Metrc password</label>
+                            <div className="flex gap-2">
+                                <input id="metrc-password" type={show ? 'text' : 'password'} value={password} onChange={e => setPassword(e.target.value)} autoComplete="current-password" className="field-input flex-1" disabled={busy} />
+                                <button type="button" onClick={() => setShow(v => !v)} className="btn-cancel text-sm px-3 py-1.5" title={show ? 'Hide password' : 'Show password'} aria-label={show ? 'Hide password' : 'Show password'}>
+                                    {show ? <EyeOff size={14} /> : <Eye size={14} />}
+                                </button>
+                            </div>
+                        </div>
+                        {hostNeedsEmail(hostname) && (
+                            <div>
+                                <label htmlFor="metrc-email" className="block text-sm font-semibold text-[#1A1A1A] mb-1">Metrc login email</label>
+                                <input id="metrc-email" type="email" value={email} onChange={e => setEmail(e.target.value)} autoComplete="email" className="field-input" disabled={busy} />
+                                <p className="text-xs text-[#959595] mt-1">Colorado asks for this as well.</p>
+                            </div>
+                        )}
+                        {hostNeedsOtpSeed(hostname) && (
+                            <div>
+                                <label htmlFor="metrc-otp" className="block text-sm font-semibold text-[#1A1A1A] mb-1">Authenticator seed</label>
+                                <input id="metrc-otp" value={otpSeed} onChange={e => setOtpSeed(e.target.value)} autoComplete="off" spellCheck={false} className="field-input font-mono" disabled={busy} />
+                                <p className="text-xs text-[#959595] mt-1">Michigan: the secret your authenticator app was set up with, not today&apos;s 6-digit code.</p>
+                            </div>
+                        )}
+                    </div>
+                ) : (
+                    <>
+                        <label htmlFor="metrc-key" className="block text-sm font-semibold text-[#1A1A1A] mb-1">
+                            {replacing ? 'New T3 secret key' : 'T3 secret key'}
+                        </label>
+                        <div className="flex gap-2 mb-1">
+                            <input
+                                id="metrc-key"
+                                type={show ? 'text' : 'password'}
+                                value={apiKey}
+                                onChange={e => setApiKey(e.target.value)}
+                                placeholder="Paste the key from api.trackandtrace.tools"
+                                autoComplete="off"
+                                spellCheck={false}
+                                className="field-input flex-1 font-mono text-xs"
+                                disabled={busy}
+                            />
+                            <button type="button" onClick={() => setShow(v => !v)} className="btn-cancel text-sm px-3 py-1.5" title={show ? 'Hide key' : 'Show key'} aria-label={show ? 'Hide key' : 'Show key'}>
+                                {show ? <EyeOff size={14} /> : <Eye size={14} />}
+                            </button>
+                        </div>
+                        <p className="text-xs text-[#959595] mb-3">Sent once over TLS and stored encrypted. It is never shown again, and it never reaches the browser after this.</p>
+                    </>
+                )}
 
                 <fieldset className="mb-3">
                     <legend className="text-sm font-semibold text-[#1A1A1A] mb-1">What NeuroCann may do with it</legend>
@@ -265,14 +357,17 @@ const ConnectForm: React.FC<{
                     ))}
                 </fieldset>
 
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
                     <button type="submit" disabled={!valid || busy} className="btn-primary text-sm px-3 py-1.5">
-                        {busy ? <><Loader2 size={14} className="animate-spin" /> Checking with T3…</> : replacing ? 'Replace key' : 'Connect Metrc'}
+                        {busy
+                            ? <><Loader2 size={14} className="animate-spin" /> {method === 'login' ? 'Signing in through T3…' : 'Checking with T3…'}</>
+                            : replacing ? (method === 'login' ? 'Replace with this login' : 'Replace key') : method === 'login' ? 'Sign in with Metrc' : 'Connect Metrc'}
                     </button>
                     {replacing && <button type="button" onClick={onCancel} className="btn-cancel text-sm px-3 py-1.5" disabled={busy}>Cancel</button>}
-                    {!busy && !replacing && (
+                    {!busy && !replacing && method === 'key' && (
                         <span className="text-xs text-[#959595]">We check the key with T3 before saving. Nothing syncs until you run it.</span>
                     )}
+                    {toggle && <span className="ml-auto">{toggle}</span>}
                 </div>
             </form>
         </>

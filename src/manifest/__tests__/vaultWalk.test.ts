@@ -45,6 +45,7 @@ const status = (over: Partial<MetrcConnectionStatus>): MetrcConnectionStatus => 
   connected: false,
   source: null,
   selfServeAvailable: true,
+  metrcLoginAvailable: false,
   canManage: true,
   connection: null,
   env: null,

@@ -61,8 +61,9 @@ message points at Settings → Metrc.
 The picker enforces this up front: `ConnectMetrcGate` (`src/manifest/components/`)
 asks `metrc-connection` for the company's status on load and, when there is
 neither a stored connection nor a deploy key, shows a **Connect your Metrc first**
-screen instead of the pick list. A director or admin can paste a T3 secret key
-and pick the mode right there (same handler and encryption as Settings → Metrc);
+screen instead of the pick list. A director or admin connects right there (same
+handler and encryption as Settings → Metrc), by **signing in with their Metrc
+login** when the server can mint keys (below) or by pasting a T3 secret key;
 anyone else is told to ask a director. If the status call itself fails the gate
 opens and the per-function 403s take over, so an outage never locks people out
 of a list they already loaded.
@@ -81,7 +82,34 @@ message quotes your company id, which is what goes in `MANIFEST_COMPANY_IDS`.
 
 ## Setup
 
-### Self-serve (any facility, shared site)
+### Self-serve with a Metrc login (preferred)
+
+Set `T3_REGISTRATION_SECRET` on the site to NeuroCann's T3 organisation
+registration secret (dash.trackandtrace.tools → organisation; rotatable). The
+connect form in Settings → Metrc and on the picker's gate then leads with
+**Sign in with Metrc**: state host, username, password (Colorado adds the login
+email, Michigan the authenticator seed) and the mode. `metrc-connection` POSTs
+`{ metrcLogin, mode }` and `mintKeyFromMetrcLogin()` (`utils/metrcConnections.ts`)
+turns it into a key with T3's own auth endpoints (`utils/t3.ts`):
+
+1. `POST /v2/auth/credentials` — a free login check, so a wrong password costs
+   one failed Metrc login and is reported as exactly that (skipped for Michigan,
+   which wants a live OTP rather than the seed).
+2. `POST /v2/auth/register` with the registration secret — T3 validates the
+   login against Metrc, registers it under our T3+ organisation (one seat) and
+   returns a secret key. 409 means it is already in the organisation, so
+3. `POST /v2/auth/secretkey` mints a plain key for the known login.
+
+The key is then verified and stored exactly as a pasted one. The password
+transits the Netlify function and is never stored or logged; T3 keeps the
+credentials encrypted behind the key, the same as a key made on their dash.
+Error codes: `METRC_LOGIN_REJECTED` (400), `REGISTRATION_SECRET` (503, our
+secret is stale), `T3_SEATS` (503, organisation full; the message offers the
+key path). The form's "Paste it instead" link falls back to the key flow.
+Without `T3_REGISTRATION_SECRET` the status reports `metrcLoginAvailable:
+false` and only the key form shows.
+
+### Self-serve with a T3 secret key
 
 1. Sign in to T3 (dash.trackandtrace.tools) with a Metrc login for the facility
    (a view-only employee if possible) and add an active T3+ subscription.

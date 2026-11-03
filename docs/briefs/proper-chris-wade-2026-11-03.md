@@ -38,7 +38,7 @@ noon Central (1 pm Eastern).
 | Check the Metrc approval number / SKU per package | Not yet. Needs the SKU on the pick list (Apex "Product SKU" is usually blank) and confirmation that T3 exposes the item's approval number. Revisit when Chris can share an export with SKUs. |
 | Pull pricing from the invoice instead of a separate upload | Already possible (Review → attach invoice). Chris suggested the pick list could be generated from the invoice; parked until we see whether Apex invoice exports carry lots. |
 | Export button hard to find | It is the footer button on Review. Left as is; revisit after Chris's first run. |
-| Connect the picker to Proper's own Metrc, not Brian's | Shipped the gate: a company without its own T3 connection sees a connect screen and a director pastes the key there. Env flip below. |
+| Connect the picker to Proper's own Metrc, not Brian's | Shipped the gate: a company without its own T3 connection sees a connect screen where a director **signs in with their Metrc username and password**; T3 registers that login under NeuroCann's T3+ organisation and mints the key (`T3_REGISTRATION_SECRET`). Pasting a T3 key remains the fallback. Env flip below. |
 
 ## Action items
 
@@ -52,10 +52,16 @@ noon Central (1 pm Eastern).
    which satisfies the gate. To route Chris through T3:
    - make sure `METRC_CONNECTION_KEY` is set on the Proper site (self-serve
      needs it) and migration `070_metrc_connections.sql` has run on prod;
+   - set `T3_REGISTRATION_SECRET` there to our T3 organisation's registration
+     secret (dash.trackandtrace.tools → organisation settings), so Chris sees
+     "Sign in with Metrc" rather than instructions to go make a T3 key. Each
+     login registered this way takes one seat on our T3+ subscription; check
+     there is a free one;
    - `netlify env:unset T3_API_KEY --filter proper-neurocann` (and `T3_MODE`,
      `MANIFEST_COMPANY_IDS`), then redeploy. The picker then shows the connect
-     screen until a Proper director pastes a T3 key. The nightly Metrc sync
-     for Proper follows the same credentials, so it pauses until the key is in.
+     screen until a Proper director signs in with their Metrc login. The
+     15-minute Metrc sync for Proper follows the same credentials, so it
+     pauses until that happens.
    - Either order works; unsetting first forces the gate on Chris's first
      visit, which is what we want.
    The cloud-agent `NETLIFY_AUTH_TOKEN` had expired at the time of writing, so
