@@ -21,9 +21,37 @@ export function extractTags(text: string): string[] {
   return Array.from(new Set(found))
 }
 
-/** "…B55000135918" -> "…135918" for dense mobile display. */
-export function shortTag(tag: string, keep = 6): string {
+/**
+ * How many trailing characters a picker actually reads. Proper's vault picks
+ * off the last digits of the lot number and settled on seven (Chris Wade,
+ * Nov 2026): six always disambiguates today, seven leaves room to grow.
+ */
+export const TAG_SUFFIX_LEN = 7
+
+/** "…B55000135918" -> "…0135918" for dense mobile display. */
+export function shortTag(tag: string, keep = TAG_SUFFIX_LEN): string {
   return tag.length > keep ? `…${tag.slice(-keep)}` : tag
+}
+
+export interface TagParts {
+  /** Everything before the suffix: the part nobody reads. */
+  head: string
+  /** Leading zeros inside the suffix, shown muted so the eye lands on the digits. */
+  zeros: string
+  /** The significant trailing digits the picker looks for (never empty). */
+  digits: string
+}
+
+/** "1A40C030000038B000008955" -> { head: "1A40C030000038B00", zeros: "000", digits: "8955" }. */
+export function splitTag(tag: string, keep = TAG_SUFFIX_LEN): TagParts {
+  const t = tag.trim()
+  const cut = Math.max(0, t.length - keep)
+  const head = t.slice(0, cut)
+  const suffix = t.slice(cut)
+  const m = suffix.match(/^(0*)(.*)$/) as RegExpMatchArray
+  const zeros = m[2] ? m[1] : m[1].slice(0, -1)
+  const digits = m[2] || m[1].slice(-1)
+  return { head, zeros, digits }
 }
 
 /**

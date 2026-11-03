@@ -135,7 +135,7 @@ function quantityCheck(f: T3PackageFacts, line: PickLine): Check {
   return { verdict: 'bad', text: `Metrc has ${f.quantity} ${unit}; ${line.unitsPerPackage} × ${perUnitG} g should be ${Math.round(expectedG * 100) / 100} g` }
 }
 
-function productCheck(f: T3PackageFacts, line: PickLine): Check {
+export function productCheck(f: T3PackageFacts, line: PickLine): Check {
   if (!f.itemName) return { verdict: 'unknown', text: 'Metrc did not report an item name' }
   const apexSize = sizeGrams(line.productName)
   const metrcSize = sizeGrams(f.itemName) ?? (f.unitWeight != null ? toGrams(f.unitWeight, f.unitWeightUnit) : null)

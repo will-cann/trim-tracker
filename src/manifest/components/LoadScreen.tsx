@@ -2,16 +2,17 @@ import { useRef, useState } from 'react'
 import { FileUp, ClipboardPaste, FlaskConical, Settings } from 'lucide-react'
 import { Button, Card, Notice, Screen, TopBar } from './ui'
 import { parsePickList } from '../lib/pickList'
-import { sortByVaultOrder } from '../lib/vaultOrder'
+import { sortByVaultOrder, type VaultWalk } from '../lib/vaultOrder'
 import type { PickLine } from '../types'
 import { SAMPLE_PICKLIST_CSV, SAMPLE_PICKLIST_NAME } from '../sample/proper4934'
 
 interface Props {
+  vaultWalk: VaultWalk
   onLoaded: (lines: PickLine[], sourceName: string) => void
   onSettings: () => void
 }
 
-export function LoadScreen({ onLoaded, onSettings }: Props) {
+export function LoadScreen({ vaultWalk, onLoaded, onSettings }: Props) {
   const fileRef = useRef<HTMLInputElement>(null)
   const [error, setError] = useState<string | null>(null)
   const [warnings, setWarnings] = useState<string[]>([])
@@ -27,7 +28,7 @@ export function LoadScreen({ onLoaded, onSettings }: Props) {
     }
     setError(null)
     setWarnings(warnings)
-    onLoaded(sortByVaultOrder(lines), name)
+    onLoaded(sortByVaultOrder(lines, vaultWalk), name)
   }
 
   const onFile = async (f: File | undefined) => {

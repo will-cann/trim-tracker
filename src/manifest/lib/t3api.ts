@@ -6,6 +6,7 @@ import type {
   T3VerifyRequest,
   T3VerifyResponse,
 } from '../../../shared/manifest/t3'
+import type { MetrcConnectRequest, MetrcConnectionResponse, MetrcConnectionStatus } from '../../../shared/manifest/metrcConnection'
 
 import { authHeaders } from './authToken'
 
@@ -47,6 +48,12 @@ async function call<T>(fn: string, init: { method: 'GET' | 'POST'; body?: unknow
 }
 
 export const fetchT3Status = () => call<T3Status>('t3-status', { method: 'GET' })
+
+/** The company's Metrc connection (own T3 key or deploy key); any role may read it. */
+export const fetchMetrcConnection = () => call<MetrcConnectionStatus>('metrc-connection', { method: 'GET' })
+
+/** Store a T3 secret key for the company. Director/admin only; the server verifies it with T3 first. */
+export const connectMetrc = (body: MetrcConnectRequest) => call<MetrcConnectionResponse>('metrc-connection', { method: 'POST', body })
 
 export const verifyPackages = (body: T3VerifyRequest) => call<T3VerifyResponse>('t3-verify-packages', { method: 'POST', body })
 

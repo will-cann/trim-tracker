@@ -2,8 +2,9 @@ import { useEffect, useRef, useState } from 'react'
 import { Camera, CameraOff, Keyboard, Trash2, Check, Download } from 'lucide-react'
 import { Button, Card, Input, Notice, Pill, Screen, TopBar } from './ui'
 import { Scanner } from './Scanner'
+import { LotDigits, TagText } from './TagDigits'
 import { lineStatus } from '../lib/order'
-import { extractTags, isMetrcTag, shortTag, TAG_HINT } from '../lib/metrc'
+import { extractTags, isMetrcTag, TAG_HINT } from '../lib/metrc'
 import { parseLucidCode } from '../lib/lucidGreen'
 import type { OrderState, PickLine, ScanSource } from '../types'
 
@@ -104,15 +105,16 @@ export function ScanSheet({ order, line, onScan, onRemove, onImportRecorded, onN
           <span className="text-micro opacity-80">of {line.packagesExpected}</span>
         </div>
         <div className="min-w-0">
+          {line.lotTag && (
+            <p className="flex items-baseline gap-2 leading-none mb-1">
+              <span className="text-eyebrow uppercase text-gray-400">Lot</span>
+              <LotDigits tag={line.lotTag} size="lg" />
+            </p>
+          )}
           <p className="text-subhead">
             Scan {line.packagesExpected} {line.packagesExpected === 1 ? 'package' : 'cases'}
           </p>
           <p className="text-sm text-gray-500">{line.unitsPerPackage} units each</p>
-          {line.lotTag && (
-            <p className="text-xs text-gray-500 mt-1">
-              From lot <span className="font-bold text-gray-700 tabular-nums">{shortTag(line.lotTag, 8)}</span>
-            </p>
-          )}
         </div>
       </Card>
 
@@ -185,7 +187,9 @@ export function ScanSheet({ order, line, onScan, onRemove, onImportRecorded, onN
             <div key={s.tag} className="flex items-center gap-3 px-4 py-2.5 border-b border-gray-100 last:border-b-0">
               <span className="w-6 text-center text-sm text-gray-400 tabular-nums">{i + 1}</span>
               <div className="min-w-0 flex-1">
-                <p className="font-mono text-sm tabular-nums text-gray-900 break-all">{s.tag}</p>
+                <p className="text-sm">
+                  <TagText tag={s.tag} />
+                </p>
                 <p className="text-micro text-gray-400 font-normal">
                   {new Date(s.at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })} · {s.source}
                 </p>

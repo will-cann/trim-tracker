@@ -1,7 +1,7 @@
 import { Check, Download } from 'lucide-react'
 import { Card, Notice, Pill } from '../ui'
+import { LotDigits } from '../TagDigits'
 import { lineStatus, summarize, type LineStatus } from '../../lib/order'
-import { shortTag } from '../../lib/metrc'
 import type { OrderState } from '../../types'
 
 interface Props {
@@ -91,10 +91,18 @@ export function LinesPane({ order, activeLineId, onSelect, onImportRecorded }: P
                 )}
               </div>
               <div className="min-w-0 flex-1">
-                <p className="text-sm font-bold text-gray-900 leading-snug truncate">{line.productName}</p>
+                {line.lotTag ? (
+                  <p className="flex items-baseline gap-2 leading-none">
+                    <span className="text-eyebrow uppercase text-gray-400">Lot</span>
+                    <LotDigits tag={line.lotTag} size="md" />
+                    <span className="text-sm font-bold text-gray-800 truncate">{line.productName}</span>
+                  </p>
+                ) : (
+                  <p className="text-sm font-bold text-gray-900 leading-snug truncate">{line.productName}</p>
+                )}
                 <p className="text-xs text-gray-500 truncate">
                   {line.packagesExpected} × {line.unitsPerPackage} units
-                  {line.lotTag && <> · Lot {shortTag(line.lotTag)}</>}
+                  {!line.lotTag && <> · no lot on the pick list</>}
                   {line.potency && <> · {line.potency}</>}
                 </p>
               </div>
