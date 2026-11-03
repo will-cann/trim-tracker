@@ -7,8 +7,6 @@ import { connectMetrc, fetchMetrcConnection } from '../lib/t3api'
 import type { MetrcConnectionStatus } from '../../../shared/manifest/metrcConnection'
 import type { T3Mode } from '../../../shared/manifest/t3'
 
-const DEV_BYPASS = import.meta.env.VITE_DEV_BYPASS_AUTH === 'true'
-
 type State = { kind: 'checking' } | GateDecision
 
 /**
@@ -18,7 +16,7 @@ type State = { kind: 'checking' } | GateDecision
  * without leaving for the main app's Settings.
  */
 export function ConnectMetrcGate({ children }: { children: ReactNode }) {
-  const [state, setState] = useState<State>(DEV_BYPASS ? { kind: 'open', status: null } : { kind: 'checking' })
+  const [state, setState] = useState<State>({ kind: 'checking' })
 
   const check = () => {
     setState({ kind: 'checking' })
@@ -26,7 +24,6 @@ export function ConnectMetrcGate({ children }: { children: ReactNode }) {
   }
 
   useEffect(() => {
-    if (DEV_BYPASS) return
     let cancelled = false
     void fetchMetrcConnection().then((r) => {
       if (!cancelled) setState(decideGate(r))
