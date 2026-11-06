@@ -1,6 +1,15 @@
 # Handoff: Proper Cannabis manifest picker + Metrc via T3
 
-Status as of 2026-11-03. Read with `docs/manifest-t3.md` (design, setup, modes).
+Status as of 2026-11-06. Read with `docs/manifest-t3.md` (design, setup, modes).
+
+## Update 2026-11-06: first real run
+
+Notes in `docs/briefs/proper-chris-wade-2026-11-06.md`. Apex hands the lead a **PDF**, not
+a CSV, so *Load a pick list* now accepts the PDF (or a photo of the sheet) and reads it with
+Claude (`parse-pick-list.ts` → `lib/pickListPdf.ts`); the PDF's prices pre-fill Wholesale
+prices. The Proper site has been flipped to per-user Metrc login; Chris still has to sign
+in. Open: tablet should auto-pick the wedge-scanner layout; Chris to send the real PDF / CSV
+/ manifest so the PDF prompt can be tuned.
 
 ## Update 2026-11-03: Chris Wade demo
 

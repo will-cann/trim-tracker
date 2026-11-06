@@ -121,7 +121,10 @@ schema but are not wired to a provider yet.
 Standalone pick-and-scan page (own Auth0 provider in `src/manifest/auth.tsx`; functions require a
 Bearer token from a company that has a Metrc connection in Settings → Metrc or is listed in
 `MANIFEST_COMPANY_IDS`, transfer submit needs director+) that loads an Apex pick list, scans Metrc
-case tags, and emits T3 Autofill `.t3csv` transfer files. A customer can also get its own Netlify
+case tags, and emits T3 Autofill `.t3csv` transfer files. The pick list comes in as the Apex **PDF**
+(or a photo of it) read by Claude in `parse-pick-list.ts` and mapped to `PickLine[]` by
+`lib/pickListPdf.ts` (prices pre-fill Review), or as the CSV export parsed client-side in
+`lib/pickList.ts`; both readers share `utils/documentParse.ts` with `parse-invoice.ts`. A customer can also get its own Netlify
 site from the same branch with a deploy-wide `T3_API_KEY`/`T3_MODE`/allowlist (`docs/manifest-t3.md`).
 With Metrc credentials it also talks to metrc.com through the T3 API (`netlify/functions/t3-*.ts`,
 client in `utils/t3.ts`): `lib/reconcile.ts` checks each scanned case's Metrc contents (item,
