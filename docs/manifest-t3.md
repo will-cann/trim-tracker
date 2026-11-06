@@ -200,6 +200,26 @@ the picker reports `SANDBOX_UNAVAILABLE`. Sandbox licences and packages are not
 the real facility's, so scanned production tags won't be found there — it is for
 rehearsing the create-transfer flow end to end, not for checking real inventory.
 
+## Loading a pick list: PDF, photo or CSV
+
+Apex gives the lead a **pick-list PDF**; the CSV export lives in the orders module
+and lacks potency. *Load a pick list* (`LoadScreen.tsx`) accepts either:
+
+- **CSV / pasted text** is parsed in the browser (`lib/pickList.ts`).
+- **PDF or image** is posted to `parse-pick-list.ts`, which sends it to Claude as
+  a document / image block (`utils/documentParse.ts` is shared with
+  `parse-invoice.ts`; model via `PICKLIST_PARSE_MODEL`, default Sonnet) and
+  returns a `PickListDocument` (`shared/manifest/pickListDocument.ts`): order,
+  buyer and licence, then per line the product, lot tag, recorded case tags or
+  ranges, cases × units, potency and price. `lib/pickListPdf.ts`
+  (`pickLinesFromDocument`) turns that into the same `PickLine[]` the CSV path
+  produces, expanding tag ranges with `extractRecordedTags`, and returns the
+  line totals so Review's *Wholesale prices* are pre-filled from the PDF. Lines
+  with no readable quantity are skipped with a warning; a sheet with no lot
+  tags or buyer licence warns too. Reading is a few seconds; the button shows
+  the file name while it runs. Phone photos are downscaled client-side before
+  upload (`lib/documentUpload.ts`).
+
 ## Picking: lot digits, scan-first, Apex tag ranges, vault walk
 
 Proper's pickers find a case by its **lot** (the source batch in Apex's Batch ID
