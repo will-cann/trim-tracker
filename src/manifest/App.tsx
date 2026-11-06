@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { LoadScreen } from './components/LoadScreen'
+import { LoadScreen, type LoadedExtras } from './components/LoadScreen'
 import { PickListScreen } from './components/PickListScreen'
 import { ScanSheet } from './components/ScanSheet'
 import { ScanAnySheet } from './components/ScanAnySheet'
@@ -96,8 +96,9 @@ export default function App() {
     return r
   }
 
-  const onLoaded = (lines: PickLine[], sourceName: string) => {
-    setOrder(createOrderState(lines, sourceName, licenses))
+  const onLoaded = (lines: PickLine[], sourceName: string, extras?: LoadedExtras) => {
+    const state = createOrderState(lines, sourceName, licenses)
+    setOrder(extras?.lineTotals ? { ...state, lineTotals: { ...state.lineTotals, ...extras.lineTotals } } : state)
     setView({ kind: 'pick' })
   }
 

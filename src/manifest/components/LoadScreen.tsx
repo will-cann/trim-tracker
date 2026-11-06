@@ -1,14 +1,21 @@
 import { useRef, useState } from 'react'
-import { FileUp, ClipboardPaste, FlaskConical, Settings } from 'lucide-react'
+import { FileUp, ClipboardPaste, FlaskConical, Settings, Loader2 } from 'lucide-react'
 import { Button, Card, Notice, Screen, TopBar } from './ui'
 import { parsePickList } from '../lib/pickList'
+import { PICKLIST_ACCEPT, parsePickListFile } from '../lib/pickListPdf'
+import { isTextFile } from '../lib/documentUpload'
 import { sortByVaultOrder, type VaultWalk } from '../lib/vaultOrder'
 import type { PickLine } from '../types'
 import { SAMPLE_PICKLIST_CSV, SAMPLE_PICKLIST_NAME } from '../sample/proper4934'
 
+export interface LoadedExtras {
+  /** Dollar totals per line id read off a PDF's prices; seeds OrderState.lineTotals. */
+  lineTotals?: Record<string, string>
+}
+
 interface Props {
   vaultWalk: VaultWalk
-  onLoaded: (lines: PickLine[], sourceName: string) => void
+  onLoaded: (lines: PickLine[], sourceName: string, extras?: LoadedExtras) => void
   onSettings: () => void
 }
 
@@ -18,9 +25,9 @@ export function LoadScreen({ vaultWalk, onLoaded, onSettings }: Props) {
   const [warnings, setWarnings] = useState<string[]>([])
   const [pasteOpen, setPasteOpen] = useState(false)
   const [pasted, setPasted] = useState('')
+  const [reading, setReading] = useState<string | null>(null)
 
-  const ingest = (text: string, name: string) => {
-    const { lines, warnings } = parsePickList(text)
+  const finish = (lines: PickLine[], warnings: string[], name: string, extras?: LoadedExtras) => {
     if (!lines.length) {
       setError(warnings[0] ?? 'No pick list lines found.')
       setWarnings([])
@@ -28,12 +35,34 @@ export function LoadScreen({ vaultWalk, onLoaded, onSettings }: Props) {
     }
     setError(null)
     setWarnings(warnings)
-    onLoaded(sortByVaultOrder(lines, vaultWalk), name)
+    onLoaded(sortByVaultOrder(lines, vaultWalk), name, extras)
+  }
+
+  const ingest = (text: string, name: string) => {
+    const { lines, warnings } = parsePickList(text)
+    finish(lines, warnings, name)
   }
 
   const onFile = async (f: File | undefined) => {
     if (!f) return
-    ingest(await f.text(), f.name)
+    if (isTextFile(f)) {
+      ingest(await f.text(), f.name)
+      return
+    }
+    setError(null)
+    setWarnings([])
+    setReading(f.name)
+    try {
+      const res = await parsePickListFile(f)
+      if (!res.ok) {
+        setError(res.message)
+        return
+      }
+      finish(res.result.lines, res.result.warnings, f.name, { lineTotals: res.result.lineTotals })
+    } finally {
+      setReading(null)
+      if (fileRef.current) fileRef.current.value = ''
+    }
   }
 
   return (
@@ -51,19 +80,26 @@ export function LoadScreen({ vaultWalk, onLoaded, onSettings }: Props) {
       <Card className="p-4 space-y-3">
         <h2 className="text-h2">Load a pick list</h2>
         <p className="text-sm text-gray-500">
-          Export the pick list from Apex as CSV, then open it here. Works from Files, Drive, or an email attachment.
+          Open the pick list PDF from Apex, a photo of the printed sheet, or the CSV export. The PDF carries potency and
+          prices, so it fills in more. Works from Files, Drive, or an email attachment.
         </p>
         <input
           ref={fileRef}
           type="file"
-          accept=".csv,text/csv,text/plain"
+          accept={PICKLIST_ACCEPT}
           className="hidden"
           onChange={(e) => onFile(e.target.files?.[0])}
         />
-        <Button block onClick={() => fileRef.current?.click()}>
-          <FileUp className="h-5 w-5" /> Choose CSV file
+        <Button block disabled={reading !== null} onClick={() => fileRef.current?.click()}>
+          {reading ? <Loader2 className="h-5 w-5 animate-spin" /> : <FileUp className="h-5 w-5" />}
+          {reading ? 'Reading…' : 'Choose PDF or CSV'}
         </Button>
-        <Button block variant="secondary" onClick={() => setPasteOpen((v) => !v)}>
+        {reading && (
+          <p className="text-sm text-gray-500" role="status">
+            Reading {reading}. This takes a few seconds for a PDF or photo.
+          </p>
+        )}
+        <Button block variant="secondary" disabled={reading !== null} onClick={() => setPasteOpen((v) => !v)}>
           <ClipboardPaste className="h-5 w-5" /> Paste CSV text
         </Button>
         {pasteOpen && (
