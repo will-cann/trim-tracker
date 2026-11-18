@@ -17,9 +17,11 @@ export const PublicFooter: React.FC = () => (
         <Link href={BLOG_BASE_PATH} className="text-xs font-medium text-gray-500 hover:text-gray-300 transition-colors">Blog</Link>
         <a href="mailto:will@neurocann.app" className="text-xs font-medium text-gray-500 hover:text-gray-300 transition-colors">Contact</a>
       </div>
-      <p className="text-xs text-gray-600">
-        &copy; {new Date().getFullYear()} NeuroCann. All rights reserved.
-      </p>
+      <div className="flex items-center gap-4 text-xs text-gray-600">
+        <a href="/privacy" className="hover:text-gray-400 transition-colors">Privacy Policy</a>
+        <a href="/terms" className="hover:text-gray-400 transition-colors">Terms of Service</a>
+        <p>&copy; {new Date().getFullYear()} NeuroCann. All rights reserved.</p>
+      </div>
     </div>
   </footer>
 );
