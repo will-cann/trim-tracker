@@ -2,6 +2,7 @@ import type { OrderState, PackageRow, PickLine, Scan, ScanSource } from '../type
 import { guessLicenseKind, isMetrcTag, normalizeTag, TAG_HINT } from './metrc'
 import { parseLucidCode } from './lucidGreen'
 import { invoiceNumberFromOrder } from './pickList'
+import { describeRecorded, hasRecorded, lineRecordsTag } from './recorded'
 import type { LicenseDefaults } from './storage'
 
 export const DEFAULT_ROUTE = "See Proper's separate trip plan for detailed directions."
@@ -124,8 +125,8 @@ export function addScan(state: OrderState, lineId: string, raw: string, source: 
   }
   // Apex has the tags (or tag range) this line was packed into; a case from
   // outside that set is probably the right product from the wrong lot.
-  if (line.recordedTags.length && !line.recordedTags.includes(tag)) {
-    warnings.push(`Not one of the ${line.recordedTags.length} tags Apex recorded for this line. Check the case.`)
+  if (hasRecorded(line) && !lineRecordsTag(line, tag)) {
+    warnings.push(`Not among the cases Apex recorded for this line (${describeRecorded(line)}). Check the case.`)
   }
   return { ok: true, state: next, warning: warnings.length ? warnings.join(' ') : undefined }
 }

@@ -1,12 +1,13 @@
 import { addScan, isNotATag, lineStatus, type ScanFailReason } from './order'
 import { normalizeTag } from './metrc'
+import { lineRecordsTag } from './recorded'
 import type { OrderState, PickLine, ScanSource } from '../types'
 
 /**
  * Laptop + USB scanner flow: one always-focused input receives every scan,
  * so the tag has to be routed to a line instead of the user picking the line
  * first. Routing order:
- *   1. A line whose Apex-recorded tags contain this tag (source of truth when present)
+ *   1. A line whose Apex-recorded tags or tag ranges contain this tag (source of truth when present)
  *   2. The currently active line
  *   3. The first line that still needs packages
  */
@@ -15,7 +16,7 @@ export type Route = { lineId: string; reason: RouteReason } | { lineId: null; re
 
 export function routeScan(state: OrderState, raw: string, activeLineId: string | null): Route {
   const tag = normalizeTag(raw)
-  const recorded = state.lines.find((l) => l.recordedTags.includes(tag))
+  const recorded = state.lines.find((l) => lineRecordsTag(l, tag))
   if (recorded) return { lineId: recorded.id, reason: 'recorded' }
   if (activeLineId && state.lines.some((l) => l.id === activeLineId)) return { lineId: activeLineId, reason: 'active' }
   const open = firstOpenLine(state)

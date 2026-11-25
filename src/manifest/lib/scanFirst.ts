@@ -1,6 +1,7 @@
 import type { T3Mode, T3PackageFacts } from '../../../shared/manifest/t3'
 import { normalizeTag } from './metrc'
 import { lineStatus } from './order'
+import { lineRecordsTag } from './recorded'
 import { nameOverlap, productCheck } from './reconcile'
 import type { OrderState, PickLine } from '../types'
 
@@ -9,8 +10,9 @@ import type { OrderState, PickLine } from '../types'
  * scans whatever case is in front of them, without choosing a line first.
  * The scan has to find its own line:
  *
- *   1. Apex recorded this tag on a line (Metrc Package ID / Note column) — the
- *      source of truth when present, and it works offline.
+ *   1. Apex recorded this tag on a line (Metrc Package ID / Note column, or the
+ *      case-tag range after the lot in Batch ID) — the source of truth when
+ *      present, and it works offline.
  *   2. Otherwise ask Metrc (via T3) what the package is. Its parent package
  *      is the lot Apex printed on the pick list, so the lot tag decides;
  *      the item name is the fallback for lines Apex has no lot on.
@@ -40,12 +42,12 @@ function choose(state: OrderState, candidates: PickLine[], how: MatchHow): LineM
   return { kind: 'ambiguous', lineIds: (open.length ? open : candidates).map((l) => l.id), how }
 }
 
-/** Lines whose Apex-recorded tags include this one. */
+/** Lines whose Apex-recorded tags (or tag ranges) include this one. */
 export function matchRecorded(state: OrderState, raw: string): LineMatch {
   const tag = normalizeTag(raw)
   return choose(
     state,
-    state.lines.filter((l) => l.recordedTags.includes(tag)),
+    state.lines.filter((l) => lineRecordsTag(l, tag)),
     'recorded',
   )
 }

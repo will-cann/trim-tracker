@@ -1,5 +1,6 @@
 import { parseCsv } from './csv'
 import { extractTags, parseUnitWeightG } from './metrc'
+import { parseSuffixRanges } from './recorded'
 import type { PickLine } from '../types'
 
 const COLS = {
@@ -116,6 +117,8 @@ export function parsePickList(text: string): ParsedPickList {
     const recordedTags = Array.from(
       new Set([...extractRecordedTags(get(row, COLS.metrcPackageId)), ...extractRecordedTags(get(row, COLS.note))]),
     )
+    // Proper types the case-tag run after the lot: "#1A40C…128505 (#143967-143980)".
+    const recordedRanges = parseSuffixRanges([lotLabel, get(row, COLS.metrcPackageId), get(row, COLS.note)].join('\n'))
     const unitsPerPackage = qty.packages > 0 ? Math.round(qty.total / qty.packages) : qty.total
     if (unitsPerPackage * qty.packages !== qty.total) {
       warnings.push(`Row ${i + 1}: ${qty.total} units does not split evenly into ${qty.packages} packages`)
@@ -140,6 +143,7 @@ export function parsePickList(text: string): ParsedPickList {
       buyerAddress: get(row, COLS.buyerAddress),
       potency: get(row, COLS.potency),
       recordedTags,
+      recordedRanges,
     })
   })
 

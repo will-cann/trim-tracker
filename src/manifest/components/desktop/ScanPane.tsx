@@ -4,6 +4,7 @@ import { LotDigits, TagText } from '../TagDigits'
 import { WedgeInput } from './WedgeInput'
 import { lineStatus } from '../../lib/order'
 import { shortTag } from '../../lib/metrc'
+import { describeRanges } from '../../lib/recorded'
 import type { OrderState, PickLine } from '../../types'
 
 export interface ScanEvent {
@@ -86,6 +87,9 @@ export function ScanPane({ order, line, lastEvent, onScan, onRemove, onImportRec
                 <p className="text-xs text-gray-500 mt-1">
                   Full lot tag <TagText tag={line.lotTag} className="text-xs" />
                 </p>
+              )}
+              {line.recordedRanges && line.recordedRanges.length > 0 && (
+                <p className="text-xs text-gray-500 mt-1">Apex packed this lot into cases {describeRanges(line.recordedRanges)}</p>
               )}
             </div>
             <div className="flex flex-col gap-2 shrink-0">
