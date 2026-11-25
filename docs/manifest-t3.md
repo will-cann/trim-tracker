@@ -202,8 +202,10 @@ rehearsing the create-transfer flow end to end, not for checking real inventory.
 
 ## Loading a pick list: PDF, photo or CSV
 
-Apex gives the lead a **pick-list PDF**; the CSV export lives in the orders module
-and lacks potency. *Load a pick list* (`LoadScreen.tsx`) accepts either:
+Apex gives the lead the **invoice PDF** (image-only; it doubles as the pick list
+and carries potency, lot, case ranges and the final line prices); the CSV export
+lives in the orders module and lacks prices. *Load a pick list* (`LoadScreen.tsx`)
+accepts either:
 
 - **CSV / pasted text** is parsed in the browser (`lib/pickList.ts`).
 - **PDF or image** is posted to `parse-pick-list.ts`, which sends it to Claude as
@@ -213,8 +215,10 @@ and lacks potency. *Load a pick list* (`LoadScreen.tsx`) accepts either:
   buyer and licence, then per line the product, lot tag, recorded case tags or
   ranges, cases × units, potency and price. `lib/pickListPdf.ts`
   (`pickLinesFromDocument`) turns that into the same `PickLine[]` the CSV path
-  produces, expanding tag ranges with `extractRecordedTags`, and returns the
-  line totals so Review's *Wholesale prices* are pre-filled from the PDF. Lines
+  produces, expanding full-tag ranges with `extractRecordedTags` and keeping
+  the `(#…-…)` case pools as `recordedRanges`, and returns the final line
+  totals (after customer discount) so Review's *Wholesale prices* are
+  pre-filled from the PDF. Lines
   with no readable quantity are skipped with a warning; a sheet with no lot
   tags or buyer licence warns too. Reading is a few seconds; the button shows
   the file name while it runs. Phone photos are downscaled client-side before
@@ -241,9 +245,16 @@ digits. So:
 - When Proper enters a PO in Apex they type the **range of case tags** packed for
   it. `expandTagRanges` (`lib/pickList.ts`) turns `1A4…146121-1A4…146131` or the
   shorthand `1A4…146121 to 131` in the Metrc Package ID / Note columns into
-  recorded tags (same prefix, forward only, capped at 500). A scan that isn't
-  among a line's recorded tags is flagged in amber (`addScan` warnings), not
-  blocked, since Apex's record can be stale.
+  recorded tags (same prefix, forward only, capped at 500). Apex's own exports
+  (Proper-5718) instead put the run after the lot in **Batch ID** as short
+  suffixes, `#1A40C…128505 (#143967-143980)` or `(#291767-291905,
+  307867-307910)`; `parseSuffixRanges` (`lib/recorded.ts`) keeps those as
+  `PickLine.recordedRanges` and matches scans on trailing digits only, because
+  the cases don't always share the lot's prefix and the run is the lot's whole
+  pool, not this order's cases (so it is never offered for import). Scan-first
+  and wedge routing use `lineRecordsTag`; a scan outside what Apex recorded is
+  flagged in amber (`addScan` warnings), not blocked, since Apex's record can
+  be stale.
 - Pick lists are sorted to the **vault walk** (`lib/vaultOrder.ts`): stops are
   matched from brand / category / name, and Settings → *Vault walk order*
   (`VaultWalkCard.tsx`) lets the lead drag the stops into the order the room is

@@ -4,12 +4,15 @@ Status as of 2026-11-06. Read with `docs/manifest-t3.md` (design, setup, modes).
 
 ## Update 2026-11-06: first real run
 
-Notes in `docs/briefs/proper-chris-wade-2026-11-06.md`. Apex hands the lead a **PDF**, not
-a CSV, so *Load a pick list* now accepts the PDF (or a photo of the sheet) and reads it with
-Claude (`parse-pick-list.ts` → `lib/pickListPdf.ts`); the PDF's prices pre-fill Wholesale
-prices. The Proper site has been flipped to per-user Metrc login; Chris still has to sign
-in. Open: tablet should auto-pick the wedge-scanner layout; Chris to send the real PDF / CSV
-/ manifest so the PDF prompt can be tuned.
+Notes in `docs/briefs/proper-chris-wade-2026-11-06.md`. Chris ran Proper-5718 (22 cases)
+through the picker and sent the invoice PDF, pick-list CSV and both manifests. Apex hands the
+lead the **invoice PDF**, not a CSV, so *Load a pick list* now accepts it (or a photo) and
+reads it with Claude (`parse-pick-list.ts` → `lib/pickListPdf.ts`, prompt tuned to that
+layout); its final line prices pre-fill Wholesale prices (his manifests had none, which Metrc
+would have rejected). Apex's case-tag ranges in Batch ID (`(#143967-143980)`) are now read
+and used for routing and out-of-range warnings (`lib/recorded.ts`). The Proper site has
+been flipped to per-user Metrc login; Chris still has to sign in. Open: tablet should
+auto-pick the wedge-scanner layout; a live run of the PDF reader on Proper-5718.pdf.
 
 ## Update 2026-11-03: Chris Wade demo
 
