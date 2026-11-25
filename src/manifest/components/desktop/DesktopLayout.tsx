@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { ScanBarcode, FileOutput, Settings, RotateCcw } from 'lucide-react'
 import { LayoutContext } from '../layoutContext'
-import { LoadScreen } from '../LoadScreen'
+import { LoadScreen, type LoadedExtras } from '../LoadScreen'
 import { ReviewScreen } from '../ReviewScreen'
 import { SettingsScreen } from '../SettingsScreen'
 import { LinesPane } from './LinesPane'
@@ -28,7 +28,7 @@ interface Props {
   onTransporter: (t: Partial<TransporterProfile>) => void
   onLicenses: (l: Partial<LicenseDefaults>) => void
   onEmail: (e: Partial<EmailSettings>) => void
-  onLoaded: (lines: PickLine[], sourceName: string) => void
+  onLoaded: (lines: PickLine[], sourceName: string, extras?: LoadedExtras) => void
   onReset: () => void
 }
 

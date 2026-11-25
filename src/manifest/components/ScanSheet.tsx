@@ -6,6 +6,7 @@ import { LotDigits, TagText } from './TagDigits'
 import { lineStatus } from '../lib/order'
 import { extractTags, isMetrcTag, TAG_HINT } from '../lib/metrc'
 import { parseLucidCode } from '../lib/lucidGreen'
+import { describeRanges } from '../lib/recorded'
 import type { OrderState, PickLine, ScanSource } from '../types'
 
 interface Props {
@@ -115,6 +116,9 @@ export function ScanSheet({ order, line, onScan, onRemove, onImportRecorded, onN
             Scan {line.packagesExpected} {line.packagesExpected === 1 ? 'package' : 'cases'}
           </p>
           <p className="text-sm text-gray-500">{line.unitsPerPackage} units each</p>
+          {line.recordedRanges && line.recordedRanges.length > 0 && (
+            <p className="text-xs text-gray-500 mt-1">Apex cases {describeRanges(line.recordedRanges)}</p>
+          )}
         </div>
       </Card>
 

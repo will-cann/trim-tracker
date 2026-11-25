@@ -25,6 +25,18 @@ export interface PickLine {
   potency: string
   /** Tags already recorded in Apex's Note / Metrc Package ID columns */
   recordedTags: string[]
+  /**
+   * Case-tag suffix ranges Apex typed after the lot in the Batch ID, e.g.
+   * "#1A40C…128505 (#143967-143980)": the pool of case tags the lot was packed
+   * into, not this order's cases. Optional for orders saved before it was captured.
+   */
+  recordedRanges?: TagSuffixRange[]
+}
+
+/** Inclusive range of trailing tag digits, both the same width ("143967" to "143980"). */
+export interface TagSuffixRange {
+  from: string
+  to: string
 }
 
 /** camera = phone camera, manual = typed, usb = keyboard-wedge scanner on a laptop, recorded = imported from Apex */

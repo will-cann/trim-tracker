@@ -121,7 +121,7 @@ describe('addScan recorded-tag warning', () => {
     const r = addScan(fresh(), LEGEND.id, NEW_CASE, 'camera')
     expect(r.ok).toBe(true)
     if (!r.ok) return
-    expect(r.warning).toMatch(/Not one of the 2 tags Apex recorded/)
+    expect(r.warning).toMatch(/Not among the cases Apex recorded for this line \(the 2 tags\)/)
   })
 
   it('stays quiet for a recorded case', () => {

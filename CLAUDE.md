@@ -121,7 +121,10 @@ schema but are not wired to a provider yet.
 Standalone pick-and-scan page (own Auth0 provider in `src/manifest/auth.tsx`; functions require a
 Bearer token from a company that has a Metrc connection in Settings → Metrc or is listed in
 `MANIFEST_COMPANY_IDS`, transfer submit needs director+) that loads an Apex pick list, scans Metrc
-case tags, and emits T3 Autofill `.t3csv` transfer files. A customer can also get its own Netlify
+case tags, and emits T3 Autofill `.t3csv` transfer files. The pick list comes in as the Apex **invoice
+PDF** (image-only; or a photo of it) read by Claude in `parse-pick-list.ts` and mapped to `PickLine[]` by
+`lib/pickListPdf.ts` (final line prices pre-fill Review), or as the CSV export parsed client-side in
+`lib/pickList.ts`; both readers share `utils/documentParse.ts` with `parse-invoice.ts`. A customer can also get its own Netlify
 site from the same branch with a deploy-wide `T3_API_KEY`/`T3_MODE`/allowlist (`docs/manifest-t3.md`).
 With Metrc credentials it also talks to metrc.com through the T3 API (`netlify/functions/t3-*.ts`,
 client in `utils/t3.ts`): `lib/reconcile.ts` checks each scanned case's Metrc contents (item,
@@ -133,7 +136,9 @@ with no Metrc credentials sees a connect screen instead of the pick list, where 
 with the facility's Metrc login (`mintKeyFromMetrcLogin` has T3 register it under NeuroCann's T3+ org
 via `T3_REGISTRATION_SECRET` and mint the key) or pastes a T3 key. Pickers work by lot, so every line leads with the lot's last 7 digits (`LotDigits`), and
 **Scan any case** (`ScanAnySheet`, `lib/scanFirst.ts`) matches a scanned tag to a line via Apex's
-recorded tags (ranges expanded by `expandTagRanges`) or Metrc's parent lot. Lists sort to a
+recorded tags (full-tag ranges expanded by `expandTagRanges`; the `(#143967-143980)` case pools Apex
+prints after the lot kept as `recordedRanges` and matched on trailing digits by `lib/recorded.ts`) or
+Metrc's parent lot. Lists sort to a
 per-device vault walk (`lib/vaultOrder.ts`, Settings → Vault walk order).
 
 ### Metrc sync and self-serve connections
