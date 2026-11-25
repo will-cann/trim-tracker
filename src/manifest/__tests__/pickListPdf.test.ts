@@ -22,6 +22,7 @@ function line(over: Partial<PickListDocLine>): PickListDocLine {
     unitsPerPackage: 50,
     potency: 'THC 24.1%',
     unitPrice: 4.5,
+    casePrice: null,
     lineTotal: 450,
     ...over,
   }
@@ -76,7 +77,7 @@ describe('pickLinesFromDocument', () => {
     expect(lines[0]).toMatchObject({ lotTag: null, lotLabel: 'Proper - Pre-Roll - 1g - Legend OG #…108430' })
     expect(lineTotals).toEqual({})
     expect(warnings).toEqual([
-      'No lot tags were printed on this sheet; Metrc checks will match cases by recorded tags only.',
+      'No lot tags were read off this document; Metrc checks will match cases by recorded tags only.',
       'No buyer licence on the sheet. Fill in the recipient licence on the review screen.',
       'Second page was blank.',
     ])

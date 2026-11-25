@@ -4,57 +4,65 @@ import { askClaudeAboutDocument, DEFAULT_DOC_MODEL, documentContent, extractJson
 import type { PickListDocLine, PickListDocument } from '../../shared/manifest/pickListDocument';
 
 /**
- * Reads an Apex pick list / sales order PDF (or a photo of the printed sheet)
- * and returns its lines so the manifest picker can load it the way it loads
- * the CSV export. Proper asked for this because the PDF is what their lead
- * actually prints, and unlike the CSV it carries potency and price.
+ * Reads the Apex invoice PDF (what Apex hands the lead; it doubles as the
+ * pick list) or a photo of it and returns its lines so the manifest picker
+ * can load it the way it loads the CSV export. Proper asked for this because
+ * the PDF is what their lead actually gets, and unlike the CSV it carries
+ * potency and price. Apex invoices are image-only PDFs, hence Claude vision.
  * The CSV path (src/manifest/lib/pickList.ts) stays as is.
+ *
+ * Layout seen on Proper-5718 (Nov 2026), per line: "#", "Name" (brand on one
+ * line, product on the next, category · type beneath), "Details" (Sku:,
+ * Batch: <product> #<lot tag> (#<case suffix ranges>), Potency:), "Price"
+ * (struck list price, then the per-case price), "Quantity" (1 Case, N Units
+ * total, Package Size / Weight / N Unit Per Unit), "Line" (list total,
+ * Customer Discount, final).
  */
 
 const MODEL = process.env.PICKLIST_PARSE_MODEL || process.env.INVOICE_PARSE_MODEL || DEFAULT_DOC_MODEL;
 const TAG_RE = /\b1A4[0-9A-Z]{21}\b/g;
 const MAX_LINES = 200;
 
-const SYSTEM_PROMPT = `You read cannabis wholesale pick lists and sales orders (typically printed from Apex Trading) and return their lines as JSON for a warehouse picking app.
+const SYSTEM_PROMPT = `You read cannabis wholesale invoices, pick lists and sales orders printed from Apex Trading and return their product lines as JSON for a warehouse picking app. The invoice doubles as the pick list: the picker needs the lot each line comes from, the case tags Apex recorded, how many cases and units, and the final price.
 
 Return ONLY a JSON object, no prose, shaped exactly like:
 {
-  "orderNumber": "Proper-4934",
-  "buyer": "Terrabis - Springfield",
-  "buyerLicense": "DIS000045",
-  "buyerAddress": "1234 S Glenstone Ave, Springfield, MO 65804",
+  "orderNumber": "Proper-5718",
+  "buyer": "Key MO - Richmond Heights",
+  "buyerLicense": "DIS000114",
+  "buyerAddress": "1026 S. Brentwood Blvd., Richmond Heights, Missouri 63117",
   "lines": [
     {
-      "productName": "Proper - Pre-Roll - 1g - Legend OG",
-      "brand": "Proper",
-      "category": "Pre-Roll",
-      "productType": "Pre-Roll",
-      "sku": null,
-      "lotTag": "1A40C0300000B56000108430",
+      "productName": "Proper - Sauce+ - 1g - Skywalker OG",
+      "brand": "Proper Cannabis",
+      "category": "Carts & Vapes",
+      "productType": "Cartridge",
+      "sku": "Proper - Sauce+ - 1g - Skywalker OG",
+      "lotTag": "1A40C0300000B56000273850",
       "lotLabel": null,
-      "metrcTags": ["1A40C0300000B56000146121-1A40C0300000B56000146131"],
-      "packages": 2,
-      "totalUnits": 100,
-      "unitsPerPackage": 50,
-      "potency": "THC 24.1%",
-      "unitPrice": 4.50,
-      "lineTotal": 450.00
+      "metrcTags": ["(#319491-319558)"],
+      "packages": 1,
+      "totalUnits": 12,
+      "unitsPerPackage": 12,
+      "potency": "86.38 % THC",
+      "unitPrice": null,
+      "casePrice": 180.00,
+      "lineTotal": 180.00
     }
   ],
   "notes": null
 }
 
 Rules:
-- One entry per product line on the sheet, in the order printed. Do not merge or split lines.
-- productName is the product as printed (brand, form, size, strain). brand / category / productType are the sheet's own columns when present, else your best split of the name; null when you cannot tell.
-- lotTag is the source batch / lot / parent package tag: a 24-character Metrc tag starting with 1A4. Pick lists usually print it with the batch. Copy it exactly. If only part of it is printed (e.g. "…108430" or "Lot 108430"), put that text in lotLabel and leave lotTag null.
-- metrcTags are the CASE tags recorded for the line (what the picker will scan), as printed: full tags or a range like "1A40C0300000B56000146121-1A40C0300000B56000146131" or "…146121 to 131". Keep ranges as one string. Empty array when none are printed. Do not put the lot tag here.
-- Quantities: "2 Cases (100 Units)" → packages 2, totalUnits 100, unitsPerPackage 50. "20 Units" → packages null, totalUnits 20. Only fill what the sheet supports; use null otherwise.
-- potency is the printed test result text (THC / CBD / total cannabinoids), as printed. null when absent.
-- unitPrice and lineTotal are numbers in dollars (no symbols). Compute one from the other and totalUnits when only one is printed; otherwise null.
-- buyer is the receiving facility; buyerLicense its state licence number if printed; buyerAddress the shipping address if printed.
-- Ignore subtotal / tax / total rows.
-- If the document is not a pick list or order (for example an invoice with no lots, or a lab report), still return any product lines you can see and explain in notes what it looks like.`;
+- One entry per numbered product line, in the order printed, across every page. Do not merge or split lines. Ignore subtotal, line item adjustments, total, payments and signature blocks.
+- productName is the product as printed in the Name column (e.g. "Proper - Sauce+ - 1g - Skywalker OG"), not the brand line above it. brand is the brand line ("Proper Cannabis", "Honeybee", "RATIO"). The small italic text under the name is "category · productType" (e.g. "Carts & Vapes · Cartridge", "Prepack · A Bud", "Prerolls · Whole Flower"); copy both. sku is the Sku: text when printed, else null.
+- The Details column prints "Batch: <product name> #<24-character Metrc tag> (#<range>)". lotTag is that 24-character tag starting with 1A4; copy it exactly, character by character (0 vs O, 5 vs S, 8 vs B matter). When only part of a tag is legible, put the legible text in lotLabel and leave lotTag null.
+- metrcTags is the parenthesised case-tag text that follows the lot tag, copied as printed, one string per group: "(#143967-143980)", "(#291767-291905, 307867-307910)". Also include any full 24-character case tags or full-tag ranges printed for the line. Empty array when nothing follows the lot tag. Never put the lot tag itself here.
+- Quantity: "1 Case / 12 Units total" → packages 1, totalUnits 12, unitsPerPackage 12. "2 Cases / 100 Units total" → packages 2, totalUnits 100, unitsPerPackage 50. If only units are printed, packages null. Ignore "Package Size", "Weight" and "N Gram Per Unit" except to sanity-check.
+- potency is the Potency: text as printed ("86.38 % THC"); null when the line has none (edibles usually have none).
+- Prices are numbers in dollars with no symbols. casePrice is the Price column's effective per-case price (the un-struck number; ignore the struck-through list price). lineTotal is the FINAL amount for the line after any "Customer Discount" (the bold last number in the Line column, e.g. list $330.00, discount -$66.00 → lineTotal 264.00). unitPrice is only for sheets that print a per-unit price; otherwise null.
+- buyer is the SHIP TO facility name; buyerLicense is the licence number printed under the ship-to address (e.g. "DIS000114"); buyerAddress the ship-to street address. orderNumber is the INVOICE # / order reference (e.g. "Proper-5718").
+- If the document is something else (a lab report, a manifest), still return any product lines you can see and say in notes what it looks like. Use notes for anything the picker should know (a page you could not read, a tag you were unsure of).`;
 
 function tags(v: unknown): string[] {
     const arr = Array.isArray(v) ? v : typeof v === 'string' ? [v] : [];
@@ -91,7 +99,9 @@ export function normalizePickListDoc(raw: unknown): PickListDocument {
                 if (totalUnits === null && packages !== null && unitsPerPackage !== null) totalUnits = packages * unitsPerPackage;
                 if (unitsPerPackage === null && packages && totalUnits !== null) unitsPerPackage = Math.round(totalUnits / packages);
                 let unitPrice = num(r.unitPrice);
+                const casePrice = num(r.casePrice);
                 let lineTotal = num(r.lineTotal);
+                if (lineTotal === null && casePrice !== null && packages !== null) lineTotal = Math.round(casePrice * packages * 100) / 100;
                 if (lineTotal === null && unitPrice !== null && totalUnits !== null) lineTotal = Math.round(unitPrice * totalUnits * 100) / 100;
                 if (unitPrice === null && lineTotal !== null && totalUnits) unitPrice = Math.round((lineTotal / totalUnits) * 100) / 100;
                 return {
@@ -108,6 +118,7 @@ export function normalizePickListDoc(raw: unknown): PickListDocument {
                     unitsPerPackage,
                     potency: str(r.potency),
                     unitPrice,
+                    casePrice,
                     lineTotal,
                 };
             })
@@ -128,7 +139,7 @@ export const handler: Handler = async (event) => {
         if (!apiKey) return json(500, { error: 'PDF reading is not configured on this deploy (no Claude API key). Load the CSV export instead.' });
 
         const body: DocumentBody = JSON.parse(event.body || '{}');
-        const doc = documentContent(body, 'Pick list', 'Extract the pick list lines from this document.');
+        const doc = documentContent(body, 'Pick list', 'Extract every product line from this Apex document (all pages) for the picker.');
         if (!doc.ok) return json(400, { error: doc.error });
 
         const res = await askClaudeAboutDocument({ apiKey, model: MODEL, system: SYSTEM_PROMPT, content: doc.content, maxTokens: 8192 });

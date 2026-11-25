@@ -80,8 +80,8 @@ export function LoadScreen({ vaultWalk, onLoaded, onSettings }: Props) {
       <Card className="p-4 space-y-3">
         <h2 className="text-h2">Load a pick list</h2>
         <p className="text-sm text-gray-500">
-          Open the pick list PDF from Apex, a photo of the printed sheet, or the CSV export. The PDF carries potency and
-          prices, so it fills in more. Works from Files, Drive, or an email attachment.
+          Open the Apex invoice PDF (the one Apex hands the lead), a photo of it, or the pick list CSV export. The invoice
+          carries potency and prices, so it fills in more. Works from Files, Drive, or an email attachment.
         </p>
         <input
           ref={fileRef}

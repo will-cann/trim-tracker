@@ -1,14 +1,15 @@
 /**
- * Loads a pick list from the Apex PDF (or a photo of the printed sheet)
- * instead of the CSV export. Proper's lead prints the PDF, and it carries
- * potency and price that the CSV does not, so this is the preferred path;
- * the CSV parser in pickList.ts is unchanged.
+ * Loads a pick list from the Apex invoice PDF (or a photo of the printed
+ * sheet) instead of the CSV export. Apex hands Proper's lead the invoice, and
+ * it carries potency and the final line prices that the CSV does not, so this
+ * is the preferred path; the CSV parser in pickList.ts is unchanged.
  */
 import { authHeaders } from './authToken'
 import { parseUnitWeightG } from './metrc'
 import { extractRecordedTags } from './pickList'
+import { parseSuffixRanges } from './recorded'
 import { fileToDocumentBody, postDocument } from './documentUpload'
-import type { PickLine } from '../types'
+import type { PickLine, TagSuffixRange } from '../types'
 import type { PickListDocLine, PickListDocument } from '../../../shared/manifest/pickListDocument'
 
 export const PICKLIST_ACCEPT = '.csv,.pdf,image/*,application/pdf,text/csv,text/plain'
@@ -24,9 +25,22 @@ function sanitizeId(s: string): string {
   return s.replace(/[^A-Za-z0-9-]+/g, '-').replace(/^-+|-+$/g, '')
 }
 
-/** Keeps ranges and single tags as Apex records them so expandTagRanges can read them. */
+/** Full case tags (and full-tag ranges) Apex printed for the line. */
 function recordedTags(line: PickListDocLine): string[] {
   return extractRecordedTags(line.metrcTags.join('\n')).filter((t) => t !== line.lotTag)
+}
+
+/** The "(#143967-143980)" pools Apex prints after the lot, wherever the reader put them. */
+function recordedRanges(line: PickListDocLine): TagSuffixRange[] {
+  return parseSuffixRanges([...line.metrcTags, line.lotLabel ?? ''].join('\n'))
+}
+
+/** Same shape as Apex's Batch ID column: "Product #LOT (#range)". */
+function batchLabel(line: PickListDocLine, ranges: TagSuffixRange[]): string {
+  const lot = line.lotTag ?? line.lotLabel
+  if (!lot) return line.productName
+  const pool = ranges.length ? ` (#${ranges.map((r) => `${r.from}-${r.to}`).join(', ')})` : ''
+  return `${line.productName} #${lot}${pool}`
 }
 
 function quantity(line: PickListDocLine, rowNo: number, warnings: string[]): { packages: number; total: number; perPackage: number } | null {
@@ -61,7 +75,7 @@ export function pickLinesFromDocument(doc: PickListDocument): PickListFromDocume
     }
     const id = `${idBase}-${rowNo}`
     const parts = l.productName.split(/\s+-\s+/)
-    const lotLabel = l.lotTag ? `${l.productName} #${l.lotTag}` : l.lotLabel ? `${l.productName} #${l.lotLabel}` : l.productName
+    const ranges = recordedRanges(l)
     lines.push({
       id,
       orderNumber,
@@ -70,7 +84,7 @@ export function pickLinesFromDocument(doc: PickListDocument): PickListFromDocume
       productType: l.productType ?? l.category ?? (parts.length > 2 ? parts[1] : ''),
       productName: l.productName,
       sku: l.sku ?? '',
-      lotLabel,
+      lotLabel: batchLabel(l, ranges),
       lotTag: l.lotTag,
       packagesExpected: qty.packages,
       unitsPerPackage: qty.perPackage,
@@ -81,15 +95,18 @@ export function pickLinesFromDocument(doc: PickListDocument): PickListFromDocume
       buyerAddress: doc.buyerAddress ?? '',
       potency: l.potency ?? '',
       recordedTags: recordedTags(l),
+      recordedRanges: ranges,
     })
-    const total = l.lineTotal ?? (l.unitPrice !== null ? Math.round(l.unitPrice * qty.total * 100) / 100 : null)
+    const total =
+      l.lineTotal ??
+      (l.casePrice !== null ? Math.round(l.casePrice * qty.packages * 100) / 100 : l.unitPrice !== null ? Math.round(l.unitPrice * qty.total * 100) / 100 : null)
     if (total !== null && total > 0) lineTotals[id] = total.toFixed(2)
   })
 
   if (!lines.length) {
     warnings.unshift(doc.notes ? `No pick list lines found. ${doc.notes}` : 'No pick list lines found in this document.')
   } else {
-    if (!lines.some((l) => l.lotTag)) warnings.push('No lot tags were printed on this sheet; Metrc checks will match cases by recorded tags only.')
+    if (!lines.some((l) => l.lotTag)) warnings.push('No lot tags were read off this document; Metrc checks will match cases by recorded tags only.')
     if (!doc.buyerLicense) warnings.push('No buyer licence on the sheet. Fill in the recipient licence on the review screen.')
     if (doc.notes) warnings.push(doc.notes)
   }

@@ -50,6 +50,7 @@ Rules:
 - One entry per product line on the invoice. Keep the description text as printed (strain, size, mix number). Do not merge or split lines.
 - quantity is the number of sellable units billed on that line (e.g. 20 pre-rolls), not cases. If the invoice only shows cases, multiply out if the units-per-case is printed; otherwise leave quantity as the printed number and mention it in notes.
 - unitPrice and lineTotal are numbers in dollars with no currency symbols. If only one of them is printed, compute the other from quantity when possible; otherwise use null.
+- lineTotal is the FINAL amount for the line. Apex prints a struck-through list price, a "Customer Discount" and then the final figure in the Line column; use the final figure (list $330.00, discount -$66.00 → 264.00). Apex's Price column is per case, not per unit; derive unitPrice from the final lineTotal ÷ units.
 - Ignore subtotal, tax, discount, shipping and total rows in "lines" — put the grand total in "total".
 - invoiceNumber is the invoice/document number; orderNumber is the sales order reference if printed (often like "Proper-4934"). Use null when absent.
 - If the document is not an invoice, return {"invoiceNumber":null,"orderNumber":null,"invoiceDate":null,"buyer":null,"total":null,"lines":[],"notes":"<why>"}.`;
